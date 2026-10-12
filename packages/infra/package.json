@@ -3,13 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "health": "bun run scripts/health.ts",
     "health-check": "bun run scripts/health-check-urls.ts",
     "list-deploy-service-ids": "bun run scripts/list-deploy-service-ids.ts",
     "list-publish-service-ids": "bun run scripts/list-publish-service-ids.ts",
     "print-platform-env": "bun run scripts/print-platform-env.ts",
     "print-publish-inputs": "bun run scripts/print-publish-inputs.ts",
     "print-vault-kv-keys": "bun run scripts/print-vault-kv-keys.ts",
-    "tc": "tsc --noEmit"
+    "tc": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@pkgs/assert": "workspace:*"

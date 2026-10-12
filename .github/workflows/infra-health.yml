@@ -1,0 +1,109 @@
+# The single place to see whether the platform is configured correctly and healthy.
+#
+# Runs `bun run health --drift`: public probes, Vault/GitHub/R2/database reads, and a
+# read-only `tofu plan` of every root. The report is this run's job summary.
+# Nothing here applies, unseals, deploys or writes: the tofu action runs in `prepare`
+# mode and plans take no state lock, so this can never block or alter a deploy.
+
+name: Infra health
+run-name: >-
+  Infra health · ${{ github.event_name == 'schedule' && 'schedule' || format('manual · {0}', github.ref_name) }}
+
+permissions:
+  contents: read
+  id-token: write
+
+on:
+  # After ci.yml's 13:00 UTC portfolio redeploy has settled.
+  schedule:
+    - cron: '30 15 * * *'
+  workflow_dispatch:
+    inputs:
+      drift:
+        description: Run `tofu plan` in every root to detect configuration drift
+        type: boolean
+        default: true
+
+concurrency:
+  group: infra-health
+  cancel-in-progress: false
+
+env:
+  VAULT_ADDR: https://vault.chrisvouga.dev
+
+  TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+  AWS_EC2_METADATA_DISABLED: 'true'
+  TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+  TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+  TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+  TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+  TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+  TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+  TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+  TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+  TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DRIFT: ${{ github.event_name == 'schedule' || inputs.drift }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # A failed init or login fails the job, but the report below still runs and
+      # says what is wrong (a missing state object, a sealed Vault, ...).
+      - name: Prepare foundation root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Prepare bootstrap root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: bootstrap
+          mode: prepare
+      - name: Prepare vault root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: vault
+          mode: prepare
+      - name: Prepare fleet root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: fleet
+          mode: prepare
+
+      # Last, so the 15-minute token is fresh when the report reads Vault.
+      - name: Log in to Vault (OIDC, read-only)
+        if: ${{ !cancelled() }}
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
+
+      - name: Infra health report
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          if [ "${DRIFT}" = "true" ]; then
+            bun run health --verbose --drift
+          else
+            bun run health --verbose
+          fi

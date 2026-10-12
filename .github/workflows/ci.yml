@@ -8,6 +8,16 @@
 # Secrets: GitHub holds bootstrap/application secrets; Vault OIDC loads optional integrations and required cache smoke credentials.
 
 name: CI
+run-name: >-
+  CI · ${{
+    inputs.service_id != '' && github.event_name != 'workflow_dispatch' && github.event_name != 'repository_dispatch' && format('publish · {0}', inputs.service_id) ||
+    github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.head_ref) ||
+    github.event_name == 'push' && format('push · {0} · {1}', github.ref_name, github.sha) ||
+    github.event_name == 'schedule' && format('schedule · {0}', github.ref_name) ||
+    github.event_name == 'repository_dispatch' && format('deploy · {0}', github.event.action) ||
+    github.event_name == 'workflow_dispatch' && format('manual · {0}', github.ref_name) ||
+    github.event_name
+  }}
 
 permissions:
   contents: read
