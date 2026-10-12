@@ -148,7 +148,7 @@ bun portfolio:build
 Run the full local generation pipeline (hosted screenshots + optimized derivatives):
 
 ```bash
-bun run --filter @pkgs/portfolio gen
+bun portfolio:gen
 ```
 
 Image sources are committed under `assets/`; only optimized WebP derivatives are served from `public/`. After adding or changing a source, run:
