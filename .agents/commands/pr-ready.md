@@ -33,8 +33,9 @@ GitHub outage).
 
 ## Repo facts
 
-- Bun + Turborepo monorepo. Trunk is `main`. The only workflow is
-  `.github/workflows/ci.yml`. On pull requests it runs `changes`, `check`,
+- Bun + Turborepo monorepo. Trunk is `main`. The pull request workflow is
+  `.github/workflows/ci.yml` (`infra-health.yml` is a scheduled read-only
+  report that never runs on PRs). On pull requests it runs `changes`, `check`,
   `portfolio-health-check` (portfolio changes only), `commitlint`, `pr-title`,
   and the aggregator **`Required`** — the only required status check.
 - Full local gate: `bun run check`. With Vault (portfolio build needs

@@ -28,6 +28,8 @@ Never patch dependencies. Never disable structural size limits in ESLint; refact
 
 `bun run check` installs with the frozen lock, checks formatting, agent links, generated docs, root scripts, OpenTofu fmt/init/validate/tests, then package typecheck/lint/test/build. Install OpenTofu 1.13.0 locally first. `bun run check:ci` adds the Vault dev gates and supplies portfolio build credentials.
 
+`bun run health` is the single read-only report on whether the live platform matches the inventory and is healthy (DNS, TLS, services, tunnels, Vault, storage, images, GitHub, runners); add `--drift` to plan every initialized OpenTofu root. Missing credentials report `SKIP`, never a pass. New infrastructure gets a check in `packages/infra/lib/health/`; checks must stay read-only. The **Infra health** workflow runs it daily with drift.
+
 A green local check is not green CI. If pushing, watch the complete **CI** workflow with `bun run gh:ci:watch` and fix publish/deploy failures before claiming success. `/pr-ready` uses `.agents/commands/pr-ready.md`; PRs to main need `Required`.
 
 ## Generated integration guide

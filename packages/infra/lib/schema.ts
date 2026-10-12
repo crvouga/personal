@@ -21,15 +21,38 @@ export type CloudflareRedirectSpec = {
   readonly status?: number;
 };
 
+export type CloudflareDnsRecordSpec = {
+  readonly name: string;
+  readonly type: string;
+  readonly content: string;
+  readonly ttl?: number;
+  readonly proxied?: boolean;
+  readonly priority?: number;
+};
+
 export type CloudflareDnsConfig = {
   readonly proxied?: boolean;
+  /** Records beyond the per-service and tunnel records OpenTofu derives. */
+  readonly records?: Readonly<Record<string, CloudflareDnsRecordSpec>>;
+};
+
+export type CloudflareTunnelIngressSpec = {
+  readonly service: string;
+  readonly hostname?: string;
+};
+
+export type CloudflareAdditionalTunnelSpec = {
+  readonly name: string;
+  readonly config: { readonly ingress: readonly CloudflareTunnelIngressSpec[] };
 };
 
 export type CloudflareConfig = {
   readonly ssl_mode?: "off" | "flexible" | "full" | "strict";
   readonly placeholder_ipv4?: string;
   readonly dns?: CloudflareDnsConfig;
+  readonly dns_settings?: { readonly nameservers?: { readonly type?: string } };
   readonly redirects?: readonly CloudflareRedirectSpec[];
+  readonly additional_tunnels?: Readonly<Record<string, CloudflareAdditionalTunnelSpec>>;
 };
 
 export type RailwayServiceConfig = {
@@ -148,9 +171,22 @@ export type VaultConfig = {
   readonly kv_keys?: readonly VaultKvKeySpec[];
 };
 
+export type GithubRepositorySpec = {
+  readonly default_branch: string;
+  readonly actions_secrets?: readonly string[];
+};
+
+export type GithubMergeGateConfig = {
+  readonly repo_settings: { readonly default_branch: string };
+  readonly ruleset: { readonly name: string; readonly enforcement: string };
+};
+
 export type GithubConfig = {
   readonly org: string;
   readonly infra_repo: string;
+  /** Application repositories, keyed by repository name under `org`. */
+  readonly repositories?: Readonly<Record<string, GithubRepositorySpec>>;
+  readonly pr_ready?: GithubMergeGateConfig;
 };
 
 export type NeonProjectSpec = {

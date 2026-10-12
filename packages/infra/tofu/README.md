@@ -102,4 +102,6 @@ Optional credential-dependent integration checks report `SKIP` for missing, malf
 
 The credentials that let OpenTofu reach each provider, the state-encryption passphrase and the initial state-backend credentials are bootstrap trust anchors. They must be supplied from outside the state they unlock. Scoped credentials created after that boundary—including state and object-store tokens—are OpenTofu resources.
 
+`bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Infra health workflow](../../../.github/workflows/infra-health.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
+
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
