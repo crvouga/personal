@@ -1,4 +1,6 @@
-name: Reusable Nix runner check
+name: Runner check
+run-name: >-
+  Runner check · ${{ github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.head_ref) || format('{0} · {1}', github.repository, github.ref_name) }}
 on:
   workflow_call:
     inputs:
