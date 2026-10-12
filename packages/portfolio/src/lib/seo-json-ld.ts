@@ -15,12 +15,12 @@ const personNode = (seo: Seo): Node => {
   ];
   return {
     '@type': 'Person',
-    name: 'Chris Vouga',
+    name: CONTENT.PAGE_TITLE,
     url: SITE_URL,
-    jobTitle: 'Software Engineer',
+    jobTitle: CONTENT.PAGE_SUBTITLE,
     image: seo.image.url,
     description: seo.description,
-    sameAs: [CONTENT.GITHUB_URL, CONTENT.LINKEDIN_URL],
+    sameAs: [CONTENT.GITHUB_URL, CONTENT.LINKEDIN_URL, CONTENT.X_URL],
     knowsAbout,
     alumniOf:
       school === undefined
