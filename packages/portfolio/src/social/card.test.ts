@@ -60,7 +60,14 @@ describe('the share card', () => {
         ...buildCardContent(),
         statement: 'A sentence that keeps going. '.repeat(40),
       };
-      expect(renderCardPng(oversized)).rejects.toThrow(/overflows/);
+      // Awaited and caught by hand, not `expect(...).rejects`: Bun settles
+      // that matcher by spinning the event loop synchronously, which can
+      // deadlock against Chromium on Linux where no test timeout can fire.
+      const failure = await renderCardPng(oversized).then(
+        () => null,
+        (error: unknown) => error
+      );
+      expect(String(failure)).toMatch(/overflows/);
     },
     RENDER_TIMEOUT_MS
   );
