@@ -2,6 +2,7 @@
 import Page from '../layouts/Page.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import GalleryDialog from '../components/GalleryDialog.astro';
+import { CONTENT } from '../content/content';
 import { ARCHIVE_PROJECTS } from '../content/project';
 import { LISTED_PROJECTS, galleryFor } from '../lib/projects-view';
 import { seoForIndex } from '../lib/seo';
@@ -12,8 +13,8 @@ const archiveOffset = LISTED_PROJECTS.length;
 const total = LISTED_PROJECTS.length + ARCHIVE_PROJECTS.length;
 
 const seo = seoForIndex({
-  title: `All projects — Chris Vouga`,
-  description: `Every project in the registry: ${total} entries spanning enterprise education platforms, developer tooling, and infrastructure.`,
+  title: `All projects — ${CONTENT.PAGE_TITLE}`,
+  description: `All ${total} projects: production platforms in education and health, developer tools, and experiments.`,
   path: '/projects/',
 });
 ---
@@ -24,8 +25,10 @@ const seo = seoForIndex({
     <header>
       <h1>All projects</h1>
       <p class="lede">
-        The full registry — {total} entries. The six on the homepage are the
-        ones worth your time first.
+        All {total} projects, in the order I would show them. A <span class="chip chip-handwritten"
+          >Hand-written</span
+        > badge marks work from before AI coding agents, dated from each
+        project's git history.
       </p>
     </header>
     <div class="grid">

@@ -40,6 +40,7 @@
     "vault:login": "vault login --method=userpass username=crvouga",
     "portfolio": "vault run --config dev -- bun run --filter @pkgs/portfolio dev",
     "portfolio:build": "vault run --config dev -- bun run --filter @pkgs/portfolio build",
+    "portfolio:gen": "bun run --filter @pkgs/portfolio gen",
     "agents:sync": "bun scripts/agent-commands.ts",
     "llms:sync": "bun scripts/llms-txt.ts",
     "pr:ready": "bun scripts/pr-ready.ts",

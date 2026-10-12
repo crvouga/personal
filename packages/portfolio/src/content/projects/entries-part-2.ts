@@ -2,13 +2,7 @@
 // Part 2 is the archive tail: real work and real tools, but not the entries a
 // reviewer should hit first.
 import type { Project } from './types';
-import { IMAGE_ALT, externalLink, toYouTubeVideoUrl } from './shared';
-
-const MOVIEFINDER_GO_HREF = 'https://github.com/crvouga/moviefinder.app-go';
-const MOVIEFINDER_REACT_HREF =
-  'https://github.com/crvouga/moviefinder.app-react';
-const MOVIEFINDER_CLJS_HREF =
-  'https://github.com/crvouga/moviefinder.app-clojurescript';
+import { IMAGE_ALT, toYouTubeVideoUrl } from './shared';
 
 export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
   {
@@ -18,7 +12,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'public', url: 'https://github.com/crvouga/normalizer.app.git' },
     description:
-      'Automates data normalization workflows, mapping tabular data (Excel, CSV) between schemas without manual spreadsheet surgery or one-off Python scripts.',
+      'Automates the tedious work of reshaping spreadsheet data from one format into another.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/normalizer-app-screenshot.optimized.webp'],
     galleryImageSrc: [
@@ -50,7 +44,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
       url: 'https://github.com/crvouga/imageresizerservice.com',
     },
     description:
-      'Image optimization service written in Go for zero-configuration self-hosting, so an application can serve optimized images without taking on a vendor.',
+      'A self-hosted service that resizes and optimizes images on demand, with no configuration required.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/image-service-screenshot.optimized.webp'],
     galleryImageSrc: ['/image-service-screenshot.optimized.webp'],
@@ -63,7 +57,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'public', url: 'https://github.com/crvouga/screenshot-service' },
     description:
-      'SaaS for generating web page screenshots programmatically, with retries and queueing around a headless browser pool. Its successor still generates every screenshot on this site.',
+      'A service for capturing screenshots of web pages programmatically.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/screenshots-as-a-service-screenshot.optimized.webp',
@@ -93,7 +87,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
   },
   {
     id: 'moviefinder-app',
-    title: 'moviefinder.app — one app, four runtimes',
+    title: 'moviefinder.app',
     setting: 'side',
     deployment: {
       t: 'public',
@@ -103,7 +97,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
       t: 'public',
       url: 'https://github.com/crvouga/moviefinder.app-rust',
     },
-    description: `The same movie-discovery app, built four times, to find out where each runtime actually charges you. Rust for the strictest version, ${externalLink(MOVIEFINDER_GO_HREF, 'Go')} for the plainest, ${externalLink(MOVIEFINDER_REACT_HREF, 'React')} for the familiar baseline, and ${externalLink(MOVIEFINDER_CLJS_HREF, 'ClojureScript')} for the one that reshaped the data model. Holding the product constant is what makes the comparison mean anything.`,
+    description:
+      'One movie-discovery app rebuilt on several technology stacks, holding the product constant to compare their real trade-offs.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/moviefinder-app-rust-screenshot.optimized.webp'],
     galleryImageSrc: [
@@ -121,7 +116,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'public', url: 'https://ea.asu.edu/' },
     code: { t: 'private' },
     description:
-      "Platform where learners earn college credit toward admission to over 100 ASU degree programs. I refactored the main backend, built the Salesforce automation that syncs with ASU's Canvas LMS, and shipped a new program opt-in flow.",
+      'Platform where learners earn college credit toward admission to ASU degree programs. I reworked its backend and its enrollment data sync.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/asu-earned-admission-screenshot.optimized.webp'],
     galleryImageSrc: ['/asu-earned-admission-screenshot.optimized.webp'],
@@ -142,7 +137,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'private' },
     description:
-      'Interactive product demo for Airr, an enterprise tool that automates transcript consumption and analysis — the data processing pipeline and the workflow UI over it.',
+      'Interactive product demo for Airr, an enterprise tool that automates transcript intake and analysis.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/airr-product-demo-screenshot.optimized.webp',
@@ -181,7 +176,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'public', url: 'https://sundevils.com/' },
     code: { t: 'private' },
     description:
-      "Official site for ASU's Sun Devils athletics program. I built the interactive React components — live game schedules and dynamic news feeds.",
+      "Official site of ASU's Sun Devils athletics. I built its interactive schedule and news features.",
     imageAlt: IMAGE_ALT,
     imageSrc: ['/sun-devils-screenshot.optimized.webp'],
     galleryImageSrc: [
@@ -200,7 +195,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'public', url: 'https://violetsgarden.chrisvouga.dev' },
     code: { t: 'public', url: 'https://github.com/crvouga/violets-garden' },
     description:
-      'A cozy, mobile-first Sokoban-style puzzle game: guide Violet the pug through hedge mazes of keys, gates, crates and pressure buttons. All art is vector SVG and every sound is synthesized at runtime, so the build has no image or audio files. Every level is proven solvable by a BFS solver in the test suite, which also checks the par move counts.',
+      'A cozy puzzle game about guiding a pug through garden mazes, with every level automatically proven solvable.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/violets-garden-screenshot.optimized.webp'],
     galleryImageSrc: ['/violets-garden-screenshot.optimized.webp'],
@@ -214,7 +209,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     deployment: { t: 'public', url: 'https://llm-proxy.chrisvouga.dev' },
     code: { t: 'public', url: 'https://github.com/crvouga/llm-server' },
     description:
-      'Self-hosted OpenAI-compatible HTTP proxy that routes requests to configurable upstream APIs, supports custom auth headers (API keys and bearer tokens), and logs traffic to Postgres for analysis, health checks, and cost visibility.',
+      'A self-hosted gateway that routes AI model requests to any provider and records usage for cost and health visibility.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/llm-proxy-screenshot.optimized.webp'],
     galleryImageSrc: [

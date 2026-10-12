@@ -10,10 +10,7 @@ describe('project registry', () => {
     expect(VISIBLE_PROJECTS.map((project) => project.id)).toEqual([
       'gamezilla',
       'geviti-app',
-      'triangulator',
-      'study-hall',
       'mockingbird',
-      'headless-combobox',
     ]);
     expect(
       PROJECTS.some((project) => project.id === 'infra-control-plane')

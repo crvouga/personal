@@ -27,6 +27,14 @@ Every candidate layout must pass all four checks before its bytes are returned, 
 
 Trimming never drops a role, and the page is filled before anything is cut. When a trim happens the build prints `[resume] trimmed to fit one page: …`, so content outgrowing the page is visible rather than silent. If every reduction is exhausted the build fails with what was left, so a broken resume can never deploy. `src/resume/pdf.test.ts` renders the real PDF and asserts these properties, including for deliberately oversized content and an unbreakable URL.
 
+### Share card
+
+`/og.png` is the image LinkedIn, X, Slack and iMessage show for a shared link. Like the resume it is **generated during `astro build`** ([`src/social/`](src/social/), served by [`src/pages/og.png.ts`](src/pages/og.png.ts)) from the hero copy, so it cannot disagree with the page it previews. It is a 1200×630 PNG: that ratio renders uncropped on both platforms, and PNG because preview crawlers do not reliably decode WebP. Text that outgrows the card fails the build rather than shipping clipped.
+
+The meta tags reference it as `/og.png?v=<content hash>`. nginx serves images with a year-long immutable cache and every platform keeps its own copy per URL, so a changed card must be a new URL. A platform still shows its cached preview for links shared earlier; LinkedIn's Post Inspector re-scrapes on demand.
+
+`/apple-touch-icon.png` (the monogram) is generated the same way for iOS share sheets and bookmarks. `src/lib/seo.test.ts` and `src/social/card.test.ts` pin the image format, size and ratio, the title and description lengths, and the overflow check.
+
 `@astrojs/sitemap` generates `sitemap-index.xml` + `sitemap-0.xml`; there is no `public/sitemap.xml`. `nginx.conf` deliberately does **not** fall back to the homepage — an unknown path is a real 404 serving `dist/404.html`.
 
 GitHub proof data is fetched at build time by [`src/lib/github.ts`](src/lib/github.ts) using `PORTFOLIO_GITHUB_TOKEN` (a user token with `read:user`). The proof section offers a period picker — the trailing twelve months plus every calendar year back to the one the account was created in (the profile's `created_at` bounds it; years with no contributions are dropped). All periods are fetched in one aliased GraphQL document, and the picker CSS is index-independent, so adding years needs no CSS change. Shades are quartiles of each period's own active days rather than GitHub's fixed 1/3/6/10 buckets, which would saturate a high-volume account into a single flat colour. The picker itself is pure CSS (`:checked` sibling rules), so it works without JavaScript.
@@ -62,10 +70,10 @@ The preferred local entry point is `bun portfolio`, which wraps the dev server i
 | ------------------------------------ | ----------------------------------------------------------------------------- |
 | `astro.config.mjs`                   | Static Astro config and canonical site URL.                                   |
 | `src/pages/index.astro`              | Homepage composition and recruiter-first section order.                       |
-| `src/pages/projects.astro`           | Full project archive; the homepage shows only the flagship six.               |
+| `src/pages/projects.astro`           | Full project archive; the homepage shows only the leading flagship entries.   |
 | `src/pages/404.astro`                | Emitted to `dist/404.html`; served by the nginx `error_page`.                 |
-| `src/pages/llms.txt.ts`              | Plain-text site summary for LLM readers.                                      |
 | `src/lib/seo.ts`, `seo-json-ld.ts`   | Per-page title/canonical/OG/JSON-LD.                                          |
+| `src/social/`, `src/pages/og.png.ts` | Share card and touch icon, rendered to PNG from content at build time.        |
 | `src/layouts/Page.astro`             | Sub-page chrome for `/projects/` and `/404`.                                  |
 | `src/components/`                    | Nav, Hero, Work, Projects, Proof, About, Toolbox, Contact, sticky CTA, icons. |
 | `src/lib/github.ts`                  | Build-time GitHub GraphQL/REST fetch, validation, streaks, and errors.        |
@@ -140,7 +148,7 @@ bun portfolio:build
 Run the full local generation pipeline (hosted screenshots + optimized derivatives):
 
 ```bash
-bun run --filter @pkgs/portfolio gen
+bun portfolio:gen
 ```
 
 Image sources are committed under `assets/`; only optimized WebP derivatives are served from `public/`. After adding or changing a source, run:
@@ -160,6 +168,15 @@ vault run --config dev -- bun run --filter @pkgs/portfolio test:docker
 
 `projects.ts` is the source of truth for project listings. Entries are split across `src/content/projects/entries-part-1.ts` and `entries-part-2.ts` to stay under the repository file-size limit; append new projects to `entries-part-2.ts`.
 
-`entries-archive.ts` holds early and small work (games, toys, client sites) as `ARCHIVE_PROJECTS`. It is deliberately **not** part of `PROJECTS`, so it never reaches the homepage, the Toolbox stack, the screenshot jobs, the resume or the URL health check — `/projects/` renders it behind the "Everything else" fold so nothing built is lost. Descriptions may contain trusted HTML (`<a class="inline-link" …>`); the Projects section renders them with `set:html`.
+`entries-archive.ts` holds early and small work (games, toys, client sites) as `ARCHIVE_PROJECTS`. It is deliberately **not** part of `PROJECTS`, so it never reaches the homepage, the Toolbox stack, the screenshot jobs, the resume or the URL health check — `/projects/` renders it behind the "Everything else" fold so nothing built is lost.
+
+### Copy rules
+
+Hand-written prose states what stays true; anything that moves is derived. `src/content/copy.test.ts` enforces it:
+
+- **No numbers in prose.** Counts and dates drift from the day they are typed. Totals, tenure, the copyright year and the GitHub figures are computed at build time.
+- **No technology names in prose.** The stack is an implementation detail; topic chips, the Toolbox and the resume's Skills derive it from each project's `topics`.
+- **Project descriptions are one brief, plain-text thought** — what the project is and, for client work, what I did on it. No markup and no links: cards render them as text, and `deployment`/`code` already carry the links.
+- **Identity is declared once.** `NAME`, `ROLE` and `LOCATION` in `src/content/hero.ts` feed the page title, eyebrow, footer, meta tags and JSON-LD.
 
 Work highlights are authored in `src/content/work.ts` and are rendered by both the site cards and the resume bullets. `src/content/skills.ts` is shared by the About Toolbox and the resume.

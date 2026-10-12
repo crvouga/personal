@@ -8,6 +8,10 @@ import {
 } from 'playwright';
 import pLimit from 'p-limit';
 import { writeLine } from './library/cli-output';
+import {
+  ensureReachableDocument,
+  openScreenshotContext,
+} from './screenshot-browser';
 
 export const VIEWPORT = { width: 1920, height: 1080 } as const;
 export const ASSETS_DIR = path.resolve('./assets');
@@ -85,7 +89,13 @@ function maxRetriesForUrl(url: string): number {
 }
 
 function isRetriableStatus(status: number): boolean {
-  return status === 502 || status === 503 || status === 504;
+  return (
+    status === 403 ||
+    status === 429 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504
+  );
 }
 
 function isRetriableError(message: string): boolean {
@@ -104,10 +114,7 @@ async function navigateAndSettle(page: Page, url: string, timeoutMs: number) {
     timeout: timeoutMs,
   });
   if (!response) throw new Error('No response received from server');
-  const status = response.status();
-  if (status < 200 || status >= 300) {
-    throw new Error(`HTTP ${status}: server returned non-success status code`);
-  }
+  await ensureReachableDocument(page, response.status());
   await page.waitForTimeout(SETTLE_MS);
   return response;
 }
@@ -198,10 +205,7 @@ async function attemptCapture(
   t0: number,
   timeoutMs: number
 ): Promise<CaptureResult> {
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    colorScheme: 'dark',
-  });
+  const context = await openScreenshotContext(browser, VIEWPORT);
   try {
     const page = await context.newPage();
     await page.emulateMedia({ colorScheme: 'dark' });

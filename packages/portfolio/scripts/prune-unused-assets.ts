@@ -23,7 +23,7 @@ import { promisify } from 'node:util';
 import { writeLine } from '../src/library/cli-output';
 import { CONTENT } from '../src/content/content';
 import { TOPIC_TO_IMAGE_SRC } from '../src/content/topic';
-import { DEFAULT_OG_IMAGE_PATH } from '../src/lib/seo';
+import { HOMEPAGE_SCREENSHOT_PATH } from '../src/lib/seo';
 
 const execFileAsync = promisify(execFile);
 
@@ -104,7 +104,7 @@ function typedReferences(): string[] {
     ...Object.values(TOPIC_TO_IMAGE_SRC).filter(
       (value): value is string => typeof value === 'string'
     ),
-    DEFAULT_OG_IMAGE_PATH,
+    HOMEPAGE_SCREENSHOT_PATH,
   ];
 }
 

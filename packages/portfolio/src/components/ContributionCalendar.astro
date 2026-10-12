@@ -91,6 +91,9 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
     align-items: center;
     min-height: 32px;
     padding: 0 var(--space-3);
+    /* Keeps the pill its drawn size while the area a finger can hit reaches
+       the tap-target minimum. */
+    position: relative;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--text-muted);
@@ -102,6 +105,12 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
       border-color var(--motion-fast) var(--motion-ease),
       background var(--motion-fast) var(--motion-ease),
       color var(--motion-fast) var(--motion-ease);
+  }
+
+  .range-option::after {
+    content: '';
+    position: absolute;
+    inset: calc((32px - var(--tap)) / 2) 0;
   }
 
   .range-option:hover {

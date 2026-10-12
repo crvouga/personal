@@ -1,9 +1,10 @@
 /**
- * Timelessness rules apply here too, but the bigger constraint is honesty: a
- * dense contribution graph sitting above an "AI-native workflow" claim reads as
- * commit padding unless you name the mechanism yourself. Naming it converts the
- * weakest section on the page into an honest one. Once the control-plane case
- * study is written for real, link to it from here.
+ * The constraint here is honesty: a dense contribution graph beside an
+ * AI-assisted workflow reads as commit padding unless the mechanism is named.
+ * Naming it turns the weakest section on the page into an honest one.
+ *
+ * It makes no claim about how fresh the figures are — the caption under the
+ * graph states their source and age, and is the only place that should.
  */
 export const PROOF_LEDE =
-  'Every number here comes straight from the GitHub API at build time. Read it as throughput, not heroics \u2014 I run coding agents under review gates, so the graph reflects the harness as much as the hours. The harness is the part worth judging, not the total.';
+  'These figures come from GitHub, not from me. Read them as throughput rather than heroics: much of this work is done with AI coding agents, so the graph reflects the method as much as the hours. The method is the part worth judging.';

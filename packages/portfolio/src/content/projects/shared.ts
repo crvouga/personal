@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Render helpers (used inside descriptions only).
+// Gallery helpers.
 // ---------------------------------------------------------------------------
 
 export const toYouTubeVideoUrl = ({
@@ -19,19 +19,8 @@ export const toYouTubeVideoUrl = ({
   return `https://www.youtube.com/embed/${youTubeVideoId}?${params.toString()}`;
 };
 
-export const htmlLink = (href: string, text: string): string =>
-  `<a class="inline-link" target="_blank" rel="noreferrer noopener" href="${href}">${text}</a>`;
-
-export const externalLink = (href: string, text: string): string =>
-  htmlLink(
-    href,
-    `${text}<span style="font-size: 0.8em; padding-left: 0.3em; text-decoration: none; display: inline-block;">↗</span>`
-  );
-
 // ---------------------------------------------------------------------------
-// Constants reused inside descriptions.
+// Constants shared by every entry.
 // ---------------------------------------------------------------------------
 
 export const IMAGE_ALT = 'A screenshot of the project';
-export const GAMEZILLA_HREF = 'https://www.gamezilla.app/';
-export const LAMDERA_HREF = 'https://lamdera.com/';

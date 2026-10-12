@@ -39,6 +39,23 @@
   --accent-glow: rgba(127, 179, 255, 0.18);
   --accent-hover: #a6cbff;
   --success: #3fb950;
+  /* Hand-written work: purple, cool like the palette but never mistaken for
+     the blue of a link or the green of a live status. */
+  --handwritten: #b388ff;
+  --handwritten-soft: rgba(168, 112, 255, 0.14);
+  --handwritten-border: #8a5cf6;
+  --handwritten-shine: #ab8cfa;
+  /* A flat purple border with one soft highlight, only a shade lighter than
+     the border itself; drawn three times wider than the element so the
+     highlight spends most of each cycle off-stage. */
+  --handwritten-sheen: linear-gradient(
+    110deg,
+    var(--handwritten-border) 0%,
+    var(--handwritten-border) 38%,
+    var(--handwritten-shine) 50%,
+    var(--handwritten-border) 62%,
+    var(--handwritten-border) 100%
+  );
 
   /* GitHub heatmap ramp: a quiet zero below --paper, then even luminance steps. */
   --gh-0: #16161c;
@@ -84,6 +101,10 @@
 }
 
 html {
+  /* In-app browsers inflate text on rotation unless told the layout already
+     handles its own sizing. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 96px;
   background: var(--bg);
@@ -302,6 +323,51 @@ section {
   height: 12px;
 }
 
+/* Marks projects written before AI coding agents. Lives here because the
+   project cards and the /projects/ legend both render one.
+
+   The border is a gradient painted under a transparent `border`, since a
+   `border-color` cannot animate a highlight around a rounded box. The fill
+   layers are clipped to the padding box so only the border shows the sheen. */
+.chip-handwritten {
+  flex: none;
+  color: var(--handwritten);
+  font-weight: 600;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--handwritten-soft), var(--handwritten-soft))
+      padding-box,
+    linear-gradient(var(--paper), var(--paper)) padding-box,
+    var(--handwritten-sheen) border-box;
+  background-size:
+    auto,
+    auto,
+    300% 100%;
+  animation: handwritten-sheen 9s linear infinite;
+  white-space: nowrap;
+}
+
+@keyframes handwritten-sheen {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      100% 0;
+  }
+  to {
+    background-position:
+      0 0,
+      0 0,
+      0 0;
+  }
+}
+
+.chip-handwritten svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+
 /* Opens the shared gallery dialog. Lives here, not in a component, because the
    projects grid, the work cards and the archive page all render one. */
 .gallery-btn {
@@ -329,5 +395,9 @@ section {
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+  /* A looping animation cut to 0.01ms would strobe, so this one stops. */
+  .chip-handwritten {
+    animation: none;
   }
 }

@@ -4,6 +4,8 @@ export type SeoImage = {
   readonly alt: string;
   readonly width: number;
   readonly height: number;
+  /** MIME type; crawlers that cannot sniff it skip the image. */
+  readonly type: string;
 };
 
 /**

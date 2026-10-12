@@ -1,23 +1,18 @@
 // Order-preserving split of PROJECTS (max-lines); append new projects to entries-part-2.ts.
 // Part 1 holds the flagship entries: the first VISIBLE_PROJECT_COUNT of these
-// render as full cards, the remainder of the registry sits in the archive.
+// are the homepage's cards, the remainder of the registry sits on /projects/.
 import type { Project } from './types';
-import {
-  GAMEZILLA_HREF,
-  IMAGE_ALT,
-  LAMDERA_HREF,
-  externalLink,
-  toYouTubeVideoUrl,
-} from './shared';
+import { IMAGE_ALT, toYouTubeVideoUrl } from './shared';
 
 export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
   {
     id: 'gamezilla',
     title: 'gamezilla.app',
     setting: 'side',
-    deployment: { t: 'public', url: GAMEZILLA_HREF },
+    deployment: { t: 'public', url: 'https://www.gamezilla.app/' },
     code: { t: 'private' },
-    description: `${externalLink(GAMEZILLA_HREF, 'gamezilla.app')} is a real-time multiplayer gaming platform built on a full-stack TypeScript implementation of the Elm architecture. Migrated off the ${externalLink(LAMDERA_HREF, 'Lamdera')} platform — reimplementing what Lamdera gave away for free (wire format, state persistence, client reconnect) over plain WebSockets, incrementally, without a flag day.`,
+    description:
+      'A real-time multiplayer gaming platform that runs in the browser.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/gamezilla.optimized.webp',
@@ -45,11 +40,24 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     deployment: { t: 'public', url: 'https://app.gogeviti.com/' },
     code: { t: 'private' },
     description:
-      'Health and longevity platform combining bloodwork analysis, personalized supplement protocols, prescription therapies, and care team coordination. I ship member-facing features across web and React Native, on Postgres and AWS, in a domain where correctness and auditability outrank velocity.',
+      'Health and longevity platform that turns lab results into personalized protocols, therapies, and coordinated care. I build its member-facing features.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/geviti-app-screenshot.optimized.webp'],
     galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
     topics: ['typescript', 'react', 'postgres', 'bun', 'aws', 'react-native'],
+  },
+  {
+    id: 'mockingbird',
+    title: 'Mockingbird',
+    setting: 'side',
+    deployment: { t: 'public', url: 'https://mockingbird.chrisvouga.dev/' },
+    code: { t: 'public', url: 'https://github.com/crvouga/mockingbird' },
+    description:
+      'Realistic stand-ins for third-party services, so software can be tested end to end without calling the real thing.',
+    imageAlt: IMAGE_ALT,
+    imageSrc: ['/mockingbird-screenshot.optimized.webp'],
+    galleryImageSrc: ['/mockingbird-screenshot.optimized.webp'],
+    topics: ['typescript', 'bun', 'nodejs', 'sqlite'],
   },
   {
     id: 'triangulator',
@@ -58,7 +66,7 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     deployment: { t: 'private' },
     code: { t: 'private' },
     description:
-      'Enterprise platform that automates course transfer evaluation between universities. I was technical lead: credit equivalency is modelled as a graph in Neo4j alongside Postgres, served through a Python/Flask GraphQL API, and reviewed in a Nuxt admin where institutions assign, boost, and reject ranked equivalency suggestions with a reason attached.',
+      'Enterprise platform that automates how universities evaluate transfer credit. I was the technical lead.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/triangulator.optimized.webp'],
     galleryImageSrc: [
@@ -111,7 +119,7 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     deployment: { t: 'public', url: 'https://gostudyhall.com/' },
     code: { t: 'private' },
     description:
-      'Education platform ASU runs in partnership with the Study Hall YouTube channel. I rebuilt payment processing — cutting payment failures and turning a fragile flow into one that could be reasoned about and changed safely.',
+      'Online learning platform from ASU and the Study Hall YouTube channel. I rebuilt its payment processing to cut failed payments.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/study-hall-screenshot.optimized.webp',
@@ -151,19 +159,6 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     ],
   },
   {
-    id: 'mockingbird',
-    title: 'Mockingbird',
-    setting: 'side',
-    deployment: { t: 'public', url: 'https://mockingbird.chrisvouga.dev/' },
-    code: { t: 'public', url: 'https://github.com/crvouga/mockingbird' },
-    description:
-      "Stateful test doubles for 53 third-party APIs and SQL databases, covering 636 vendor operations. Each mock reproduces the vendor's real surface and state in-process, with shared controls for isolation, time, faults, snapshots and request journals across Node, Bun, browsers and Workers.",
-    imageAlt: IMAGE_ALT,
-    imageSrc: ['/mockingbird-screenshot.optimized.webp'],
-    galleryImageSrc: ['/mockingbird-screenshot.optimized.webp'],
-    topics: ['typescript', 'bun', 'nodejs', 'sqlite'],
-  },
-  {
     id: 'headless-combobox',
     title: 'headless-combobox',
     setting: 'side',
@@ -172,7 +167,8 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
       url: 'https://svelte-headlesscombobox.chrisvouga.dev',
     },
     code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
-    description: `A production-ready, framework-agnostic, zero-dependency TypeScript combobox library. The widget is a state machine with no DOM of its own, so one core drives React, Svelte, or anything else while staying WCAG conformant. ${externalLink('https://headlesscombobox.chrisvouga.dev', 'Documentation site')}.`,
+    description:
+      'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
     galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
@@ -185,7 +181,7 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     deployment: { t: 'public', url: 'https://asuorchard.asu.edu/' },
     code: { t: 'private' },
     description:
-      "ASU platform that lets instructors build highly customizable assignments. I architected and implemented the LTI 1.3 integration with ASU's LMS — OIDC single sign-on, signed grade passback, key rotation, and the failure paths for when a grade does not post.",
+      "ASU platform for building highly customizable assignments. I designed and built its integration with the university's learning management system.",
     imageAlt: IMAGE_ALT,
     imageSrc: ['/orchard.optimized.webp'],
     galleryImageSrc: ['/orchard.optimized.webp'],

@@ -1,13 +1,26 @@
 import { CONTENT } from '../content/content';
+import {
+  CARD_HEIGHT,
+  CARD_WIDTH,
+  buildCardContent,
+  cardVersion,
+} from '../social/card';
 import type { Seo, SeoImage } from './seo-types';
 
 export const SITE_URL = CONTENT.SITE_URL;
 
-export const SITE_TITLE = 'Chris Vouga — Software Engineer';
+export const SITE_NAME = CONTENT.PAGE_TITLE;
 
-export const SITE_DESCRIPTION = CONTENT.ABOUT_ME_ATTR_SAFE.replace(/\s+/g, ' ')
-  .trim()
-  .slice(0, 160);
+export const SITE_TITLE = `${SITE_NAME} — ${CONTENT.PAGE_SUBTITLE}`;
+
+/** `https://x.com/handle` → `@handle`, the form `twitter:creator` expects. */
+export const X_HANDLE = `@${new URL(CONTENT.X_URL).pathname.slice(1)}`;
+
+/**
+ * The hero pitch, whole. It used to be the About copy cut at a character count,
+ * which ended search snippets and link previews mid-word.
+ */
+export const SITE_DESCRIPTION = CONTENT.HERO.statement;
 
 /**
  * `@astrojs/sitemap` emits trailing-slash URLs under `build.format: 'directory'`,
@@ -20,19 +33,29 @@ export const absoluteUrl = (path: string): string =>
   `${SITE_URL}${withTrailingSlash(path)}`;
 
 /**
- * Root-relative so the prune script can see it. It used to be an inline
- * literal in Base.astro, which the markup scanner matched; `.ts` files are
- * deliberately not scanned, so this has to reach the keep set via the typed
- * reference list instead.
+ * The homepage capture written by the screenshot job. It was the share image
+ * until the generated card replaced it; the prune script still reads this so
+ * the job's output is not reported as an orphan.
  */
-export const DEFAULT_OG_IMAGE_PATH = '/main-site-screenshot.optimized.webp';
+export const HOMEPAGE_SCREENSHOT_PATH = '/main-site-screenshot.optimized.webp';
 
-/** Site-wide card, used by any page that has not generated its own. */
+/** Served by `src/pages/og.png.ts`. */
+export const OG_IMAGE_PATH = '/og.png';
+
+/** Served by `src/pages/apple-touch-icon.png.ts`. */
+export const TOUCH_ICON_PATH = '/apple-touch-icon.png';
+
+/**
+ * Site-wide card, used by any page that has not generated its own. The query
+ * string is the card's content hash: a changed card is a new URL, so neither
+ * the year-long image cache nor a platform's own copy can serve an old one.
+ */
 export const DEFAULT_OG_IMAGE: SeoImage = {
-  url: `${SITE_URL}${DEFAULT_OG_IMAGE_PATH}`,
-  alt: 'The chrisvouga.dev homepage',
-  width: 1400,
-  height: 788,
+  url: `${SITE_URL}${OG_IMAGE_PATH}?v=${cardVersion(buildCardContent())}`,
+  alt: `${SITE_TITLE}. ${SITE_DESCRIPTION}`,
+  width: CARD_WIDTH,
+  height: CARD_HEIGHT,
+  type: 'image/png',
 };
 
 export const HOME_SEO: Seo = {

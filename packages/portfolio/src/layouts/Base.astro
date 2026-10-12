@@ -1,6 +1,12 @@
 ---
 import '../styles/global.css';
-import { HOME_SEO, absoluteUrl } from '../lib/seo';
+import {
+  HOME_SEO,
+  SITE_NAME,
+  TOUCH_ICON_PATH,
+  X_HANDLE,
+  absoluteUrl,
+} from '../lib/seo';
 import { buildJsonLd } from '../lib/seo-json-ld';
 import type { Seo } from '../lib/seo-types';
 
@@ -20,28 +26,40 @@ const jsonLd = buildJsonLd(seo);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
+    <meta name="author" content={SITE_NAME} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href={TOUCH_ICON_PATH} />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <meta name="theme-color" content="#0A0A0B" />
     <meta name="color-scheme" content="dark" />
+    {/* In-app browsers on iOS turn any digit run into a tappable phone
+        number or calendar link; the date ranges on this page are neither. */}
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
     <meta name="generator" content={Astro.generator} />
     {seo.noindex === true && <meta name="robots" content="noindex" />}
     <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-variable.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/jetbrains-mono-variable.woff2" crossorigin />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Chris Vouga" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:url" content={canonical} />
     <meta property="og:title" content={seo.title} />
     <meta property="og:description" content={seo.description} />
-    <meta property="og:image" content={seo.image.url} />
+    {/* `name="image"` as well as the property: LinkedIn reads either, and
+        its inspector warns when the name form is missing. */}
+    <meta name="image" property="og:image" content={seo.image.url} />
+    <meta property="og:image:type" content={seo.image.type} />
     <meta property="og:image:alt" content={seo.image.alt} />
     <meta property="og:image:width" content={String(seo.image.width)} />
     <meta property="og:image:height" content={String(seo.image.height)} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content={X_HANDLE} />
+    <meta name="twitter:creator" content={X_HANDLE} />
     <meta name="twitter:title" content={seo.title} />
     <meta name="twitter:description" content={seo.description} />
     <meta name="twitter:image" content={seo.image.url} />
+    <meta name="twitter:image:alt" content={seo.image.alt} />
     {jsonLd !== null && (
       <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     )}
@@ -60,13 +78,37 @@ const jsonLd = buildJsonLd(seo);
       if (status) status.textContent = message;
     };
 
+    // In-app browsers often ship without the async clipboard API, or reject
+    // it. A selection-based copy still works there, and only when both fail
+    // does the caller fall through to mailto.
+    const copyText = (value) => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(value).catch(() => legacyCopy(value));
+      }
+      return legacyCopy(value);
+    };
+    const legacyCopy = (value) =>
+      new Promise((resolve, reject) => {
+        const field = document.createElement('textarea');
+        field.value = value;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (copied) resolve();
+        else reject(new Error('copy failed'));
+      });
+
     document.querySelectorAll('[data-copy]').forEach((el) => {
       el.addEventListener('click', (event) => {
         event.preventDefault();
         const value = el.getAttribute('data-copy') || '';
         const label = el.querySelector('.btn-label');
         const original = label ? label.textContent : null;
-        navigator.clipboard.writeText(value).then(
+        copyText(value).then(
           () => {
             if (label && original !== null) {
               label.textContent = 'Copied';
