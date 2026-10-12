@@ -1,8 +1,8 @@
 import { CONTENT } from '../content/content';
 import type { Project } from '../content/project';
 
-/** Cards rendered before the "show more" disclosure. */
-export const VISIBLE_PROJECT_COUNT = 6;
+/** Homepage cards; the rest of the registry is one click away on /projects/. */
+export const VISIBLE_PROJECT_COUNT = 3;
 
 const YOUTUBE_EMBED = /^https?:\/\/(www\.)?youtube(-nocookie)?\.com\/embed\//;
 

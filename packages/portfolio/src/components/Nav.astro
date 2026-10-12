@@ -15,7 +15,7 @@ const homeHref = variant === 'home' ? '#top' : '/';
 const homeLabel =
   variant === 'home'
     ? `${CONTENT.MONOGRAM_INITIALS} — back to top`
-    : `${CONTENT.MONOGRAM_INITIALS} — Chris Vouga home`;
+    : `${CONTENT.MONOGRAM_INITIALS} — ${CONTENT.PAGE_TITLE} home`;
 ---
 
 <header class="nav">
@@ -40,6 +40,7 @@ const homeLabel =
     top: 0;
     z-index: 10;
     background: rgba(10, 10, 11, 0.85);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--paper-border);
   }

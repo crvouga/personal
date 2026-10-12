@@ -188,6 +188,7 @@ const collectContentUrls = (): string[] => {
   if (CONTENT.SITE_SOURCE_CODE_URL) urls.push(CONTENT.SITE_SOURCE_CODE_URL);
   if (CONTENT.GITHUB_URL) urls.push(CONTENT.GITHUB_URL);
   if (CONTENT.LINKEDIN_URL) urls.push(CONTENT.LINKEDIN_URL);
+  if (CONTENT.X_URL) urls.push(CONTENT.X_URL);
 
   return urls;
 };

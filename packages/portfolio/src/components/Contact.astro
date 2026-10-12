@@ -4,6 +4,7 @@ import { RESUME_HREF } from '../constants/resume';
 import IconEmail from './icons/IconEmail.astro';
 import IconGitHub from './icons/IconGitHub.astro';
 import IconLinkedIn from './icons/IconLinkedIn.astro';
+import IconX from './icons/IconX.astro';
 
 const section = CONTENT.GET_SECTION('contact');
 const email = CONTENT.EMAIL_ADDRESS;
@@ -17,9 +18,7 @@ const email = CONTENT.EMAIL_ADDRESS;
     </div>
     <p class="headline">{CONTENT.CONTACT_COPY.headline}</p>
     <p class="sub">{CONTENT.CONTACT_COPY.sub}</p>
-    <p class="meta">
-      {CONTENT.LOCATION} · {CONTENT.HERO.availability}
-    </p>
+    <p class="meta">{CONTENT.HERO.availability} · {CONTENT.HERO.location}</p>
     <a class="email" href={`mailto:${email}`}>{email}</a>
     <div class="ctas">
       <a class="btn btn-contained" href={`mailto:${email}`}>
@@ -42,6 +41,9 @@ const email = CONTENT.EMAIL_ADDRESS;
       >
         <IconLinkedIn /><span class="btn-label">LinkedIn</span>
       </a>
+      <a class="btn" href={CONTENT.X_URL} rel="me noopener" target="_blank">
+        <IconX /><span class="btn-label">X</span>
+      </a>
     </div>
   </div>
 </section>
@@ -63,8 +65,10 @@ const email = CONTENT.EMAIL_ADDRESS;
     margin-top: var(--space-2);
   }
   .email {
-    display: inline-block;
-    margin-top: var(--space-4);
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    margin-top: var(--space-2);
     font-family: var(--font-mono);
     font-size: var(--text-md);
     color: var(--accent);

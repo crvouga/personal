@@ -1,14 +1,18 @@
 import {
-  ABOUT_ME,
-  ABOUT_ME_ATTR_SAFE,
   ABOUT_ME_PARAGRAPHS,
   ABOUT_YOUTUBE_EMBED_URL,
   ABOUT_YOUTUBE_VIDEO_TITLE,
   ABOUT_GITHUB_HEATMAP_TEXT,
 } from './about';
 import { CONTACT_COPY } from './contact';
-import { FOOTER_COPY } from './footer';
-import { CORE_STACK, HERO, LOCATION, MONOGRAM_INITIALS } from './hero';
+import {
+  CORE_STACK,
+  HERO,
+  LOCATION,
+  MONOGRAM_INITIALS,
+  NAME,
+  ROLE,
+} from './hero';
 import { ARCHIVE_PROJECTS, PROJECTS } from './project';
 import { PROOF_LEDE } from './proof';
 import { SCHOOL } from './school';
@@ -22,10 +26,6 @@ import {
   AGENTIC_WORKFLOW_TITLE,
 } from './agentic';
 
-const PAGE_TITLE = 'Chris Vouga';
-
-const PAGE_SUBTITLE = 'Software Engineer';
-
 /** Every technology named by at least one project, bucketed for the Toolbox. */
 const SKILL_ROWS = buildSkillRows([
   ...new Set(PROJECTS.flatMap((project) => project.topics)),
@@ -35,12 +35,12 @@ export const CONTENT = {
   SITE_URL: 'https://www.chrisvouga.dev',
   SITE_SOURCE_CODE_URL:
     'https://github.com/crvouga/workspace/tree/main/packages/portfolio',
-  PAGE_TITLE,
-  PAGE_SUBTITLE,
-  ABOUT_ME_ATTR_SAFE,
+  PAGE_TITLE: NAME,
+  PAGE_SUBTITLE: ROLE,
   EMAIL_ADDRESS: 'crvouga@gmail.com',
   GITHUB_URL: 'https://github.com/crvouga',
   LINKEDIN_URL: 'https://www.linkedin.com/in/chris-vouga',
+  X_URL: 'https://x.com/ChristopherVou7',
   PHONE_NUMBER: '4802098698',
   LOCATION,
   SECTIONS,
@@ -50,7 +50,6 @@ export const CONTENT = {
   CORE_STACK,
   MONOGRAM_INITIALS,
   CONTACT_COPY,
-  FOOTER_COPY,
   //
   PROOF_LEDE,
   PROJECT_SECTION_TITLE: getSection('projects').title,
@@ -65,7 +64,6 @@ export const CONTENT = {
   WORK,
   //
   ABOUT_ME_SECTION_TITLE: getSection('about').title,
-  ABOUT_ME,
   ABOUT_ME_PARAGRAPHS,
   SKILL_ROWS,
   ABOUT_YOUTUBE_EMBED_URL,

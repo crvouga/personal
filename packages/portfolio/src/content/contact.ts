@@ -1,8 +1,7 @@
-const EMAIL_ADDRESS = 'crvouga@gmail.com';
-
+/** The address itself is rendered from `CONTENT.EMAIL_ADDRESS`, never retyped. */
 export const CONTACT_COPY = {
   headline: 'Get in touch.',
-  sub: `Email me at ${EMAIL_ADDRESS}.`,
+  sub: 'Email is the fastest way to reach me.',
   ctaPrimary: {
     label: 'Email',
   },

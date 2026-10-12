@@ -17,8 +17,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     setting: 'side',
     deployment: { t: 'public', url: 'https://todo.chrisvouga.dev' },
     code: { t: 'public', url: 'https://github.com/crvouga/todo-v1' },
-    description:
-      'Full-stack task management application with user authentication and real-time synchronization. Demonstrates end-to-end development capabilities from database design to responsive UI implementation.',
+    description: 'A task manager with user accounts and real-time sync.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/fullstack-todo-app-screenshot.optimized.webp',
@@ -46,7 +45,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'public', url: 'https://connectfour.chrisvouga.dev/' },
     code: { t: 'public', url: 'https://github.com/crvouga/connect-four' },
     description:
-      'Real-time multiplayer Connect Four game with WebSocket-based synchronization. Features smooth animations, responsive design, and seamless online gameplay for multiple concurrent users.',
+      'Connect Four with online multiplayer and a computer opponent.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/connect-four-ai-multiplayer-screenshot.optimized.webp',
@@ -81,7 +80,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'public', url: 'https://github.com/crvouga/quiz-maker' },
     description:
-      'LTI-compatible quiz creation platform that integrates seamlessly with Learning Management Systems. Enables instructors to build custom quizzes and assessments while providing students with a native LMS experience.',
+      'A quiz builder that plugs into learning management systems, so instructors and students never leave their course.',
     imageAlt: IMAGE_ALT,
     imageSrc: [],
     galleryImageSrc: [],
@@ -96,8 +95,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
       url: 'https://gps-couriers-website.vercel.app/',
     },
     code: { t: 'private' },
-    description:
-      'Professional marketing website for a healthcare courier company, featuring responsive design, optimized performance, and clear communication of services to potential clients.',
+    description: 'Marketing website for a healthcare courier company.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/courier-company-website-screenshot.optimized.webp',
@@ -122,7 +120,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'public', url: 'https://anime.chrisvouga.dev/' },
     code: { t: 'public', url: 'https://github.com/crvouga/anime' },
     description:
-      'Modern JAMstack blog built with Vue and Gridsome, featuring a headless CMS integration for content management. Demonstrates static site generation and performance optimization techniques.',
+      'A blog built as a fast static site, with content managed separately from the code.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/anime-blog-screenshot.optimized.webp',
@@ -149,7 +147,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'public', url: 'https://snake.chrisvouga.dev/' },
     code: { t: 'public', url: 'https://github.com/crvouga/snake' },
     description:
-      'Classic Snake game implemented using functional programming principles, featuring smooth animations and responsive controls. Showcases clean code architecture and modern React patterns.',
+      'The classic Snake game, with smooth animation and responsive controls.',
     imageAlt: IMAGE_ALT,
     imageSrc: [
       '/smooth-snake-game-screenshot.optimized.webp',
@@ -172,8 +170,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     setting: 'side',
     deployment: { t: 'public', url: 'https://matchthree.chrisvouga.dev/' },
     code: { t: 'public', url: 'https://github.com/crvouga/match-three' },
-    description:
-      'Match-three puzzle game inspired by Candy Crush, featuring engaging gameplay mechanics, smooth animations, and responsive design. Demonstrates game development skills and state management expertise.',
+    description: 'A match-three puzzle game in the spirit of Candy Crush.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/match-three-screenshot.optimized.webp'],
     galleryImageSrc: [
@@ -193,7 +190,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'public', url: 'https://simonsays.chrisvouga.dev/' },
     code: { t: 'public', url: 'https://github.com/crvouga/simon-says' },
     description:
-      'Interactive implementation of the classic Simon Says memory game, featuring visual and audio feedback, progressive difficulty, and polished user interface design.',
+      'The classic Simon Says memory game, with sound, visuals, and rising difficulty.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/simon-says-screenshot.optimized.webp'],
     galleryImageSrc: [
@@ -213,7 +210,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'public', url: 'https://github.com/crvouga/cheese' },
     description:
-      'Web application for generating customizable event identification cards with client-side image manipulation. Explores advanced browser APIs for image processing and demonstrates creative problem-solving in web development.',
+      'Generates customizable event ID cards, with all image editing done in the browser.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/cheese.optimized.webp'],
     galleryImageSrc: [
@@ -233,7 +230,7 @@ export const PROJECT_ENTRIES_ARCHIVE: readonly Project[] = [
     deployment: { t: 'not-deployed-anymore' },
     code: { t: 'public', url: 'https://github.com/crvouga/pickflix-v1' },
     description:
-      'Social movie discovery platform enabling users to watch trailers, write reviews, and collaborate on movie lists with friends. Features real-time updates and a comprehensive movie database integration.',
+      'A social movie-discovery app for watching trailers, writing reviews, and building shared lists with friends.',
     imageAlt: IMAGE_ALT,
     imageSrc: ['/pickflix-screenshot.optimized.webp'],
     galleryImageSrc: [

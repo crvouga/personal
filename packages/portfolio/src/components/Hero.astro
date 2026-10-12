@@ -6,16 +6,20 @@ import IconEmail from '../components/icons/IconEmail.astro';
 import IconDownload from '../components/icons/IconDownload.astro';
 import IconGitHub from '../components/icons/IconGitHub.astro';
 import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
+import IconX from '../components/icons/IconX.astro';
 
 const email = CONTENT.EMAIL_ADDRESS;
 const currentJob = CONTENT.WORK.find((job) => job.yearEnd === 'Present');
-const nowRole =
-  currentJob === undefined ? '' : `${currentJob.jobTitle} · ${currentJob.name}`;
 const sinceYear = CONTENT.WORK.reduce(
   (earliest, job) => Math.min(earliest, job.yearStart),
   new Date().getFullYear()
 );
 const stack = CONTENT.CORE_STACK.map((topic) => TOPIC_TO_NAME[topic]).join(' · ');
+const socials = [
+  { label: 'GitHub', href: CONTENT.GITHUB_URL, Icon: IconGitHub },
+  { label: 'LinkedIn', href: CONTENT.LINKEDIN_URL, Icon: IconLinkedIn },
+  { label: 'X', href: CONTENT.X_URL, Icon: IconX },
+];
 ---
 
 <section id="top" class="hero">
@@ -35,31 +39,33 @@ const stack = CONTENT.CORE_STACK.map((topic) => TOPIC_TO_NAME[topic]).join(' · 
         <a class="btn" href={RESUME_HREF} target="_blank" rel="noopener">
           <IconDownload /><span class="btn-label">Résumé</span>
         </a>
-        <a class="btn" href={CONTENT.GITHUB_URL} rel="me noopener" target="_blank">
-          <IconGitHub /><span class="btn-label">GitHub</span>
-        </a>
-        <a
-          class="btn"
-          href={CONTENT.LINKEDIN_URL}
-          rel="me noopener"
-          target="_blank"
-        >
-          <IconLinkedIn /><span class="btn-label">LinkedIn</span>
-        </a>
+        {/* Two labelled actions, then the profiles as quiet icons: five equal
+            buttons wrapped onto a second row and competed with the pitch. */}
+        <div class="socials">
+          {
+            socials.map(({ label, href, Icon }) => (
+              <a
+                class="icon-link"
+                href={href}
+                rel="me noopener"
+                target="_blank"
+                aria-label={label}
+                title={label}
+              >
+                <Icon />
+              </a>
+            ))
+          }
+        </div>
       </div>
-      <p class="cta-note">
-        <a class="inline-link" href={`mailto:${email}`}>{email}</a>
-        <button type="button" class="copy-btn" data-copy={email}>
-          <span class="btn-label">{CONTENT.HERO.ctaCopyLabel}</span>
-        </button>
-      </p>
     </div>
 
     <aside class="card now">
       <p class="now-label">// currently</p>
-      <h2 class="now-role">{nowRole}</h2>
+      {/* The company only: the eyebrow already states the level. */}
+      {currentJob !== undefined && <h2 class="now-role">{currentJob.name}</h2>}
       <p class="now-since">Shipping production software since {sinceYear}</p>
-      <p class="now-loc">{CONTENT.LOCATION}</p>
+      <p class="now-loc">{CONTENT.HERO.location}</p>
       <p class="now-stack">{stack}</p>
     </aside>
   </div>
@@ -73,22 +79,7 @@ const stack = CONTENT.CORE_STACK.map((topic) => TOPIC_TO_NAME[topic]).join(' · 
     max-width: 60ch;
     color: var(--text-muted);
     font-size: var(--text-base);
-  }
-  /* Secondary to the mailto button: the primary action must not be surprising. */
-  .copy-btn {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--tap);
-    padding: 0 var(--space-2);
-    background: none;
-    border: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-subtle);
-    cursor: pointer;
-  }
-  .copy-btn:hover {
-    color: var(--accent);
+    margin-top: var(--space-3);
   }
   @media (min-width: 900px) {
     .hero {
@@ -136,6 +127,7 @@ const stack = CONTENT.CORE_STACK.map((topic) => TOPIC_TO_NAME[topic]).join(' · 
     border: 1px solid var(--paper-border);
     border-radius: var(--radius-pill);
     margin-top: var(--space-5);
+    white-space: nowrap;
   }
   .dot {
     width: 8px;
@@ -146,14 +138,34 @@ const stack = CONTENT.CORE_STACK.map((topic) => TOPIC_TO_NAME[topic]).join(' · 
   .ctas {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-3);
-    margin-top: var(--space-6);
+    margin-top: var(--space-5);
   }
-  .cta-note {
-    margin-top: var(--space-3);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-subtle);
+  /* One flex item, so the icons wrap together or not at all. Each glyph sits
+     inside a full-size tap target; the negative margin pulls the first one
+     back so it lines up with the text edge when the group wraps on a phone. */
+  .socials {
+    display: flex;
+    gap: var(--space-1);
+    margin-left: -10px;
+  }
+  .icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    transition: color var(--motion-fast) var(--motion-ease);
+  }
+  .icon-link:hover {
+    color: var(--accent);
+  }
+  .icon-link :global(svg) {
+    width: 18px;
+    height: 18px;
   }
   .now {
     padding: var(--space-5);
