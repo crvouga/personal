@@ -1,6 +1,7 @@
 ---
 import { TOPIC_TO_IMAGE_SRC, TOPIC_TO_NAME } from '../content/topic';
 import type { Project } from '../content/project';
+import { authorshipOf } from '../lib/authorship';
 import { accessNote, galleryFor, projectHref } from '../lib/projects-view';
 
 interface Props {
@@ -23,9 +24,10 @@ const chips = project.topics.slice(0, MAX_CHIPS);
 const extraTopics = Math.max(0, project.topics.length - MAX_CHIPS);
 const cover = compact ? undefined : project.imageSrc[0];
 const hasGallery = galleryIndex !== null && galleryFor(project).length > 0;
+const badge = authorshipOf(project);
 ---
 
-<article class={`card project ${compact ? 'compact' : ''}`}>
+<article class:list={['card', 'project', { compact }]}>
   {
     !compact && (
       <div class="cover-box">
@@ -50,20 +52,32 @@ const hasGallery = galleryIndex !== null && galleryFor(project).length > 0;
     )
   }
   <div class="body">
-    <h3>
-      {/* Client work under NDA has no destination but its gallery;
-          an <a> without an href would read as a broken link. */}
+    <div class="heading">
+      <h3>
+        {/* Client work under NDA has no destination but its gallery;
+            an <a> without an href would read as a broken link. */}
+        {
+          href === null ? (
+            project.title
+          ) : (
+            <a href={href} rel="noopener" target="_blank">
+              {project.title}
+            </a>
+          )
+        }
+      </h3>
       {
-        href === null ? (
-          project.title
-        ) : (
-          <a href={href} rel="noopener" target="_blank">
-            {project.title}
-          </a>
+        badge !== null && (
+          <span class="chip chip-handwritten" title={badge.title}>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+            </svg>
+            {badge.label}
+          </span>
         )
       }
-    </h3>
-    <p class="desc" set:html={project.description} />
+    </div>
+    <p class="desc">{project.description}</p>
     <div class="meta">
       <div class="chips">
         {
@@ -153,6 +167,15 @@ const hasGallery = galleryIndex !== null && galleryFor(project).length > 0;
     flex-direction: column;
     gap: var(--space-3);
     flex: 1;
+  }
+  /* The badge sits beside the title and drops below it when the two do not
+     fit, rather than squeezing a long title into a narrow column. */
+  .heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
   }
   h3 {
     font-family: var(--font-mono);
