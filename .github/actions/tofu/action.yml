@@ -13,6 +13,9 @@ inputs:
   image_tag:
     default: ''
     description: Image revision for service_ids; empty preserves all revisions.
+  mode:
+    default: apply
+    description: apply plans and applies; prepare only initializes and resolves inputs, for read-only drift checks.
 runs:
   using: composite
   steps:
@@ -33,9 +36,11 @@ runs:
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
+        TOFU_MODE: ${{ inputs.mode }}
       run: |
         set -euo pipefail
         case "${TOFU_ROOT}" in foundation|bootstrap|vault|fleet) ;; *) exit 1 ;; esac
+        case "${TOFU_MODE}" in apply|prepare) ;; *) exit 1 ;; esac
         ROOT="packages/infra/tofu/${TOFU_ROOT}"
         umask 077
         jq -n --arg account "${TF_VAR_cloudflare_account_id}" '{
@@ -80,11 +85,13 @@ runs:
           echo "TF_VAR_image_tags=$(cat /tmp/tofu-next-tags.json)" >> "$GITHUB_ENV"
         fi
     - name: Plan
+      if: inputs.mode == 'apply'
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
       run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" plan -input=false -parallelism=1 -out=apply.tfplan
     - name: Apply
+      if: inputs.mode == 'apply'
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}

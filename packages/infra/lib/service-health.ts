@@ -36,12 +36,16 @@ export function serviceHealthUrl(service: ServiceSpec, baseUrl?: string): string
   return url;
 }
 
-export async function probeHttp(url: string, timeoutMs: number): Promise<HttpProbeResult> {
+export async function probeHttp(
+  url: string,
+  timeoutMs: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<HttpProbeResult> {
   assert.nonEmptyString(url, "probe url must be non-empty");
   assert.ok(url.startsWith("http"), "probe url must be http(s)", { url });
   assert.nonNegative(timeoutMs, "probe timeout must be non-negative");
   try {
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       method: "GET",
       redirect: "follow",
       signal: AbortSignal.timeout(timeoutMs),
