@@ -11,12 +11,10 @@
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
     settings = import ./fleet.nix;
-    modules = [ disko.nixosModules.disko sops-nix.nixosModules.sops
-      ./modules/node.nix ./modules/runners.nix ./modules/cache.nix
-      ./modules/update.nix ./modules/disk.nix (./profiles + "/${settings.profile}.nix") ];
     node = nixpkgs.lib.nixosSystem {
-      inherit system modules;
+      inherit system;
       specialArgs = { inherit settings; };
+      modules = [ disko.nixosModules.disko sops-nix.nixosModules.sops ./hosts/ci.nix ];
     };
     installer = nixpkgs.lib.nixosSystem {
       inherit system;
@@ -25,7 +23,11 @@
         ./modules/installer.nix ];
     };
   in {
-    nixosConfigurations = { ${settings.profile} = node; "installer-${settings.profile}" = installer; };
+    nixosConfigurations = {
+      ${settings.profile} = node;
+      ci = node;
+      "installer-${settings.profile}" = installer;
+    };
     packages.${system} = {
       node = node.config.system.build.toplevel;
       installer = installer.config.system.build.isoImage;
@@ -41,7 +43,12 @@
     checks.${system} = {
       node = self.packages.${system}.node;
       installer = self.packages.${system}.installer;
-      vm = import ./tests/vm.nix { inherit pkgs settings; inherit (nixpkgs) lib; sopsModule = sops-nix.nixosModules.sops; };
+      vm = import ./tests/vm.nix {
+        inherit pkgs settings;
+        inherit (nixpkgs) lib;
+        sopsModule = sops-nix.nixosModules.sops;
+        diskoModule = disko.nixosModules.disko;
+      };
     };
     packages.aarch64-darwin.nixos-anywhere = nixpkgs.legacyPackages.aarch64-darwin.nixos-anywhere;
     packages.x86_64-darwin.nixos-anywhere = nixpkgs.legacyPackages.x86_64-darwin.nixos-anywhere;

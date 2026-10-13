@@ -1,4 +1,4 @@
-{ pkgs, lib, settings, sopsModule }: let
+{ pkgs, lib, settings, sopsModule, diskoModule }: let
   mock = pkgs.callPackage ({ nodeRuntimes ? [] }: pkgs.runCommand "mock-github-runner" {} ''
     mkdir -p $out/bin
     cat > $out/bin/Runner.Listener <<'MOCK'
@@ -27,7 +27,9 @@ MOCK
 in pkgs.testers.runNixOSTest {
   name = "self-hosting";
   nodes.machine = { config, ... }: {
-    imports = [ sopsModule ../profiles/ms-a2.nix ../modules/node.nix ../modules/runners.nix ../modules/cache.nix ../modules/update.nix ];
+    imports = [ sopsModule diskoModule ../hosts/ci.nix ];
+    # The VM root is the test image. Disko still evaluates, but must not mount the host disk layout.
+    disko.enableConfig = lib.mkForce false;
     _module.args = {
       settings = testSettings;
       hardware = { cores = 16; ramGiB = 32; };
