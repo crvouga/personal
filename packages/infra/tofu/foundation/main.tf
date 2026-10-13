@@ -135,9 +135,9 @@ resource "cloudflare_zone_dns_settings" "primary" {
   zone_mode           = local.config.cloudflare.dns_settings.zone_mode
 
   lifecycle {
-    # The provider reads this default into state despite it being optional,
-    # not computed. Do not plan to clear or customize the account's NS TTL.
-    ignore_changes = [ns_ttl]
+    # The provider reads these defaults into state. Leave the account NS TTL
+    # and Foundation DNS unconfigured.
+    ignore_changes = [ns_ttl, foundation_dns]
   }
 }
 

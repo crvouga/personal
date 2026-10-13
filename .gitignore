@@ -32,6 +32,7 @@ packages/turborepo-remote-cache/.env
 *.auto.tfvars.json
 *.backend.hcl
 *.backend.json
+zz-cutover-provider.tf
 crash.log
 
 # Superset design-feedback attachments (generated, not source)

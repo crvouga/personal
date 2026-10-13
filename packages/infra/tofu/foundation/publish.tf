@@ -68,10 +68,12 @@ moved {
   to   = github_repository_file.publish["violets-garden"]
 }
 
+# Iterate the inventory map. Reading the repository resource object warns on
+# every deprecated attribute the provider still exports.
 resource "github_repository_file" "publish" {
-  for_each            = github_repository.application
-  repository          = each.value.name
-  branch              = local.application_repositories[each.key].default_branch
+  for_each            = local.application_repositories
+  repository          = github_repository.application[each.key].name
+  branch              = each.value.default_branch
   file                = ".github/workflows/publish.yml"
   overwrite_on_create = true
   commit_message      = "ci: manage image publishing with OpenTofu [skip ci]"
