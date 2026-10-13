@@ -3,9 +3,12 @@
   # cattle.py writes to /run/fleet/slot-count for the live CPU and RAM.
   slots = settings.capacity.slotMax;
   ids = map (n: "slot-${toString n}") (lib.range 1 slots);
-  runnerPackage = pkgs.writeShellScriptBin "Runner.Listener" ''
+  # The NixOS module applies `pkg.override { nodeRuntimes }`.
+  # writeShellScriptBin has no override. callPackage supplies one, and the
+  # real listener still comes from github-runner so its Node layout follows.
+  runnerPackage = pkgs.callPackage ({ nodeRuntimes ? [ "node24" ] }: pkgs.writeShellScriptBin "Runner.Listener" ''
     set -euo pipefail
-    real=${pkgs.github-runner}/bin/Runner.Listener
+    real=${pkgs.github-runner.override { inherit nodeRuntimes; }}/bin/Runner.Listener
     if [ "''${1:-}" != configure ] || [ ! -s /run/fleet/runner-labels ]; then
       exec "$real" "$@"
     fi
@@ -39,7 +42,7 @@
       esac
     done
     exec "$real" "''${args[@]}"
-  '';
+  '') {};
   scopeFor = n: if settings.github.scope == "organization" then settings.github.organization
     else builtins.elemAt settings.github.repositories (lib.mod (n - 1) (builtins.length settings.github.repositories));
   token = if registrationProvider != null then registrationProvider else pkgs.writeScript "fleet-token" ''#!${pkgs.python3.withPackages (p: [ p.pyjwt p.cryptography ])}/bin/python3
