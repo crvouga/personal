@@ -4,13 +4,13 @@ OpenTofu 1.13.0 is the only infrastructure manager. Resources are declared with 
 
 The canonical inventory is [modules/inventory/inventory.tf.json](modules/inventory/inventory.tf.json), in `locals.inventory`. It is OpenTofu JSON syntax, consumed directly by OpenTofu and read-only documentation/build adapters. There is no parallel YAML inventory.
 
-| Root         | Owns                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `state`      | R2 state bucket and scoped state access token; encrypted local bootstrap state                                                                                                                                                                                                                                                                                                                            |
+| Root         | Owns                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state`      | R2 state bucket and scoped state access token; encrypted local bootstrap state                                                                                                                                                                                                                                                                                                                                 |
 | `foundation` | Cloudflare zone/DNS/NEL/settings/redirects/firewall rules, shared R2 buckets and credentials, tunnel/remote ingress/DNS, Railway project/default-environment policy and Vault hosting, PlanetScale Postgres branch/role and Atlas database schema, every platform GitHub repository and its settings/security/Actions permissions, workspace rules/collaborators/labels/secrets/variables, and publisher files |
-| `bootstrap`  | Original OpenBao initialization material and provider-managed serial Shamir unseal requests                                                                                                                                                                                                                                                                                                               |
-| `vault`      | KV mount, policies, GitHub JWT auth/roles, userpass users, periodic runtime token, generated credentials and complete dev/prd KV documents                                                                                                                                                                                                                                                                |
-| `fleet`      | Every remaining Railway service, image revision, environment variables, domain and DNS record                                                                                                                                                                                                                                                                                                             |
+| `bootstrap`  | Original OpenBao initialization material and provider-managed serial Shamir unseal requests                                                                                                                                                                                                                                                                                                                    |
+| `vault`      | KV mount, policies, GitHub JWT auth/roles, userpass users, periodic runtime token, generated credentials and complete dev/prd KV documents                                                                                                                                                                                                                                                                     |
+| `fleet`      | Every remaining Railway service, image revision, environment variables, domain and DNS record                                                                                                                                                                                                                                                                                                                  |
 
 All state and saved plans are encrypted with OpenTofu's PBKDF2/AES-GCM support. `foundation`, `bootstrap`, `vault` and `fleet` use locked R2 S3 backends. The legacy Fly API returned no apps, so there are no surviving Fly resources to adopt.
 
@@ -57,30 +57,30 @@ tofu -chdir=packages/infra/tofu/foundation apply -parallelism=1 adopt.tfplan
 
 Import addresses (quote module addresses containing brackets):
 
-| Resource            | Address                                                      | Provider import ID                             |
-| ------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| Railway project     | `railway_project.workspace` in foundation                    | Project UUID                                   |
+| Resource            | Address                                                      | Provider import ID                                                    |
+| ------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Railway project     | `railway_project.workspace` in foundation                    | Project UUID                                                          |
 | Postgres branch     | `planetscale_postgres_branch.openbao` in foundation          | `{"database":"personal","id":"<branch id>","organization":"crvouga"}` |
-| Vault service       | `module.vault_service.railway_service.this` in foundation    | Service UUID                                   |
-| Fleet service       | `module.service["<id>"].railway_service.this` in fleet       | Service UUID                                   |
-| Custom domain       | Same module, `railway_custom_domain.this`                    | `<service-id>:production:<hostname>`           |
-| Variable collection | Same module, `railway_variable_collection.this`              | `<service-id>:production:<var-name>:...`       |
-| Cloudflare zone     | `cloudflare_zone.primary` in foundation                      | Zone ID                                        |
-| R2 bucket           | `cloudflare_r2_bucket.shared["development" or "production"]` | `<account-id>/<bucket>/default`                |
-| Tunnel              | `cloudflare_zero_trust_tunnel_cloudflared.router`            | `<account-id>/<tunnel-id>`                     |
-| Custom firewall     | `cloudflare_ruleset.custom["<id>"]`                          | `zones/<zone-id>/<ruleset-id>`                 |
-| GitHub repository   | `github_repository.workspace` or `.application["<name>"]`    | Repository name                                |
-| GitHub repo policy  | Actions/workflow permissions, collaborators and labels       | Repository name                                |
-| GitHub environment  | `github_repository_environment.application["<repo>:<name>"]` | `<repo>:<environment>`                         |
-| GitHub secret       | `github_actions_secret.repository["<repo>:<name>"]`          | `<repo>:<secret-name>`                         |
-| Init material       | `vaultoperator_init.vault` in bootstrap                      | `file:///absolute/path/to/protected-init.json` |
-| KV mount            | `vault_mount.secret` in vault                                | `secret`                                       |
-| Policy              | `vault_policy.this["<name>"]`                                | Policy name                                    |
-| JWT auth            | `vault_jwt_auth_backend.github`                              | `jwt`                                          |
-| JWT role            | `vault_jwt_auth_backend_role.github["github-actions"]`       | `auth/jwt/role/github-actions`                 |
-| Userpass user       | `vault_generic_endpoint.admin["<username>"]`                 | `auth/userpass/users/<username>`               |
-| Userpass auth       | `vault_auth_backend.userpass`                                | `userpass`                                     |
-| KV document         | `vault_kv_secret_v2.personal["dev" or "prd"]`                | `secret/data/personal/<config>`                |
+| Vault service       | `module.vault_service.railway_service.this` in foundation    | Service UUID                                                          |
+| Fleet service       | `module.service["<id>"].railway_service.this` in fleet       | Service UUID                                                          |
+| Custom domain       | Same module, `railway_custom_domain.this`                    | `<service-id>:production:<hostname>`                                  |
+| Variable collection | Same module, `railway_variable_collection.this`              | `<service-id>:production:<var-name>:...`                              |
+| Cloudflare zone     | `cloudflare_zone.primary` in foundation                      | Zone ID                                                               |
+| R2 bucket           | `cloudflare_r2_bucket.shared["development" or "production"]` | `<account-id>/<bucket>/default`                                       |
+| Tunnel              | `cloudflare_zero_trust_tunnel_cloudflared.router`            | `<account-id>/<tunnel-id>`                                            |
+| Custom firewall     | `cloudflare_ruleset.custom["<id>"]`                          | `zones/<zone-id>/<ruleset-id>`                                        |
+| GitHub repository   | `github_repository.workspace` or `.application["<name>"]`    | Repository name                                                       |
+| GitHub repo policy  | Actions/workflow permissions, collaborators and labels       | Repository name                                                       |
+| GitHub environment  | `github_repository_environment.application["<repo>:<name>"]` | `<repo>:<environment>`                                                |
+| GitHub secret       | `github_actions_secret.repository["<repo>:<name>"]`          | `<repo>:<secret-name>`                                                |
+| Init material       | `vaultoperator_init.vault` in bootstrap                      | `file:///absolute/path/to/protected-init.json`                        |
+| KV mount            | `vault_mount.secret` in vault                                | `secret`                                                              |
+| Policy              | `vault_policy.this["<name>"]`                                | Policy name                                                           |
+| JWT auth            | `vault_jwt_auth_backend.github`                              | `jwt`                                                                 |
+| JWT role            | `vault_jwt_auth_backend_role.github["github-actions"]`       | `auth/jwt/role/github-actions`                                        |
+| Userpass user       | `vault_generic_endpoint.admin["<username>"]`                 | `auth/userpass/users/<username>`                                      |
+| Userpass auth       | `vault_auth_backend.userpass`                                | `userpass`                                                            |
+| KV document         | `vault_kv_secret_v2.personal["dev" or "prd"]`                | `secret/data/personal/<config>`                                       |
 
 Providers without import support (Railway settings) adopt existing configuration through their initial create/update operation; review their desired values before applying. A locally managed tunnel must be migrated to remote ingress without replacing its UUID; verify the Cloudflare provider's plan and connector cutover before applying.
 
