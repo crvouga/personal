@@ -25,7 +25,7 @@ MOCK
     cache = settings.cache // { remote = settings.cache.remote // { enable = false; }; };
   };
 in pkgs.testers.runNixOSTest {
-  name = "self-hosted-ci";
+  name = "self-hosting";
   nodes.machine = { config, ... }: {
     imports = [ sopsModule ../profiles/ms-a2.nix ../modules/node.nix ../modules/runners.nix ../modules/cache.nix ../modules/update.nix ];
     _module.args = {

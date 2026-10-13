@@ -1,5 +1,5 @@
 {
-  "name": "@pkgs/self-hosted-ci",
+  "name": "@pkgs/self-hosting",
   "version": "0.0.0",
   "private": true,
   "scripts": {

@@ -29,7 +29,7 @@
   };
   updates = {
     enable = false; # set URL, test SSH and rollbacks, then enable
-    flake = "github:TODO/workspace/main?dir=packages/self-hosted-ci";
+    flake = "github:TODO/workspace/main?dir=packages/self-hosting";
     calendar = "*-*-* 04:00:00"; # UTC; deterministic hostname delay up to 2h
     drainTimeoutSeconds = 7200;
   };

@@ -16,7 +16,7 @@ COPY packages/workstation/package.json ./packages/workstation/
 COPY packages/9router/package.json ./packages/9router/
 COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
-COPY packages/self-hosted-ci/package.json ./packages/self-hosted-ci/
+COPY packages/self-hosting/package.json ./packages/self-hosting/
 
 RUN bun install --frozen-lockfile
 

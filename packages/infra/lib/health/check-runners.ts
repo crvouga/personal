@@ -7,8 +7,8 @@ import { asRecord, asStrings, errorMessage, type HealthContext } from "./context
 import { githubApi } from "./check-github.js";
 import { fail, pass, skip, type CheckResult } from "./report.js";
 
-const FLEET_FILE = "packages/self-hosted-ci/fleet.nix";
-/** Routing labels every fleet job must require; see packages/self-hosted-ci/AGENTS.md. */
+const FLEET_FILE = "packages/self-hosting/fleet.nix";
+/** Routing labels every fleet job must require; see packages/self-hosting/AGENTS.md. */
 const FLEET_LABELS = ["nixos", "ci"];
 
 export type FleetGithub = {

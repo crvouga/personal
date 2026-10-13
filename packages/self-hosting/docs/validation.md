@@ -2,7 +2,7 @@
 
 Validated on 2026-10-10 in the current worktree (macOS ARM64):
 
-- `bun run --filter @pkgs/self-hosted-ci check`: **pass**, ShellCheck, workflow lint, lock checks and 8 Python tests. Tests reject USB/removable/mounted/missing/duplicate/unstable disk targets, verify root-only atomic short-lived registration-token files, exercise both scopes, custom-label drain, pagination, and busy-job timeout.
+- `bun run --filter @pkgs/self-hosting check`: **pass**, ShellCheck, workflow lint, lock checks and 8 Python tests. Tests reject USB/removable/mounted/missing/duplicate/unstable disk targets, verify root-only atomic short-lived registration-token files, exercise both scopes, custom-label drain, pagination, and busy-job timeout.
 - `actionlint .github/workflows/runner-check.yml` and package workflow examples with `actionlint.yaml`: **pass**. The existing `CI` workflow structure passes `actionlint -shellcheck=''`; its full ShellCheck integration reports pre-existing SC2016/SC2129 warnings in unrelated scripts.
 - `just --list`, `just check-local`, recipe parsing and a dry-run ISO command: **pass**, using a temporary downloaded official just binary.
 - Prettier for changed documentation/config, `git diff --check`, `bun run check:llms`, `bun run check:agents`: **pass**.

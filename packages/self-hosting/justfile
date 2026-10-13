@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# Run from this package: just --justfile packages/self-hosted-ci/justfile ...
+# Run from this package: just --justfile packages/self-hosting/justfile ...
 build-iso:
     nix build -L path:.#installer -o result-iso
 

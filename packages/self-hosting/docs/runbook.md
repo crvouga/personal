@@ -2,7 +2,7 @@
 
 ## Preparation and node #1, in order
 
-Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builder. A macOS work computer can evaluate and orchestrate; it cannot build x86_64 Linux closures or run the VM test without a Linux builder. Install `just`, Nix with `nix-command flakes`, `age`, and `sops`. Work in `packages/self-hosted-ci`.
+Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builder. A macOS work computer can evaluate and orchestrate; it cannot build x86_64 Linux closures or run the VM test without a Linux builder. Install `just`, Nix with `nix-command flakes`, `age`, and `sops`. Work in `packages/self-hosting`.
 
 1. Back up all Windows data you need. Installation erases the internal target NVMe. Obtain explicit human approval of that disk. Do not execute the installer on another machine.
 2. In Windows, note firmware version and NIC MACs. If OOBE prevents boot selection, complete only the setup needed to shut down or use firmware's one-time USB boot menu. Firmware key sequences vary: use the manufacturer's instructions, not an assumed key.
@@ -13,12 +13,12 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 
    ```sh
    umask 077
-   mkdir -p "$HOME/.config/self-hosted-ci"
-   age-keygen -o "$HOME/.config/self-hosted-ci/fleet-age.key"
-   age-keygen -y "$HOME/.config/self-hosted-ci/fleet-age.key" # public recipient only
+   mkdir -p "$HOME/.config/self-hosting"
+   age-keygen -o "$HOME/.config/self-hosting/fleet-age.key"
+   age-keygen -y "$HOME/.config/self-hosting/fleet-age.key" # public recipient only
    # Write a YAML document outside Git with github-app-key: | followed by the PEM.
    # Use your editor/password manager; do not paste key material into shell history.
-   sops --encrypt --age AGE_PUBLIC_RECIPIENT --input-type yaml --output-type yaml      "$HOME/.config/self-hosted-ci/fleet.plain.yaml" > secrets/fleet.yaml
+   sops --encrypt --age AGE_PUBLIC_RECIPIENT --input-type yaml --output-type yaml      "$HOME/.config/self-hosting/fleet.plain.yaml" > secrets/fleet.yaml
    ```
 
    Replace the public recipient placeholder in `.sops.yaml` too. Set `secretsFile = ./secrets/fleet.yaml;` in `fleet.nix`; commit only encrypted YAML. No fake encrypted placeholder is shipped. Remove the local plaintext document after storing a secure backup. The ISO includes encrypted YAML through its system closure, **never** the age key. SOPS decryption and registration initially fail safely until you transfer the key.
@@ -26,7 +26,7 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 7. Validate and build from the same committed lock and settings:
 
    ```sh
-   cd packages/self-hosted-ci # if starting at repository root
+   cd packages/self-hosting # if starting at repository root
    just check-local
    just check
    just build-node
@@ -46,7 +46,7 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 10. Verify the SSH host fingerprint using the local screen (`ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub`) before accepting it on the work computer. Then provision the age key and verify:
 
     ```sh
-    just provision-secrets NODE "$HOME/.config/self-hosted-ci/fleet-age.key"
+    just provision-secrets NODE "$HOME/.config/self-hosting/fleet-age.key"
     just status NODE
     just verify-node NODE
     ```
@@ -59,7 +59,7 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 
 `just drain-node NODE` sets an admission barrier and removes custom routing labels from this node's GitHub runner registrations through its App. Workflows **must require `nixos` and `ci`**; jobs targeting only `self-hosted` evade label-based scheduling restrictions. Busy jobs finish without a stop signal. A job already dispatched at the barrier may fail its start hook before project steps run; retry it on another node. GitHub is polled until no matching runner is busy, then local services stop. An API/access error or timeout leaves the barrier set and prevents deployment. `just resume-node NODE` clears it and re-registers each slot with fresh labels/tokens. Always check logs after a timeout.
 
-For pull updates set the reviewed `updates.flake` URL (for this repository include `?dir=packages/self-hosted-ci`), calendar, and `enable = true`. Updates build before draining and stagger by a deterministic hostname checksum delay within a two-hour window. Private flake sources need a separate read-only retrieval mechanism; the App PEM is not reused for GitOps source access. Prefer a public non-secret config source or an approved SSH deploy key installed outside the Nix store. Failed pulls do not change the running generation. GitOps pulls reviewed commits; it does not update `flake.lock` itself. Keep runner pins current through dependency-update PRs and Linux validation: GitHub requires disabled-auto-update runners to update within 30 days of a new runner release. There is no automatic recovery of failed boots without a BMC; keep the screen/keyboard available.
+For pull updates set the reviewed `updates.flake` URL (for this repository include `?dir=packages/self-hosting`), calendar, and `enable = true`. Updates build before draining and stagger by a deterministic hostname checksum delay within a two-hour window. Private flake sources need a separate read-only retrieval mechanism; the App PEM is not reused for GitOps source access. Prefer a public non-secret config source or an approved SSH deploy key installed outside the Nix store. Failed pulls do not change the running generation. GitOps pulls reviewed commits; it does not update `flake.lock` itself. Keep runner pins current through dependency-update PRs and Linux validation: GitHub requires disabled-auto-update runners to update within 30 days of a new runner release. There is no automatic recovery of failed boots without a BMC; keep the screen/keyboard available.
 
 `just rollback NODE` drains, selects the previous generation and reboots. If SSH is lost, use the systemd-boot menu to select the previous generation physically. Never reboot or switch directly during a job. `fleet-resume` is required after a failed deployment that left the node drained.
 
