@@ -3,6 +3,14 @@
   initrd = "${installer.config.system.build.netbootRamdisk}/initrd";
   cmdline = "init=${installer.config.system.build.toplevel}/init ${toString installer.config.boot.kernelParams}";
   policyPort = 4012;
+  # netboot-policy.py loads cattle.py next to itself. A bare interpolated
+  # file lands at /nix/store/<hash>-netboot-policy.py, and that lookup
+  # becomes /nix/store/cattle.py.
+  policy = pkgs.runCommand "fleet-netboot-policy" {} ''
+    mkdir -p "$out"
+    cp ${../scripts/netboot-policy.py} "$out/netboot-policy.py"
+    cp ${../scripts/cattle.py} "$out/cattle.py"
+  '';
 in {
   # Firmware boots the network first (one-time BIOS setup). This host's
   # default answer is the local disk. A stable id or a role listed in
@@ -28,7 +36,7 @@ in {
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
     serviceConfig = {
-      ExecStart = "${pkgs.python3}/bin/python3 ${../scripts/netboot-policy.py}";
+      ExecStart = "${pkgs.python3}/bin/python3 ${policy}/netboot-policy.py";
       Environment = [
         "FLEET_NETBOOT_PORT=${toString policyPort}"
         "FLEET_POLICY=/etc/fleet/reinstall.json"
