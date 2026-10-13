@@ -2,15 +2,25 @@
   settings = import ../fleet.nix;
   mockNix = pkgs.writeShellScriptBin "nix" ''
     set -euo pipefail
+    jobs=""
+    prev=""
     flake=""
     for arg in "$@"; do
+      if [ "$prev" = "--max-jobs" ]; then jobs=$arg; fi
+      prev=$arg
       case "$arg" in
         path:*) flake=$arg ;;
       esac
     done
+    # A missing --max-jobs 0 means the sync script tried to build locally.
+    [ "$jobs" = 0 ]
     [ -n "$flake" ]
     checkout=''${flake#path:}
     checkout=''${checkout%%#*}
+    if [ -f "$checkout/NOT_IN_CACHE" ]; then
+      echo 'not in cache' >&2
+      exit 1
+    fi
     rev=$(${pkgs.git}/bin/git -C "$checkout" rev-parse HEAD)
     kernel_file=$(mktemp)
     if [ -f "$checkout/KERNEL_CHANGE" ]; then
@@ -87,30 +97,30 @@ in pkgs.testers.runNixOSTest {
     machine.succeed(r"""
       set -euo pipefail
       install -d /tmp/origin/packages/fleet /run/fleet-sync
-      git init -b deploy /tmp/origin
+      git init -b main /tmp/origin
       git -C /tmp/origin config user.email test@example.invalid
       git -C /tmp/origin config user.name test
-      echo deploy-a > /tmp/origin/packages/fleet/marker
+      echo waiting > /tmp/origin/packages/fleet/marker
+      touch /tmp/origin/packages/fleet/NOT_IN_CACHE
       git -C /tmp/origin add packages
-      git -C /tmp/origin commit -m deploy-a
-      git -C /tmp/origin branch canary
-      git -C /tmp/origin checkout canary
-      echo canary-b > /tmp/origin/packages/fleet/marker
-      git -C /tmp/origin commit -am canary-b
-      git -C /tmp/origin checkout deploy
-      git -C /tmp/origin rev-parse deploy > /tmp/deploy-a
-      git -C /tmp/origin rev-parse canary > /tmp/canary-b
+      git -C /tmp/origin commit -m 'cache miss'
+    """)
+    machine.fail("fleet-sync")
+    machine.succeed(r"""
+      set -euo pipefail
+      test ! -e /nix/var/nix/profiles/system
+      curl -fsS http://127.0.0.1:9101/metrics | grep -F 'revision="lifecycle-rev"'
+      rm /tmp/origin/packages/fleet/NOT_IN_CACHE
+      echo main-b > /tmp/origin/packages/fleet/marker
+      git -C /tmp/origin add packages
+      git -C /tmp/origin commit -m main-b
+      git -C /tmp/origin rev-parse HEAD > /tmp/main-b
       fleet-sync
       applied=$(cat "$(readlink -f /nix/var/nix/profiles/system)/commit")
-      test "$applied" = "$(cat /tmp/deploy-a)"
+      test "$applied" = "$(cat /tmp/main-b)"
       grep -qx switch /run/fleet-sync/operations
       test ! -e /run/fleet-sync/actions
-      sed "s/^TRACK=.*/TRACK='canary'/" /etc/fleet/sync.env > /tmp/canary.env
-      SYNC_ENV=/tmp/canary.env fleet-sync
-      applied=$(cat "$(readlink -f /nix/var/nix/profiles/system)/commit")
-      test "$applied" = "$(cat /tmp/canary-b)"
       ln -sfn "$(readlink -f /nix/var/nix/profiles/system)" /run/booted-system
-      git -C /tmp/origin checkout deploy
       echo kernel > /tmp/origin/packages/fleet/KERNEL_CHANGE
       git -C /tmp/origin add packages
       git -C /tmp/origin commit -m kernel

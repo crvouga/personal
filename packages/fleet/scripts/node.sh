@@ -11,7 +11,7 @@ case "$operation" in
     ssh "root@$node" 'printf "revision=%s\n" "$(cat /etc/fleet/revision 2>/dev/null || echo unknown)"; printf "system=%s\n" "$(readlink /run/current-system)"; systemctl is-active fleet-sync.timer || true; systemctl --no-pager --failed'
     ;;
   *)
-    echo 'Git is the only control surface. Bootstrap once with: just bootstrap ROLE IP. After that, change nodes by merging to main and promoting canary to deploy.' >&2
+    echo 'Git is the only control surface. Bootstrap once with: just bootstrap ROLE IP. After that, change nodes by merging to main.' >&2
     exit 2
     ;;
 esac

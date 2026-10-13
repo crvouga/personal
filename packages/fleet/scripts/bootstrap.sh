@@ -4,13 +4,13 @@
 # node pulls from git. The disk is chosen on the target. Nothing in git names it.
 set -euo pipefail
 
-role=${1:?role required: ci, web, cache, netboot, ci-gpu, or a -canary track}
+role=${1:?role required: ci, web, cache, netboot, or ci-gpu}
 ip=${2:?IP address required}
 [[ "$ip" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]] || { echo 'Use a DNS name or IPv4 address' >&2; exit 2; }
 
 case "$role" in
-  ci|web|cache|netboot|ci-gpu|ci-canary|web-canary|cache-canary|netboot-canary) ;;
-  *) echo 'role must be ci, web, cache, netboot, ci-gpu, or a -canary track' >&2; exit 2 ;;
+  ci|web|cache|netboot|ci-gpu) ;;
+  *) echo 'role must be ci, web, cache, netboot, or ci-gpu' >&2; exit 2 ;;
 esac
 key_role=${role%%-*}
 

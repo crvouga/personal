@@ -11,12 +11,9 @@
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
     lib = nixpkgs.lib;
-    clean = self.rev or null;
-    dirty = self.dirtyRev or null;
-    revision =
-      if clean != null then clean
-      else if dirty != null then dirty
-      else "unknown";
+    # A dirty tree has no self.rev. Do not publish dirtyRev: it will never
+    # match a system in the binary cache.
+    revision = if (self.rev or null) != null then self.rev else "unknown";
     installerSettings = import ./settings/installer.nix;
     mkHost = settings: hostModule: extraArgs: lib.nixosSystem {
       inherit system;
@@ -32,12 +29,9 @@
     cacheSettings = import ./cache.nix;
     netbootSettings = import ./netboot.nix;
     ci = mkHost ciSettings ./hosts/ci.nix { };
-    ciCanary = mkHost (ciSettings // { track = "canary"; flakeAttr = "ci-canary"; }) ./hosts/ci.nix { };
     ciGpu = mkHost (ciSettings // { flakeAttr = "ci-gpu"; }) ./hosts/ci-gpu.nix { };
     web = mkHost webSettings ./hosts/web.nix { };
-    webCanary = mkHost (webSettings // { track = "canary"; flakeAttr = "web-canary"; }) ./hosts/web.nix { };
     cache = mkHost cacheSettings ./hosts/cache.nix { };
-    cacheCanary = mkHost (cacheSettings // { track = "canary"; flakeAttr = "cache-canary"; }) ./hosts/cache.nix { };
     installerIso = lib.nixosSystem {
       inherit system;
       specialArgs = { settings = installerSettings; };
@@ -56,7 +50,6 @@
       ];
     };
     netboot = mkHost netbootSettings ./hosts/netboot.nix { installer = installerNetboot; };
-    netbootCanary = mkHost (netbootSettings // { track = "canary"; flakeAttr = "netboot-canary"; }) ./hosts/netboot.nix { installer = installerNetboot; };
     # Every role shares this layout. The recorded path is checked again on the
     # target, then linked to the sentinel disko opens.
     installDisk = pkgs.writeShellScript "disko" ''
@@ -84,14 +77,10 @@
   in {
     nixosConfigurations = {
       ci = ci;
-      ci-canary = ciCanary;
       ci-gpu = ciGpu;
       web = web;
-      web-canary = webCanary;
       cache = cache;
-      cache-canary = cacheCanary;
       netboot = netboot;
-      netboot-canary = netbootCanary;
       installer = installerIso;
     };
     packages.${system} = {

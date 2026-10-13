@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Pull this closure's nixosConfiguration from git and switch to it.
-# TRACK=canary follows the canary branch. TRACK=deploy follows deploy.
-# A kernel, initrd, or module change drains (when configured) and reboots
-# after a delay seeded by the stable node id. A failed build or a failed
-# drain leaves the running generation in place.
+# Pull this role's nixosConfiguration from origin/main and switch to it.
+# The system must already be in the binary cache. This script never builds.
+# A kernel, initrd, or module change drains first, then waits, then reboots.
+# A cache miss, a failed build lookup, or a failed drain leaves the running
+# generation in place. The timer retries.
 set -euo pipefail
 
 env_file=${SYNC_ENV:-/etc/fleet/sync.env}
@@ -12,10 +12,8 @@ source "$env_file"
 
 : "${ROLE:?}"
 : "${FLAKE_ATTR:?}"
-: "${TRACK:?}"
+: "${BRANCH:?}"
 : "${REPO_URL:?}"
-: "${DEPLOY_BRANCH:?}"
-: "${CANARY_BRANCH:?}"
 : "${FLAKE_DIR:?}"
 : "${DELAY_MAX:?}"
 
@@ -24,29 +22,32 @@ if [[ "$REPO_URL" == *TODO* ]]; then
   exit 0
 fi
 
+if [ "$BRANCH" != "main" ]; then
+  echo 'sync: BRANCH must be main' >&2
+  exit 1
+fi
+
 nix=${FLEET_NIX:-nix}
 nix_env=${FLEET_NIX_ENV:-nix-env}
 systemctl=${FLEET_SYSTEMCTL:-systemctl}
 git=${FLEET_GIT:-git}
+profile=${FLEET_PROFILE:-/nix/var/nix/profiles/system}
+booted=${BOOTED_SYSTEM:-/run/booted-system}
 state_dir=${STATE_DIR:-/nix/fleet-state/sync}
 repo=$state_dir/repo
-
-case "$TRACK" in
-  canary) branch=$CANARY_BRANCH ;;
-  deploy) branch=$DEPLOY_BRANCH ;;
-  *) echo 'sync: TRACK must be deploy or canary' >&2; exit 1 ;;
-esac
+branch=$BRANCH
 
 install -d -m 0700 "$state_dir"
 g() {
-  "$git" -c "safe.directory=$repo" "$@"
+  if [[ "$REPO_URL" == file:* ]]; then
+    "$git" -c "safe.directory=$repo" -c protocol.file.allow=always "$@"
+  else
+    "$git" -c "safe.directory=$repo" "$@"
+  fi
 }
 
 if [ ! -d "$repo/.git" ]; then
   g init -q "$repo"
-fi
-if [[ "$REPO_URL" == file:* ]]; then
-  g config --global protocol.file.allow always
 fi
 
 askpass=""
@@ -83,12 +84,21 @@ g -C "$repo" remote add origin "$REPO_URL"
 g -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
 g -C "$repo" checkout --detach --force "refs/remotes/origin/${branch}"
 
+# An unconfigured cache must wait. Building locally would publish a system
+# the rest of the fleet cannot substitute.
+if [ -z "${CACHE_URL:-}" ] || [[ "$CACHE_URL" == *TODO* ]]; then
+  echo 'sync: binary cache is not configured; waiting' >&2
+  exit 1
+fi
+
 flake="path:${repo}/${FLAKE_DIR}#nixosConfigurations.${FLAKE_ATTR}.config.system.build.toplevel"
-toplevel=$("$nix" build --no-link --print-out-paths "$flake")
+if ! toplevel=$("$nix" build --max-jobs 0 --no-link --print-out-paths "$flake"); then
+  echo 'sync: system is not in the binary cache; not building locally' >&2
+  exit 1
+fi
 [ -n "$toplevel" ] && [ -d "$toplevel" ]
 
 need_reboot=0
-booted=/run/booted-system
 if [ -e "$booted/kernel" ] && [ -e "$toplevel/kernel" ]; then
   if [ "$(readlink -f "$booted/kernel")" != "$(readlink -f "$toplevel/kernel")" ] \
     || [ "$(readlink -f "$booted/initrd")" != "$(readlink -f "$toplevel/initrd")" ] \
@@ -98,22 +108,28 @@ if [ -e "$booted/kernel" ] && [ -e "$toplevel/kernel" ]; then
 fi
 
 apply() {
-  "$nix_env" -p /nix/var/nix/profiles/system --set "$toplevel"
+  "$nix_env" -p "$profile" --set "$toplevel"
   "$toplevel/bin/switch-to-configuration" "$1"
 }
 
 if [ "$need_reboot" -eq 1 ]; then
+  delay=0
   if [ "$DELAY_MAX" -gt 0 ]; then
+    # Resolve the id before draining. A missing id must not stop runners
+    # and then fail to reboot.
     id=$("${PYTHON:?}" "${CATTLE_PY:?}" print-id) || {
       echo 'sync: stable id failed; not rebooting' >&2
       exit 1
     }
     seed=$(printf '%s' "$id" | cksum | awk '{print $1}')
-    sleep $((seed % DELAY_MAX))
+    delay=$((seed % DELAY_MAX))
   fi
   if [ -n "${DRAIN_COMMAND:-}" ]; then
     export PATH="/run/current-system/sw/bin:${PATH:-}"
     "$DRAIN_COMMAND" "${DRAIN_TIMEOUT:-7200}"
+  fi
+  if [ "$DELAY_MAX" -gt 0 ]; then
+    sleep "$delay"
   fi
   apply boot
   "$systemctl" reboot

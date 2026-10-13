@@ -7,9 +7,13 @@
   gitToken = if auth == "token" then config.sops.secrets.git-read-token.path else "";
 in {
   # comin is not in nixpkgs at the pinned revision 7c8764b7, so this timer is
-  # the pull agent. It fetches one branch and switches nixosConfigurations.<flakeAttr>.
-  # track is deploy or canary in this closure. It is not a MAC.
+  # the pull agent. It fetches main and switches nixosConfigurations.<flakeAttr>
+  # only when that system is already in the binary cache.
   assertions = [
+    {
+      assertion = repo.branch == "main";
+      message = "Every role polls main. There is no deploy or canary branch.";
+    }
     {
       assertion = auth == "none" || settings.secretsFile != null;
       message = "repo.auth needs this role's secretsFile. CI and web must not share that file or its age key.";
@@ -24,11 +28,10 @@ in {
   environment.etc."fleet/sync.env".text = ''
     ROLE=${lib.escapeShellArg settings.role}
     FLAKE_ATTR=${lib.escapeShellArg settings.flakeAttr}
-    TRACK=${lib.escapeShellArg settings.track}
+    BRANCH=${lib.escapeShellArg repo.branch}
     REPO_URL=${lib.escapeShellArg repo.url}
-    DEPLOY_BRANCH=${lib.escapeShellArg repo.deployBranch}
-    CANARY_BRANCH=${lib.escapeShellArg repo.canaryBranch}
     FLAKE_DIR=${lib.escapeShellArg repo.flakeDir}
+    CACHE_URL=${lib.escapeShellArg (if settings.binaryCache.url == null then "" else settings.binaryCache.url)}
     DELAY_MAX=${toString settings.reboot.delayMaxSeconds}
     DRAIN_COMMAND=${lib.escapeShellArg settings.reboot.drainCommand}
     DRAIN_TIMEOUT=${toString settings.reboot.drainTimeoutSeconds}

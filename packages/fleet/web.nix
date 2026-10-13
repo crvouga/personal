@@ -4,7 +4,6 @@ let shared = import ./settings/shared.nix;
 in {
   role = "web";
   flakeAttr = "web";
-  track = "deploy";
   inherit (shared) sshKeys bootGenerationLimit repo binaryCache reboot capacity;
   # TODO: encrypt secrets/web.yaml for this role's age key, then set secretsFile = ./secrets/web.yaml.
   # Never use secrets/fleet.yaml here.

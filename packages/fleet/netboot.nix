@@ -3,7 +3,6 @@ let shared = import ./settings/shared.nix;
 in {
   role = "netboot";
   flakeAttr = "netboot";
-  track = "deploy";
   inherit (shared) sshKeys bootGenerationLimit repo binaryCache reboot capacity;
   # TODO: encrypt secrets/netboot.yaml for this role's age key when repo.auth is set.
   secretsFile = null;

@@ -13,12 +13,8 @@ in {
       message = "settings.role must be a role, not a machine.";
     }
     {
-      assertion = builtins.elem settings.track [ "deploy" "canary" ];
-      message = "settings.track must be deploy or canary. Canary is not a MAC list.";
-    }
-    {
       assertion = lib.hasPrefix settings.role settings.flakeAttr;
-      message = "settings.flakeAttr must be this role or a capability/track variant of it.";
+      message = "settings.flakeAttr must be this role or a capability variant of it.";
     }
     {
       assertion = cap.slotMax >= 1 && cap.slotMax <= 64
@@ -30,7 +26,6 @@ in {
   environment.etc."fleet/node.conf".text = ''
     role=${token settings.role}
     flake_attr=${token settings.flakeAttr}
-    track=${token settings.track}
     reserve_gib=${token cap.reserveGiB}
     per_runner_gib=${token cap.perRunnerGiB}
     per_runner_cores=${token cap.perRunnerCores}

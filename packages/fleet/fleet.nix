@@ -3,7 +3,6 @@ let shared = import ./settings/shared.nix;
 in {
   role = "ci";
   flakeAttr = "ci";
-  track = "deploy";
   inherit (shared) sshKeys bootGenerationLimit repo binaryCache capacity;
   reboot = shared.reboot // { drainCommand = "fleet-drain"; };
   github = {

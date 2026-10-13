@@ -18,7 +18,7 @@
 
 The root is tmpfs. Persistence is the EFI boot partition and `/nix`: store, Nix database/profiles, disposable slot caches, attic data, and `/nix/fleet-state`. Each role has its own age key. Back the keys up outside the fleet. No plaintext secrets are in the flake or ISO.
 
-After bootstrap, `deploy` nodes pull `deploy`. A node bootstrapped as `ci-canary` (or `web-canary`, `cache-canary`, `netboot-canary`) pulls `canary`. They do not pull `main`. The pull agent is `fleet-sync` because comin is not in the pinned nixpkgs. The GitHub Actions workflow that advances those branches runs on `ubuntu-latest`.
+After bootstrap, every node polls `main` and switches only when its system is already in the binary cache. The pull agent is `fleet-sync` because comin is not in the pinned nixpkgs. The node does not build locally.
 
 Run portable checks with `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
 

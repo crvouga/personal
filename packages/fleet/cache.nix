@@ -3,7 +3,6 @@ let shared = import ./settings/shared.nix;
 in {
   role = "cache";
   flakeAttr = "cache";
-  track = "deploy";
   inherit (shared) sshKeys bootGenerationLimit repo binaryCache reboot capacity;
   # TODO: encrypt secrets/cache.yaml for this role's age key, then set this.
   # The file needs attic-env (the server env file) and, when repo.auth is set,

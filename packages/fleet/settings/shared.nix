@@ -10,13 +10,11 @@
   bootGenerationLimit = 8;
 
   repo = {
-    # TODO: real repository URL. Do not guess the owner. A closure with
-    # track = "deploy" pulls deployBranch. track = "canary" pulls canaryBranch.
-    # Nothing tracks main. Canary is not a MAC.
+    # TODO: real repository URL. Do not guess the owner. Every role polls main
+    # over HTTPS. There is no deploy branch and no canary branch.
     url = "https://github.com/TODO/workspace.git";
     flakeDir = "packages/fleet";
-    deployBranch = "deploy";
-    canaryBranch = "canary";
+    branch = "main";
     pollSeconds = 300;
     # none until a read-only deploy key or token is encrypted into this role's
     # sops file. Then set "ssh" or "token". CI and web still use different age keys.

@@ -1,6 +1,6 @@
 # Fleet operations
 
-Git is the control surface. Bootstrap is the one SSH write. After that, a node pulls `deploy` or `canary` by itself. Do not SSH a configuration change onto a node. `just status NODE` only prints the revision, the current system, the sync timer, and failed units.
+Git is the control surface. Bootstrap is the one SSH write. After that, a node pulls `main` by itself. Do not SSH a configuration change onto a node. `just status NODE` only prints the revision, the current system, the sync timer, and failed units.
 
 The human steps that git cannot do are in [checklist.md](checklist.md): firmware, racking, cabling, and the role age key.
 
@@ -40,7 +40,7 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
    just bootstrap ci NODE
    ```
 
-   Replace `ci` with `web`, `cache`, `netboot`, `ci-gpu`, or `ci-canary` (also `web-canary`, `cache-canary`, `netboot-canary`). `NODE` is the installer address. `ci-gpu` and `ci-canary` use the `ci` age key. The command refuses a missing role key, a key inside this repo, two identical role keys, and an empty SSH key list. It builds the shared disko script and that configuration, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
+   Replace `ci` with `web`, `cache`, `netboot`, or `ci-gpu`. `NODE` is the installer address. `ci-gpu` uses the `ci` age key. The command refuses a missing role key, a key inside this repo, two identical role keys, and an empty SSH key list. It builds the shared disko script and that configuration, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
 
 9. Remove the USB. On the console, read `ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub` and accept that fingerprint. Then `just status NODE`. A CI hostname looks like `ci-a3f9`, `ci-gpu-7c21`, or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`.
 
@@ -48,13 +48,11 @@ To install another node of the same role, boot the same USB and run bootstrap ag
 
 ## What the nodes pull
 
-comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Do not point it at `main`. Until `deploy` exists, a configured node fails the fetch and keeps the generation bootstrap installed. The first `promote-deploy` run creates `deploy`. `canary` is created by the first push to `main` after this workflow is on the default branch.
+comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Every role polls `main` over HTTPS. There is no `deploy` branch and no `canary` branch.
 
-- A node installed as `ci`, `web`, `cache`, or `netboot` tracks `deploy`.
-- A node installed as `ci-canary`, `web-canary`, `cache-canary`, or `netboot-canary` tracks `canary`. That is a track on the same role, not a MAC and not a different disk layout.
-- `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
+The node switches only when `nix build --max-jobs 0` can substitute that role's toplevel from the attic cache. A miss keeps the running generation and the timer retries. The node does not build locally. While `binaryCache.url` or `binaryCache.publicKey` is null or contains `TODO`, the node waits the same way. `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
 
-A kernel, initrd, or module change waits up to two hours, seeded by the stable node id, so the fleet does not reboot together. CI nodes then run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place. systemd-boot keeps 8 generations. The weekly garbage collection deletes generations older than 14 days.
+A kernel, initrd, or module change drains first, then waits up to two hours, seeded by the stable node id, so the fleet does not reboot together. The id is read before the drain. If that read fails, the node does not drain and does not reboot. CI nodes run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place. systemd-boot keeps 8 generations. The weekly garbage collection deletes generations older than 14 days.
 
 The running commit is `cat /etc/fleet/revision` and `curl -fsS http://127.0.0.1:9101/metrics` on the node. The metrics port is localhost only.
 

@@ -1,5 +1,6 @@
 { config, lib, pkgs, revision ? null, ... }: let
-  # self.rev is null on a dirty tree. Callers pass dirtyRev or "unknown".
+  # self.rev is null on a dirty tree. Callers pass "unknown" then. A dirtyRev
+  # is not a cache key, so it is not published.
   rev = if revision == null then "unknown" else revision;
   server = pkgs.writeText "fleet-revision.py" ''
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
