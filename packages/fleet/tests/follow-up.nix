@@ -20,11 +20,19 @@
     kernel_file=$(mktemp)
     printf 'same\n' > "$kernel_file"
     kernel_store=$(${pkgs.nix}/bin/nix-store --add "$kernel_file")
+    # nix-store --add garbage-collects on exit. Nothing roots this object yet,
+    # so that collection deletes it and the toplevel symlink dangles. [ -e ]
+    # on a dangling symlink is false, and fleet-sync then skips the reboot
+    # check. Root it before the toplevel add. The path file is a real
+    # reference so the generation keeps the object after this process exits.
+    mkdir -p /nix/var/nix/gcroots
+    ln -sfn "$kernel_store" "/nix/var/nix/gcroots/''${kernel_store##*/}"
     work=$(mktemp -d)
     mkdir -p "$work/bin"
     ln -s "$kernel_store" "$work/kernel"
     ln -s "$kernel_store" "$work/initrd"
     ln -s "$kernel_store" "$work/kernel-modules"
+    printf '%s\n' "$kernel_store" > "$work/kernel-path"
     printf '%s\n' "$rev" > "$work/commit"
     # The guest has /bin/sh. /bin/bash is absent, and a missing interpreter exits 126.
     cat > "$work/bin/switch-to-configuration" <<'EOF'
@@ -33,7 +41,11 @@ install -d -m 0755 /run/fleet-sync
 printf '%s\n' "$1" >> /run/fleet-sync/operations
 EOF
     chmod +x "$work/bin/switch-to-configuration"
-    ${pkgs.nix}/bin/nix-store --add "$work"
+    toplevel=$(${pkgs.nix}/bin/nix-store --add "$work")
+    test -e "$toplevel/kernel"
+    test -e "$toplevel/initrd"
+    test -e "$toplevel/kernel-modules"
+    printf '%s\n' "$toplevel"
   '';
   mockHealth = pkgs.writeShellScript "fleet-health" ''
     if [ -f /run/fleet-sync/fail-health ]; then
@@ -81,6 +93,9 @@ in pkgs.testers.runNixOSTest {
       git -C /tmp/origin add packages
       git -C /tmp/origin commit -m a
       git -C /tmp/origin rev-parse HEAD > /tmp/commit-a
+      # The harness symlink is this VM's own generation. These switches have
+      # no previous fleet generation, so a live kernel must not force a reboot.
+      rm -f /run/booted-system
       fleet-sync
       applied=$(cat "$(readlink -f /nix/var/nix/profiles/system)/commit")
       test "$applied" = "$(cat /tmp/commit-a)"
