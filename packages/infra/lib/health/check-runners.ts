@@ -31,13 +31,27 @@ export function parseFleetGithub(nix: string): FleetGithub {
   };
 }
 
+/**
+ * Node lag is not observable from here. Each node compares itself with
+ * origin/main (`fleet-drift.service`). This is not OpenTofu plan drift.
+ * TODO: metrics are only on 127.0.0.1:9101. No scraper exists, so a node
+ * that stops reporting is invisible outside that machine.
+ */
+export function checkFleetRevision(): CheckResult {
+  return skip(
+    "fleet revision",
+    "TODO: no scraper for 127.0.0.1:9101. A silent node is invisible here. fleet-drift.service is the on-node lag signal; this is not OpenTofu plan drift.",
+  );
+}
+
 export async function checkRunners(ctx: HealthContext): Promise<readonly CheckResult[]> {
   const name = "runner fleet";
+  const revision = checkFleetRevision();
   const path = join(ctx.repoRoot, FLEET_FILE);
-  if (!ctx.fileExists(path)) return [skip(name, `${FLEET_FILE} not found`)];
+  if (!ctx.fileExists(path)) return [skip(name, `${FLEET_FILE} not found`), revision];
   const fleet = parseFleetGithub(ctx.readFile(path));
   if (!fleet.configured) {
-    return [skip(name, `not deployed: ${FLEET_FILE} still has TODO placeholders for its GitHub registration`)];
+    return [skip(name, `not deployed: ${FLEET_FILE} still has TODO placeholders for its GitHub registration`), revision];
   }
   const token = ctx.githubToken();
   if (!token) return [skip(name, "no GitHub token: set GH_TOKEN or run `gh auth login`")];
@@ -45,7 +59,7 @@ export async function checkRunners(ctx: HealthContext): Promise<readonly CheckRe
   const scopes =
     fleet.scope === "organization" ? [`orgs/${fleet.organization}`] : fleet.repositories.map((repo) => `repos/${repo}`);
 
-  return Promise.all(
+  const runners = await Promise.all(
     scopes.map(async (scope) => {
       const label = `runners ${scope}`;
       try {
@@ -67,4 +81,5 @@ export async function checkRunners(ctx: HealthContext): Promise<readonly CheckRe
       }
     }),
   );
+  return [...runners, revision];
 }

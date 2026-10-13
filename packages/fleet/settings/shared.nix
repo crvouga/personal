@@ -42,6 +42,12 @@
     highMemGiB = 60;
   };
 
+  # How long origin/main may be ahead before fleet-drift fails.
+  # The poll is repo.pollSeconds. A fresh merge stays inside this window.
+  drift = {
+    maxMinutes = 30;
+  };
+
   reboot = {
     # Spread kernel reboots across this many seconds using the stable node id.
     delayMaxSeconds = 7200;
