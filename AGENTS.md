@@ -7,14 +7,14 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/portfolio`: Astro static portfolio, GitHub insights, generated resume PDF. Content lives in `src/content/projects/`; append projects to `entries-part-2.ts`. Build with Node >=22 and Playwright Chromium. Do not commit `dist/` or the generated PDF.
 - `packages/turborepo-remote-cache`: Bun cache server backed by the shared R2 buckets. Runtime closure: `@pkgs/{assert,logger,object-store,secret-store,secret-string,vault}`.
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
-- `packages/self-hosting`: NixOS-managed self-hosted GitHub Actions runner fleet; see its `AGENTS.md`.
+- `packages/self-hosting`: NixOS configurations for physical machines we own (CI runners and web servers); see its `AGENTS.md`. Do not provision cloud resources there.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
 - `packages/9router`: local CLI and tunnel connector. It consumes OpenTofu-managed secrets and remote tunnel configuration.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
 
 ## Hard infrastructure rule
 
-**Infrastructure resources are managed exclusively by OpenTofu**, except the explicitly requested bare-metal CI runner fleet in `packages/self-hosting`, which is defined and managed by its pinned NixOS flake. Do not extend that exception to other infrastructure. Never add provisioning, reconciliation, API mutation, secret seeding, shell provisioners, `local-exec`, `remote-exec`, or alternative IaC controllers elsewhere. Runtime application operations, image builds, secret reads and HTTP probes are not infrastructure provisioning.
+**Infrastructure resources are managed exclusively by OpenTofu**, except physical machines we own, which are defined in `packages/self-hosting` by its pinned NixOS flake. That package must not provision cloud resources. Do not extend the NixOS exception to cloud infrastructure, and do not define self-hosted machines in OpenTofu. Never add provisioning, reconciliation, API mutation, secret seeding, shell provisioners, `local-exec`, `remote-exec`, or alternative IaC controllers elsewhere. Runtime application operations, image builds, secret reads and HTTP probes are not infrastructure provisioning.
 
 Canonical inventory: `packages/infra/tofu/modules/inventory/inventory.tf.json` (`locals.inventory`). Resource definitions: `packages/infra/tofu/{state,foundation,bootstrap,vault,fleet}`. See `packages/infra/tofu/README.md` for ownership, migration and state requirements. Do not introduce a YAML or TypeScript desired-state inventory.
 
