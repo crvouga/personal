@@ -1,6 +1,6 @@
 OS-level configuration for machines we operate (NixOS roles, hardware profiles, bootstrap, sync). Does not create cloud resources or DNS; that's `../infra`.
 
-Git is the only control surface after bootstrap. After that, SSH is read-only emergency access. No changes are ever made over SSH. `just status NODE` only reads. `fleet-install ROLE` on the live image is the one-time install write, and it wipes the disk.
+Git is the only control surface after bootstrap. After that, SSH is read-only emergency access. No changes are ever made over SSH. `just status NODE` only reads. The installer USB is the one-time install write, and it wipes the internal disk.
 
 After the first bootstrap, the only manual tasks are physical: hardware replacement, cleaning, and one-time BIOS setup. Anything else that seems to need a person at the machine is a bug in the automation. Fix it in this package.
 
@@ -17,7 +17,7 @@ CI and web must never share an age key or a secrets file. Cache and netboot use 
 
 To add a role, add `modules/<role>.nix` with only that role's services, add `hosts/<role>.nix` that imports `base.nix` and that module, and add a settings file plus a `nixosSystem` in `flake.nix`. Set `reboot.drainCommand` only when the role must drain before a kernel reboot. Every role uses `modules/disks/internal.nix`.
 
-To add a machine of an existing role, boot the installer image and run `fleet-install` for that role on its console. Do not add a host file, a profile, or a hand-picked name.
+To add a machine of an existing role, boot the installer image and choose that role on the boot menu. The default entry is `ci`. Do not add a host file, a profile, or a hand-picked name. Windows, Linux, or an empty disk are the same boot.
 
 ## Cattle, not pets
 
@@ -27,7 +27,7 @@ Never add per-machine configuration or a hand-picked name. No `hardware-configur
 
 The generic profile boots a reasonable x86_64 UEFI machine: broad initrd modules, both Intel and AMD microcode, redistributable firmware, and DHCP on every wired Ethernet device by type. aarch64 is a later architecture variant of these same roles, not a board file. The kernel is the NixOS default.
 
-Disko installs the sentinel `/dev/fleet-install-disk`. Bootstrap asks the installer to pick the first internal NVMe, then the first SATA disk, skipping USB, removable, hotplug, and anything mounted. The operator types that discovered path. Filesystems are labeled `SHBOOT` and `sh-nix` and mounted by label.
+Disko installs the sentinel `/dev/fleet-install-disk`. The installer picks the first internal NVMe, then the first SATA disk, skipping USB, removable, hotplug, and anything mounted. With `FLEET_AUTO=1` it wipes that disk. A manual `fleet-install ROLE` still requires the path to be typed. Filesystems are labeled `SHBOOT` and `sh-nix` and mounted by label.
 
 ### Hostnames
 
@@ -47,7 +47,7 @@ To add an app on the web role, append one attrset to `apps` in `web.nix`: `name`
 
 ## Bootstrap
 
-The installer ISO is built by the `Fleet` workflow and uploaded as `fleet-installer`. `just fetch-iso` downloads it onto any computer with `gh`. It contains the `ci`, `web`, `cache`, and `netboot` closures. `ci-gpu` is not on the image. One USB is used for every box. Boot it. The console logs in as `nixos` and prints `fleet-install ci`. That command, on the machine, selects the internal disk, waits for that path to be typed, generates the role age key, and installs the closure that is already on the image. `sshKeys` may stay empty. `just bootstrap ROLE IP` only forwards a keyboard over SSH when a key is configured. It does not build Nix and it does not read an age key.
+The installer ISO is built by the `Fleet` workflow and uploaded as `fleet-installer`. `just fetch-iso` downloads it onto any computer with `gh`. It contains the `ci`, `web`, `cache`, and `netboot` closures. `ci-gpu` is not on the image. One USB is used for every box, whether that box currently runs Windows, Linux, or nothing. The boot menu lists the four roles. `ci` is the default and boots after 5 seconds. `fleet.role=` on the kernel command line selects the closure. A later `fleet.role=` wins, which is how the web, cache, and netboot menu entries override the default. The live image then runs `fleet-auto` and wipes the chosen internal disk. `sshKeys` may stay empty. `just bootstrap ROLE IP` only forwards a keyboard over SSH when a key is configured, and it sets `FLEET_AUTO=1`. It does not build Nix and it does not read an age key.
 
 The private key is created at `/nix/fleet-state/secrets/age.key`. The public key is printed on the console and stored in `age.pub`. A filesystem labeled `FLEET-KEY` supplies `<role>.age` when the file is already there, and receives a newly generated key when it is not, so the next node of that role can decrypt the same sops file. This package does not generate a key into git. The netboot ramdisk does not carry the role closures. TODO: the netboot host does not serve this ISO, so a flagged reinstall still needs the USB image.
 
@@ -71,7 +71,7 @@ Git read access is `repo.auth`: `none`, `ssh` (`/run/secrets/git-read-key`), or 
 
 The fleet binary cache is attic. Clients add it as a substituter only when `binaryCache.url` and `binaryCache.publicKey` are both set and neither contains `TODO`. Leave both null until they are real. Do not enable it together with `cache.remote`. Attic storage is bind-mounted from `/nix/fleet-state/attic` because the root is tmpfs. The cache role stays off while its `secretsFile` is null, so a build does not mint a JWT.
 
-`.github/workflows/fleet.yml` is a byte copy of `workflows/fleet.yml`. It runs on `ubuntu-latest`, never on this fleet, so a broken fleet can still be fixed by merging. It has no `on.paths` filter. The `Fleet` job always reports a status. When the diff does not touch this package, that job succeeds without building. A pull request that does touch it runs `nix flake check` (cattle enforcement and the NixOS VM tests, including `follow-up`) and builds `ci`, `web`, `cache`, `netboot`, and the installer. `follow-up` is the check that a node which has switched can pull and switch to the next commit, and that a failed health check restores the previous one. It is required because `nix flake check` runs it. There is no separate GitHub status name. `ci-gpu` is evaluated and is not a default build.
+`.github/workflows/fleet.yml` is a byte copy of `workflows/fleet.yml`. It runs on `ubuntu-latest`, never on this fleet, so a broken fleet can still be fixed by merging. It has no `on.paths` filter. The `Fleet` job always reports a status. When the diff does not touch this package, that job succeeds without building. A pull request that does touch it runs `nix flake check --max-jobs 2` (cattle enforcement and the NixOS VM tests, including `follow-up`) and builds `ci`, `web`, `cache`, `netboot`, and the installer. The job cap keeps the QEMU guests inside the 16 GB GitHub-hosted runner. `follow-up` is the check that a node which has switched can pull and switch to the next commit, and that a failed health check restores the previous one. It is required because `nix flake check` runs it. There is no separate GitHub status name. `ci-gpu` is evaluated and is not a default build.
 
 The merge queue runs the same check, then pushes those four toplevels to attic. The push fails closed while `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, or `FLEET_ATTIC_TOKEN` is unset. Do not invent them. There is no post-merge cache job. The ruleset's merge method is `MERGE`, so the merge-group commit is the commit that lands on `main`, and `configurationRevision` matches the cached system. Squash or rebase would not.
 

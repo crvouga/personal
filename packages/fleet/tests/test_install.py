@@ -132,6 +132,44 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertFalse(self.log.exists())
 
+    def test_auto_wipes_without_typing_the_path(self):
+        env = self.env.copy()
+        env["FLEET_AUTO"] = "1"
+        result = subprocess.run(
+            [str(SCRIPT), "ci"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        disk = "/dev/disk/by-path/pci-0000:01:00.0-nvme-1"
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"disko {disk}", self.log.read_text())
+        self.assertIn("Wiping that disk", result.stderr)
+        self.assertNotIn("AGE-SECRET-KEY-STUB", result.stderr)
+
+    def test_cmdline_role_uses_the_last_value(self):
+        cmdline = self.root / "cmdline"
+        cmdline.write_text("root=LABEL=nixos fleet.role=ci fleet.role=web\n")
+        web = self.root / "systems" / "web"
+        web.mkdir()
+        self.manifest.write_text(
+            f"ci {self.system}\nweb {web}\ndisko {self.disko}\n"
+        )
+        env = self.env.copy()
+        env["FLEET_AUTO"] = "1"
+        env["FLEET_CMDLINE"] = str(cmdline)
+        result = subprocess.run(
+            [str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"install --no-root-passwd --root {self.mnt} --system {web}", self.log.read_text())
+        self.assertIn("Role: web", result.stderr)
+
     def test_non_tty_refuses_before_disko(self):
         result = subprocess.run(
             [str(SCRIPT), "ci"],

@@ -8,27 +8,26 @@ Installing a node needs `gh` and a USB port. It does not need Nix, an age key, o
 
 ## Install one machine
 
-1. Back up anything on the disk. Installation erases it, including Windows. The person at the machine types the disk path before anything is erased.
-2. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git.
-3. Download the image the `Fleet` workflow already built and flash it. On Linux the device is `/dev/disk/by-id/usb-*`. On macOS it is `/dev/diskN` from `diskutil list external physical`.
+The machine can be in Windows setup, a Linux install, or have no OS. Boot the fleet USB from the firmware menu. The stick replaces whatever is on the internal disk. Nodes keep no previous state.
+
+1. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git. The lasting boot order is network, then the internal disk. Use the one-time boot menu for the stick.
+2. Download the image the `Fleet` workflow already built and flash it. On Linux the device is `/dev/disk/by-id/usb-*`. On macOS it is `/dev/diskN` from `diskutil list external physical`.
 
    ```sh
    just fetch-iso
    just flash-usb fleet-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
    ```
 
-   The script prints the disk identity and requires typing that same path. It refuses an internal disk.
+   The script prints the USB identity and requires typing that same path. It refuses an internal disk. One stick installs every later machine.
 
-4. Boot the stick on the new machine. The console logs in as `nixos` and prints the install command. Run one of `fleet-install ci`, `web`, `cache`, or `netboot`. `ci-gpu` is not on this image. The command prints the internal disk (`select-disk` skips USB, removable, hotplug, and mounted disks) and waits for that path. It then generates `/nix/fleet-state/secrets/age.key`, installs the closure from the image, and prints the public key. The private key is not printed.
-5. Plug in a filesystem labeled `FLEET-KEY` first when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
-6. Remove the USB and reboot. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
-7. `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there. It does not build and it does not read a key file. With `sshKeys` empty, use the console.
+3. Plug in a filesystem labeled `FLEET-KEY` when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
+4. Boot the stick. The menu waits 5 seconds and then installs `ci`. Choose `web`, `cache`, or `netboot` before that. `ci-gpu` is not on this image. `select-disk` skips USB, removable, hotplug, and mounted disks, and the image wipes the disk it chose. It generates `/nix/fleet-state/secrets/age.key`, installs the closure from the image, prints the public key, and reboots. The private key is not printed.
+5. Pull the USB if this firmware would boot it again. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
+6. `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there with the wipe already approved. It does not build and it does not read a key file. With `sshKeys` empty, the boot menu is the install.
 
 TODO: the netboot ramdisk does not carry the role closures, and the netboot host does not serve this ISO. A reinstall flag boots a live image that cannot install. Use the USB image until that serving exists.
 
-A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same image and, for a shared sops file, plug in the same `FLEET-KEY` volume.
-
-To install another node of the same role, boot the same USB and run bootstrap again. The DMI UUID supplies the stable id. No per-node Nix file is added.
+A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same USB and leave the menu on that role. For a shared sops file, plug in the same `FLEET-KEY` volume. The DMI UUID supplies the stable id. No per-node Nix file is added.
 
 ## Reinstall from the netboot server
 

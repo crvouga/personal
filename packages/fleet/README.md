@@ -20,6 +20,6 @@ The root is tmpfs. Persistence is the EFI boot partition and `/nix`: store, Nix 
 
 After bootstrap, every node polls `main` and switches only when its system is already in the binary cache. The pull agent is `fleet-sync` because comin is not in the pinned nixpkgs. The node does not build locally.
 
-Run portable checks with `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
+`just` and the other system tools are pinned in the repo-root `mise.toml`. Run `mise install` once. Portable checks are `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
 
 GitHub only loads reusable workflows from `.github/workflows`, so the callable runner entrypoint is [runner-check.yml](../../.github/workflows/runner-check.yml). The fleet gate is [fleet.yml](../../.github/workflows/fleet.yml), copied from this package. It runs on GitHub-hosted runners. `ci.yml` stays there too. The merge queue fills the binary cache before a fleet commit reaches `main`.

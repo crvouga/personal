@@ -31,9 +31,6 @@ esac
 MOCK
     chmod +x $out/bin/Runner.Listener
   '') {};
-  nvmeDisk = pkgs.runCommand "cattle-nvme-disk" { } ''
-    truncate -s 64M "$out"
-  '';
   selectDisk = pkgs.writeShellScriptBin "select-disk" ''
     export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux ]}:$PATH
     exec ${pkgs.python3}/bin/python3 ${../scripts/cattle.py} select-disk
@@ -70,11 +67,19 @@ in pkgs.testers.runNixOSTest {
   nodes.big = {
     imports = [ machine ];
     virtualisation = {
-      memorySize = 4096;
+      # MemTotal must stay strictly above the test highMemGiB of 2 and must
+      # cover two 1 GiB slots. 4096 MiB was OOM-killed on the 16 GB
+      # GitHub-hosted runner while other NixOS tests booted: QEMU died during
+      # the QMP handshake, so the driver only reported "connection reset".
+      memorySize = 2304;
       cores = 4;
+      # The runner script leaves this word unquoted, so the substitution runs
+      # before exec. A store path is read-only and QEMU will not open it.
       qemu.options = [
-        "-drive" "if=none,id=nvmedisk,file=${nvmeDisk},format=raw"
-        "-device" "nvme,drive=nvmedisk"
+        "-drive"
+        ''if=none,id=nvmedisk,file=$(truncate -s 64M "$TMPDIR/nvme.img" && printf %s "$TMPDIR/nvme.img"),format=raw''
+        "-device"
+        "nvme,drive=nvmedisk,serial=cattle"
       ];
     };
   };

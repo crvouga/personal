@@ -26,4 +26,4 @@ if [ ! -t 0 ]; then
 fi
 
 echo 'The machine runs fleet-install. This session only forwards the keyboard.' >&2
-exec ssh -t -o StrictHostKeyChecking=accept-new -o BatchMode=yes "root@${ip}" fleet-install "$role"
+exec ssh -t -o StrictHostKeyChecking=accept-new -o BatchMode=yes "root@${ip}" "FLEET_AUTO=1 fleet-install ${role}"

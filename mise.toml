@@ -1,0 +1,15 @@
+# System tools for this repo. `mise install` from the repo root.
+# The shell needs: eval "$(mise activate zsh)"
+# Nix is not included. Fleet images are built by the Fleet workflow.
+
+[tools]
+just = "1.58.0"
+gh = "2.102.0"
+age = "1.3.2"
+sops = "3.13.3"
+shellcheck = "0.11.0"
+actionlint = "1.7.12"
+opentofu = "1.13.0"
+bun = "1.3.11"
+node = "22.22.3"
+atlas = "1.3.0"

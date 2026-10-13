@@ -8,7 +8,11 @@
     assertion = config.networking.hostName == "";
     message = "The installer does not set a static hostname.";
   }];
+  # age stays on the system path. The console user is nixos, and sudo's
+  # secure_path drops the fleet-install wrapper's PATH. age-keygen has to
+  # survive that. select-disk and nixos-install are already there.
   environment.systemPackages = [
+    pkgs.age
     (pkgs.writeShellScriptBin "select-disk" ''
       export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux ]}:$PATH
       exec ${pkgs.python3}/bin/python3 ${../scripts/cattle.py} select-disk
@@ -16,16 +20,43 @@
     (pkgs.writeShellScriptBin "fleet-install" ''
       export PATH=${lib.makeBinPath [
         pkgs.coreutils pkgs.bash pkgs.age pkgs.openssh pkgs.python3
-        pkgs.util-linux pkgs.gawk pkgs.sudo
+        pkgs.util-linux pkgs.gawk pkgs.sudo pkgs.diffutils
       ]}:$PATH
       exec ${pkgs.bash}/bin/bash ${../scripts/fleet-install.sh} "$@"
     '')
   ];
   users.motd = ''
-    fleet installer. This live image has not touched the disk.
-    Install on this machine: fleet-install ci
-    Roles on this image: ci, web, cache, netboot.
+    fleet installer. The boot menu chooses ci, web, cache, or netboot.
+    The default entry wipes the internal disk and installs ci.
+    A failed install can be retried with: fleet-install ci
   '';
+  systemd.services.fleet-auto-install = {
+    description = "Wipe the internal disk and install the role from the boot menu";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "getty@tty1.service" ];
+    after = [ "systemd-udev-settle.service" "local-fs.target" ];
+    unitConfig.ConditionPathExists = "/iso/fleet-install-manifest";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      StandardOutput = "journal+console";
+      StandardError = "journal+console";
+    };
+    # A service path replaces the default and hides select-disk and
+    # nixos-install. Keep the live system profile, then the tools this unit calls.
+    script = ''
+      export PATH="/run/current-system/sw/bin:${lib.makeBinPath [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.gawk
+        pkgs.util-linux
+        pkgs.systemd
+        pkgs.age
+        pkgs.diffutils
+      ]}"
+      exec ${pkgs.bash}/bin/bash ${../scripts/fleet-auto.sh}
+    '';
+  };
   services.openssh = {
     enable = true;
     settings = {

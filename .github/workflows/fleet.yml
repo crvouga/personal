@@ -48,7 +48,9 @@ jobs:
         working-directory: packages/fleet
         run: |
           set -euo pipefail
-          nix flake check --no-write-lock-file --system x86_64-linux -L
+          # Public ubuntu-latest is 4 cores and 16 GB, and Nix starts one build
+          # per core. These NixOS tests boot QEMU guests. Two at a time fit.
+          nix flake check --no-write-lock-file --system x86_64-linux --max-jobs 2 -L
           # ci-gpu stays a nixosConfiguration. It is not a default build.
           nix build --no-link -L \
             'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot'

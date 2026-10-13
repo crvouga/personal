@@ -6,15 +6,41 @@
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ] && [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
-  exec sudo -n -- "$0" "$@"
+  exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST -- "$0" "$@"
 fi
 
 usage() {
   echo 'usage: fleet-install ci|web|cache|netboot' >&2
+  echo 'The boot menu sets fleet.role= and the image installs that role.' >&2
   echo 'ci-gpu is not on this image.' >&2
 }
 
+# The last fleet.role= wins. A specialisation appends its role after the
+# default, and both end up on the kernel command line.
+role_from_cmdline() {
+  local file=$1
+  [ -r "$file" ] || return 0
+  awk '
+    {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^fleet\.role=/) {
+          value = $i
+          sub(/^fleet\.role=/, "", value)
+          last = value
+        }
+      }
+    }
+    END { printf "%s", last }
+  ' "$file"
+}
+
 role=${1:-}
+if [ -z "$role" ]; then
+  role=${FLEET_ROLE:-}
+fi
+if [ -z "$role" ]; then
+  role=$(role_from_cmdline "${FLEET_CMDLINE:-/proc/cmdline}")
+fi
 case "$role" in
   ci|web|cache|netboot) ;;
   ci-gpu)
@@ -94,19 +120,23 @@ again=$("$select_disk")
   exit 1
 }
 
-if [ ! -t 0 ]; then
-  echo 'Refusing to wipe a disk without a terminal. Nothing was wiped.' >&2
-  exit 2
-fi
 echo "Role: $role" >&2
 echo "Disk: $device" >&2
-echo 'This erases that disk, including Windows or any other OS.' >&2
-echo 'Type the disk path to continue:' >&2
-read -r answer
-[ "$answer" = "$device" ] || {
-  echo 'Disk path did not match. Nothing was changed.' >&2
-  exit 1
-}
+if [ "${FLEET_AUTO:-}" = 1 ]; then
+  echo 'Wiping that disk. Any Windows or Linux on it is erased.' >&2
+else
+  if [ ! -t 0 ]; then
+    echo 'Refusing to wipe a disk without a terminal. Nothing was wiped.' >&2
+    exit 2
+  fi
+  echo 'This erases that disk, including Windows or any other OS.' >&2
+  echo 'Type the disk path to continue:' >&2
+  read -r answer
+  [ "$answer" = "$device" ] || {
+    echo 'Disk path did not match. Nothing was changed.' >&2
+    exit 1
+  }
+fi
 
 "$disko"
 
