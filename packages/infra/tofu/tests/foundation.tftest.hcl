@@ -56,7 +56,7 @@ variables {
 run "complete_adoption_plan" {
   command = plan
   assert {
-    condition     = planetscale_postgres_branch.openbao.cluster_size == "PS_5_AWS_ARM" && planetscale_postgres_branch.openbao.region == "us-east-1" && planetscale_postgres_branch.openbao.major_version == "18"
+    condition     = planetscale_postgres_branch.openbao.cluster_size == "PS_5_AWS_ARM" && planetscale_postgres_branch.openbao.region == "us-east" && planetscale_postgres_branch.openbao.major_version == "18"
     error_message = "The database must stay the smallest single-region network-attached size."
   }
   assert {

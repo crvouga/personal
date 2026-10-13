@@ -48,7 +48,7 @@ export const CONFIG: InfraConfig = {
         organization: "example",
         name: "personal",
         branch: "main",
-        region: "us-east-1",
+        region: "us-east",
         cluster_size: "PS_5_AWS_ARM",
         major_version: "18",
         replicas: 0,
