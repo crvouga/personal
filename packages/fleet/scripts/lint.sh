@@ -9,6 +9,7 @@ else
 fi
 cmp workflows/runner-check.yml ../../.github/workflows/runner-check.yml
 cmp workflows/fleet.yml ../../.github/workflows/fleet.yml
+cmp workflows/flake-update.yml ../../.github/workflows/flake-update.yml
 if command -v actionlint >/dev/null 2>&1; then
   actionlint -config-file actionlint.yaml workflows/*.yml ../../.github/workflows/runner-check.yml
 else

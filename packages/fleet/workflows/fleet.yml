@@ -33,6 +33,7 @@ jobs:
             fleet:
               - 'packages/fleet/**'
               - '.github/workflows/fleet.yml'
+              - '.github/workflows/flake-update.yml'
               - 'packages/fleet/workflows/fleet.yml'
 
   check:

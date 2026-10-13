@@ -32,3 +32,7 @@ Before node installation, fill that role's settings file and its encrypted secre
 ## 2026-10-12 interchangeable hardware
 
 Role and capability configuration replaced the MS-A2 profile, the configured disk path, MAC canaries, and `ci-$mac` / `web-$mac` hostnames. `scripts/cattle.py check` is part of the portable check. This change was not evaluated with `nix flake check`, and the VM tests were not executed. Do not treat the 2026-10-10 evaluation as coverage. The CI closure changes on purpose: generic initrd modules, systemd-networkd for wired DHCP, boot-time hostnames, and runner slots derived from the live CPU and RAM. The kernel is no longer pinned to 6.12. `ci-gpu` evaluates as a NixOS configuration and is not in the default build list.
+
+## 2026-10-12 main tracking
+
+Nodes poll `main` and switch only from the binary cache. `deploy` and `canary` are gone. `fleet-drift`, the merge-queue cache push, and the lifecycle VM test were added on a Mac without Nix. `nix flake check` was not run, and the VM tests were not executed. The portable check covers `fleet-sync` and `fleet-drift` with stand-in `nix` and `git`. Do not treat that as a NixOS evaluation.

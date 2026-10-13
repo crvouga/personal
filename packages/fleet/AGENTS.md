@@ -2,7 +2,7 @@ OS-level configuration for machines we operate (NixOS roles, hardware profiles, 
 
 Git is the only control surface after bootstrap. Do not SSH a change onto a node. `just status NODE` is read-only. `just bootstrap ROLE IP` is the only SSH write, and it wipes the disk.
 
-`modules/base.nix` is the only module shared by every role: users, SSH, the sops age-key path, store maintenance, watchdog, the shared disk layout, pull sync, boot identity, and the revision endpoint. Do not put role switches in `base.nix`. `hosts/` composes a role plus capability modules. It never names a machine.
+`modules/base.nix` is the only module shared by every role: users, SSH, the sops age-key path, store maintenance, watchdog, the shared disk layout, pull sync, boot identity, the revision endpoint, and drift. Do not put role switches in `base.nix`. `hosts/` composes a role plus capability modules. It never names a machine.
 
 Roles:
 
@@ -70,6 +70,10 @@ The merge queue runs the same check, then pushes those four toplevels to attic. 
 A rollback is a revert pull request through the same checks and the same queue. The previous commit's systems are already in the cache. systemd-boot keeps `bootGenerationLimit` generations (8), selectable from the console. There is no force-push rollback.
 
 `main` requires a pull request, the `Required` and `Fleet` checks, and the merge queue. Direct pushes and force pushes are refused. That ruleset is OpenTofu in `packages/infra` (`inventory.tf.json` and `foundation/repository.tf`). Declaring it is not applying it. Apply a reviewed plan. Do not apply it from this package.
+
+One path changes a node. Open a pull request, let `Required` and `Fleet` pass on GitHub-hosted runners, and let the merge queue land it on `main`. Nodes pull that commit. Do not push `main` directly, force-push it, or change a node by hand.
+
+`.github/workflows/flake-update.yml` is a byte copy of `workflows/flake-update.yml`. Once a week it runs `nix flake update` in this package and opens or updates one pull request on `chore/fleet-flake-lock`. That pull request uses the same checks and the same queue. It does not push `main`.
 
 This package does not own GitHub configuration, buckets, billing, DNS, or other workspace infrastructure. Every dependency is pinned in `flake.lock`. Do not update it implicitly. Do not commit tokens, age private keys, or plaintext secrets.
 

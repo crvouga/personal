@@ -71,6 +71,8 @@ A rollback is a revert pull request. It uses the same checks and the same queue.
 
 The `main` ruleset (pull request, `Required`, `Fleet`, merge queue, no force-push) is declared in OpenTofu. This package does not apply it. Apply a reviewed plan from `packages/infra`.
 
+Once a week, `.github/workflows/flake-update.yml` opens or updates one pull request that only changes `packages/fleet/flake.lock`. That pull request uses this same path. It does not push `main`.
+
 ## CI health
 
 These commands are for a console or a read-only session. They are not a second deploy path.

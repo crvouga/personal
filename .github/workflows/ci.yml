@@ -199,6 +199,7 @@ jobs:
             runner_fleet:
               - 'packages/fleet/**'
               - '.github/workflows/runner-check.yml'
+              - '.github/workflows/flake-update.yml'
               - '.github/workflows/ci.yml'
             vault:
               - 'packages/vault-service/**'
