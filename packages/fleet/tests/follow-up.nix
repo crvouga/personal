@@ -26,8 +26,9 @@
     ln -s "$kernel_store" "$work/initrd"
     ln -s "$kernel_store" "$work/kernel-modules"
     printf '%s\n' "$rev" > "$work/commit"
+    # The guest has /bin/sh. /bin/bash is absent, and a missing interpreter exits 126.
     cat > "$work/bin/switch-to-configuration" <<'EOF'
-#!/bin/bash
+#!/bin/sh
 install -d -m 0755 /run/fleet-sync
 printf '%s\n' "$1" >> /run/fleet-sync/operations
 EOF
