@@ -9,7 +9,7 @@ export type {
   CloudflareRedirectSpec,
   GithubConfig,
   InfraConfig,
-  NeonConfig,
+  PostgresConfig,
   ObjectStoreSpec,
   RailwayPlatformConfig,
   RailwayServiceConfig,

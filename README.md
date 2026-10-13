@@ -7,7 +7,7 @@ Infrastructure is managed exclusively by **OpenTofu**. The resource definitions,
 ```bash
 bun install
 bun run check                 # requires OpenTofu 1.13.0 and Playwright Chromium
-bun run infra plan            # foundation: Railway project, Vault host, Neon, R2, Cloudflare, GitHub
+bun run infra plan            # foundation: Railway project, Vault host, PlanetScale Postgres, R2, Cloudflare, GitHub
 bun run infra:bootstrap plan  # initialization and seal state
 bun run infra:vault plan      # policies, authentication, tokens and KV values
 bun run infra:fleet plan      # application services, images, variables and DNS
@@ -45,7 +45,7 @@ After pushing, watch the complete CI run with `bun run gh:ci:watch`; local check
 | `services`  | Each Railway service's health endpoint; Cloudflare redirects                            | —                 |
 | `tunnels`   | Cloudflare tunnel connectors (an offline workstation connector warns)                   | —                 |
 | `vault`     | Seal state and shares; KV mount, policies, auth roles, users and required KV keys       | Vault token       |
-| `storage`   | R2 buckets, Neon, service databases (`SELECT 1`) and the remote cache token             | Vault token       |
+| `storage`   | R2 buckets, PostgreSQL, service databases (`SELECT 1`) and the remote cache token       | Vault token       |
 | `images`    | Every deployed GHCR image is publicly pullable                                          | —                 |
 | `github`    | Repositories, publisher workflows, dispatch secrets, merge gate, last production CI run | GitHub token      |
 | `runners`   | Self-hosted runner fleet registrations                                                  | GitHub token      |

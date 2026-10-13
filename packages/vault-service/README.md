@@ -1,6 +1,6 @@
 # OpenBao service
 
-This package contains the OpenBao runtime image, health proxy and local `vault` auth/read CLI. Every infrastructure resource is owned by [OpenTofu](../infra/tofu/README.md): Railway hosting and DNS, Neon storage and schema, initialization/unseal, KV mounts, policies, auth backends, users, tokens and secret data.
+This package contains the OpenBao runtime image, health proxy and local `vault` auth/read CLI. Every infrastructure resource is owned by [OpenTofu](../infra/tofu/README.md): Railway hosting and DNS, PlanetScale Postgres storage and schema, initialization/unseal, KV mounts, policies, auth backends, users, tokens and secret data.
 
 ```bash
 bun run infra plan

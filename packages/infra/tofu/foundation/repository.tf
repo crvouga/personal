@@ -132,17 +132,20 @@ resource "github_repository" "application" {
     secret_scanning_push_protection { status = each.value.secret_scanning_push_protection }
     secret_scanning_non_provider_patterns { status = "disabled" }
   }
-  dynamic "pages" {
-    for_each = try(each.value.pages, null) == null ? [] : [each.value.pages]
-    content {
-      build_type = pages.value.build_type
-      source {
-        branch = pages.value.branch
-        path   = pages.value.path
-      }
-    }
-  }
   lifecycle { prevent_destroy = true }
+}
+
+# Removing the deprecated pages block makes the repository resource disable the
+# site. This resource enables the same site later in the same apply. Importing
+# it first would leave the site disabled.
+resource "github_repository_pages" "application" {
+  for_each   = { for name, settings in local.application_repositories : name => settings if try(settings.pages, null) != null }
+  repository = github_repository.application[each.key].name
+  build_type = each.value.pages.build_type
+  source {
+    branch = each.value.pages.branch
+    path   = each.value.pages.path
+  }
 }
 
 resource "github_branch_default" "application" {
@@ -258,12 +261,12 @@ resource "github_actions_secret" "repository" {
   for_each    = local.existing_repository_secrets
   repository  = each.value.repository
   secret_name = each.value.name
-  # GitHub cannot return secret values. This schema-only value is ignored
-  # after import; the import block and metadata listing adopt existing secrets.
-  plaintext_value = ""
+  # GitHub cannot return secret values. This empty value is ignored after
+  # import; the import block and metadata listing adopt existing secrets.
+  value = ""
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [plaintext_value, remote_updated_at]
+    ignore_changes  = [value]
   }
 }
 

@@ -45,7 +45,7 @@ run "fleet_contract" {
     error_message = "Every application repository and its default branch must be declared."
   }
   assert {
-    condition     = one(output.config.neon.projects).primary_compute.max_cu == 8 && one(output.config.neon.projects).store_password == "yes"
-    error_message = "Neon compute and credential policy must remain version controlled."
+    condition     = one(output.config.postgres.projects).cluster_size == "PS_5_AWS_ARM" && one(output.config.postgres.projects).replicas == 0 && one(output.config.postgres.projects).region == "us-east"
+    error_message = "PostgreSQL must stay the cheapest single-node single-region size."
   }
 }

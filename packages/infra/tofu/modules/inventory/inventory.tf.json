@@ -935,45 +935,22 @@
           }
         ]
       },
-      "neon": {
+      "postgres": {
         "projects": [
           {
             "id": "openbao",
             "purpose": "openbao-storage",
             "secret_name": "DB_CONNECTION_URI",
+            "application_secret": "DATABASE_URL",
+            "organization": "crvouga",
             "name": "personal",
-            "region_id": "aws-us-east-1",
-            "pg_version": 18,
-            "history_retention_seconds": 3600,
-            "org_id": "org-noisy-forest-49139773",
-            "store_password": "yes",
-            "default_branch_protected": false,
-            "logical_replication": "no",
-            "allowed_ips": [],
-            "allowed_ips_protected_branches_only": "no",
-            "block_public_connections": "no",
-            "block_vpc_connections": "no",
-            "hipaa": null,
-            "compute_provisioner": "k8s-neonvm",
-            "autoscaling_limit_min_cu": 0.25,
-            "autoscaling_limit_max_cu": 2,
-            "suspend_timeout_seconds": 0,
-            "maintenance_window": {
-              "weekdays": [1],
-              "start_time": "09:00",
-              "end_time": "10:00"
-            },
-            "primary_compute": {
-              "min_cu": 0.25,
-              "max_cu": 8,
-              "suspend_timeout_seconds": 0
-            },
-            "neon_project_id": "flat-snow-95718736",
-            "branch": {
-              "name": "production",
-              "database_name": "neondb",
-              "role_name": "neondb_owner"
-            }
+            "branch": "main",
+            "region": "us-east",
+            "cluster_size": "PS_5_AWS_ARM",
+            "major_version": "18",
+            "replicas": 0,
+            "role_name": "owner",
+            "inherited_roles": ["postgres"]
           }
         ]
       },

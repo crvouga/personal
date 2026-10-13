@@ -3,6 +3,7 @@ locals {
   config     = module.inventory.config
   vault      = one([for service in local.config.services : service if service.id == "vault"])
   vault_addr = "https://${local.config.vault.hostname}"
+  postgres   = one(local.config.postgres.projects)
 }
 
 resource "cloudflare_zone" "primary" {
@@ -18,42 +19,37 @@ resource "railway_project" "workspace" {
   lifecycle { prevent_destroy = true }
 }
 
-# Neon treats an omitted IP list as unrestricted; its schema rejects [].
-# Leave HIPAA null on this organization: even hipaa=false is rejected by its API.
-resource "neon_project" "openbao" {
-  name                                = one(local.config.neon.projects).name
-  region_id                           = one(local.config.neon.projects).region_id
-  pg_version                          = one(local.config.neon.projects).pg_version
-  history_retention_seconds           = one(local.config.neon.projects).history_retention_seconds
-  org_id                              = one(local.config.neon.projects).org_id
-  store_password                      = one(local.config.neon.projects).store_password
-  default_branch_protected            = one(local.config.neon.projects).default_branch_protected
-  enable_logical_replication          = one(local.config.neon.projects).logical_replication
-  allowed_ips                         = length(one(local.config.neon.projects).allowed_ips) == 0 ? null : one(local.config.neon.projects).allowed_ips
-  allowed_ips_protected_branches_only = one(local.config.neon.projects).allowed_ips_protected_branches_only
-  block_public_connections            = one(local.config.neon.projects).block_public_connections
-  block_vpc_connections               = one(local.config.neon.projects).block_vpc_connections
-  hipaa                               = one(local.config.neon.projects).hipaa
-  compute_provisioner                 = one(local.config.neon.projects).compute_provisioner
-  autoscaling_limit_min_cu            = one(local.config.neon.projects).autoscaling_limit_min_cu
-  autoscaling_limit_max_cu            = one(local.config.neon.projects).autoscaling_limit_max_cu
-  suspend_timeout_seconds             = one(local.config.neon.projects).suspend_timeout_seconds
-  maintenance_window {
-    weekdays   = one(local.config.neon.projects).maintenance_window.weekdays
-    start_time = one(local.config.neon.projects).maintenance_window.start_time
-    end_time   = one(local.config.neon.projects).maintenance_window.end_time
+# The published provider creates the database with the branch and reports
+# replicas; it cannot send a replica count. Reject anything but the inventory
+# single-node count before credentials are published.
+resource "planetscale_postgres_branch" "openbao" {
+  organization  = local.postgres.organization
+  database      = local.postgres.name
+  name          = local.postgres.branch
+  region        = local.postgres.region
+  cluster_size  = local.postgres.cluster_size
+  major_version = local.postgres.major_version
+  lifecycle {
+    prevent_destroy = true
+    postcondition {
+      condition     = self.replicas == local.postgres.replicas
+      error_message = "The branch replica count must match inventory. The published provider cannot set it, so resize the branch to the inventory count before any credential is published."
+    }
   }
-  primary_compute {
-    autoscaling_limit_min_cu = one(local.config.neon.projects).primary_compute.min_cu
-    autoscaling_limit_max_cu = one(local.config.neon.projects).primary_compute.max_cu
-    suspend_timeout_seconds  = one(local.config.neon.projects).primary_compute.suspend_timeout_seconds
+}
+
+resource "planetscale_postgres_branch_role" "openbao" {
+  organization    = local.postgres.organization
+  database        = local.postgres.name
+  branch          = planetscale_postgres_branch.openbao.name
+  name            = local.postgres.role_name
+  inherited_roles = local.postgres.inherited_roles
+  lifecycle {
+    postcondition {
+      condition     = !strcontains(self.access_host_url, "://") && !strcontains(self.access_host_url, "/")
+      error_message = "PlanetScale access_host_url must be a host so the connection URI can be assembled."
+    }
   }
-  branch {
-    name          = one(local.config.neon.projects).branch.name
-    database_name = one(local.config.neon.projects).branch.database_name
-    role_name     = one(local.config.neon.projects).branch.role_name
-  }
-  lifecycle { prevent_destroy = true }
 }
 
 resource "cloudflare_dns_record" "additional" {
@@ -92,7 +88,7 @@ module "vault_service" {
   image          = "ghcr.io/${local.config.image_owner}/${local.config.image_prefix}-vault:${var.vault_image_tag}"
   depends_on     = [atlas_schema.openbao]
   variables = {
-    DB_CONNECTION_URI = neon_project.openbao.connection_uri
+    DB_CONNECTION_URI = local.database_url
     BAO_API_ADDR      = local.vault_addr
     PORT              = local.vault.env.PORT
   }
@@ -105,7 +101,7 @@ resource "time_sleep" "vault_start" {
   triggers = {
     image    = var.vault_image_tag
     service  = sha256(jsonencode(local.vault))
-    database = sha256(neon_project.openbao.connection_uri)
+    database = sha256(local.database_url)
   }
   depends_on = [module.vault_service]
 }
@@ -139,9 +135,9 @@ resource "cloudflare_zone_dns_settings" "primary" {
   zone_mode           = local.config.cloudflare.dns_settings.zone_mode
 
   lifecycle {
-    # The provider reads this default into state despite it being optional,
-    # not computed. Do not plan to clear or customize the account's NS TTL.
-    ignore_changes = [ns_ttl]
+    # The provider reads these defaults into state. Leave the account NS TTL
+    # and Foundation DNS unconfigured.
+    ignore_changes = [ns_ttl, foundation_dns]
   }
 }
 
@@ -227,23 +223,25 @@ data "cloudflare_zero_trust_tunnel_cloudflared_token" "router" {
 }
 
 locals {
+  database_url = "postgres://${urlencode(planetscale_postgres_branch_role.openbao.username)}:${urlencode(planetscale_postgres_branch_role.openbao.password)}@${planetscale_postgres_branch_role.openbao.access_host_url}/${planetscale_postgres_branch_role.openbao.database_name}?sslmode=require"
   bootstrap_secrets = {
-    RAILWAY_TOKEN         = var.railway_token
-    CF_API_TOKEN          = var.cloudflare_api_token
-    DB_CONNECTION_URI     = neon_project.openbao.connection_uri
-    NEON_API_KEY          = var.neon_api_key
-    TOFU_STATE_PASSPHRASE = var.state_passphrase
-    TOFU_STATE_ACCESS_KEY = var.state_access_key
-    TOFU_STATE_SECRET_KEY = var.state_secret_key
-    TOFU_VAULT_INPUTS     = var.vault_inputs
+    RAILWAY_TOKEN                = var.railway_token
+    CF_API_TOKEN                 = var.cloudflare_api_token
+    DB_CONNECTION_URI            = local.database_url
+    PLANETSCALE_SERVICE_TOKEN_ID = var.planetscale_service_token_id
+    PLANETSCALE_SERVICE_TOKEN    = var.planetscale_service_token
+    TOFU_STATE_PASSPHRASE        = var.state_passphrase
+    TOFU_STATE_ACCESS_KEY        = var.state_access_key
+    TOFU_STATE_SECRET_KEY        = var.state_secret_key
+    TOFU_VAULT_INPUTS            = var.vault_inputs
   }
 }
 resource "github_actions_secret" "bootstrap" {
-  for_each = toset(["RAILWAY_TOKEN", "CF_API_TOKEN", "DB_CONNECTION_URI", "NEON_API_KEY", "TOFU_STATE_PASSPHRASE", "TOFU_STATE_ACCESS_KEY", "TOFU_STATE_SECRET_KEY", "TOFU_VAULT_INPUTS"])
+  for_each = toset(keys(local.bootstrap_secrets))
   # The secret values are sensitive; the addresses are public, stable names.
-  repository      = split("/", local.config.github.infra_repo)[1]
-  secret_name     = each.key
-  plaintext_value = local.bootstrap_secrets[each.key]
+  repository  = split("/", local.config.github.infra_repo)[1]
+  secret_name = each.key
+  value       = local.bootstrap_secrets[each.key]
 }
 
 resource "github_actions_variable" "account" {
@@ -265,10 +263,10 @@ resource "github_actions_variable" "migration_ready" {
 # crvouga is a personal account, so distribute the dispatch credential to the
 # actual repositories instead of attempting to create organization secrets.
 resource "github_actions_secret" "dispatch" {
-  for_each        = toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null])
-  repository      = each.key
-  secret_name     = "DEPLOY_DISPATCH_TOKEN"
-  plaintext_value = var.github_token
+  for_each    = toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null])
+  repository  = each.key
+  secret_name = "DEPLOY_DISPATCH_TOKEN"
+  value       = var.github_token
 }
 
 resource "cloudflare_dns_record" "redirect" {
@@ -330,3 +328,7 @@ output "r2_secret_access_key" {
   sensitive = true
 }
 output "vault_image_tag" { value = var.vault_image_tag }
+output "database_url" {
+  value     = local.database_url
+  sensitive = true
+}

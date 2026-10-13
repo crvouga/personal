@@ -6,7 +6,6 @@ export type SecretSource =
   | { readonly source: "vault" }
   | { readonly source: "env" }
   | { readonly source: "github" }
-  | { readonly source: "neon"; readonly neon_project: string }
   | { readonly source: "literal"; readonly value: string };
 
 export type SecretSpec = {
@@ -189,15 +188,24 @@ export type GithubConfig = {
   readonly pr_ready?: GithubMergeGateConfig;
 };
 
-export type NeonProjectSpec = {
+export type PostgresProjectSpec = {
   readonly id: string;
-  readonly neon_project_id?: string;
   readonly purpose: string;
   readonly secret_name: string;
+  readonly application_secret: string;
+  readonly organization: string;
+  readonly name: string;
+  readonly branch: string;
+  readonly region: string;
+  readonly cluster_size: string;
+  readonly major_version: string;
+  readonly replicas: number;
+  readonly role_name: string;
+  readonly inherited_roles: readonly string[];
 };
 
-export type NeonConfig = {
-  readonly projects: readonly NeonProjectSpec[];
+export type PostgresConfig = {
+  readonly projects: readonly PostgresProjectSpec[];
 };
 
 export type ObjectStoreSpec = {
@@ -240,7 +248,7 @@ export type InfraConfig = {
   readonly railway: RailwayPlatformConfig;
   readonly github?: GithubConfig;
   readonly vault?: VaultConfig;
-  readonly neon?: NeonConfig;
+  readonly postgres?: PostgresConfig;
   readonly object_stores?: readonly ObjectStoreSpec[];
   readonly tunnels?: readonly TunnelSpec[];
   readonly services: readonly ServiceSpec[];
