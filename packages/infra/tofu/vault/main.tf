@@ -128,6 +128,7 @@ resource "vault_kv_secret_v2" "personal" {
       VAULT_TOKEN              = vault_token.runtime.client_token
       CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
       "9ROUTER_TUNNEL_TOKEN"   = data.terraform_remote_state.foundation.outputs.router_token
+      DATABASE_URL             = data.terraform_remote_state.foundation.outputs.database_url
     }
   ))
   lifecycle {

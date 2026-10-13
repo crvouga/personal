@@ -95,11 +95,11 @@ describe("storage", () => {
     "https://turborepo.example.dev/v8/artifacts/status": { body: { status: "enabled" } },
   };
 
-  test("buckets, Neon, databases and the cache pass when reachable", async () => {
+  test("buckets, PostgreSQL, databases and the cache pass when reachable", async () => {
     const results = await checkStorage(fakeContext({ fetch: fakeFetch(routes) }));
     expect(results.map((result) => [result.name, result.status])).toEqual([
       ["bucket acme-production (prd)", "pass"],
-      ["neon openbao", "pass"],
+      ["postgres openbao", "pass"],
       ["database DATABASE_URL", "pass"],
       ["remote cache", "pass"],
     ]);
@@ -112,7 +112,7 @@ describe("storage", () => {
     expect(statusOf(results, "bucket acme-production (prd)")).toBe("skip");
     expect(statusOf(results, "database DATABASE_URL")).toBe("skip");
     expect(statusOf(results, "remote cache")).toBe("skip");
-    expect(statusOf(results, "neon openbao")).toBe("pass");
+    expect(statusOf(results, "postgres openbao")).toBe("pass");
   });
 
   test("rejected credentials, a wrong bucket and a dead database fail without leaking the URL", async () => {
@@ -125,7 +125,7 @@ describe("storage", () => {
         },
       }),
     );
-    expect(statuses(results.filter((result) => !result.name.startsWith("neon")))).toEqual(["fail"]);
+    expect(statuses(results.filter((result) => !result.name.startsWith("postgres")))).toEqual(["fail"]);
     const database = results.find((result) => result.name === "database DATABASE_URL")!;
     expect(database.detail).toBe("connection failed: connection refused");
   });

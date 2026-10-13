@@ -28,7 +28,7 @@ mock_provider "github" {
     }
   }
 }
-mock_provider "neon" {}
+mock_provider "planetscale" {}
 mock_provider "atlas" {}
 mock_provider "time" {}
 mock_provider "random" {}
@@ -41,26 +41,27 @@ override_module {
 }
 
 variables {
-  railway_token         = "test-railway-token"
-  cloudflare_api_token  = "test-cloudflare-token"
-  github_token          = "test-github-token"
-  cloudflare_zone_id    = "test-zone-id"
-  cloudflare_account_id = "test-account-id"
-  neon_api_key          = "test-neon-key"
-  state_access_key      = "test-state-key"
-  state_secret_key      = "test-state-secret"
-  vault_inputs          = jsonencode({ secrets = { prd = {} }, admin_passwords = {} })
+  railway_token                = "test-railway-token"
+  cloudflare_api_token         = "test-cloudflare-token"
+  github_token                 = "test-github-token"
+  cloudflare_zone_id           = "test-zone-id"
+  cloudflare_account_id        = "test-account-id"
+  planetscale_service_token_id = "test-planetscale-token-id"
+  planetscale_service_token    = "test-planetscale-token"
+  state_access_key             = "test-state-key"
+  state_secret_key             = "test-state-secret"
+  vault_inputs                 = jsonencode({ secrets = { prd = {} }, admin_passwords = {} })
 }
 
 run "complete_adoption_plan" {
   command = plan
   assert {
-    condition     = neon_project.openbao.allowed_ips == null
-    error_message = "An unrestricted Neon project must omit the optional allowlist, rather than supply an invalid empty list."
+    condition     = planetscale_postgres_branch.openbao.cluster_size == "PS_5_AWS_ARM" && planetscale_postgres_branch.openbao.region == "us-east-1" && planetscale_postgres_branch.openbao.major_version == "18"
+    error_message = "The database must stay the smallest single-region network-attached size."
   }
   assert {
-    condition     = neon_project.openbao.hipaa == null
-    error_message = "The non-HIPAA organization must omit HIPAA settings; even an explicit false is rejected on project updates."
+    condition     = planetscale_postgres_branch_role.openbao.inherited_roles == toset(["postgres"])
+    error_message = "The database role must inherit the built-in owner role so schema changes keep working."
   }
   assert {
     condition     = length(github_repository_file.publish) == 14

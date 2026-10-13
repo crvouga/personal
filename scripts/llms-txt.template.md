@@ -130,7 +130,7 @@ The application database contract is the secret env var `{{databaseSecret}}` in 
 
 ### Boundaries
 
-- `{{databaseSecret}}` is the only application-facing PostgreSQL credential. `{{platformDatabaseSecret}}`, `NEON_API_KEY`, and the `secret_store` schema belong to the OpenBao control plane. Never read, request, inject, migrate, inspect, or reuse them from an application.
+- `{{databaseSecret}}` is the only application-facing PostgreSQL credential. `{{platformDatabaseSecret}}`, `PLANETSCALE_SERVICE_TOKEN_ID`, `PLANETSCALE_SERVICE_TOKEN`, and the `secret_store` schema belong to the OpenBao control plane. Never read, request, inject, migrate, inspect, or reuse them from an application.
 - Do not create a database, branch, role, schema, extension, replica, or provider project from another repo. Those are infrastructure resources and must be declared in `{{infraRepo}}` with OpenTofu.
 - A new app needs an explicitly allocated database/schema before it runs DDL or writes data. Include the requested app id, schema name, extensions, migration command, and whether both `dev` and `prd` are required in the hosting request (§5). If no allocation is recorded in the approved infrastructure change, stop; possession of the shared credential is not authorization to use another app's tables.
 - Keep dev and production separate by loading the matching Vault config. Never copy production data into dev or point a local process at `prd` unless the human explicitly requests it.

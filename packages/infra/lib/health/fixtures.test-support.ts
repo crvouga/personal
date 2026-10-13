@@ -38,7 +38,25 @@ export const CONFIG: InfraConfig = {
     },
     kv_keys: [{ name: "TURBO_TOKEN", configs: ["dev", "prd"], required: true }],
   },
-  neon: { projects: [{ id: "openbao", purpose: "openbao-storage", secret_name: "DB_CONNECTION_URI" }] },
+  postgres: {
+    projects: [
+      {
+        id: "openbao",
+        purpose: "openbao-storage",
+        secret_name: "DB_CONNECTION_URI",
+        application_secret: "DATABASE_URL",
+        organization: "example",
+        name: "personal",
+        branch: "main",
+        region: "us-east-1",
+        cluster_size: "PS_5_AWS_ARM",
+        major_version: "18",
+        replicas: 0,
+        role_name: "owner",
+        inherited_roles: ["postgres"],
+      },
+    ],
+  },
   object_stores: [
     {
       id: "production",

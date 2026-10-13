@@ -2,7 +2,7 @@
  * Stateful backends: R2 buckets, PostgreSQL databases and the remote cache.
  * Credentials come from the Vault KV documents; without them every check skips.
  */
-import type { NeonConfig, ObjectStoreSpec } from "../schema.js";
+import type { ObjectStoreSpec, PostgresConfig } from "../schema.js";
 import { asRecord, errorMessage, getJson, type HealthContext, type KvDocument, type KvRead } from "./context.js";
 import { readSealStatus } from "./check-vault.js";
 import { fail, pass, skip, type CheckResult } from "./report.js";
@@ -69,16 +69,16 @@ async function databaseChecks(ctx: HealthContext): Promise<CheckResult[]> {
 }
 
 /**
- * OpenBao stores everything in its Neon project, so an unsealed Vault on
- * PostgreSQL storage is the read-only proof that the project is serving.
+ * OpenBao stores everything in its PostgreSQL database, so an unsealed Vault
+ * on PostgreSQL storage is the read-only proof that the database is serving.
  */
-async function neonChecks(ctx: HealthContext, neon: NeonConfig | undefined): Promise<CheckResult[]> {
-  const projects = (neon?.projects ?? []).filter((project) => project.purpose === "openbao-storage");
+async function postgresChecks(ctx: HealthContext, postgres: PostgresConfig | undefined): Promise<CheckResult[]> {
+  const projects = (postgres?.projects ?? []).filter((project) => project.purpose === "openbao-storage");
   if (projects.length === 0) return [];
   const status = await readSealStatus(ctx);
   return projects.map((project) => {
-    const name = `neon ${project.id}`;
-    if (!status) return fail(name, "Vault is unreachable, so its Neon storage cannot be confirmed");
+    const name = `postgres ${project.id}`;
+    if (!status) return fail(name, "Vault is unreachable, so its PostgreSQL storage cannot be confirmed");
     if (status["storage_type"] !== "postgresql") {
       return fail(name, `Vault reports ${String(status["storage_type"])} storage, expected postgresql`);
     }
@@ -119,7 +119,7 @@ export async function checkStorage(ctx: HealthContext): Promise<readonly CheckRe
   );
   const groups = await Promise.all([
     Promise.all(buckets),
-    neonChecks(ctx, ctx.config.neon),
+    postgresChecks(ctx, ctx.config.postgres),
     databaseChecks(ctx),
     cacheCheck(ctx),
   ]);

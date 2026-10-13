@@ -32,7 +32,7 @@ describe('OpenTofu infrastructure ownership', () => {
     const violations = sourceFiles.filter((file) => {
       if (file.startsWith(tofu) || file.endsWith('.test.ts')) return false;
       const text = readFileSync(join(repo, file), 'utf8');
-      return /backboard\.railway\.(?:app|com)|api\.cloudflare\.com|console\.neon\.tech\/api/.test(
+      return /backboard\.railway\.(?:app|com)|api\.cloudflare\.com|api\.planetscale\.com/.test(
         text
       );
     });
