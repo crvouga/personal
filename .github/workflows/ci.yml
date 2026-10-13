@@ -193,7 +193,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
             runner_fleet:
-              - 'packages/self-hosting/**'
+              - 'packages/fleet/**'
               - '.github/workflows/runner-check.yml'
               - '.github/workflows/ci.yml'
             vault:
@@ -500,7 +500,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       - name: Portable checks and Linux system, ISO, mocked VM
-        working-directory: packages/self-hosting
+        working-directory: packages/fleet
         run: |
           nix develop --command bash scripts/check.sh
           nix flake check --no-write-lock-file --system x86_64-linux -L

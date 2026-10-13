@@ -1,0 +1,25 @@
+# Fleet
+
+`@pkgs/fleet` is the NixOS flake for physical machines we own and run ourselves. CI runners, web servers, an attic cache, and a netboot installer are separate roles composed from `modules/base.nix`. Cloud resources stay in `@pkgs/infra`. Nodes of one role share one closure.
+
+- `hosts/ci.nix`: trusted-code-only GitHub Actions runners (`fleet.nix`).
+- `hosts/web.nix`: Caddy in front of one declarative app entry per published OCI image (`web.nix`). Domains and image tags are still TODO.
+- `hosts/cache.nix`: attic server. Off until `secrets/cache.yaml` exists. The host and public key are TODO.
+- `hosts/netboot.nix`: Pixiecore serving the shared installer, without taking over DHCP.
+
+- [Node and fleet operations](docs/runbook.md): bootstrap, sync, rollback.
+- [Manual checklist](docs/checklist.md): firmware, cabling, and where the role key lives.
+- [Onboard any project](docs/onboard-project.md): devShell, workflow, cache and hosted fallback.
+- [Verified hardware and upstream sources](docs/hardware.md).
+- [Agent operating rules](AGENTS.md).
+- [Validation status](docs/validation.md).
+
+`fleet.nix` is the CI settings file (the historical name). Shared non-secret values live in `settings/shared.nix`. Hardware is `modules/hardware/generic.nix`, not a model profile. Runner slots are counted at boot: reserve 4 GiB, then one slot per 2 cores and 6 GiB, at most 8. A 16-core 32 GiB machine still gets **4 slots**. Slots are distributed round-robin among repository scopes, rather than multiplying capacity per repository. A hostname is `<role>[-gpu][-highmem]-<4 hex>`, for example `ci-a3f9` or `ci-highmem-02be`. A web node does not write `/run/fleet/identity`.
+
+The root is tmpfs. Persistence is the EFI boot partition and `/nix`: store, Nix database/profiles, disposable slot caches, attic data, and `/nix/fleet-state`. Each role has its own age key. Back the keys up outside the fleet. No plaintext secrets are in the flake or ISO.
+
+After bootstrap, `deploy` nodes pull `deploy`. A node bootstrapped as `ci-canary` (or `web-canary`, `cache-canary`, `netboot-canary`) pulls `canary`. They do not pull `main`. The pull agent is `fleet-sync` because comin is not in the pinned nixpkgs. The GitHub Actions workflow that advances those branches runs on `ubuntu-latest`.
+
+Run portable checks with `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
+
+GitHub only loads reusable workflows from `.github/workflows`, so the callable runner entrypoint is [runner-check.yml](../../.github/workflows/runner-check.yml). The fleet gate is [fleet.yml](../../.github/workflows/fleet.yml), copied from this package. Existing `.github/workflows/ci.yml` stays on GitHub-hosted runners.

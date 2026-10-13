@@ -12,7 +12,7 @@ WORKDIR /app
 
 COPY package.json bun.lock tsconfig.strict.json ./
 COPY packages/portfolio/package.json ./packages/portfolio/
-COPY packages/self-hosting/package.json ./packages/self-hosting/
+COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/assert/package.json ./packages/assert/
 COPY packages/infra/package.json ./packages/infra/
 COPY packages/logger/package.json ./packages/logger/

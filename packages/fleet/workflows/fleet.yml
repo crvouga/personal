@@ -1,0 +1,133 @@
+name: Fleet
+
+# GitHub-hosted runners only. A broken fleet must still be able to ship a fix.
+on:
+  pull_request:
+    paths:
+      - 'packages/fleet/**'
+      - '.github/workflows/fleet.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/fleet/**'
+      - '.github/workflows/fleet.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: promote-deploy copies canary onto deploy. rollback-deploy points deploy at an older main commit.
+        type: choice
+        options:
+          - promote-deploy
+          - rollback-deploy
+        required: true
+      soak_ok:
+        description: The canary soak reported no drift or health failures.
+        type: boolean
+        required: false
+        default: false
+      sha:
+        description: Full 40-character commit for rollback-deploy. It must already be on main.
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Flake check, every host, and every NixOS test
+        working-directory: packages/fleet
+        run: |
+          set -euo pipefail
+          nix flake check --no-write-lock-file --system x86_64-linux -L
+          nix build --no-link -L \
+            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot' 'path:.#installer'
+
+  canary:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Push closures when the attic cache is configured
+        working-directory: packages/fleet
+        env:
+          CACHE_URL: ${{ vars.FLEET_CACHE_URL }}
+          CACHE_NAME: ${{ vars.FLEET_CACHE_NAME }}
+          ATTIC_TOKEN: ${{ secrets.FLEET_ATTIC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CACHE_URL}" ] || [ -z "${CACHE_NAME}" ] || [ -z "${ATTIC_TOKEN}" ]; then
+            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. Skipping the cache push.'
+            exit 0
+          fi
+          for attr in ci web cache netboot; do
+            nix build --no-link -o "result-${attr}" "path:.#${attr}"
+          done
+          nix run 'path:.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
+          for attr in ci web cache netboot; do
+            nix run 'path:.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
+          done
+      - name: Advance canary to this commit
+        run: |
+          set -euo pipefail
+          git push origin HEAD:refs/heads/canary
+
+  promote-deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'promote-deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Move deploy to the soaked canary commit
+        env:
+          SOAK_OK: ${{ inputs.soak_ok }}
+        run: |
+          set -euo pipefail
+          if [ "$SOAK_OK" != 'true' ]; then
+            echo 'Refusing to advance deploy. There is no automatic health or drift signal yet; pass soak_ok after the canary looks healthy.' >&2
+            exit 1
+          fi
+          git fetch origin canary
+          git push origin origin/canary:refs/heads/deploy
+
+  rollback-deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback-deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Point deploy at a previous main commit
+        env:
+          SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'sha must be the full 40-character commit' >&2
+            exit 1
+          fi
+          git fetch origin main
+          git cat-file -e "${SHA}^{commit}"
+          git merge-base --is-ancestor "$SHA" origin/main
+          # The systems for this commit are already in the cache or on the nodes.
+          # This does not rebuild them. It is a force-push because deploy moves backward.
+          git push --force origin "${SHA}:refs/heads/deploy"

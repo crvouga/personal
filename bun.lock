@@ -142,8 +142,8 @@
         "typescript": "catalog:",
       },
     },
-    "packages/self-hosting": {
-      "name": "@pkgs/self-hosting",
+    "packages/fleet": {
+      "name": "@pkgs/fleet",
       "version": "0.0.0",
     },
     "packages/turborepo-remote-cache": {
@@ -599,7 +599,7 @@
 
     "@pkgs/secret-string": ["@pkgs/secret-string@workspace:packages/secret-string"],
 
-    "@pkgs/self-hosting": ["@pkgs/self-hosting@workspace:packages/self-hosting"],
+    "@pkgs/fleet": ["@pkgs/fleet@workspace:packages/fleet"],
 
     "@pkgs/turborepo-remote-cache": ["@pkgs/turborepo-remote-cache@workspace:packages/turborepo-remote-cache"],
 
