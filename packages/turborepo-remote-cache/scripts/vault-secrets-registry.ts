@@ -3,6 +3,10 @@ import { SecretStoreEntry, type SecretUsedBy } from '@pkgs/secret-store';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { VaultSecretKey } from '../src/config/vault-secret-key';
+
+export { VaultSecretKey };
+
 const ha: Assert = hotAssert();
 const validationAssert: Assert = Assert.validation();
 
@@ -69,23 +73,6 @@ export const VAULT_UI_BASE = (() => {
       : 'vault.chrisvouga.dev');
   return `https://${host}/ui/vault/secrets/secret/show`;
 })();
-
-/** Stable Vault secret key literals — single source of truth. */
-export const VaultSecretKey = {
-  turboToken: 'TURBO_TOKEN',
-  turboApi: 'TURBO_API',
-  turboTeam: 'TURBO_TEAM',
-  turboCache: 'TURBO_CACHE',
-  turboLogOrder: 'TURBO_LOG_ORDER',
-  turboTelemetryDisabled: 'TURBO_TELEMETRY_DISABLED',
-  s3Endpoint: 'S3_ENDPOINT',
-  s3Region: 'S3_REGION',
-  s3AccessKeyId: 'S3_ACCESS_KEY_ID',
-  s3SecretAccessKey: 'S3_SECRET_ACCESS_KEY',
-  s3Bucket: 'S3_BUCKET',
-  vaultToken: 'VAULT_TOKEN',
-  portfolioGithubToken: 'PORTFOLIO_GITHUB_TOKEN',
-} as const;
 
 /** Shared R2 buckets — one per Vault config. Apps own key prefixes inside the bucket. */
 export const SHARED_R2_BUCKET_BY_CONFIG = {
@@ -270,9 +257,6 @@ export const VAULT_SECRET_REGISTRY: readonly SecretStoreEntry[] = [
 export const VAULT_CONFIGS = ['dev', 'prd'] as const;
 
 assert.nonEmptyArray(VAULT_CONFIGS, 'vault configs must be non-empty');
-for (const key of Object.values(VaultSecretKey)) {
-  assert.nonEmptyString(key, 'vault secret key must be non-empty');
-}
 assert.nonEmptyArray(
   VAULT_SECRET_REGISTRY,
   'vault secret registry must be non-empty'
