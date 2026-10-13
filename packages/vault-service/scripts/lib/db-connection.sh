@@ -1,4 +1,4 @@
-# Shared Neon Postgres connection helpers for CI scripts.
+# Shared Postgres connection helpers for CI scripts.
 # shellcheck shell=bash
 
 append_query_param() {
@@ -44,7 +44,7 @@ psql_with_retry() {
       return 1
     fi
 
-    echo "==> psql failed (attempt ${attempt}/${max_attempts}); retrying in ${delay}s (Neon compute may be waking)..."
+    echo "==> psql failed (attempt ${attempt}/${max_attempts}); retrying in ${delay}s..."
     sleep "$delay"
   done
 }

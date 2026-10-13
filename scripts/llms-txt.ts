@@ -183,10 +183,10 @@ function values(ctx: Context): Record<string, string> {
     `vault.kv_keys entry for ${APPLICATION_DATABASE_SECRET}`
   );
   const platformDatabase = need(
-    config.neon?.projects?.find(
+    config.postgres?.projects?.find(
       (project) => project.purpose === 'openbao-storage'
     ),
-    'neon.projects OpenBao storage entry'
+    'postgres.projects OpenBao storage entry'
   );
   const org = need(config.github?.org, 'github.org');
   const dispatchSecret = 'DEPLOY_DISPATCH_TOKEN';

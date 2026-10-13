@@ -1,7 +1,7 @@
 # Atlas is the schema provider. The schema is part of OpenTofu desired state;
 # no migration runner or SQL provisioning scripts remain.
 resource "atlas_schema" "openbao" {
-  url     = "${neon_project.openbao.connection_uri}&search_path=secret_store"
+  url     = "${local.database_url}&search_path=secret_store"
   dev_url = var.schema_dev_url
   hcl     = <<-SCHEMA
     table "schema_migrations" {

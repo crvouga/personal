@@ -26,7 +26,11 @@
     "cloudflare_account_id": {
       "type": "string"
     },
-    "neon_api_key": {
+    "planetscale_service_token_id": {
+      "type": "string",
+      "sensitive": true
+    },
+    "planetscale_service_token": {
       "type": "string",
       "sensitive": true
     },

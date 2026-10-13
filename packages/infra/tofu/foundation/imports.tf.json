@@ -29,10 +29,6 @@
       "id": "83db052d18159889dd290724ac7d52d9"
     },
     {
-      "to": "neon_project.openbao",
-      "id": "flat-snow-95718736"
-    },
-    {
       "to": "cloudflare_dns_record.additional[\"filestash.chrisvouga.dev_A\"]",
       "id": "83db052d18159889dd290724ac7d52d9/d760fe8f5cb2571de63366def5696072"
     },
