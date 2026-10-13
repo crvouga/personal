@@ -81,7 +81,14 @@ ${builtins.readFile ../scripts/token.py}
         units+=("github-runner-slot-$n.service")
         n=$((n + 1))
       done
-      systemctl reset-failed "''${units[@]}"
+      # systemd 260 ResetFailedUnit refuses a unit that is not loaded. A clean
+      # stop plus daemon-reload unloads these units, and an unloaded unit cannot
+      # be failed. A unit that hit its start limit stays loaded and failed.
+      for unit in "''${units[@]}"; do
+        if systemctl is-failed --quiet "$unit"; then
+          systemctl reset-failed "$unit"
+        fi
+      done
       systemctl start "''${units[@]}"
     '';
   };
