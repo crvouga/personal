@@ -5,34 +5,25 @@ build-iso:
     nix build -L path:.#installer -o result-iso
 
 build-node:
-    nix build -L path:.#node -o result-node
+    nix build -L path:.#ci -o result-node
 
 build-web:
     nix build -L path:.#web -o result-web
 
+build-cache:
+    nix build -L path:.#cache -o result-cache
+
+build-netboot:
+    nix build -L path:.#netboot -o result-netboot
+
 flash-usb iso device:
     bash scripts/flash-usb.sh {{quote(iso)}} {{quote(device)}}
 
-verify-node node:
-    bash scripts/node.sh verify {{quote(node)}}
-
-deploy node:
-    bash scripts/node.sh deploy {{quote(node)}}
-
-reinstall-node node extra_files:
-    bash scripts/node.sh reinstall {{quote(node)}} {{quote(extra_files)}}
-
-drain-node node:
-    bash scripts/node.sh drain {{quote(node)}}
-
-resume-node node:
-    bash scripts/node.sh resume {{quote(node)}}
+bootstrap role ip:
+    nix run path:.#bootstrap -- {{quote(role)}} {{quote(ip)}}
 
 status node:
     bash scripts/node.sh status {{quote(node)}}
-
-provision-secrets node age_key:
-    bash scripts/node.sh provision {{quote(node)}} {{quote(age_key)}}
 
 check-local:
     bash scripts/check.sh
@@ -43,6 +34,6 @@ check:
 
 vm-test:
     nix build -L path:.#checks.x86_64-linux.vm
-
-rollback node:
-    ssh root@{{quote(node)}} 'fleet-drain && nix-env -p /nix/var/nix/profiles/system --rollback && /nix/var/nix/profiles/system/bin/switch-to-configuration boot && systemctl reboot'
+    nix build -L path:.#checks.x86_64-linux.web-vm
+    nix build -L path:.#checks.x86_64-linux.lifecycle
+    nix build -L path:.#checks.x86_64-linux.netboot-vm

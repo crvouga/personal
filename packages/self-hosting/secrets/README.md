@@ -1,7 +1,31 @@
-# Encrypted fleet secrets only
+# Encrypted role secrets only
 
-Do not commit plaintext, PEMs, age private keys, or decrypted example files here. The shipped `fleet.nix.secretsFile = null` keeps the flake evaluable before bring-up; registrations fail until configured. Encrypt a YAML document containing `github-app-key` (the PEM as a block scalar) with the fleet age public recipient, then set `secretsFile = ./secrets/fleet.yaml`. Optional remote cache entries are `cache-credentials` (AWS INI) and `cache-signing-key` (Nix private signing key).
+Do not commit plaintext, PEMs, age private keys, or decrypted example files here. Each role has its own age key and its own sops file. CI and web must never share either. Cache and netboot do not use `secrets/fleet.yaml` or `secrets/web.yaml`.
 
-The shared age private key is backed up outside Git and transferred after installation to `/nix/fleet-state/secrets/age.key` via `just provision-secrets NODE KEY`. It is never built into an ISO. Root-only decryption produces `/run/secrets/*`; runner slots receive only one-hour registration tokens. Compromise of any node can expose the shared fleet credential, so this is a trusted private-code fleet, not a public compute service.
+| Role    | Key on the work computer                      | Encrypted file         | Settings      |
+| ------- | --------------------------------------------- | ---------------------- | ------------- |
+| ci      | `$HOME/.config/self-hosting/keys/ci.age`      | `secrets/fleet.yaml`   | `fleet.nix`   |
+| web     | `$HOME/.config/self-hosting/keys/web.age`     | `secrets/web.yaml`     | `web.nix`     |
+| cache   | `$HOME/.config/self-hosting/keys/cache.age`   | `secrets/cache.yaml`   | `cache.nix`   |
+| netboot | `$HOME/.config/self-hosting/keys/netboot.age` | `secrets/netboot.yaml` | `netboot.nix` |
 
-Web servers do not use this file or this age key. Encrypt a separate `secrets/web.yaml` for a web-only age recipient, then set `web.nix` `secretsFile`. App environment is a sops key named by `envSecret` and appears only at `/run/secrets/<name>` on web hosts.
+`SELF_HOSTING_KEY_DIR` overrides the directory. `secretsFile = null` until that role's file exists, so the flake evaluates before bring-up. Bootstrap copies the matching private key to `/nix/fleet-state/secrets/age.key` (mode 0600) on the persistent `/nix` partition. It is never built into an ISO and never printed. Generate the key with `age-keygen`. This package does not.
+
+Root-only decryption produces `/run/secrets/*`. CI runner slots receive only one-hour registration tokens. A compromised node exposes that role's key, so this remains a trusted private-code fleet.
+
+CI YAML contains `github-app-key` (the PEM as a block scalar). Optional CI scratch-cache entries are `cache-credentials` (AWS shared-credentials INI) and `cache-signing-key` (a Nix private signing key). Those are not the attic server. The cache role's YAML contains `attic-env`, an env file whose value is `ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64=...`. Do not generate that RSA material into the Nix store. Web app environment is a sops key named by `envSecret`.
+
+When `repo.auth` is `ssh` or `token`, encrypt `git-read-key` or `git-read-token` into each role's own file. The ciphertext is per age key, so the same GitHub read credential is encrypted separately for each role. Do not copy one role's yaml onto another to avoid that.
+
+```sh
+umask 077
+mkdir -p "$HOME/.config/self-hosting/keys"
+age-keygen -o "$HOME/.config/self-hosting/keys/ci.age"
+age-keygen -y "$HOME/.config/self-hosting/keys/ci.age"
+# Repeat for web, cache, and netboot. Confirm the four files differ.
+# Write the YAML outside Git. Do not paste key material into shell history.
+sops --encrypt --age AGE_PUBLIC_RECIPIENT --input-type yaml --output-type yaml \
+  "$HOME/.config/self-hosting/fleet.plain.yaml" > secrets/fleet.yaml
+```
+
+Commit only the encrypted YAML. Remove the local plaintext after the backup exists. No fake encrypted placeholder is shipped.

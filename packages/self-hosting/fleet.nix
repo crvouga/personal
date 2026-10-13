@@ -1,11 +1,14 @@
-# Shared profile settings, never per-host configuration or plaintext credentials.
-{
+# CI role settings, never per-host configuration or plaintext credentials.
+let shared = import ./settings/shared.nix;
+in {
+  role = "ci";
   profile = "ms-a2";
   # REQUIRED: identical model/path on every node; obtain from the rescue system’s /dev/disk/by-path.
   # A model-based nvme-eui path differs per node. Prefer a verified shared by-path
   # PCI slot path; do not guess it or use /dev/nvme0n1.
   disk = "/dev/disk/by-path/TODO-internal-nvme";
-  sshKeys = [ ]; # REQUIRED: your work computer's public SSH key(s).
+  inherit (shared) sshKeys bootGenerationLimit repo binaryCache;
+  reboot = shared.reboot // { drainCommand = "fleet-drain"; };
   github = {
     scope = "organization"; # or "repository"
     organization = "TODO";
@@ -21,16 +24,11 @@
   cache = {
     maxGiB = 100;
     minFreeGiB = 30;
+    # Optional CI scratch store. This is not the fleet attic cache.
     remote = {
       enable = false;
       url = "s3://TODO?endpoint=TODO&region=auto";
       publicKey = "TODO";
     };
-  };
-  updates = {
-    enable = false; # set URL, test SSH and rollbacks, then enable
-    flake = "github:TODO/workspace/main?dir=packages/self-hosting";
-    calendar = "*-*-* 04:00:00"; # UTC; deterministic hostname delay up to 2h
-    drainTimeoutSeconds = 7200;
   };
 }

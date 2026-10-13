@@ -1,5 +1,5 @@
 { lib, pkgs, settings, ... }: {
-  imports = [ ./runners.nix ./cache.nix ./update.nix ];
+  imports = [ ./runners.nix ./cache.nix ];
   _module.args.registrationProvider = lib.mkDefault null;
   _module.args.drainProvider = lib.mkDefault null;
   programs.nix-ld.enable = true;
@@ -7,7 +7,7 @@
   # Identity is the lowest permanent physical NIC MAC, independent of link state.
   systemd.services.fleet-identity = {
     wantedBy = [ "multi-user.target" ];
-    before = [ "sshd.service" "fleet-update.service" ];
+    before = [ "sshd.service" ];
     path = with pkgs; [ coreutils findutils gawk systemd ];
     serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
     script = ''

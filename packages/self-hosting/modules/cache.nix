@@ -9,6 +9,12 @@
     done
   '';
 in {
+  assertions = [
+    {
+      assertion = !(remote.enable && settings.binaryCache.url != null);
+      message = "The CI S3 substituter and the fleet attic substituter both write extra-substituters. Enable only one.";
+    }
+  ];
   nix.settings = lib.mkIf remote.enable {
     extra-substituters = [ remote.url ];
     extra-trusted-public-keys = [ remote.publicKey ];

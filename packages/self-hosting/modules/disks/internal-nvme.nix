@@ -1,4 +1,7 @@
 { settings, ... }: {
+  # EFI plus persistent /nix. The root is tmpfs, so an install leaves nothing
+  # from the previous OS, including Windows. Every node of a role uses the path
+  # in that role's settings, so the partition table is the same every time.
   disko.devices = {
     disk.internal = {
       type = "disk";

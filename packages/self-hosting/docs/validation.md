@@ -21,6 +21,10 @@ just build-iso
 just vm-test
 ```
 
-`just check` builds the `ms-a2` system, offline ISO and `runNixOSTest` in the flake's checks. The existing hosted `CI` workflow now runs these checks for fleet changes and includes the job in `Required`. CI has not run yet; a local evaluation is not green CI.
+`just check` builds every host, the installer ISO, and the `runNixOSTest` checks (`vm`, `web-vm`, `lifecycle`, `netboot-vm`). The hosted `CI` workflow runs the package check and `nix flake check` for fleet changes. A local evaluation is not green CI.
 
-Before node installation, fill `fleet.nix` and the encrypted secret file, rerun the acceptance checks against that exact source, and qualify the real MS-A2 NICs, target disk path, firmware/UEFI behavior, thermal stability and hardware watchdog. The default template deliberately remains evaluable while its installer refuses absent SSH keys, secrets or an unverified target disk.
+## 2026-10-12 control-surface change
+
+Bootstrap, `fleet-sync`, the attic and netboot roles, the lifecycle and netboot VM tests, and `.github/workflows/self-hosting.yml` were added on a Mac without Nix. This change was not evaluated with `nix flake check`, and the VM tests were not executed. Do not treat the 2026-10-10 evaluation above as coverage for this tree. The CI closure changes on purpose: `base.nix` now imports sync, the revision endpoint, the generation limit, and the optional attic substituter. comin was not added; it is not in nixpkgs at `7c8764b7`, and an unlocked input was not pinned from this machine.
+
+Before node installation, fill that role's settings file and its encrypted secret file, rerun the acceptance checks against that exact source, and qualify the real NICs, target disk path, firmware, thermals, and hardware watchdog. The default template stays evaluable. Bootstrap refuses empty SSH keys, a missing role age key, and an unverified disk path.

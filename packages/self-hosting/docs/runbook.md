@@ -1,103 +1,114 @@
 # Fleet operations
 
-## Preparation and node #1, in order
+Git is the control surface. Bootstrap is the one SSH write. After that, a node pulls `deploy` or `canary` by itself. Do not SSH a configuration change onto a node. `just status NODE` only prints the revision, the current system, the sync timer, and failed units.
 
-Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builder. A macOS work computer can evaluate and orchestrate; it cannot build x86_64 Linux closures or run the VM test without a Linux builder. Install `just`, Nix with `nix-command flakes`, `age`, and `sops`. Work in `packages/self-hosting`.
+The human steps that git cannot do are in [checklist.md](checklist.md): firmware, racking, cabling, and the role age key.
 
-1. Back up all Windows data you need. Installation erases the internal target NVMe. Obtain explicit human approval of that disk. Do not execute the installer on another machine.
-2. In Windows, note firmware version and NIC MACs. If OOBE prevents boot selection, complete only the setup needed to shut down or use firmware's one-time USB boot menu. Firmware key sequences vary: use the manufacturer's instructions, not an assumed key.
-3. BIOS checklist: disable Secure Boot; enable UEFI USB boot; enable power-on after AC loss if available; enable a hardware watchdog only if offered. Record these settings. Boot a standard non-destructive Linux rescue stick first to inspect `lsblk -o NAME,MODEL,SERIAL,TRAN,SIZE,MOUNTPOINTS`, `ls -l /dev/disk/by-path`, `lspci -nnk`, and `ethtool -i INTERFACE`.
-4. Set `fleet.nix.disk` to the verified **internal NVMe PCI by-path** shared by this profile. A serial-based by-id differs per node, so do not use it for an identical fleet unless the profile really shares that path. Multiple NVMe slots must have a deliberate target slot. USB paths, raw `/dev/nvme0n1`, missing targets, removable/hotplug disks, and mounted descendants are rejected. Record actual LAN/DHCP/DNS and SSH reachability. Add your work computer's public SSH key to `sshKeys`.
-5. Choose GitHub scope and configure `github` in `fleet.nix`. Organizations can share a group across selected private repos; personal accounts must use `scope = "repository"` and `repositories = [ "owner/private-repo" ... ]`. These are operator decisions; nothing in this package changes GitHub settings. With human approval, create/install a GitHub App with organization **Self-hosted runners: write**, or repository **Administration: write**, as required by the [registration API](https://docs.github.com/en/rest/actions/self-hosted-runners). Install it only on intended trusted scopes. Fill App ID and installation ID. Restrict the group to selected private repositories; disable public access and restrict workflows where your plan supports it. Do not switch any production workflows yet.
-6. Generate and back up one fleet age key on the work computer, then encrypt the App PEM. Commands below keep plaintext outside the repo:
+Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builder. A macOS work computer can run bootstrap and orchestrate; it cannot build x86_64 Linux closures or the VM tests without a Linux builder. Install `just`, Nix with `nix-command flakes`, `age`, and `sops`. Work in `packages/self-hosting`.
 
-   ```sh
-   umask 077
-   mkdir -p "$HOME/.config/self-hosting"
-   age-keygen -o "$HOME/.config/self-hosting/fleet-age.key"
-   age-keygen -y "$HOME/.config/self-hosting/fleet-age.key" # public recipient only
-   # Write a YAML document outside Git with github-app-key: | followed by the PEM.
-   # Use your editor/password manager; do not paste key material into shell history.
-   sops --encrypt --age AGE_PUBLIC_RECIPIENT --input-type yaml --output-type yaml      "$HOME/.config/self-hosting/fleet.plain.yaml" > secrets/fleet.yaml
-   ```
+## Install one machine
 
-   Replace the public recipient placeholder in `.sops.yaml` too. Set `secretsFile = ./secrets/fleet.yaml;` in `fleet.nix`; commit only encrypted YAML. No fake encrypted placeholder is shipped. Remove the local plaintext document after storing a secure backup. The ISO includes encrypted YAML through its system closure, **never** the age key. SOPS decryption and registration initially fail safely until you transfer the key.
-
-7. Validate and build from the same committed lock and settings:
+1. Back up anything on the disk. Installation erases it, including Windows. Obtain explicit human approval of that disk. Do not run bootstrap against a machine you have not identified.
+2. Do the firmware, cabling, disk-path, SSH key, and role-key steps in the checklist. Set `disk` in the role settings file (`fleet.nix` for CI, `web.nix`, `cache.nix`, or `netboot.nix`) to the verified internal NVMe `by-path`. A serial-based `by-id` differs per node. USB paths, raw `/dev/nvme0n1`, missing targets, removable disks, and mounted descendants are rejected by the disk guard on the target.
+3. For a CI node, choose the GitHub scope in `fleet.nix`. Organizations can share a group across selected private repos; personal accounts must use `scope = "repository"` and `repositories = [ "owner/private-repo" ... ]`. Nothing in this package changes GitHub settings. With human approval, create a GitHub App with organization **Self-hosted runners: write**, or repository **Administration: write**, as required by the [registration API](https://docs.github.com/en/rest/actions/self-hosted-runners). Install it only on intended trusted scopes. Fill the App ID and installation ID. Restrict the group to selected private repositories. Do not switch production workflows yet. Encrypt `secrets/fleet.yaml` for `ci.age` as described in [secrets/README.md](../secrets/README.md), then set `secretsFile`.
+4. Web, cache, and netboot each get their own age key and their own encrypted file before `secretsFile` is set. Leave `secretsFile` null until that file exists. Cache and netboot do not import the CI runners.
+5. Build from the committed lock:
 
    ```sh
-   cd packages/self-hosting # if starting at repository root
    just check-local
-   just check
-   just build-node
    just build-iso
-   ls result-iso/iso/*.iso
+   just build-node
+   just build-web
+   just build-cache
+   just build-netboot
    ```
 
-8. On Linux, identify the USB using `lsblk` and `udevadm info`, unmount every partition, and flash with the exact stable path:
+   `just check` and `just vm-test` need an x86_64 Linux builder. The ISO file is `result-iso/iso/self-hosting-installer.iso`.
+
+6. Flash that ISO once. On Linux, identify the USB with `lsblk` and `udevadm info`, unmount every partition, and pass the exact stable path:
 
    ```sh
-   just flash-usb result-iso/iso/ci-ms-a2-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
+   just flash-usb result-iso/iso/self-hosting-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
    ```
 
-   The script displays model/serial/mounts, requires USB transport, refuses mounted descendants, and requires typing the full path. It overwrites the USB. On macOS the Linux guard script intentionally refuses to run: use Disk Utility or a reviewed flashing tool, or manually inspect `diskutil list external physical`, then `diskutil info /dev/diskN`, confirm that it is the intended whole **external USB** device and not the system disk, obtain approval, `diskutil unmountDisk /dev/diskN`, and `sudo dd if=ISO of=/dev/rdiskN bs=4m`. Recheck the identity immediately before writing, then `sync` and eject. Never infer a disk number from an example.
+   The script shows model, serial, and mounts, requires USB transport, refuses mounted descendants, and requires typing the full path. On macOS the guard refuses to run. Use a reviewed flashing tool, or inspect `diskutil list external physical`, confirm the whole external USB, `diskutil unmountDisk`, and `sudo dd` to the raw device. Recheck the identity immediately before writing.
 
-9. Boot the generated stick at the MS-A2. The tty1 warning counts down ten seconds; **any key aborts**. The disk guard runs before disko. Installation copies the already-built system closure from the ISO, with substituters disabled and no network requirement, then powers off. On failure it does not power off or silently choose another disk; inspect `journalctl -u fleet-install` from another console. After success remove USB, power on, and locate the DHCP lease. The hostname is `ci-` plus the lowest permanent physical NIC MAC with colons removed; changing NIC hardware can change identity.
-10. Verify the SSH host fingerprint using the local screen (`ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub`) before accepting it on the work computer. Then provision the age key and verify:
+7. Boot the stick, or PXE-boot from a netboot node that is already installed. The installer only starts SSH. It does not count down and it does not format a disk. Log in with the admin key. The hostname is `installer`.
+8. From the work computer, with a terminal so the confirmation can be typed:
 
-    ```sh
-    just provision-secrets NODE "$HOME/.config/self-hosting/fleet-age.key"
-    just status NODE
-    just verify-node NODE
-    ```
+   ```sh
+   just bootstrap ci NODE
+   ```
 
-    The key travels over SSH stdin directly to `/nix/fleet-state/secrets/age.key` with mode 0600. It never enters `/tmp`, an argument, stdout, the Nix store, or Git. The script restarts SOPS decryption and runners. Confirm `ci-MAC-slot-N` runners carry `self-hosted`, `Linux`, `X64`, `nixos`, `ci`, and `ms-a2`. `verify-node` compares a locally built toplevel path with `readlink /run/current-system` exactly; it proves the closure, not firmware, disk contents, runtime files, or secret equality.
+   Replace `ci` with `web`, `cache`, or `netboot`. `NODE` is the installer address. The command refuses a missing role key, a key inside this repo, two identical role keys, a `TODO` disk path, and an empty SSH key list. It builds `disko-<role>` and the role closure, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
 
-## Deploy, pull updates, drain and rollback
+9. Remove the USB. On the console, read `ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub` and accept that fingerprint. Then `just status NODE`. A CI hostname is `ci-` plus the lowest permanent physical NIC MAC with colons removed. A web hostname is `web-` plus that MAC, and it does not write `/run/fleet/identity`.
 
-`just deploy NODE` builds first, copies the closure over verified SSH, drains, writes the system profile and boot generation, then reboots. It does not perform an unsafe live switch. If drain fails, activation/reboot are blocked. A build/copy failure happens before drain. The previous generation remains bootable; this SSH deployment uses manual rollback, not deploy-rs magic rollback.
+To install another node of the same role, boot the same USB and run bootstrap again. Its MAC supplies identity. No per-node Nix file is added. To reinstall, boot the installer and run bootstrap again. That is destructive and needs the same approval. There is no SSH reinstall command.
 
-`just drain-node NODE` sets an admission barrier and removes custom routing labels from this node's GitHub runner registrations through its App. Workflows **must require `nixos` and `ci`**; jobs targeting only `self-hosted` evade label-based scheduling restrictions. Busy jobs finish without a stop signal. A job already dispatched at the barrier may fail its start hook before project steps run; retry it on another node. GitHub is polled until no matching runner is busy, then local services stop. An API/access error or timeout leaves the barrier set and prevents deployment. `just resume-node NODE` clears it and re-registers each slot with fresh labels/tokens. Always check logs after a timeout.
+## What the nodes pull
 
-For pull updates set the reviewed `updates.flake` URL (for this repository include `?dir=packages/self-hosting`), calendar, and `enable = true`. Updates build before draining and stagger by a deterministic hostname checksum delay within a two-hour window. Private flake sources need a separate read-only retrieval mechanism; the App PEM is not reused for GitOps source access. Prefer a public non-secret config source or an approved SSH deploy key installed outside the Nix store. Failed pulls do not change the running generation. GitOps pulls reviewed commits; it does not update `flake.lock` itself. Keep runner pins current through dependency-update PRs and Linux validation: GitHub requires disabled-auto-update runners to update within 30 days of a new runner release. There is no automatic recovery of failed boots without a BMC; keep the screen/keyboard available.
+comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Do not point it at `main`. Until `deploy` exists, a configured node fails the fetch and keeps the generation bootstrap installed. The first `promote-deploy` run creates `deploy`. `canary` is created by the first push to `main` after this workflow is on the default branch.
 
-`just rollback NODE` drains, selects the previous generation and reboots. If SSH is lost, use the systemd-boot menu to select the previous generation physically. Never reboot or switch directly during a job. `fleet-resume` is required after a failed deployment that left the node drained.
+- Every node tracks `deploy`.
+- One MAC per role, listed in `canaryMacs`, tracks `canary`.
+- `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
 
-## Reinstall, remove and add nodes
+A kernel, initrd, or module change waits a MAC-based delay of up to two hours, so the fleet does not reboot together. CI nodes then run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place. systemd-boot keeps 8 generations. The weekly garbage collection deletes generations older than 14 days.
 
-`just reinstall-node NODE EXTRA_FILES` is **destructive**, requires human approval and typing the exact configured stable disk path, and drains before the pinned nixos-anywhere tool kexecs into rescue, runs the guarded disko closure, installs and reboots. Linux closure builds require a Linux builder. Prepare `EXTRA_FILES` outside Git with `nix/fleet-state/secrets/age.key` (0600, parent directories 0700); it is copied into the new persistent `/nix` during install. Never embed it into a flake. Optionally preserve the verified SSH host key under `nix/fleet-state/ssh/` in this tree; otherwise verify the new fingerprint physically and remove only the old known_hosts entry for that node. Ensure the installed encrypted config matches this key before reinstalling. Remote kexec depends on hardware, firmware and network; if it fails, use the physical ISO. No destructive operation was run during implementation.
+The running commit is `cat /etc/self-hosting/revision` and `curl -fsS http://127.0.0.1:9101/metrics` on the node. The metrics port is localhost only.
 
-To remove a node, drain and leave the barrier set, power it off after verifying no jobs, then remove offline registration entries through approved GitHub administration. Do not blindly delete a busy runner. To add another node, use the exact same profile ISO, verified target PCI slot, and shared key; its MAC supplies identity. No per-node Nix file is added.
+Failed pulls leave the running generation in place. There is no automatic recovery of a failed boot without a BMC. Keep a console available. The systemd-boot menu still boots an older generation.
 
-After a RAM upgrade, update `profiles/ms-a2.nix` RAM assumptions fleet-wide, or set `fleet.nix.slots` explicitly and build/test/deploy. Hardware variants should be new shared profiles, not host files. At 96 GiB the physical-core rule caps this profile at 8 slots. Measure concurrent project RAM/CPU use; hardware capacity and selected-repository distribution are finite.
+## Canary, deploy, and rollback
 
-## On-node health and cache operations
+The workflow is `.github/workflows/self-hosting.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet.
+
+- A pull request runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, and the installer.
+- A push to `main` does that, pushes the four toplevels to attic when `SELF_HOSTING_CACHE_URL`, `SELF_HOSTING_CACHE_NAME`, and `SELF_HOSTING_ATTIC_TOKEN` are set, and fast-forwards `canary`. If those credentials are absent the push is skipped and `canary` still advances. Do not invent the cache URL to make the step pass.
+- Watch the canary node. Nothing in GitHub can see its health or its revision, so the soak is not a `sleep` in Actions. 24 hours with no drift and no failed units is the recommendation.
+- Run the workflow manually with action `promote-deploy` and `soak_ok` set. That moves `deploy` to the canary commit. It does not rebuild.
+
+A normal rollback is a revert on `main`. It goes through the same pull-request check, canary, soak, and promote steps. The previous generation stays bootable the whole time.
+
+The fast path does not rebuild. Run the workflow manually with action `rollback-deploy` and the full 40-character sha. The sha must already be on `origin/main`. The job force-pushes it to `deploy`. Nodes pull that commit. Systems already in the cache or already on disk are reused. If SSH is gone, pick the previous generation from the systemd-boot menu.
+
+Only the GitHub Actions identity should be allowed to push `deploy` and `canary`. That rule is branch protection in GitHub. This package does not change it.
+
+## CI health
+
+These commands are for a console or a read-only session. They are not a second deploy path.
 
 ```sh
 systemctl --failed
 systemctl status 'github-runner-*'
 journalctl -u github-runner-slot-1 -b
-journalctl -u fleet-update -u fleet-cache-clean -b
+journalctl -u fleet-sync -u fleet-cache-clean -b
 journalctl -u sops-install-secrets -u fleet-identity -b
 journalctl -k -b | grep -Ei 'watchdog|nvme|i40e|igc|r8169|error'
 readlink /run/current-system
+cat /etc/self-hosting/revision
 df -h / /nix /boot
 du -sh /nix/ci-cache/*
 systemctl list-timers
 ls -l /dev/watchdog*
 cat /sys/class/watchdog/watchdog*/identity
 systemctl show -p RuntimeWatchdogUSec
-fleet-drain 7200
-# Perform approved maintenance only after success.
-fleet-resume
 ```
 
-The manager requests a 30-second hardware watchdog and panic reboot, but recovery from a hard hang requires an actual supported hardware watchdog. Do not mistake `softdog` for proof of hard-hang recovery. MS-A2 watchdog availability must be verified on the physical unit; no unverified driver or BIOS option is asserted. Nix GC runs weekly (14-day old generations) and store optimisation daily. Hourly cache cleanup enforces a 100-GiB soft ceiling and 30-GiB free-space floor; active runner caches are not deleted. If the floor cannot be restored, new registrations are blocked and the service reports failure. These are soft guardrails, not filesystem quotas: a large active job can fill the disk. Drain, reclaim disposable caches, and resume explicitly.
+Workflows that target this fleet must require `nixos` and `ci`. Jobs that ask only for `self-hosted` evade the label drain. A job already dispatched when the barrier appears may fail its start hook; retry it on another node. `fleet-drain` is what the sync script runs before a CI reboot. Do not invent a second drain.
 
-Reinstall first with a known-good pinned closure. If failures persist, investigate RAM, NVMe SMART, thermal/power issues, firmware, and NIC logs. Do not add speculative kernel flags to hide a hardware problem.
+The manager requests a 30-second hardware watchdog and a panic reboot. Recovery from a hard hang needs a supported hardware watchdog. `softdog` is not that proof. MS-A2 watchdog availability is verified on the machine. Nix GC runs weekly. Hourly CI cache cleanup enforces a 100 GiB soft ceiling and a 30 GiB free-space floor. Active runner caches are not deleted. A large active job can still fill the disk.
 
-## Optional shared cache
+After a RAM upgrade, update `profiles/ms-a2.nix` or set `fleet.nix` `slots`, then let the git pipeline roll it out. Hardware variants are new shared profiles, not host files. At 96 GiB the physical-core rule caps this profile at 8 slots.
 
-Set only `cache.remote.enable = true` after filling its URL/public signing key and adding encrypted `cache-credentials` (AWS shared-credentials INI) and `cache-signing-key` to the SOPS YAML. This enables an S3 substituter and a signed post-build push hook. Bucket and credential provisioning stay outside this package and require separate approval/OpenTofu ownership. Use [Nix's S3 cache documentation](https://nix.dev/manual/nix/latest/store/types/s3-binary-cache-store), an S3-compatible endpoint such as R2, `region=auto`, and least-privilege bucket-only credentials. Bootstrap misses build locally; push failures appear in daemon logs and must be resolved before relying on remote caching. Runner users must never receive the App key or host binary-cache signing key.
+To remove a node, wait until it is not running a job, power it off, and delete the offline GitHub registration through an approved admin action. Do not delete a busy runner.
 
-Projects can use their own S3 build-cache clients against a separate prefix/bucket with their own approved scoped credentials. Nix signatures do not validate arbitrary project cache objects. Shared Nix cache and application build-cache protocols are separate; disabling remote cache leaves local Nix/store and slot cache behavior available. Persisted credentials, Nix store and caches are disposable for recovery, but backups of fleet age and signing keys must exist outside the nodes.
+## Caches
+
+Two caches exist and they are not the same:
+
+- The fleet attic cache is `settings.binaryCache` plus the cache role. Clients use it only after the URL and the public key are real and do not contain `TODO`. The server listens on port 8080 and stores data under `/nix/fleet-state/attic`. It stays disabled until `secrets/cache.yaml` provides `attic-env`.
+- `cache.remote` in `fleet.nix` is an optional S3 scratch substituter and post-build hook for CI. Leave it off. Do not enable it while `binaryCache.url` is set; both would write `extra-substituters`. Bucket provisioning stays in OpenTofu.
+
+Runner users must never receive the App key, a signing key, or the attic token. Projects can use their own scoped build-cache credentials. Nix signatures do not validate arbitrary project cache objects.

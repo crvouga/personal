@@ -1,7 +1,12 @@
 { lib, pkgs, settings, ... }: {
-  imports = [ ./disk.nix ];
+  imports = [
+    (./disks + "/${settings.role}.nix")
+    ./sync.nix
+    ./revision.nix
+  ];
   system.stateVersion = "26.05";
   boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot.configurationLimit = settings.bootGenerationLimit;
   boot.loader.efi.canTouchEfiVariables = true;
   # No static hostname. hostnamed prefers /etc/hostname, and that file is
   # read-only on NixOS, so a transient name would never be applied.
@@ -25,6 +30,14 @@
     auto-optimise-store = false;
     min-free = 2 * 1024 * 1024 * 1024;
     max-free = 8 * 1024 * 1024 * 1024;
+  } // lib.optionalAttrs (
+    settings.binaryCache.url != null
+    && settings.binaryCache.publicKey != null
+    && !(lib.hasInfix "TODO" settings.binaryCache.url)
+    && !(lib.hasInfix "TODO" settings.binaryCache.publicKey)
+  ) {
+    extra-substituters = [ settings.binaryCache.url ];
+    extra-trusted-public-keys = [ settings.binaryCache.publicKey ];
   };
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 14d"; };
   nix.optimise = { automatic = true; dates = [ "03:00" ]; };

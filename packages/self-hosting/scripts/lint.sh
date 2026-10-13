@@ -8,6 +8,7 @@ else
   echo 'ShellCheck unavailable; shell syntax checks still run'
 fi
 cmp workflows/runner-check.yml ../../.github/workflows/runner-check.yml
+cmp workflows/self-hosting.yml ../../.github/workflows/self-hosting.yml
 if command -v actionlint >/dev/null 2>&1; then
   actionlint -config-file actionlint.yaml workflows/*.yml ../../.github/workflows/runner-check.yml
 else

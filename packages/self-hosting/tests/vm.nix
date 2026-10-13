@@ -21,7 +21,6 @@ MOCK
   testSettings = settings // {
     slots = 2; secretsFile = null;
     github = settings.github // { organization = "mock-org"; appId = "123"; installationId = "456"; };
-    updates = settings.updates // { enable = false; };
     cache = settings.cache // { remote = settings.cache.remote // { enable = false; }; };
   };
 in pkgs.testers.runNixOSTest {
@@ -93,5 +92,6 @@ in pkgs.testers.runNixOSTest {
     machine.fail("fleet-drain 30")
     machine.succeed("systemctl is-active --quiet github-runner-slot-1.service")
     machine.succeed("rm /run/fleet/slot-1/busy; fleet-resume")
+    machine.fail("grep -F cache.invalid /etc/nix/nix.conf")
   '';
 }

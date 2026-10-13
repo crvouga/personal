@@ -1,19 +1,56 @@
-NixOS configurations for physical machines we own and run ourselves: CI runners, web servers, and later GPU and dev boxes. Nothing here provisions cloud resources; cloud infrastructure lives in `../infra`.
+NixOS configurations for physical machines we own and run ourselves: CI runners, web servers, a binary cache, a netboot installer, and later GPU and dev boxes. Nothing here provisions cloud resources; cloud infrastructure lives in `../infra`.
 
-`modules/` holds reusable NixOS modules. `base.nix` is the only module shared by every role: users, SSH, the sops age-key path, store maintenance, watchdog, and disk layout. `hosts/` composes one role for a class of identical machines. Do not put role switches in `base.nix`.
+Git is the only control surface after bootstrap. Do not SSH a change onto a node. `just status NODE` is read-only. `just bootstrap ROLE IP` is the only SSH write, and it wipes the disk.
 
-To add a role, add `modules/<role>.nix` with only that role's services, users, and secrets, then add `hosts/<role>.nix` that imports `base.nix` and that module. Wire a new `nixosSystem` in `flake.nix` with its own settings file. Nodes of one role stay identical; hardware differences are shared files in `profiles/`, never per-host files.
+`modules/base.nix` is the only module shared by every role: users, SSH, the sops age-key path, store maintenance, watchdog, that role's disk layout, pull sync, and the revision endpoint. Do not put role switches in `base.nix`. `hosts/` composes one role for a class of identical machines.
 
-To add a host of an existing role, build and install that role's closure. Do not add a host file. Identity comes from the NIC MAC.
+Roles:
 
-To add an app on the web role, append one attrset to `apps` in `web.nix`: `name`, `domain`, `port`, `containerPort`, and `image` (the OCI image CI already publishes). Set `envSecret` only together with this role's encrypted `secrets/web.yaml`. A null `image` is the local placeholder used until those values are real.
+- `ci`: `hosts/ci.nix`, `fleet.nix`, `modules/ci-runner.nix`. The GitHub App key, runner users, slot cache, and `secrets/fleet.yaml` stay here. CI runs untrusted pull-request code.
+- `web`: `hosts/web.nix`, `web.nix`, `modules/web-server.nix`. Apps are OCI images behind Caddy, with `secrets/web.yaml`.
+- `cache`: `hosts/cache.nix`, `cache.nix`, `modules/cache-server.nix`. This is the attic binary cache. It is not the optional CI scratch substituter in `modules/cache.nix`.
+- `netboot`: `hosts/netboot.nix`, `netboot.nix`, `modules/netboot.nix`. Pixiecore serves the shared installer. `dhcpNoBind` stays true unless this host is the DHCP server for that network.
 
-CI runner hosts never share secrets or credentials with other roles. The GitHub App key, runner users, slot cache, and `secrets/fleet.yaml` stay in `ci-runner.nix` and `fleet.nix`. Web apps use a different age key and `secrets/web.yaml`. Do not copy either onto the other role. CI runs untrusted pull-request code.
+CI and web must never share an age key or a secrets file. Cache and netboot use their own keys and files too. Bootstrap refuses two role keys that compare equal.
 
-This package does not own GitHub configuration, buckets, billing, DNS, or other workspace infrastructure. Do not provision those here. Every dependency is pinned in `flake.lock`; do not update it implicitly during deployment.
+To add a role, add `modules/<role>.nix` with only that role's services, add `modules/disks/<role>.nix` (import `internal-nvme.nix` until the hardware differs), add `hosts/<role>.nix` that imports `base.nix` and that module, and add a settings file plus a `nixosSystem` in `flake.nix`. Set `reboot.drainCommand` only when the role must drain before a kernel reboot. Nodes of one role stay identical. Hardware differences are shared files in `profiles/`, never per-host files.
 
-Run `bun run --filter @pkgs/self-hosting check` for portable checks. From this package run `just check`, `build-node`, `build-web`, `build-iso`, `vm-test`, `verify-node NODE`, `status NODE`, `drain-node NODE`, `resume-node NODE`, `deploy NODE`, `rollback NODE`, `provision-secrets NODE KEY`, or `reinstall-node NODE EXTRA_FILES`. `deploy` and `provision-secrets` are for CI nodes.
+To add a host of an existing role, install that role's closure. Do not add a host file. Identity comes from the NIC MAC. A canary is one MAC in `settings.repo.canaryMacs`, not a flag file and not a second closure.
 
-`flash-usb ISO DEVICE`, `reinstall-node`, and booting the installer are destructive. Obtain explicit human approval identifying the disk/node before executing them. An interactive confirmation is an additional check, never authorization. Do not execute a generated installer or a VM against physical disks. Never print secrets, place them in CLI arguments, or copy plaintext credentials into the Nix store. Never change GitHub settings, secrets, or billing without explicit approval. Runtime registration uses the configured GitHub App; tokens remain in `/run`.
+To add an app on the web role, append one attrset to `apps` in `web.nix`: `name`, `domain`, `port`, `containerPort`, and `image` (the OCI image CI already publishes). Set `envSecret` only together with this role's encrypted `secrets/web.yaml`. A null `image` is the local placeholder used until those values are real. Do not invent a domain or an image tag.
 
-Always drain a runner before activation, reboot, rollback, or reinstall; a timeout must prevent the action. Restrict runner projects to private trusted code, require `nixos` and `ci` routing labels, and never run fork PRs or `pull_request_target` on the runner fleet. Keep credentials root-only. Inspect actual upstream module source at the locked nixpkgs revision when changing module behavior. Run Linux flake/system/ISO/VM checks and clearly report unavailable builders or hardware validation.
+## Bootstrap
+
+The installer is generic. `just build-iso` produces `self-hosting-installer.iso`: SSH, DHCP, and the admin public keys from `settings/shared.nix`. It does not partition a disk or embed a role. One USB is used for every box. The netboot role serves that same installer over PXE.
+
+`nix run .#bootstrap -- <role> <ip>` (or `just bootstrap ROLE IP`) wraps nixos-anywhere. The target must already be booted into the installer. The command reads the role age key from `$HOME/.config/self-hosting/keys/<role>.age`, or from `$SELF_HOSTING_KEY_DIR/<role>.age`. Generate it with `age-keygen`. This package does not generate keys. The key must not live inside the git checkout. Bootstrap copies it with `--extra-files` to `/nix/fleet-state/secrets/age.key` on the persistent `/nix` partition. The operator must type the exact `/dev/disk/by-path` or `by-id` path on a terminal. A path containing `TODO`, an empty `sshKeys` list, or a missing key refuses to run. The first install builds on the operator machine because the attic cache does not exist yet.
+
+The ISO host key is ephemeral. The installed host key is `/nix/fleet-state/ssh/ssh_host_ed25519_key`. Read its fingerprint on the console before accepting it. Steps that stay outside git are in `docs/checklist.md`.
+
+## Sync and rollback
+
+comin is not in nixpkgs at the pinned revision `7c8764b7`, and this flake does not add an unlocked input. `modules/sync.nix` and `scripts/fleet-sync.sh` are the pull agent. Do not also enable `system.autoUpgrade`.
+
+Nodes track `deploy`. A MAC listed in `canaryMacs` tracks `canary`. Nothing tracks `main`. The timer stays off while `repo.url` contains `TODO`. The poll is 300 seconds plus 30 seconds of jitter. The branch is chosen at runtime from the NIC MAC, so every node of a role stays one closure. `self.rev` is null on a dirty tree; the revision is `self.rev`, then `self.dirtyRev`, then `unknown`. It is published at `/etc/self-hosting/revision` and `http://127.0.0.1:9101/metrics` (localhost only).
+
+A kernel, initrd, or module change sleeps for `cksum(mac) % delayMaxSeconds` (default 7200; 0 disables). On CI that sleep is followed by `fleet-drain`, then `switch-to-configuration boot` and reboot. A failed drain does not switch or reboot. Other changes switch in place and do not drain. systemd-boot keeps `bootGenerationLimit` generations (8). Weekly garbage collection deletes generations older than 14 days.
+
+Git read access is `repo.auth`: `none`, `ssh` (`/run/secrets/git-read-key`), or `token` (`/run/secrets/git-read-token`). Encrypt that credential separately into each role's sops file. Any auth other than `none` requires that role's `secretsFile`.
+
+The fleet binary cache is attic. Clients add it as a substituter only when `binaryCache.url` and `binaryCache.publicKey` are both set and neither contains `TODO`. Leave both null until they are real. Do not enable it together with `cache.remote`. Attic storage is bind-mounted from `/nix/fleet-state/attic` because the root is tmpfs. The cache role stays off while its `secretsFile` is null, so a build does not mint a JWT.
+
+`.github/workflows/self-hosting.yml` is a byte copy of `workflows/self-hosting.yml`. It runs on `ubuntu-latest`, never on this fleet, so a broken fleet can still be fixed by pushing a commit. Pull requests run `nix flake check` and build every host. A push to main does that, pushes the four toplevels to attic when the cache variables and token exist, and fast-forwards `canary`. Missing cache credentials skip the push and still advance `canary`.
+
+Nothing reports drift or health back to GitHub, so the soak is a manual `workflow_dispatch`. After the canary looks healthy (24 hours is the recommendation), run the workflow with action `promote-deploy` and `soak_ok` true. That moves `deploy` to `canary` and does not rebuild.
+
+A rollback is a git revert on main, which flows through the same pipeline. The fast path is `workflow_dispatch` action `rollback-deploy` with a 40-character sha that is already on `origin/main`. It force-pushes that sha to `deploy` and does not rebuild. The previous systemd-boot generation stays selectable from the console.
+
+Branch protection is a GitHub setting this package does not apply: only the GitHub Actions identity may push `deploy` and `canary`.
+
+This package does not own GitHub configuration, buckets, billing, DNS, or other workspace infrastructure. Every dependency is pinned in `flake.lock`. Do not update it implicitly. Do not commit tokens, age private keys, or plaintext secrets.
+
+Run `bun run --filter @pkgs/self-hosting check` for portable checks. From this package: `just check`, `build-node`, `build-web`, `build-cache`, `build-netboot`, `build-iso`, `vm-test`, `flash-usb ISO DEVICE`, `bootstrap ROLE IP`, and `status NODE`.
+
+`flash-usb` and `bootstrap` are destructive. Obtain explicit human approval identifying the disk before executing them. An interactive confirmation is an additional check, never authorization. Do not execute a generated installer or a VM against physical disks. Never print secrets, place them in CLI arguments, or copy plaintext credentials into the Nix store. Never change GitHub settings, secrets, or billing without explicit approval. Runtime registration uses the configured GitHub App; tokens remain in `/run`.
+
+CI nodes drain through `scripts/drain.sh` (`fleet-drain`) before a kernel reboot. Restrict runner projects to private trusted code, require `nixos` and `ci` routing labels, and never run fork PRs or `pull_request_target` on the runner fleet. Keep credentials root-only. Inspect actual upstream module source at the locked nixpkgs revision when changing module behavior. A local portable check is not `nix flake check` and is not a VM test. Report when those were not run.
