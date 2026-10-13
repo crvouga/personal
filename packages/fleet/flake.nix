@@ -109,6 +109,7 @@
       vm = import ./tests/vm.nix (testArgs // { settings = import ./fleet.nix; });
       web-vm = import ./tests/web.nix testArgs;
       lifecycle = import ./tests/lifecycle.nix testArgs;
+      follow-up = import ./tests/follow-up.nix testArgs;
       netboot-vm = import ./tests/netboot.nix (testArgs // { inherit installerNetboot; });
       cattle = pkgs.runCommand "fleet-cattle" { } ''
         ${pkgs.python3}/bin/python3 ${./scripts/cattle.py} check ${./.}

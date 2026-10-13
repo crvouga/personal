@@ -29,3 +29,12 @@ sops --encrypt --age AGE_PUBLIC_RECIPIENT --input-type yaml --output-type yaml \
 ```
 
 Commit only the encrypted YAML. Remove the local plaintext after the backup exists. No fake encrypted placeholder is shipped.
+
+## Rotate a role key without SSH
+
+The private key never enters git. The running node already has it at `/nix/fleet-state/secrets/age.key`. Rotation is two commits. `ci-gpu` uses `ci.age`, so rotating `ci` covers both. Do not generate the key in this package. Do not copy it over SSH.
+
+1. On the work computer, `age-keygen -o` a new key outside the repo. Keep the old key until every node of that role has pulled the second commit.
+2. Re-encrypt that role's YAML to both the old public recipient and the new one. Add `age-key-next` whose value is the new private key, encrypted to the old recipient. Set `rotateAgeKey = true` in that role's settings file in the same commit. Merge it. The node pulls, decrypts `age-key-next` with the key it already has, and `fleet-age-rotate` installs it over `/nix/fleet-state/secrets/age.key`.
+3. Re-encrypt the YAML to only the new recipient, remove `age-key-next`, and set `rotateAgeKey = false`. Merge that. Confirm the node reaches the new commit (`fleet-drift` and `/etc/fleet/revision`). Then delete the old private key from the work computer's backup store.
+4. A node that never pulled the first commit cannot decrypt the second. Reinstall that node from the netboot flag instead of SSHing a key onto it. Bootstrap copies the new key the same way it copied the first one.

@@ -9,6 +9,30 @@
   # bootable until this limit or the weekly garbage collection removes them.
   bootGenerationLimit = 8;
 
+  # tries-left on the newest entry. A generation that never reaches
+  # systemd-bless-boot falls through to the previous one.
+  bootTries = 3;
+
+  disk = {
+    # fleet-disk fails when /nix or /boot is at or above this percent.
+    # TODO: the failure is local. Nothing scrapes it. monitoring.pushUrl is unused.
+    alertPercent = 90;
+  };
+
+  # TODO: central monitoring does not exist. null is not read. Do not invent
+  # a collector, a host, or a token. Fleet does not provision one. Logs stay
+  # in the journal. Metrics stay on 127.0.0.1:9101.
+  monitoring = {
+    pushUrl = null;
+  };
+
+  # Empty: the netboot server tells every client to boot the local disk.
+  # A 4-hex stable id or a role name serves that client the installer.
+  reinstall = {
+    nodes = [ ];
+    roles = [ ];
+  };
+
   repo = {
     # TODO: real repository URL. Do not guess the owner. Every role polls main
     # over HTTPS. There is no deploy branch and no canary branch.

@@ -4,6 +4,9 @@
 # A kernel, initrd, or module change drains first, then waits, then reboots.
 # A cache miss, a failed build lookup, or a failed drain leaves the running
 # generation in place. The timer retries.
+# After a switch, the node must still reach GitHub and the binary cache and
+# the sync unit must still load. A failed check restores the previous
+# generation and does not reboot.
 set -euo pipefail
 
 env_file=${SYNC_ENV:-/etc/fleet/sync.env}
@@ -107,9 +110,82 @@ if [ -e "$booted/kernel" ] && [ -e "$toplevel/kernel" ]; then
   fi
 fi
 
+previous=""
+if [ -e "$profile" ]; then
+  previous=$(readlink -f "$profile" || true)
+fi
+
 apply() {
   "$nix_env" -p "$profile" --set "$toplevel"
   "$toplevel/bin/switch-to-configuration" "$1"
+}
+
+# FLEET_HEALTH replaces the probes in tests. The default probes are the
+# production check: GitHub, the configured cache's nix-cache-info, and a
+# sync unit that still loads and is not already failed.
+health_check() {
+  if [ -n "${FLEET_HEALTH:-}" ]; then
+    "$FLEET_HEALTH"
+    return
+  fi
+  local curl_bin=${FLEET_CURL:-curl}
+  # guard runs this in a conditional, where set -e does not apply.
+  "$curl_bin" -fsS --max-time 20 -o /dev/null https://github.com || return 1
+  "$curl_bin" -fsS --max-time 20 -o /dev/null "${CACHE_URL%/}/nix-cache-info" || return 1
+  "$systemctl" cat fleet-sync.service >/dev/null || return 1
+  local timer_state
+  timer_state=$("$systemctl" is-failed fleet-sync.timer 2>/dev/null || true)
+  if [ "$timer_state" = failed ]; then
+    echo 'sync: fleet-sync.timer is failed' >&2
+    return 1
+  fi
+}
+
+report_path=${FLEET_REPORT:-/run/fleet/health-failure}
+
+report_failure() {
+  local mode=$1
+  local reason=$2
+  install -d -m 0755 "$(dirname "$report_path")" "$state_dir"
+  {
+    printf 'mode=%s\n' "$mode"
+    printf 'previous=%s\n' "${previous:-none}"
+    printf 'toplevel=%s\n' "$toplevel"
+    printf '%s\n' "$reason"
+  } > "$report_path"
+  cp "$report_path" "$state_dir/health-failure"
+  # TODO: central monitoring does not exist. The failed unit and this file
+  # are the report. monitoring.pushUrl is not read. Do not invent a collector.
+}
+
+clear_failure() {
+  rm -f "$report_path" "$state_dir/health-failure"
+}
+
+rollback() {
+  local mode=$1
+  local reason=$2
+  echo 'sync: health check failed; rolling back to the previous generation' >&2
+  printf '%s\n' "$reason" >&2
+  report_failure "$mode" "$reason"
+  if [ -n "$previous" ] && [ "$previous" != "$toplevel" ] && [ -x "$previous/bin/switch-to-configuration" ]; then
+    "$nix_env" -p "$profile" --set "$previous"
+    "$previous/bin/switch-to-configuration" "$mode"
+  else
+    echo 'sync: no previous generation to restore' >&2
+  fi
+  exit 1
+}
+
+# Run after apply. A failure restores the generation captured before --set
+# and must not fall through to reboot.
+guard() {
+  local mode=$1
+  local reason=""
+  if ! reason=$(health_check 2>&1); then
+    rollback "$mode" "$reason"
+  fi
+  clear_failure
 }
 
 if [ "$need_reboot" -eq 1 ]; then
@@ -132,7 +208,9 @@ if [ "$need_reboot" -eq 1 ]; then
     sleep "$delay"
   fi
   apply boot
+  guard boot
   "$systemctl" reboot
 else
   apply switch
+  guard switch
 fi

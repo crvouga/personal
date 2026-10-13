@@ -42,6 +42,7 @@ in {
     FLEET_NIX_ENV=${lib.escapeShellArg (settings.fleetNixEnv or "${pkgs.nix}/bin/nix-env")}
     FLEET_SYSTEMCTL=${lib.escapeShellArg (settings.fleetSystemctl or "${pkgs.systemd}/bin/systemctl")}
     FLEET_GIT=${lib.escapeShellArg "${pkgs.git}/bin/git"}
+    FLEET_HEALTH=${lib.escapeShellArg (settings.fleetHealth or "")}
     CATTLE_PY=${lib.escapeShellArg "${../scripts/cattle.py}"}
     PYTHON=${lib.escapeShellArg "${pkgs.python3}/bin/python3"}
   '';
@@ -54,7 +55,7 @@ in {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     # path replaces the unit PATH. awk is gawk, not coreutils.
-    path = [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.gawk pkgs.nix pkgs.python3 ];
+    path = [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.gawk pkgs.nix pkgs.python3 pkgs.curl ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.bash}/bin/bash ${../scripts/fleet-sync.sh}";

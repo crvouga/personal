@@ -23,6 +23,30 @@
                     data[key] = value
         return data
 
+    def _exists(path):
+        try:
+            open(path, encoding="utf-8").close()
+        except OSError:
+            return False
+        return True
+
+    def _disk_lines():
+        lines = []
+        try:
+            handle = open("/run/fleet/disk-alert", encoding="utf-8")
+        except OSError:
+            return lines
+        with handle:
+            for line in handle:
+                parts = line.split()
+                if len(parts) != 2:
+                    continue
+                mount, used = parts
+                if mount not in ("/nix", "/boot") or not used.isdigit():
+                    continue
+                lines.append('fleet_disk_used_percent{mount="%s"} %s' % (mount, used))
+        return lines
+
     def body():
         try:
             rev = open("/etc/fleet/revision", encoding="utf-8").read().strip()
@@ -35,7 +59,9 @@
             'nixos_node_info{hostname="%s",role="%s",capabilities="%s",revision="%s"} 1' % (
                 esc(info["hostname"]), esc(info["role"]), esc(info["capabilities"]), rev_e,
             ),
+            "fleet_sync_rollback %d" % (1 if _exists("/run/fleet/health-failure") else 0),
         ]
+        lines.extend(_disk_lines())
         return ("\n".join(lines) + "\n").encode()
 
 

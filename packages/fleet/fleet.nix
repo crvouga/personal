@@ -3,7 +3,9 @@ let shared = import ./settings/shared.nix;
 in {
   role = "ci";
   flakeAttr = "ci";
-  inherit (shared) sshKeys bootGenerationLimit repo binaryCache capacity drift;
+  inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache capacity drift disk monitoring reinstall;
+  # Set true only in the commit that adds the sops secret age-key-next.
+  rotateAgeKey = false;
   reboot = shared.reboot // { drainCommand = "fleet-drain"; };
   github = {
     scope = "organization"; # or "repository"

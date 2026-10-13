@@ -21,7 +21,7 @@ just build-iso
 just vm-test
 ```
 
-`just check` builds every host, the installer ISO, and the `runNixOSTest` checks (`vm`, `web-vm`, `lifecycle`, `netboot-vm`). The hosted `CI` workflow runs the package check and `nix flake check` for fleet changes. A local evaluation is not green CI.
+`just check` builds every host, the installer ISO, and the `runNixOSTest` checks (`vm`, `web-vm`, `lifecycle`, `follow-up`, `netboot-vm`). The hosted `CI` workflow runs the package check and `nix flake check` for fleet changes. A local evaluation is not green CI.
 
 ## 2026-10-12 control-surface change
 
@@ -36,3 +36,7 @@ Role and capability configuration replaced the MS-A2 profile, the configured dis
 ## 2026-10-12 main tracking
 
 Nodes poll `main` and switch only from the binary cache. `deploy` and `canary` are gone. `fleet-drift`, the merge-queue cache push, and the lifecycle VM test were added on a Mac without Nix. `nix flake check` was not run, and the VM tests were not executed. The portable check covers `fleet-sync` and `fleet-drift` with stand-in `nix` and `git`. Do not treat that as a NixOS evaluation.
+
+## 2026-10-13 self-healing
+
+Post-switch health checks, previous-generation rollback, systemd-boot tries-left, the netboot local-disk default, `fleet-disk`, and the `follow-up` nixosTest were added on a Mac without Nix. `nix flake check` was not run. The `follow-up` VM test was not executed. `bun run --filter @pkgs/fleet check` passed: 49 tests OK, covering the sync rollback, the boot-count script, and the netboot decision with stand-ins, plus shell syntax, ShellCheck, workflow copies, and cattle enforcement. Do not treat that as a NixOS evaluation. `monitoring.pushUrl` is unused. No PDU model is integrated. Nothing was deployed and no machine was contacted.

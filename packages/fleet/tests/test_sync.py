@@ -115,6 +115,14 @@ class SyncTests(unittest.TestCase):
             fi
             exit 1
             """)
+        write_executable(self.bin / "health", f"""\
+            #!/bin/bash
+            if [ -f {self.root}/fail-health ]; then
+              echo 'github unreachable' >&2
+              exit 1
+            fi
+            exit 0
+            """)
         self.env = os.environ.copy()
         self.env["PATH"] = f"{self.bin}:{self.env.get('PATH', '')}"
         self.env.update({
@@ -128,6 +136,8 @@ class SyncTests(unittest.TestCase):
             "BOOTED_SYSTEM": str(self.booted),
             "PYTHON": "bash",
             "CATTLE_PY": str(self.bin / "cattle"),
+            "FLEET_HEALTH": str(self.bin / "health"),
+            "FLEET_REPORT": str(self.root / "health-failure"),
             "FAIL_ID": "",
         })
         self.write_env(cache="https://cache.invalid/fleet", delay="0")
@@ -228,6 +238,125 @@ class SyncTests(unittest.TestCase):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
+
+    def test_follow_up_commit_switches(self):
+        self.commit("first")
+        first = self.run_sync()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.commit("second")
+        second = self.run_sync()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        applied = (self.profile.resolve() / "commit").read_text().strip()
+        expected = self._git(["-C", str(self.origin), "rev-parse", "HEAD"]).stdout.strip()
+        self.assertEqual(applied, expected)
+        self.assertEqual(self.actions(), ["switch", "switch"])
+        self.assertFalse((self.root / "health-failure").exists())
+
+    def test_health_failure_restores_the_previous_generation(self):
+        self.commit("good")
+        good = self.run_sync()
+        self.assertEqual(good.returncode, 0, good.stderr)
+        kept = self.profile.resolve()
+        (self.root / "fail-health").write_text("1")
+        self.commit("bad")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rolling back", result.stderr)
+        self.assertEqual(self.profile.resolve(), kept)
+        self.assertNotIn("reboot", self.actions())
+        report = (self.root / "health-failure").read_text()
+        self.assertIn("github unreachable", report)
+        self.assertIn("mode=switch", report)
+
+    def test_reboot_health_failure_does_not_reboot(self):
+        self.commit("good")
+        good = self.run_sync()
+        self.assertEqual(good.returncode, 0, good.stderr)
+        kept = self.profile.resolve()
+        self.booted.mkdir()
+        for name in ("kernel", "initrd", "kernel-modules"):
+            (self.booted / name).symlink_to(kept / name)
+        self.log.write_text("")
+        (self.flake / "KERNEL_CHANGE").write_text("1")
+        self._git(["-C", str(self.origin), "add", "packages"])
+        self._git(["-C", str(self.origin), "commit", "-m", "kernel"])
+        (self.root / "fail-health").write_text("1")
+        self.write_env(cache="https://cache.invalid/fleet", delay="30")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rolling back", result.stderr)
+        self.assertEqual(self.profile.resolve(), kept)
+        self.assertNotIn("reboot", self.actions())
+        self.assertEqual(self.actions().count("boot"), 2)
+        self.assertIn("drain", self.actions())
+
+    def test_health_failure_without_a_previous_generation_exits(self):
+        self.commit("only")
+        (self.root / "fail-health").write_text("1")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no previous generation", result.stderr)
+        self.assertIn("github unreachable", (self.root / "health-failure").read_text())
+
+    def test_default_probe_rolls_back_when_github_is_down(self):
+        self.commit("good")
+        good = self.run_sync()
+        self.assertEqual(good.returncode, 0, good.stderr)
+        kept = self.profile.resolve()
+        del self.env["FLEET_HEALTH"]
+        write_executable(self.bin / "curl", f"""\
+            #!/bin/bash
+            url=""
+            for arg in "$@"; do url=$arg; done
+            printf '%s\\n' "$url" >> {self.root}/curl-urls
+            echo 'connection refused' >&2
+            exit 1
+            """)
+        write_executable(self.bin / "systemctl", f"""\
+            #!/bin/bash
+            if [ "$1" = cat ]; then exit 0; fi
+            if [ "$1" = is-failed ]; then
+              echo inactive
+              exit 1
+            fi
+            if [ "$1" = reboot ]; then printf '%s\\n' reboot >> {self.log}; fi
+            exit 0
+            """)
+        self.env["FLEET_CURL"] = str(self.bin / "curl")
+        self.commit("bad")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.profile.resolve(), kept)
+        urls = (self.root / "curl-urls").read_text()
+        self.assertIn("https://github.com", urls)
+        self.assertNotIn("reboot", self.actions())
+
+    def test_default_probe_fails_when_the_sync_timer_is_failed(self):
+        self.commit("good")
+        good = self.run_sync()
+        self.assertEqual(good.returncode, 0, good.stderr)
+        kept = self.profile.resolve()
+        del self.env["FLEET_HEALTH"]
+        write_executable(self.bin / "curl", """\
+            #!/bin/bash
+            exit 0
+            """)
+        write_executable(self.bin / "systemctl", f"""\
+            #!/bin/bash
+            if [ "$1" = cat ]; then exit 0; fi
+            if [ "$1" = is-failed ]; then
+              echo failed
+              exit 0
+            fi
+            if [ "$1" = reboot ]; then printf '%s\\n' reboot >> {self.log}; fi
+            exit 0
+            """)
+        self.env["FLEET_CURL"] = str(self.bin / "curl")
+        self.commit("bad")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fleet-sync.timer is failed", result.stderr)
+        self.assertEqual(self.profile.resolve(), kept)
 
     def test_missing_id_does_not_drain(self):
         self.commit("marker")

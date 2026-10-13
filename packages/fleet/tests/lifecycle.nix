@@ -43,6 +43,9 @@ EOF
     chmod +x "$work/bin/switch-to-configuration"
     ${pkgs.nix}/bin/nix-store --add "$work"
   '';
+  mockHealth = pkgs.writeShellScript "fleet-health" ''
+    exit 0
+  '';
   mockSystemctl = pkgs.writeShellScriptBin "systemctl" ''
     install -d -m 0755 /run/fleet-sync
     if [ "$1" = "reboot" ]; then
@@ -61,6 +64,7 @@ EOF
     secretsFile = null;
     fleetNix = "${mockNix}/bin/nix";
     fleetSystemctl = "${mockSystemctl}/bin/systemctl";
+    fleetHealth = "${mockHealth}";
     repo = settings.repo // {
       url = "file:///tmp/origin";
       timer = false;

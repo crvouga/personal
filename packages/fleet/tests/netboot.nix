@@ -8,6 +8,7 @@ in pkgs.testers.runNixOSTest {
     disko.enableConfig = lib.mkForce false;
     boot.loader.systemd-boot.enable = lib.mkForce false;
     users.users.root.hashedPassword = lib.mkForce null;
+    environment.systemPackages = [ pkgs.curl ];
     virtualisation = { memorySize = 2048; cores = 2; };
   };
   testScript = ''
@@ -18,6 +19,11 @@ in pkgs.testers.runNixOSTest {
     machine.succeed("test -s /etc/fleet/netboot-initrd")
     machine.succeed("kernel=$(tr -d '\\n' < /etc/fleet/netboot-kernel); test -f \"$kernel\"")
     machine.succeed("initrd=$(tr -d '\\n' < /etc/fleet/netboot-initrd); test -f \"$initrd\"")
-    machine.succeed("kernel=$(tr -d '\\n' < /etc/fleet/netboot-kernel); systemctl show -p ExecStart pixiecore | grep -F \"$kernel\"")
+    machine.succeed("systemctl show -p ExecStart pixiecore | grep -F api")
+    machine.succeed("systemctl show -p ExecStart pixiecore | grep -F 127.0.0.1:4012")
+    machine.wait_for_unit("fleet-netboot-policy.service")
+    machine.succeed("curl -fsS http://127.0.0.1:4012/health")
+    machine.succeed("curl -fsS 'http://127.0.0.1:4012/fleet/choose?uuid=&mac=&role=' | grep -q exit")
+    machine.fail("curl -fsS http://127.0.0.1:4012/v1/boot/not-a-mac")
   '';
 }
