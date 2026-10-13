@@ -63,6 +63,39 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # Actions artifacts expire. The release asset is the copy a new machine
+  # downloads. pull_request skips this job; merge_group and workflow_dispatch
+  # publish it. The gate requires that publish when a fleet change merges.
+  publish:
+    needs: [changes, check]
+    if: always() && needs.check.result == 'success' && github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: fleet-installer
+          path: installer-artifact
+      - name: Publish the installer and the one-file node entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          iso=$(find installer-artifact -type f -name 'fleet-installer.iso' -print -quit)
+          test -n "$iso"
+          cp "$iso" fleet-installer.iso
+          sha256sum fleet-installer.iso > fleet-installer.iso.sha256
+          cp packages/fleet/scripts/fleet-node.sh fleet-node.sh
+          if gh release view fleet-installer >/dev/null 2>&1; then
+            gh release upload fleet-installer fleet-installer.iso fleet-installer.iso.sha256 fleet-node.sh --clobber
+          else
+            gh release create fleet-installer fleet-installer.iso fleet-installer.iso.sha256 fleet-node.sh \
+              --title "Fleet installer" \
+              --notes "Current installer image and the one-file node entry. Replaced when Fleet merges. This release does not expire."
+          fi
+
   cache:
     needs: [changes, check]
     if: always() && github.event_name == 'merge_group' && needs.changes.outputs.fleet == 'true' && needs.check.result == 'success'
@@ -93,7 +126,7 @@ jobs:
 
   gate:
     name: Fleet
-    needs: [changes, check, cache]
+    needs: [changes, check, cache, publish]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -105,9 +138,10 @@ jobs:
           FLEET: ${{ needs.changes.outputs.fleet }}
           CHECK: ${{ needs.check.result }}
           CACHE: ${{ needs.cache.result }}
+          PUBLISH: ${{ needs.publish.result }}
         run: |
           set -euo pipefail
-          echo "event=${EVENT} changes=${CHANGES} fleet=${FLEET} check=${CHECK} cache=${CACHE}"
+          echo "event=${EVENT} changes=${CHANGES} fleet=${FLEET} check=${CHECK} cache=${CACHE} publish=${PUBLISH}"
           if [ "${CHANGES}" != "success" ]; then
             echo "changes job ${CHANGES}" >&2
             exit 1
@@ -122,4 +156,10 @@ jobs:
           if [ "${EVENT}" = "merge_group" ] && [ "${CACHE}" != "success" ]; then
             echo "binary cache push did not succeed: ${CACHE}" >&2
             exit 1
+          fi
+          if [ "${EVENT}" = "merge_group" ] || [ "${EVENT}" = "workflow_dispatch" ]; then
+            if [ "${PUBLISH}" != "success" ]; then
+              echo "durable installer was not published: ${PUBLISH}" >&2
+              exit 1
+            fi
           fi

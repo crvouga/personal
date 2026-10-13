@@ -166,6 +166,10 @@ fi
 
 "$nixos_install" --no-root-passwd --root "$mnt" --system "$toplevel"
 
+# A finished install. A later run of the node program sees this and does not wipe again.
+printf 'role=%s\nstatus=installed\n' "$role" > "$mnt/nix/fleet-state/installed"
+chmod 0644 "$mnt/nix/fleet-state/installed"
+
 echo "installed role=$role" >&2
 echo 'age public key:' >&2
 printf '%s\n' "$pub" >&2

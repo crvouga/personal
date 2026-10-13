@@ -28,7 +28,8 @@
   };
 
   # Empty: the netboot server tells every client to boot the local disk.
-  # A 4-hex stable id or a role name serves that client the installer.
+  # A 4-hex stable id or a role name selects the netboot ramdisk. That ramdisk
+  # does not carry the role closures, so the flag does not install a node.
   reinstall = {
     nodes = [ ];
     roles = [ ];

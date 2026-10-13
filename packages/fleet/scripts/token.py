@@ -28,6 +28,19 @@ def app_token(app, installation, key_path):
     return request("POST", "/app/installations/" + str(installation) + "/access_tokens", signed)["token"]
 
 
+def matching_runners(host, runners):
+    return [runner for runner in runners if runner["name"].startswith(host + "-") or runner["name"] == host]
+
+
+def delete_custom_labels(prefix, access, runners):
+    # Remove routing labels so new work cannot be assigned. Do not delete the runner.
+    defaults = {"self-hosted", "linux", "x64"}
+    for runner in runners:
+        labels = [label["name"] for label in runner.get("labels", []) if label["name"].lower() not in defaults]
+        for label in labels:
+            request("DELETE", prefix + "/" + str(runner["id"]) + "/labels/" + urllib.parse.quote(label, safe=""), access)
+
+
 def list_runners(scope, target, access):
     endpoint = ("/orgs/" if scope == "organization" else "/repos/") + target + "/actions/runners"
     result = []
@@ -59,6 +72,21 @@ def main():
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write(registration)
         os.replace(output + ".new", output)
+        return
+    if mode in ("hold", "withdraw"):
+        if len(args) != 1:
+            raise ValueError("usage: runner-control hold|withdraw SCOPE TARGET APP INSTALL KEY HOST")
+        host = args[0]
+        runners = matching_runners(host, list_runners(scope, target, access))
+        if mode == "hold":
+            delete_custom_labels(prefix, access, runners)
+            return
+        if any(runner.get("busy") for runner in runners):
+            delete_custom_labels(prefix, access, runners)
+            print("A job is still running. Runners were not deleted.", file=sys.stderr)
+            sys.exit(4)
+        for runner in runners:
+            request("DELETE", prefix + "/" + str(runner["id"]), access)
         return
     if mode != "drain" or len(args) != 2:
         raise ValueError("usage: runner-control drain SCOPE TARGET APP INSTALL KEY HOST TIMEOUT")

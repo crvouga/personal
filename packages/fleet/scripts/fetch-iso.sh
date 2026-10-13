@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Download the installer ISO from the latest successful Fleet workflow.
-# Any computer with gh. Nix is not required. FLEET_GH overrides gh in tests.
+# Legacy download of the 14-day Actions artifact. Needs gh and a git checkout.
+# A new machine uses scripts/fleet-node.sh instead. That file is one download,
+# it does not use this artifact, and it does not need Nix or a checkout.
+# FLEET_GH overrides gh in tests.
 set -euo pipefail
 
 out=${1:-fleet-installer.iso}

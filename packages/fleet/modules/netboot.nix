@@ -14,7 +14,8 @@
 in {
   # Firmware boots the network first (one-time BIOS setup). This host's
   # default answer is the local disk. A stable id or a role listed in
-  # settings.reinstall is served the shared installer instead. dhcpNoBind
+  # settings.reinstall selects the netboot ramdisk. That ramdisk does not
+  # carry the role closures, so the flag does not install a node. dhcpNoBind
   # keeps this host from replacing an existing DHCP server.
   services.pixiecore = {
     enable = true;
@@ -32,7 +33,7 @@ in {
     roles = settings.reinstall.roles;
   };
   systemd.services.fleet-netboot-policy = {
-    description = "Choose the installer or the local disk for netboot clients";
+    description = "Choose the netboot ramdisk or the local disk for netboot clients";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
     serviceConfig = {

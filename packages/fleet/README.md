@@ -5,10 +5,10 @@
 - `hosts/ci.nix`: trusted-code-only GitHub Actions runners (`fleet.nix`).
 - `hosts/web.nix`: Caddy in front of one declarative app entry per published OCI image (`web.nix`). Domains and image tags are still TODO.
 - `hosts/cache.nix`: attic server. Off until `secrets/cache.yaml` exists. The host and public key are TODO.
-- `hosts/netboot.nix`: Pixiecore serving the shared installer, without taking over DHCP.
+- `hosts/netboot.nix`: Pixiecore. Clients boot the local disk. A reinstall flag does not install a node, because this host does not serve an image that can finish an install. It does not take over DHCP.
 
 - [Node and fleet operations](docs/runbook.md): bootstrap, sync, rollback.
-- [Manual checklist](docs/checklist.md): firmware, cabling, and the USB install.
+- [Manual checklist](docs/checklist.md): firmware, cabling, and the one-file install.
 - [Onboard any project](docs/onboard-project.md): devShell, workflow, cache and hosted fallback.
 - [Verified hardware and upstream sources](docs/hardware.md).
 - [Agent operating rules](AGENTS.md).

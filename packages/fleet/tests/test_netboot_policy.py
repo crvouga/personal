@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Netboot serves the installer only for a flagged id or role."""
+"""The netboot policy selects the installer answer only for a flagged id or role. That answer does not install a node."""
 
 import importlib.util
 import json

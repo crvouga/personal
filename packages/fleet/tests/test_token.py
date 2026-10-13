@@ -65,6 +65,65 @@ class TokenTests(unittest.TestCase):
         self.assertEqual(len(result), 101)
         self.assertIn("page=2", request.call_args[0][1])
 
+    def test_withdraw_deletes_an_idle_runner(self):
+        calls = []
+
+        def api(method, path, auth, payload=None):
+            calls.append((method, path))
+            if method == "GET":
+                return {"runners": [{"id": 7, "name": "ci-test-slot-1", "busy": False, "labels": [{"name": "ci"}]}]}
+            return None
+
+        with patch.object(token, "app_token", return_value="installation"), \
+             patch.object(token, "request", side_effect=api), \
+             patch.object(sys, "argv", ["runner-control", "withdraw", "organization", "example-org", "1", "2", "key", "ci-test"]):
+            token.main()
+        self.assertIn(("DELETE", "/orgs/example-org/actions/runners/7"), calls)
+        self.assertFalse(any(path.endswith("/7") is False and "/labels/" not in path and method == "DELETE" for method, path in calls))
+        self.assertFalse(any("/labels/" in path for _method, path in calls))
+
+    def test_withdraw_of_a_busy_runner_does_not_delete_it(self):
+        calls = []
+
+        def api(method, path, auth, payload=None):
+            calls.append((method, path))
+            if method == "GET":
+                return {"runners": [{"id": 7, "name": "ci-test-slot-1", "busy": True, "labels": [{"name": "ci"}]}]}
+            return None
+
+        with patch.object(token, "app_token", return_value="installation"), \
+             patch.object(token, "request", side_effect=api), \
+             patch.object(sys, "argv", ["runner-control", "withdraw", "organization", "example-org", "1", "2", "key", "ci-test"]):
+            with self.assertRaises(SystemExit) as caught:
+                token.main()
+        self.assertEqual(caught.exception.code, 4)
+        self.assertIn(("DELETE", "/orgs/example-org/actions/runners/7/labels/ci"), calls)
+        self.assertNotIn(("DELETE", "/orgs/example-org/actions/runners/7"), calls)
+
+    def test_hold_removes_labels_and_leaves_the_runner(self):
+        calls = []
+
+        def api(method, path, auth, payload=None):
+            calls.append((method, path))
+            if method == "GET":
+                return {"runners": [{"id": 7, "name": "ci-test-slot-1", "busy": True, "labels": [{"name": "ci"}]}]}
+            return None
+
+        with patch.object(token, "app_token", return_value="installation"), \
+             patch.object(token, "request", side_effect=api), \
+             patch.object(sys, "argv", ["runner-control", "hold", "organization", "example-org", "1", "2", "key", "ci-test"]):
+            token.main()
+        self.assertIn(("DELETE", "/orgs/example-org/actions/runners/7/labels/ci"), calls)
+        self.assertNotIn(("DELETE", "/orgs/example-org/actions/runners/7"), calls)
+
+    def test_withdraw_when_the_runner_is_already_gone(self):
+        with patch.object(token, "app_token", return_value="installation"), \
+             patch.object(token, "list_runners", return_value=[]), \
+             patch.object(token, "request") as request, \
+             patch.object(sys, "argv", ["runner-control", "withdraw", "organization", "example-org", "1", "2", "key", "ci-test"]):
+            token.main()
+        request.assert_not_called()
+
     def test_busy_timeout_never_stops_a_job(self):
         runner = {"id": 1, "name": "ci-node-slot-1", "busy": True, "labels": []}
         with patch.object(token, "app_token", return_value="installation"), \

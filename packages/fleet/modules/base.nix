@@ -64,7 +64,17 @@
   };
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 14d"; };
   nix.optimise = { automatic = true; dates = [ "03:00" ]; };
-  environment.systemPackages = with pkgs; [ git pciutils ethtool nvme-cli jq ];
+  environment.systemPackages = with pkgs; [
+    git pciutils ethtool nvme-cli jq
+    (writeShellScriptBin "fleet-node" ''
+      export PATH=${lib.makeBinPath [ bash python3 curl coreutils ]}:$PATH
+      exec ${bash}/bin/bash ${../scripts/fleet-node.sh} "$@"
+    '')
+    (writeShellScriptBin "fleet-remove" ''
+      export PATH=${lib.makeBinPath [ bash python3 curl coreutils ]}:$PATH
+      exec ${bash}/bin/bash ${../scripts/fleet-node.sh} remove
+    '')
+  ];
   # Hardware watchdog: a hung userspace stops petting /dev/watchdog and the
   # firmware reboots. RebootWatchdogSec covers a reboot that never finishes.
   # softdog is not a substitute. Boot counting covers a generation that never

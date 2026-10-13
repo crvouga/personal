@@ -6,6 +6,9 @@
   image.fileName = "fleet-installer.iso";
   isoImage.makeEfiBootable = true;
   isoImage.makeUsbBootable = true;
+  # The shell initrd honors findiso= and copytoram. systemd in the initrd
+  # mounts the ISO by label only, so a file on the existing disk cannot boot it.
+  boot.initrd.systemd.enable = false;
   # The highlighted entry is ci. The menu waits 5 seconds, then that entry
   # boots. web, cache, and netboot are the other entries. Each specialisation
   # appends its own fleet.role=; the installer uses the last one.

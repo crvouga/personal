@@ -4,28 +4,32 @@ Git is the control surface. After bootstrap, SSH is read-only emergency access. 
 
 The human steps that git cannot do are physical: hardware replacement, cleaning, and one-time BIOS setup. They are listed in [checklist.md](checklist.md). Anything else that seems to need a person at a running node is a bug. Fix it in code.
 
-Installing a node needs `gh` and a USB port. It does not need Nix, an age key, or an SSH key on the computer that flashes the stick. `just check` and `just vm-test` still need an x86_64 Linux builder. Work in `packages/fleet`.
+Adding a node does not need Nix, a git checkout, `just`, `gh`, or a second computer. `just check` and `just vm-test` still need an x86_64 Linux builder. Work in `packages/fleet`.
 
 ## Install one machine
 
-The machine can be in Windows setup, a Linux install, or have no OS. Boot the fleet USB from the firmware menu. The stick replaces whatever is on the internal disk. Nodes keep no previous state.
+The machine can already be running Windows, macOS, or Linux. Download one file onto that machine and run it. The same command is the reinstall. A machine with no operating system cannot download; write the installer to a USB disk with `bash fleet-node.sh flash` from a computer that has one, then boot that disk.
 
-1. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git. The lasting boot order is network, then the internal disk. Use the one-time boot menu for the stick.
-2. Download the image the `Fleet` workflow already built and flash it. On Linux the device is `/dev/disk/by-id/usb-*`. On macOS it is `/dev/diskN` from `diskutil list external physical`.
+1. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git. The lasting boot order is network, then the internal disk.
+2. On the machine, download the node program and run it. The release does not expire. The 14-day `fleet-installer` Actions artifact is not this download.
 
    ```sh
-   just fetch-iso
-   just flash-usb fleet-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
+   curl -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh
+   bash fleet-node.sh
    ```
 
-   The script prints the USB identity and requires typing that same path. It refuses an internal disk. One stick installs every later machine.
+   Windows, from PowerShell: `curl.exe -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh` and then `bash fleet-node.sh`. The program asks for `ci`, `web`, `cache`, or `netboot`. It names that role and the internal disk in plain language. Nothing is erased until you type the line it shows. A timeout, an empty answer, a wrong line, or a USB, removable, hotplug, mounted, or ambiguous disk leaves every disk unchanged and prints one next step. If the download fails, the program exits non-zero, writes nothing, and prints one next step. `ci-gpu` is not on this image.
 
 3. Plug in a filesystem labeled `FLEET-KEY` when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
-4. Boot the stick. The menu waits 5 seconds and then installs `ci`. Choose `web`, `cache`, or `netboot` before that. `ci-gpu` is not on this image. `select-disk` skips USB, removable, hotplug, and mounted disks, and the image wipes the disk it chose. It generates `/nix/fleet-state/secrets/age.key`, installs the closure from the image, prints the public key, and reboots. The private key is not printed.
-5. Pull the USB if this firmware would boot it again. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
-6. `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there with the wipe already approved. It does not build and it does not read a key file. With `sshKeys` empty, the boot menu is the install.
+4. After the line matches, the machine reboots into the installer for that role. The installer skips USB, removable, hotplug, and mounted disks. It generates `/nix/fleet-state/secrets/age.key`, installs the closure, prints the public key, and reboots. The private key is not printed. The hostname is `<role>[-gpu][-highmem]-<4 hex>` from the hardware id. No host file is added.
+5. Run the same command again after a failure. Run it again after a finished install: a finished install is not wiped a second time.
+6. Pull a USB disk if this firmware would boot it again. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
 
-TODO: the netboot ramdisk does not carry the role closures, and the netboot host does not serve this ISO. A reinstall flag boots a live image that cannot install. Use the USB image until that serving exists.
+A blank disk uses the same program's `flash` action. It refuses an internal disk on Windows, macOS, and Linux. Boot the USB disk and choose the role on the installer menu. The menu installs `ci` after 5 seconds.
+
+`just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there with the wipe already approved. It does not build and it does not read a key file. With `sshKeys` empty, the download above is the install.
+
+The netboot ramdisk does not carry the role closures, and the netboot host does not serve this ISO. Setting `reinstall.nodes` or `reinstall.roles` does not install a node. Use `fleet-node.sh` on the machine.
 
 A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same USB and leave the menu on that role. For a shared sops file, plug in the same `FLEET-KEY` volume. The DMI UUID supplies the stable id. No per-node Nix file is added.
 
@@ -33,9 +37,7 @@ A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks li
 
 One-time BIOS setup puts the network first and the internal disk second. On every boot the netboot server is asked what to do. With `reinstall.nodes` and `reinstall.roles` both empty, the client boots the local disk (`exit 1` back to firmware, or `sanboot` on BIOS).
 
-To reinstall one node, add its 4-hex stable id to `reinstall.nodes` in `settings/shared.nix` and merge. The id is the same value `cattle.py` prints: the first 4 hex digits of sha256 of `dmi:` plus the SMBIOS UUID. To reinstall every node of a role, add `ci`, `web`, `cache`, or `netboot` to `reinstall.roles`. `ci-gpu` is role `ci`. The installed system writes that role to `/boot/fleet-role.ipxe` on the ESP volume `SHBOOT`. The iPXE script reads it. A machine with no ESP file is selected only by its stable id.
-
-The netboot host pulls the same commit and starts serving the installer to the flagged client. Power-cycle that machine so firmware hits the network. Bootstrap from the installer as usual, then clear the flag in a follow-up commit. Leaving a role flagged serves the installer to every client of that role that netboots.
+The netboot host does not serve an installer that can finish an install. Adding a 4-hex stable id to `reinstall.nodes`, or `ci`, `web`, `cache`, or `netboot` to `reinstall.roles`, does not install a node. Reinstall by running `fleet-node.sh` on that machine. The id `cattle.py` prints is the first 4 hex digits of sha256 of `dmi:` plus the SMBIOS UUID. `ci-gpu` is role `ci`. The installed system writes that role to `/boot/fleet-role.ipxe` on the ESP volume `SHBOOT`. The iPXE script reads it. A machine with no ESP file is selected only by its stable id. Clear a flag in a follow-up commit after `fleet-node.sh` has installed the machine. Leaving a role flagged is not an install.
 
 TODO: no smart PDU model is selected, and this repo does not call one. A remote power cycle is physical until a model and its integration are added in code. Do not invent a vendor, a host, or a credential. There is no SSH reinstall command.
 
@@ -97,7 +99,7 @@ The manager requests a 30-second hardware watchdog and a panic reboot. Recovery 
 
 After a RAM or CPU change, reboot. The slot count and the high-mem label are detected at boot. Do not edit a per-machine file. A 16-core 32 GiB machine stays at 4 slots. At 96 GiB the same formula allows 8, which is the cap. A machine that needs different software gets a capability module, not a host file.
 
-To remove a node, wait until it is not running a job, power it off, and delete the offline GitHub registration through an approved admin action. Do not delete a busy runner. Role age-key rotation is two commits, described in [secrets/README.md](../secrets/README.md). Do not SSH a new key onto a running node.
+To remove a node, on that node run `fleet-remove` (or `bash fleet-node.sh remove`). It does not stop a busy CI job. It withdraws the node from new work with the credential already on the machine, and it is safe to run twice. When the machine is idle it says the machine can be powered off. If that credential is missing, it exits non-zero, does not claim the node was unregistered, and prints one next step. No per-node git edit and no SSH session from another computer are required. Role age-key rotation is two commits, described in [secrets/README.md](../secrets/README.md). Do not SSH a new key onto a running node.
 
 A pull request that touches this package runs `nix flake check`, which includes the `follow-up` VM test. That test is required. It does not add a new GitHub status name. The `Fleet` check is the one the ruleset names.
 

@@ -1,4 +1,4 @@
-# Netboot role settings. This host serves the installer. It does not use CI or web secrets.
+# Netboot role settings. This host does not serve an installer that can finish an install. It does not use CI or web secrets.
 let shared = import ./settings/shared.nix;
 in {
   role = "netboot";

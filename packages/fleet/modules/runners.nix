@@ -108,8 +108,19 @@ in {
     { assertion = settings.github.scope != "repository" || builtins.length settings.github.repositories > 0;
       message = "Repository registration needs at least one owner/repo."; }
   ];
-  environment.systemPackages = [ drain resume ];
+  environment.systemPackages = [ drain resume control ];
   environment.etc."fleet-slots".text = lib.concatStringsSep "\n" ids + "\n";
+  # Not a secret. The on-node remove command reads it and uses the key file
+  # already on the machine. TODO values fail closed.
+  environment.etc."fleet/runner.conf".text = ''
+    scope=${settings.github.scope}
+    app_id=${settings.github.appId}
+    installation_id=${settings.github.installationId}
+  '' + lib.concatMapStrings (target: "target=${target}\n") (
+    if settings.github.scope == "organization"
+    then [ settings.github.organization ]
+    else settings.github.repositories
+  );
   users.groups = lib.genAttrs ids (_: {});
   users.users = lib.genAttrs ids (id: let index = lib.lists.findFirstIndex (x: x == id) 0 ids; in {
     isSystemUser = true; group = id; home = "/var/lib/github-runner/${id}";
