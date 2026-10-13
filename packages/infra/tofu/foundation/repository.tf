@@ -257,12 +257,12 @@ resource "github_actions_secret" "repository" {
   for_each    = local.existing_repository_secrets
   repository  = each.value.repository
   secret_name = each.value.name
-  # GitHub cannot return secret values. This schema-only value is ignored
-  # after import; the import block and metadata listing adopt existing secrets.
-  plaintext_value = ""
+  # GitHub cannot return secret values. This empty value is ignored after
+  # import; the import block and metadata listing adopt existing secrets.
+  value = ""
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [plaintext_value, remote_updated_at]
+    ignore_changes  = [value]
   }
 }
 

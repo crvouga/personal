@@ -33,7 +33,7 @@ resource "planetscale_postgres_branch" "openbao" {
     prevent_destroy = true
     postcondition {
       condition     = self.replicas == local.postgres.replicas
-      error_message = "The branch replica count must match inventory. Destroy a branch that is not single-node before any credential is published."
+      error_message = "The branch replica count must match inventory. The published provider cannot set it, so resize the branch to the inventory count before any credential is published."
     }
   }
 }
@@ -239,9 +239,9 @@ locals {
 resource "github_actions_secret" "bootstrap" {
   for_each = toset(keys(local.bootstrap_secrets))
   # The secret values are sensitive; the addresses are public, stable names.
-  repository      = split("/", local.config.github.infra_repo)[1]
-  secret_name     = each.key
-  plaintext_value = local.bootstrap_secrets[each.key]
+  repository  = split("/", local.config.github.infra_repo)[1]
+  secret_name = each.key
+  value       = local.bootstrap_secrets[each.key]
 }
 
 resource "github_actions_variable" "account" {
@@ -263,10 +263,10 @@ resource "github_actions_variable" "migration_ready" {
 # crvouga is a personal account, so distribute the dispatch credential to the
 # actual repositories instead of attempting to create organization secrets.
 resource "github_actions_secret" "dispatch" {
-  for_each        = toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null])
-  repository      = each.key
-  secret_name     = "DEPLOY_DISPATCH_TOKEN"
-  plaintext_value = var.github_token
+  for_each    = toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null])
+  repository  = each.key
+  secret_name = "DEPLOY_DISPATCH_TOKEN"
+  value       = var.github_token
 }
 
 resource "cloudflare_dns_record" "redirect" {
