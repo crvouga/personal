@@ -8,6 +8,10 @@
     ./revision.nix
     ./drift.nix
   ];
+  # The module system ignores `revision ? null` and throws if the argument is
+  # absent. Tests omit it. The flake passes the real commit via specialArgs,
+  # which wins over this default.
+  _module.args.revision = lib.mkDefault "unknown";
   system.stateVersion = "26.05";
   boot.loader.timeout = 5;
   boot.loader.systemd-boot.enable = true;
@@ -40,7 +44,8 @@
     hostKeys = [ { path = "/nix/fleet-state/ssh/ssh_host_ed25519_key"; type = "ed25519"; } ];
   };
   users.mutableUsers = false;
-  # Keep the unconfigured template evaluable; installer refuses empty SSH keys.
+  # An empty sshKeys list is valid. Remote login stays closed until a commit
+  # adds keys. The installer console does not need them.
   users.allowNoPasswordLogin = settings.sshKeys == [ ];
   users.users.root = { hashedPassword = "!"; openssh.authorizedKeys.keys = settings.sshKeys; };
   nix.settings = {
@@ -82,6 +87,25 @@
   ];
   # Local signal only. A failed unit is the alert. TODO: nothing scrapes
   # 127.0.0.1:9101, and monitoring.pushUrl is not read.
+  # Public material only. The private age key stays in fleet-state.
+  systemd.services.fleet-console-info = {
+    description = "Print the age public key and host fingerprint on the console";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "systemd-user-sessions.service" ];
+    serviceConfig.Type = "oneshot";
+    script = ''
+      exec > /dev/console
+      echo "fleet revision: $(cat /etc/fleet/revision 2>/dev/null || echo unknown)"
+      if [ -s /nix/fleet-state/secrets/age.pub ]; then
+        echo "age public key:"
+        cat /nix/fleet-state/secrets/age.pub
+      fi
+      if [ -s /nix/fleet-state/ssh/ssh_host_ed25519_key.pub ]; then
+        ${pkgs.openssh}/bin/ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub || true
+      fi
+      exit 0
+    '';
+  };
   systemd.services.fleet-disk = {
     description = "Fail when /nix or /boot is too full";
     serviceConfig.Type = "oneshot";

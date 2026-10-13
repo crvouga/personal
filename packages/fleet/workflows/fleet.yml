@@ -51,7 +51,8 @@ jobs:
           nix flake check --no-write-lock-file --system x86_64-linux -L
           # ci-gpu stays a nixosConfiguration. It is not a default build.
           nix build --no-link -L \
-            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot' 'path:.#installer'
+            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot'
+          nix build -o result-iso -L 'path:.#installer'
 
   cache:
     needs: [changes, check]

@@ -1,6 +1,6 @@
 { config, lib, pkgs, settings, ... }: {
-  # Live image only: SSH, DHCP, and the admin keys from settings/installer.nix.
-  # It does not partition a disk or install a role. Bootstrap does that.
+  # Live image. The USB ISO carries the role closures. fleet-install on this
+  # console partitions the disk and installs. SSH is optional emergency access.
   # No static hostname. The installed system names itself at boot.
   networking.hostName = lib.mkForce "";
   networking.useDHCP = lib.mkDefault true;
@@ -13,7 +13,19 @@
       export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux ]}:$PATH
       exec ${pkgs.python3}/bin/python3 ${../scripts/cattle.py} select-disk
     '')
+    (pkgs.writeShellScriptBin "fleet-install" ''
+      export PATH=${lib.makeBinPath [
+        pkgs.coreutils pkgs.bash pkgs.age pkgs.openssh pkgs.python3
+        pkgs.util-linux pkgs.gawk pkgs.sudo
+      ]}:$PATH
+      exec ${pkgs.bash}/bin/bash ${../scripts/fleet-install.sh} "$@"
+    '')
   ];
+  users.motd = ''
+    fleet installer. This live image has not touched the disk.
+    Install on this machine: fleet-install ci
+    Roles on this image: ci, web, cache, netboot.
+  '';
   services.openssh = {
     enable = true;
     settings = {
@@ -22,7 +34,14 @@
       PermitRootLogin = lib.mkForce "prohibit-password";
     };
   };
-  services.getty.autologinUser = lib.mkForce null;
+  # The person at the machine installs it. Root stays locked; nixos has
+  # passwordless sudo only on this live image.
+  services.getty.autologinUser = lib.mkForce "nixos";
+  security.sudo.extraRules = [{
+    users = [ "nixos" ];
+    commands = [{ command = "ALL"; options = [ "NOPASSWD" "SETENV" ]; }];
+  }];
+  users.users.nixos.extraGroups = [ "wheel" ];
   users.allowNoPasswordLogin = settings.sshKeys == [ ];
   users.mutableUsers = false;
   users.users.root = {

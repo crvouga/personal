@@ -39,6 +39,27 @@
         (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix")
         ./modules/installer.nix
         ./modules/installer-iso.nix
+        # Role closures live on the ISO only. The netboot ramdisk must not
+        # reference them; a multi-gigabyte initrd will not boot.
+        {
+          isoImage.storeContents = [
+            ci.config.system.build.toplevel
+            web.config.system.build.toplevel
+            cache.config.system.build.toplevel
+            netboot.config.system.build.toplevel
+            installDisk
+          ];
+          isoImage.contents = [{
+            source = pkgs.writeText "fleet-install-manifest" ''
+              ci ${ci.config.system.build.toplevel}
+              web ${web.config.system.build.toplevel}
+              cache ${cache.config.system.build.toplevel}
+              netboot ${netboot.config.system.build.toplevel}
+              disko ${installDisk}
+            '';
+            target = "/fleet-install-manifest";
+          }];
+        }
       ];
     };
     installerNetboot = lib.nixosSystem {
@@ -65,7 +86,7 @@
       exec ${ci.config.system.build.diskoScript}
     '';
     bootstrapFor = pkgs': pkgs'.writeShellScript "bootstrap" ''
-      export PATH=${lib.makeBinPath [ pkgs'.nixos-anywhere pkgs'.openssh ]}:$PATH
+      export PATH=${lib.makeBinPath [ pkgs'.openssh ]}:$PATH
       exec ${pkgs'.bash}/bin/bash ${./scripts/bootstrap.sh} "$@"
     '';
     testArgs = {

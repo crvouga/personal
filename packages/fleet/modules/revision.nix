@@ -1,6 +1,7 @@
 { config, lib, pkgs, revision ? null, ... }: let
-  # self.rev is null on a dirty tree. Callers pass "unknown" then. A dirtyRev
-  # is not a cache key, so it is not published.
+  # self.rev is null on a dirty tree. The flake passes "unknown" then. A
+  # dirtyRev is not a cache key, so it is not published. base.nix supplies
+  # the same fallback when a test does not pass specialArgs.revision.
   rev = if revision == null then "unknown" else revision;
   server = pkgs.writeText "fleet-revision.py" ''
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
