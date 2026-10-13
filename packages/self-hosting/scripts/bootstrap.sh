@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 # Install one role onto a machine that is already booted into the shared
 # installer (USB or PXE). This is the only SSH write. After it returns, the
-# node pulls from git.
+# node pulls from git. The disk is chosen on the target. Nothing in git names it.
 set -euo pipefail
 
-role=${1:?role required: ci, web, cache, or netboot}
+role=${1:?role required: ci, web, cache, netboot, ci-gpu, or a -canary track}
 ip=${2:?IP address required}
 [[ "$ip" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]] || { echo 'Use a DNS name or IPv4 address' >&2; exit 2; }
 
 case "$role" in
-  ci) settings_file=fleet.nix ;;
-  web) settings_file=web.nix ;;
-  cache) settings_file=cache.nix ;;
-  netboot) settings_file=netboot.nix ;;
-  *) echo 'role must be ci, web, cache, or netboot' >&2; exit 2 ;;
+  ci|web|cache|netboot|ci-gpu|ci-canary|web-canary|cache-canary|netboot-canary) ;;
+  *) echo 'role must be ci, web, cache, netboot, ci-gpu, or a -canary track' >&2; exit 2 ;;
 esac
+key_role=${role%%-*}
 
 dir=$PWD
 while [ "$dir" != / ]; do
@@ -31,7 +29,7 @@ if [ -n "${SELF_HOSTING_KEY_DIR:-}" ]; then
 else
   key_dir=${HOME:?}/.config/self-hosting/keys
 fi
-key=$key_dir/$role.age
+key=$key_dir/$key_role.age
 [ -f "$key" ] || {
   echo "TODO: create $key with age-keygen. It stays on this computer and is never committed." >&2
   exit 2
@@ -61,25 +59,22 @@ for ((i = 0; i < ${#roles[@]}; i++)); do
   done
 done
 
-disk=$(nix eval --raw --file "$settings_file" disk)
-[[ "$disk" == /dev/disk/by-path/* || "$disk" == /dev/disk/by-id/* ]] || {
-  echo 'Disk path must be a /dev/disk/by-path or by-id path' >&2
-  exit 2
-}
-[[ "$disk" != *TODO* ]] || {
-  echo "TODO: set a verified disk path in $settings_file before bootstrap" >&2
-  exit 2
-}
-
-keys=$(nix eval --json --file "$settings_file" sshKeys)
+keys=$(nix eval --json --file settings/shared.nix sshKeys)
 [ "$keys" != "[]" ] || {
   echo 'TODO: set admin public SSH keys in settings/shared.nix before bootstrap' >&2
   exit 2
 }
 
+ssh_base=(ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes)
+discovered=$("${ssh_base[@]}" "root@${ip}" select-disk)
+[[ "$discovered" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]] || {
+  echo 'select-disk returned an unexpected path' >&2
+  exit 2
+}
+
 echo "Role: $role" >&2
 echo "Host: $ip" >&2
-echo "Disk: $disk" >&2
+echo "Disk: $discovered" >&2
 echo "Key file: $key" >&2
 echo 'This erases that disk, including Windows or any other OS.' >&2
 if [ ! -t 0 ]; then
@@ -88,7 +83,14 @@ if [ ! -t 0 ]; then
 fi
 echo 'Type the disk path to continue:' >&2
 read -r answer
-[ "$answer" = "$disk" ] || { echo 'Disk path did not match. Nothing was changed.' >&2; exit 1; }
+[ "$answer" = "$discovered" ] || { echo 'Disk path did not match. Nothing was changed.' >&2; exit 1; }
+
+printf '%s\n' "$discovered" | "${ssh_base[@]}" "root@${ip}" "cat > /run/self-hosting-install-disk"
+again=$("${ssh_base[@]}" "root@${ip}" select-disk)
+[ "$again" = "$discovered" ] || {
+  echo 'Disk selection changed before install. Nothing was wiped.' >&2
+  exit 1
+}
 
 stage=$(mktemp -d)
 chmod 700 "$stage"
@@ -97,6 +99,6 @@ trap cleanup EXIT
 install -d -m 0700 "$stage/nix/fleet-state/secrets"
 install -m 0600 "$key" "$stage/nix/fleet-state/secrets/age.key"
 
-disko_script=$(nix build --no-link --print-out-paths "path:.#disko-${role}")
-toplevel=$(nix build --no-link --print-out-paths "path:.#${role}")
+disko_script=$(nix build --no-link --print-out-paths "path:.#disko")
+toplevel=$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.${role}.config.system.build.toplevel")
 nixos-anywhere --store-paths "$disko_script" "$toplevel" --extra-files "$stage" "root@${ip}"

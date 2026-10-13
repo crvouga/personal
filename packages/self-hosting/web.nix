@@ -3,11 +3,9 @@
 let shared = import ./settings/shared.nix;
 in {
   role = "web";
-  # TODO: add a profile under profiles/ if web hardware is not an MS-A2.
-  profile = "ms-a2";
-  # REQUIRED: identical model/path on every web node; obtain from the rescue system's /dev/disk/by-path.
-  disk = "/dev/disk/by-path/TODO-internal-nvme";
-  inherit (shared) sshKeys bootGenerationLimit repo binaryCache reboot;
+  flakeAttr = "web";
+  track = "deploy";
+  inherit (shared) sshKeys bootGenerationLimit repo binaryCache reboot capacity;
   # TODO: encrypt secrets/web.yaml for this role's age key, then set secretsFile = ./secrets/web.yaml.
   # Never use secrets/fleet.yaml here.
   secretsFile = null;

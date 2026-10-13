@@ -24,3 +24,4 @@ for name in ('nixpkgs', 'disko', 'sops-nix'):
 assert not list(Path('secrets').glob('*.key'))
 assert not list(Path('secrets').glob('*.pem'))
 CHECK
+python3 scripts/cattle.py check .

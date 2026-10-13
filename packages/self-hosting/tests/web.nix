@@ -17,10 +17,10 @@ in pkgs.testers.runNixOSTest {
   testScript = { nodes, ... }: ''
     start_all()
     web.wait_for_unit("multi-user.target")
-    web.wait_for_unit("web-identity.service")
+    web.wait_for_unit("node-identity.service")
     web.wait_for_unit("web-app-placeholder.service")
     web.wait_for_unit("caddy.service")
-    web.succeed("hostname | grep -Eq '^web-[0-9a-f]{12}$'")
+    web.succeed("hostname | grep -Eq '^web-[0-9a-f]{4}$'")
     web.fail("test -e /run/fleet/identity")
     web.fail("systemctl list-unit-files --no-legend | grep -q '^github-runner-'")
     web.succeed("grep -qx '22,80,443' /etc/web-role-firewall")

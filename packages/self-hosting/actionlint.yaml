@@ -1,2 +1,2 @@
 self-hosted-runner:
-  labels: [nixos, ci, ms-a2]
+  labels: [nixos, ci]

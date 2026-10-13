@@ -10,15 +10,13 @@
   bootGenerationLimit = 8;
 
   repo = {
-    # TODO: real repository URL. Do not guess the owner. Nodes track
-    # deployBranch. A MAC listed in canaryMacs tracks canaryBranch instead.
-    # Nothing tracks main.
+    # TODO: real repository URL. Do not guess the owner. A closure with
+    # track = "deploy" pulls deployBranch. track = "canary" pulls canaryBranch.
+    # Nothing tracks main. Canary is not a MAC.
     url = "https://github.com/TODO/workspace.git";
     flakeDir = "packages/self-hosting";
     deployBranch = "deploy";
     canaryBranch = "canary";
-    # TODO: one lowercase MAC per role, colons removed. Empty means no canary.
-    canaryMacs = [ ];
     pollSeconds = 300;
     # none until a read-only deploy key or token is encrypted into this role's
     # sops file. Then set "ssh" or "token". CI and web still use different age keys.
@@ -34,8 +32,20 @@
     publicKey = null;
   };
 
+  # One formula for every CI machine, applied at boot by scripts/cattle.py:
+  # min(slotMax, max(1, min(cores / perRunnerCores, (MemTotal MiB - reserveGiB*1024) / (perRunnerGiB*1024)))).
+  # high-mem when MemTotal MiB is strictly above highMemGiB * 1024. 60 GiB
+  # tags a 64 GiB box (MemTotal is a bit under 64) and not a 32 GiB box.
+  capacity = {
+    reserveGiB = 4;
+    perRunnerGiB = 6;
+    perRunnerCores = 2;
+    slotMax = 8;
+    highMemGiB = 60;
+  };
+
   reboot = {
-    # Spread kernel reboots across this many seconds using the NIC MAC.
+    # Spread kernel reboots across this many seconds using the stable node id.
     delayMaxSeconds = 7200;
     # CI sets this to fleet-drain. Other roles leave it empty.
     drainCommand = "";

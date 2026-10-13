@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Pull this role's nixosConfiguration from git and switch to it.
-# Canary MACs track the canary branch. Every other node tracks deploy.
+# Pull this closure's nixosConfiguration from git and switch to it.
+# TRACK=canary follows the canary branch. TRACK=deploy follows deploy.
 # A kernel, initrd, or module change drains (when configured) and reboots
-# after a MAC-based delay. A failed build or a failed drain leaves the
-# running generation in place.
+# after a delay seeded by the stable node id. A failed build or a failed
+# drain leaves the running generation in place.
 set -euo pipefail
 
 env_file=${SYNC_ENV:-/etc/self-hosting/sync.env}
@@ -11,6 +11,8 @@ env_file=${SYNC_ENV:-/etc/self-hosting/sync.env}
 source "$env_file"
 
 : "${ROLE:?}"
+: "${FLAKE_ATTR:?}"
+: "${TRACK:?}"
 : "${REPO_URL:?}"
 : "${DEPLOY_BRANCH:?}"
 : "${CANARY_BRANCH:?}"
@@ -29,24 +31,11 @@ git=${FLEET_GIT:-git}
 state_dir=${STATE_DIR:-/nix/fleet-state/sync}
 repo=$state_dir/repo
 
-mac=$(
-  for nic in /sys/class/net/*; do
-    [ -e "$nic/device" ] || continue
-    [ "$(cat "$nic/addr_assign_type")" = 0 ] || continue
-    cat "$nic/address"
-  done | sort | awk 'NR==1' | tr -d ':' | tr 'A-F' 'a-f'
-)
-[ -n "$mac" ] || { echo 'sync: no permanent physical NIC MAC' >&2; exit 1; }
-
-branch=$DEPLOY_BRANCH
-# CANARY_MACS is a space-separated list of MACs from the generated env file.
-# shellcheck disable=SC2086
-for candidate in ${CANARY_MACS:-}; do
-  normalized=$(printf '%s' "$candidate" | tr -d ':' | tr 'A-F' 'a-f')
-  if [ "$normalized" = "$mac" ]; then
-    branch=$CANARY_BRANCH
-  fi
-done
+case "$TRACK" in
+  canary) branch=$CANARY_BRANCH ;;
+  deploy) branch=$DEPLOY_BRANCH ;;
+  *) echo 'sync: TRACK must be deploy or canary' >&2; exit 1 ;;
+esac
 
 install -d -m 0700 "$state_dir"
 g() {
@@ -94,7 +83,7 @@ g -C "$repo" remote add origin "$REPO_URL"
 g -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
 g -C "$repo" checkout --detach --force "refs/remotes/origin/${branch}"
 
-flake="path:${repo}/${FLAKE_DIR}#nixosConfigurations.${ROLE}.config.system.build.toplevel"
+flake="path:${repo}/${FLAKE_DIR}#nixosConfigurations.${FLAKE_ATTR}.config.system.build.toplevel"
 toplevel=$("$nix" build --no-link --print-out-paths "$flake")
 [ -n "$toplevel" ] && [ -d "$toplevel" ]
 
@@ -115,7 +104,11 @@ apply() {
 
 if [ "$need_reboot" -eq 1 ]; then
   if [ "$DELAY_MAX" -gt 0 ]; then
-    seed=$(printf '%s' "$mac" | cksum | awk '{print $1}')
+    id=$("${PYTHON:?}" "${CATTLE_PY:?}" print-id) || {
+      echo 'sync: stable id failed; not rebooting' >&2
+      exit 1
+    }
+    seed=$(printf '%s' "$id" | cksum | awk '{print $1}')
     sleep $((seed % DELAY_MAX))
   fi
   if [ -n "${DRAIN_COMMAND:-}" ]; then

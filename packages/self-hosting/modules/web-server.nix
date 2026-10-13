@@ -57,24 +57,9 @@ in {
     { assertion = !(config.users.users ? "slot-1"); message = "Web hosts must not create CI runner users."; }
   ];
   networking.firewall.allowedTCPPorts = [ 80 443 ];
-  # Same MAC identity as the runners, with a different prefix and no runner files.
+  # Hostname comes from modules/identity.nix. This role must not write runner files.
   systemd.services = lib.mkMerge ([
     {
-      web-identity = {
-        wantedBy = [ "multi-user.target" ];
-        before = [ "sshd.service" ];
-        path = with pkgs; [ coreutils findutils gawk systemd ];
-        serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
-        script = ''
-          mac=$(for nic in /sys/class/net/*; do
-            [ -e "$nic/device" ] || continue
-            [ "$(cat "$nic/addr_assign_type")" = 0 ] || continue
-            cat "$nic/address"
-          done | sort | head -n1 | tr -d ':')
-          [ -n "$mac" ] || { echo 'No permanent physical NIC MAC'; exit 1; }
-          hostnamectl --transient --no-ask-password set-hostname "web-$mac"
-        '';
-      };
       caddy = {
         after = map (app: "web-app-${app.name}.service") localApps
           ++ map (app: "podman-${app.name}.service") imageApps;

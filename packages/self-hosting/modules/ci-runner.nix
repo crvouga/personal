@@ -4,22 +4,32 @@
   _module.args.drainProvider = lib.mkDefault null;
   programs.nix-ld.enable = true;
   virtualisation.podman = lib.mkIf settings.containers { enable = true; dockerCompat = true; };
-  # Identity is the lowest permanent physical NIC MAC, independent of link state.
-  systemd.services.fleet-identity = {
+  # Start slot-1..slot-N from the boot-time count. The other units exist in
+  # this closure and stay stopped. systemctl start is synchronous enough that
+  # multi-user waits until those units have been started.
+  systemd.services.fleet-capacity = {
+    description = "Start the runner slots this machine can hold";
     wantedBy = [ "multi-user.target" ];
-    before = [ "sshd.service" ];
-    path = with pkgs; [ coreutils findutils gawk systemd ];
+    after = [ "node-identity.service" ];
+    requires = [ "node-identity.service" ];
+    path = [ pkgs.systemd pkgs.coreutils ];
     serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
     script = ''
-      mac=$(for nic in /sys/class/net/*; do
-        [ -e "$nic/device" ] || continue
-        [ "$(cat "$nic/addr_assign_type")" = 0 ] || continue
-        cat "$nic/address"
-      done | sort | head -n1 | tr -d ':')
-      [ -n "$mac" ] || { echo 'No permanent physical NIC MAC'; exit 1; }
-      hostnamectl --transient --no-ask-password set-hostname "ci-$mac"
-      install -d -m 0755 /run/fleet
-      printf 'ACTIONS_RUNNER_INPUT_NAME=ci-%s\n' "$mac" > /run/fleet/identity
+      count=$(tr -d '[:space:]' < /run/fleet/slot-count)
+      case "$count" in
+        ""|*[!0-9]*) echo 'slot count is not a number' >&2; exit 1 ;;
+      esac
+      if [ "$count" -lt 1 ]; then
+        echo 'slot count must be at least 1' >&2
+        exit 1
+      fi
+      units=()
+      n=1
+      while [ "$n" -le "$count" ]; do
+        units+=("github-runner-slot-$n.service")
+        n=$((n + 1))
+      done
+      systemctl start "''${units[@]}"
     '';
   };
   # GitHub App key and cache signing material stay on runner hosts only.

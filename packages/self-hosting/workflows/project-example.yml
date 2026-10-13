@@ -18,10 +18,10 @@ jobs:
   # Alternative to the reusable job: direct label routing and a fleet-sized matrix.
   shards:
     if: github.event.repository.private && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, nixos, ci, ms-a2]
+    runs-on: [self-hosted, nixos, ci]
     strategy:
       fail-fast: true
-      max-parallel: 4 # one initial node; reduce for per-repo allocation / other jobs
+      max-parallel: 4 # a 16-core 32 GiB node; reduce when other jobs share it
       matrix:
         shard: [1, 2, 3, 4]
     steps:

@@ -19,20 +19,26 @@ MOCK
     chmod +x $out/bin/Runner.Listener
   '') {};
   testSettings = settings // {
-    slots = 2; secretsFile = null;
+    secretsFile = null;
+    # 2 cores and about 3 GiB must still start both slots. Production constants
+    # would start one. highMemGiB stays at 60, so this VM is not high-mem.
+    capacity = settings.capacity // {
+      slotMax = 2;
+      reserveGiB = 0;
+      perRunnerGiB = 1;
+      perRunnerCores = 1;
+    };
     github = settings.github // { organization = "mock-org"; appId = "123"; installationId = "456"; };
     cache = settings.cache // { remote = settings.cache.remote // { enable = false; }; };
   };
 in pkgs.testers.runNixOSTest {
   name = "self-hosting";
-  # hosts/ci.nix picks the hardware profile while resolving imports.
   node.specialArgs = { settings = testSettings; };
   nodes.machine = { config, ... }: {
     imports = [ sopsModule diskoModule ../hosts/ci.nix ];
     # The VM root is the test image. Disko still evaluates, but must not mount the host disk layout.
     disko.enableConfig = lib.mkForce false;
     _module.args = {
-      hardware = { cores = 16; ramGiB = 32; };
       registrationProvider = pkgs.writeShellScript "mock-registration" ''
         install -d -m 0700 /run/fleet/tokens
         printf 'mock-registration' > "$7"
@@ -60,14 +66,15 @@ in pkgs.testers.runNixOSTest {
     virtualisation = { memorySize = 3072; cores = 2; writableStore = true; };
   };
   nodes.client = { pkgs, ... }: { environment.systemPackages = [ pkgs.netcat-openbsd ]; };
-  # The guest hostname is the NIC MAC, so the other node is reached by address.
+  # The other node is reached by address. The hostname is assigned at boot.
   testScript = { nodes, ... }: ''
     start_all()
     machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("github-runner-slot-1.service")
     machine.wait_for_unit("github-runner-slot-2.service")
-    machine.succeed("hostname | grep -Eq '^ci-[0-9a-f]{12}$'")
-    machine.succeed("grep -Eq '^ACTIONS_RUNNER_INPUT_NAME=ci-[0-9a-f]{12}$' /run/fleet/identity")
+    machine.succeed("hostname | grep -Eq '^ci-[0-9a-f]{4}$'")
+    machine.succeed("grep -qx \"ACTIONS_RUNNER_INPUT_NAME=$(hostname)\" /run/fleet/identity")
+    machine.succeed("grep -qx 2 /run/fleet/slot-count")
     machine.succeed("test -d /nix/ci-cache/slot-1 && test -d /nix/ci-cache/slot-2")
     machine.succeed("grep -qx nixLd=true /etc/ci-fleet-vm-test && test -e /run/current-system/sw/share/nix-ld/lib/ld.so")
     machine.succeed("grep -qx watchdog=30s /etc/ci-fleet-vm-test")

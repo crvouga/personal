@@ -9,7 +9,7 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 ## Install one machine
 
 1. Back up anything on the disk. Installation erases it, including Windows. Obtain explicit human approval of that disk. Do not run bootstrap against a machine you have not identified.
-2. Do the firmware, cabling, disk-path, SSH key, and role-key steps in the checklist. Set `disk` in the role settings file (`fleet.nix` for CI, `web.nix`, `cache.nix`, or `netboot.nix`) to the verified internal NVMe `by-path`. A serial-based `by-id` differs per node. USB paths, raw `/dev/nvme0n1`, missing targets, removable disks, and mounted descendants are rejected by the disk guard on the target.
+2. Do the firmware, cabling, SSH key, and role-key steps in the checklist. Do not write a disk path into the role settings file. Bootstrap prints the internal disk the installer found. USB, removable, hotplug, and mounted disks are skipped. You type that path before anything is erased.
 3. For a CI node, choose the GitHub scope in `fleet.nix`. Organizations can share a group across selected private repos; personal accounts must use `scope = "repository"` and `repositories = [ "owner/private-repo" ... ]`. Nothing in this package changes GitHub settings. With human approval, create a GitHub App with organization **Self-hosted runners: write**, or repository **Administration: write**, as required by the [registration API](https://docs.github.com/en/rest/actions/self-hosted-runners). Install it only on intended trusted scopes. Fill the App ID and installation ID. Restrict the group to selected private repositories. Do not switch production workflows yet. Encrypt `secrets/fleet.yaml` for `ci.age` as described in [secrets/README.md](../secrets/README.md), then set `secretsFile`.
 4. Web, cache, and netboot each get their own age key and their own encrypted file before `secretsFile` is set. Leave `secretsFile` null until that file exists. Cache and netboot do not import the CI runners.
 5. Build from the committed lock:
@@ -33,28 +33,28 @@ Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builde
 
    The script shows model, serial, and mounts, requires USB transport, refuses mounted descendants, and requires typing the full path. On macOS the guard refuses to run. Use a reviewed flashing tool, or inspect `diskutil list external physical`, confirm the whole external USB, `diskutil unmountDisk`, and `sudo dd` to the raw device. Recheck the identity immediately before writing.
 
-7. Boot the stick, or PXE-boot from a netboot node that is already installed. The installer only starts SSH. It does not count down and it does not format a disk. Log in with the admin key. The hostname is `installer`.
+7. Boot the stick, or PXE-boot from a netboot node that is already installed. The installer only starts SSH. It does not count down and it does not format a disk. Log in with the admin key. The live image has no fleet hostname.
 8. From the work computer, with a terminal so the confirmation can be typed:
 
    ```sh
    just bootstrap ci NODE
    ```
 
-   Replace `ci` with `web`, `cache`, or `netboot`. `NODE` is the installer address. The command refuses a missing role key, a key inside this repo, two identical role keys, a `TODO` disk path, and an empty SSH key list. It builds `disko-<role>` and the role closure, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
+   Replace `ci` with `web`, `cache`, `netboot`, `ci-gpu`, or `ci-canary` (also `web-canary`, `cache-canary`, `netboot-canary`). `NODE` is the installer address. `ci-gpu` and `ci-canary` use the `ci` age key. The command refuses a missing role key, a key inside this repo, two identical role keys, and an empty SSH key list. It builds the shared disko script and that configuration, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
 
-9. Remove the USB. On the console, read `ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub` and accept that fingerprint. Then `just status NODE`. A CI hostname is `ci-` plus the lowest permanent physical NIC MAC with colons removed. A web hostname is `web-` plus that MAC, and it does not write `/run/fleet/identity`.
+9. Remove the USB. On the console, read `ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub` and accept that fingerprint. Then `just status NODE`. A CI hostname looks like `ci-a3f9`, `ci-gpu-7c21`, or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`.
 
-To install another node of the same role, boot the same USB and run bootstrap again. Its MAC supplies identity. No per-node Nix file is added. To reinstall, boot the installer and run bootstrap again. That is destructive and needs the same approval. There is no SSH reinstall command.
+To install another node of the same role, boot the same USB and run bootstrap again. The DMI UUID supplies the stable id. No per-node Nix file is added. To reinstall, boot the installer and run bootstrap again. That is destructive and needs the same approval. There is no SSH reinstall command.
 
 ## What the nodes pull
 
 comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Do not point it at `main`. Until `deploy` exists, a configured node fails the fetch and keeps the generation bootstrap installed. The first `promote-deploy` run creates `deploy`. `canary` is created by the first push to `main` after this workflow is on the default branch.
 
-- Every node tracks `deploy`.
-- One MAC per role, listed in `canaryMacs`, tracks `canary`.
+- A node installed as `ci`, `web`, `cache`, or `netboot` tracks `deploy`.
+- A node installed as `ci-canary`, `web-canary`, `cache-canary`, or `netboot-canary` tracks `canary`. That is a track on the same role, not a MAC and not a different disk layout.
 - `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
 
-A kernel, initrd, or module change waits a MAC-based delay of up to two hours, so the fleet does not reboot together. CI nodes then run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place. systemd-boot keeps 8 generations. The weekly garbage collection deletes generations older than 14 days.
+A kernel, initrd, or module change waits up to two hours, seeded by the stable node id, so the fleet does not reboot together. CI nodes then run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place. systemd-boot keeps 8 generations. The weekly garbage collection deletes generations older than 14 days.
 
 The running commit is `cat /etc/self-hosting/revision` and `curl -fsS http://127.0.0.1:9101/metrics` on the node. The metrics port is localhost only.
 
@@ -84,7 +84,7 @@ systemctl --failed
 systemctl status 'github-runner-*'
 journalctl -u github-runner-slot-1 -b
 journalctl -u fleet-sync -u fleet-cache-clean -b
-journalctl -u sops-install-secrets -u fleet-identity -b
+journalctl -u sops-install-secrets -u node-identity -b
 journalctl -k -b | grep -Ei 'watchdog|nvme|i40e|igc|r8169|error'
 readlink /run/current-system
 cat /etc/self-hosting/revision
@@ -100,7 +100,7 @@ Workflows that target this fleet must require `nixos` and `ci`. Jobs that ask on
 
 The manager requests a 30-second hardware watchdog and a panic reboot. Recovery from a hard hang needs a supported hardware watchdog. `softdog` is not that proof. MS-A2 watchdog availability is verified on the machine. Nix GC runs weekly. Hourly CI cache cleanup enforces a 100 GiB soft ceiling and a 30 GiB free-space floor. Active runner caches are not deleted. A large active job can still fill the disk.
 
-After a RAM upgrade, update `profiles/ms-a2.nix` or set `fleet.nix` `slots`, then let the git pipeline roll it out. Hardware variants are new shared profiles, not host files. At 96 GiB the physical-core rule caps this profile at 8 slots.
+After a RAM or CPU change, reboot. The slot count and the high-mem label are detected at boot. Do not edit a per-machine file. A 16-core 32 GiB machine stays at 4 slots. At 96 GiB the same formula allows 8, which is the cap. A machine that needs different software gets a capability module, not a host file.
 
 To remove a node, wait until it is not running a job, power it off, and delete the offline GitHub registration through an approved admin action. Do not delete a busy runner.
 

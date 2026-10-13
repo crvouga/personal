@@ -37,7 +37,7 @@ class TokenTests(unittest.TestCase):
     def test_drain_removes_all_custom_labels_then_waits_for_idle(self):
         responses = iter([
             {"runners": [{"id": 12, "name": "ci-aabb-slot-1", "busy": True,
-                          "labels": [{"name": "self-hosted"}, {"name": "Linux"}, {"name": "ci"}, {"name": "ms-a2"}]}]},
+                          "labels": [{"name": "self-hosted"}, {"name": "Linux"}, {"name": "ci"}, {"name": "high-mem"}]}]},
             None, None,
             {"runners": [{"id": 12, "name": "ci-aabb-slot-1", "busy": True}]},
             {"runners": [{"id": 12, "name": "ci-aabb-slot-1", "busy": False}]},
@@ -55,7 +55,7 @@ class TokenTests(unittest.TestCase):
             token.main()
         removed = [path for method, path, _ in calls if method == "DELETE"]
         self.assertIn("/orgs/private-org/actions/runners/12/labels/ci", removed)
-        self.assertIn("/orgs/private-org/actions/runners/12/labels/ms-a2", removed)
+        self.assertIn("/orgs/private-org/actions/runners/12/labels/high-mem", removed)
         self.assertEqual(calls[1][0], "DELETE")
 
     def test_pagination_does_not_miss_nodes_after_first_page(self):

@@ -1,7 +1,45 @@
-{ config, lib, pkgs, settings, hardware, registrationProvider ? null, drainProvider ? null, ... }: let
-  slots = if settings.slots != null then settings.slots else
-    lib.max 1 (lib.min (builtins.div hardware.cores 2) (builtins.div (hardware.ramGiB - 4) 6));
+{ config, lib, pkgs, settings, registrationProvider ? null, drainProvider ? null, ... }: let
+  # Every closure can start this many slots. Boot starts only the count
+  # cattle.py writes to /run/fleet/slot-count for the live CPU and RAM.
+  slots = settings.capacity.slotMax;
   ids = map (n: "slot-${toString n}") (lib.range 1 slots);
+  runnerPackage = pkgs.writeShellScriptBin "Runner.Listener" ''
+    set -euo pipefail
+    real=${pkgs.github-runner}/bin/Runner.Listener
+    if [ "''${1:-}" != configure ] || [ ! -s /run/self-hosting/runner-labels ]; then
+      exec "$real" "$@"
+    fi
+    extra=""
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        "") continue ;;
+        *,*) echo "runner label contains a comma" >&2; exit 1 ;;
+      esac
+      if [ -z "$extra" ]; then extra=$line; else extra="$extra,$line"; fi
+    done < /run/self-hosting/runner-labels
+    if [ -z "$extra" ]; then
+      exec "$real" "$@"
+    fi
+    args=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --labels)
+          shift
+          args+=(--labels "$1,$extra")
+          shift
+          ;;
+        --labels=*)
+          args+=("--labels=''${1#--labels=},$extra")
+          shift
+          ;;
+        *)
+          args+=("$1")
+          shift
+          ;;
+      esac
+    done
+    exec "$real" "''${args[@]}"
+  '';
   scopeFor = n: if settings.github.scope == "organization" then settings.github.organization
     else builtins.elemAt settings.github.repositories (lib.mod (n - 1) (builtins.length settings.github.repositories));
   token = if registrationProvider != null then registrationProvider else pkgs.writeScript "fleet-token" ''#!${pkgs.python3.withPackages (p: [ p.pyjwt p.cryptography ])}/bin/python3
@@ -30,8 +68,18 @@ ${builtins.readFile ../scripts/token.py}
       rm -f /run/fleet/draining
       rm -f /run/systemd/system/github-runner-*.service.d/drain.conf
       systemctl daemon-reload
-      systemctl reset-failed ${lib.concatMapStringsSep " " (id: "github-runner-${id}.service") ids}
-      systemctl start ${lib.concatMapStringsSep " " (id: "github-runner-${id}.service") ids}
+      count=$(tr -d '[:space:]' < /run/fleet/slot-count)
+      case "$count" in
+        ""|*[!0-9]*) echo 'slot count is not a number' >&2; exit 1 ;;
+      esac
+      units=()
+      n=1
+      while [ "$n" -le "$count" ]; do
+        units+=("github-runner-slot-$n.service")
+        n=$((n + 1))
+      done
+      systemctl reset-failed "''${units[@]}"
+      systemctl start "''${units[@]}"
     '';
   };
   hooks = event: pkgs.writeShellScript "fleet-job-${event}" (if event == "started" then ''
@@ -73,7 +121,10 @@ in {
     user = id; group = id;
     runnerGroup = if settings.github.scope == "organization" then settings.github.runnerGroup else null;
     tokenFile = "/run/fleet/tokens/${id}";
-    extraLabels = [ "nixos" "ci" settings.profile ];
+    package = lib.mkDefault runnerPackage;
+    # nixos and ci stay in the store. x64, gpu, and high-mem are spliced
+    # onto --labels at configure time from /run/self-hosting/runner-labels.
+    extraLabels = [ "nixos" "ci" ];
     extraPackages = lib.optionals settings.containers [ pkgs.podman ];
     extraEnvironment = {
       ACTIONS_RUNNER_INPUT_NAME = "%H-${id}";
@@ -100,8 +151,9 @@ in {
     };
   }) ids);
   systemd.services = builtins.listToAttrs (lib.imap1 (n: id: lib.nameValuePair "github-runner-${id}" {
-    requires = [ "fleet-identity.service" ];
-    after = [ "fleet-identity.service" ] ++ lib.optional (settings.secretsFile != null) "sops-install-secrets.service";
+    wantedBy = lib.mkForce [ ];
+    requires = [ "node-identity.service" ];
+    after = [ "node-identity.service" ] ++ lib.optional (settings.secretsFile != null) "sops-install-secrets.service";
     unitConfig.ConditionPathExists = "!/run/fleet/draining";
     serviceConfig.ExecStartPre = lib.mkBefore [
       "+${token} register ${lib.escapeShellArgs [ settings.github.scope (scopeFor n) settings.github.appId settings.github.installationId "/run/secrets/github-app-key" "/run/fleet/tokens/${id}" ]}"

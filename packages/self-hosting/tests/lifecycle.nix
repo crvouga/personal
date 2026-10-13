@@ -54,7 +54,6 @@ EOF
     repo = settings.repo // {
       url = "file:///tmp/origin";
       timer = false;
-      canaryMacs = [ ];
     };
     reboot = settings.reboot // {
       delayMaxSeconds = 0;
@@ -69,7 +68,7 @@ in pkgs.testers.runNixOSTest {
   name = "self-hosting-lifecycle";
   node.specialArgs = { settings = testSettings; revision = "lifecycle-rev"; };
   nodes.machine = {
-    imports = [ sopsModule diskoModule ../modules/base.nix ../profiles/ms-a2.nix ];
+    imports = [ sopsModule diskoModule ../modules/base.nix ];
     disko.enableConfig = lib.mkForce false;
     boot.loader.systemd-boot.enable = lib.mkForce false;
     users.users.root.hashedPassword = lib.mkForce null;
@@ -106,12 +105,7 @@ in pkgs.testers.runNixOSTest {
       test "$applied" = "$(cat /tmp/deploy-a)"
       grep -qx switch /run/fleet-sync/operations
       test ! -e /run/fleet-sync/actions
-      mac=$(for nic in /sys/class/net/*; do
-        [ -e "$nic/device" ] || continue
-        [ "$(cat "$nic/addr_assign_type")" = 0 ] || continue
-        cat "$nic/address"
-      done | sort | awk 'NR==1' | tr -d ':' | tr 'A-F' 'a-f')
-      sed "s/^CANARY_MACS=.*/CANARY_MACS='$mac'/" /etc/self-hosting/sync.env > /tmp/canary.env
+      sed "s/^TRACK=.*/TRACK='canary'/" /etc/self-hosting/sync.env > /tmp/canary.env
       SYNC_ENV=/tmp/canary.env fleet-sync
       applied=$(cat "$(readlink -f /nix/var/nix/profiles/system)/commit")
       test "$applied" = "$(cat /tmp/canary-b)"

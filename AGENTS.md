@@ -7,7 +7,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/portfolio`: Astro static portfolio, GitHub insights, generated resume PDF. Content lives in `src/content/projects/`; append projects to `entries-part-2.ts`. Build with Node >=22 and Playwright Chromium. Do not commit `dist/` or the generated PDF.
 - `packages/turborepo-remote-cache`: Bun cache server backed by the shared R2 buckets. Runtime closure: `@pkgs/{assert,logger,object-store,secret-store,secret-string,vault}`.
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
-- `packages/self-hosting`: NixOS configurations for physical machines we own (CI runners, web servers, an attic cache, and a netboot installer); see its `AGENTS.md`. Do not provision cloud resources there.
+- `packages/self-hosting`: NixOS configurations for physical machines we own (CI runners, web servers, an attic cache, and a netboot installer). Role and capability combinations only; no per-machine host files. See its `AGENTS.md`. Do not provision cloud resources there.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
 - `packages/9router`: local CLI and tunnel connector. It consumes OpenTofu-managed secrets and remote tunnel configuration.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.

@@ -1,8 +1,8 @@
-# MS-A2 hardware evidence
+# Hardware qualification notes
 
-MINISFORUM advertises the Ryzen 9 9955HX with 16 cores/32 threads, Realtek RTL8125 and Intel I226-V 2.5-GbE, dual Intel X710 10-GbE SFP+, and up to 96-GiB DDR5. These are product specifications, not a claim that the delivered unit has been tested. Verify its actual PCI IDs, NIC revision, firmware, RAM, disk slot, thermals and stable `/dev/disk/by-path` before installing.
+MINISFORUM advertises the Ryzen 9 9955HX with 16 cores/32 threads, Realtek RTL8125 and Intel I226-V 2.5-GbE, dual Intel X710 10-GbE SFP+, and up to 96-GiB DDR5. These are product specifications, not a claim that a delivered unit has been tested, and they are not a NixOS profile. Verify PCI IDs, NIC revision, firmware, RAM, disk slot, and thermals on the machine you install. Do not copy a disk path into git.
 
-The pinned Linux 6.12 family contains RTL8125 support in `r8169`, I226-V (`0x125c`) in `igc`, and X710 support in `i40e`. The profile loads these in-tree drivers and AMD KVM, enables AMD microcode and redistributable firmware, and adds NVMe/USB storage initrd modules. It does not install an out-of-tree Realtek driver or assume freeze reports establish a kernel workaround. BIOS revisions and board watchdog exposure remain physical qualification tasks. No watchdog driver is forced without proof; systemd requests hardware watchdog use if a supported device exists.
+`modules/hardware/generic.nix` puts `r8169`, `igc`, and `i40e` in the initrd with NVMe, SATA, USB storage, and the other common NIC modules, and it enables both Intel and AMD microcode plus redistributable firmware. It does not pin a kernel, force `kvm-amd`, or install an out-of-tree Realtek driver. The NixOS default kernel is what boots. BIOS revisions and board watchdog exposure remain physical qualification tasks. No watchdog driver is forced without proof; systemd requests hardware watchdog use if a supported device exists. A NIC missing from that list is a change to the generic profile, not a new host file.
 
 Sources inspected:
 

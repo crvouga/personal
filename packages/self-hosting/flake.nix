@@ -18,18 +18,26 @@
       else if dirty != null then dirty
       else "unknown";
     installerSettings = import ./settings/installer.nix;
-    mkHost = settingsFile: hostModule: extraArgs: lib.nixosSystem {
+    mkHost = settings: hostModule: extraArgs: lib.nixosSystem {
       inherit system;
-      specialArgs = { settings = import settingsFile; inherit revision; } // extraArgs;
+      specialArgs = { inherit settings revision; } // extraArgs;
       modules = [
         disko.nixosModules.disko
         sops-nix.nixosModules.sops
         hostModule
       ];
     };
-    ci = mkHost ./fleet.nix ./hosts/ci.nix { };
-    web = mkHost ./web.nix ./hosts/web.nix { };
-    cache = mkHost ./cache.nix ./hosts/cache.nix { };
+    ciSettings = import ./fleet.nix;
+    webSettings = import ./web.nix;
+    cacheSettings = import ./cache.nix;
+    netbootSettings = import ./netboot.nix;
+    ci = mkHost ciSettings ./hosts/ci.nix { };
+    ciCanary = mkHost (ciSettings // { track = "canary"; flakeAttr = "ci-canary"; }) ./hosts/ci.nix { };
+    ciGpu = mkHost (ciSettings // { flakeAttr = "ci-gpu"; }) ./hosts/ci-gpu.nix { };
+    web = mkHost webSettings ./hosts/web.nix { };
+    webCanary = mkHost (webSettings // { track = "canary"; flakeAttr = "web-canary"; }) ./hosts/web.nix { };
+    cache = mkHost cacheSettings ./hosts/cache.nix { };
+    cacheCanary = mkHost (cacheSettings // { track = "canary"; flakeAttr = "cache-canary"; }) ./hosts/cache.nix { };
     installerIso = lib.nixosSystem {
       inherit system;
       specialArgs = { settings = installerSettings; };
@@ -47,12 +55,21 @@
         ./modules/installer.nix
       ];
     };
-    netboot = mkHost ./netboot.nix ./hosts/netboot.nix { installer = installerNetboot; };
-    guardedDisko = name: host: settings: pkgs.writeShellScript "disko-${name}" ''
+    netboot = mkHost netbootSettings ./hosts/netboot.nix { installer = installerNetboot; };
+    netbootCanary = mkHost (netbootSettings // { track = "canary"; flakeAttr = "netboot-canary"; }) ./hosts/netboot.nix { installer = installerNetboot; };
+    # Every role shares this layout. The recorded path is checked again on the
+    # target, then linked to the sentinel disko opens.
+    installDisk = pkgs.writeShellScript "disko" ''
       set -euo pipefail
-      export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux ]}:$PATH
-      python3 ${./scripts/disk-guard.py} ${lib.escapeShellArg settings.disk}
-      exec ${host.config.system.build.diskoScript}
+      export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux pkgs.coreutils ]}:$PATH
+      recorded=/run/self-hosting-install-disk
+      [ -s "$recorded" ]
+      device=$(tr -d '[:space:]' < "$recorded")
+      [[ "$device" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]]
+      again=$(python3 ${./scripts/cattle.py} select-disk)
+      [ "$again" = "$device" ]
+      ln -sfn "$device" /dev/self-hosting-install-disk
+      exec ${ci.config.system.build.diskoScript}
     '';
     bootstrapFor = pkgs': pkgs'.writeShellScript "bootstrap" ''
       export PATH=${lib.makeBinPath [ pkgs'.nixos-anywhere pkgs'.openssh ]}:$PATH
@@ -66,13 +83,16 @@
     };
   in {
     nixosConfigurations = {
-      ${(import ./fleet.nix).profile} = ci;
       ci = ci;
+      ci-canary = ciCanary;
+      ci-gpu = ciGpu;
       web = web;
+      web-canary = webCanary;
       cache = cache;
+      cache-canary = cacheCanary;
       netboot = netboot;
+      netboot-canary = netbootCanary;
       installer = installerIso;
-      "installer-${(import ./fleet.nix).profile}" = installerIso;
     };
     packages.${system} = {
       ci = ci.config.system.build.toplevel;
@@ -82,12 +102,11 @@
       netboot = netboot.config.system.build.toplevel;
       installer = installerIso.config.system.build.isoImage;
       default = self.packages.${system}.ci;
-      disko-ci = guardedDisko "ci" ci (import ./fleet.nix);
-      disko-web = guardedDisko "web" web (import ./web.nix);
-      disko-cache = guardedDisko "cache" cache (import ./cache.nix);
-      disko-netboot = guardedDisko "netboot" netboot (import ./netboot.nix);
-      # Previous CI-only name. Bootstrap now uses disko-<role>.
-      disko = self.packages.${system}.disko-ci;
+      disko = installDisk;
+      disko-ci = installDisk;
+      disko-web = installDisk;
+      disko-cache = installDisk;
+      disko-netboot = installDisk;
       attic-client = pkgs.attic-client;
       nixos-anywhere = pkgs.nixos-anywhere;
       bootstrap = bootstrapFor pkgs;
@@ -102,6 +121,11 @@
       web-vm = import ./tests/web.nix testArgs;
       lifecycle = import ./tests/lifecycle.nix testArgs;
       netboot-vm = import ./tests/netboot.nix (testArgs // { inherit installerNetboot; });
+      cattle = pkgs.runCommand "self-hosting-cattle" { } ''
+        ${pkgs.python3}/bin/python3 ${./scripts/cattle.py} check ${./.}
+        mkdir -p "$out"
+      '';
+      cattle-vm = import ./tests/cattle.nix testArgs;
     };
     apps.${system}.bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
     apps.aarch64-darwin.bootstrap = {

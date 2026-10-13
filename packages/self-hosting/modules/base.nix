@@ -1,6 +1,9 @@
 { lib, pkgs, settings, ... }: {
   imports = [
-    (./disks + "/${settings.role}.nix")
+    ./disks/internal.nix
+    ./hardware/generic.nix
+    ./capabilities/high-mem.nix
+    ./identity.nix
     ./sync.nix
     ./revision.nix
   ];
@@ -10,9 +13,8 @@
   boot.loader.efi.canTouchEfiVariables = true;
   # No static hostname. hostnamed prefers /etc/hostname, and that file is
   # read-only on NixOS, so a transient name would never be applied.
+  # Wired DHCP is matched by device type in the generic hardware profile.
   networking.hostName = "";
-  networking.dhcpcd.setHostname = false;
-  networking.useDHCP = true;
   networking.firewall = { enable = true; allowedTCPPorts = [ 22 ]; };
   time.timeZone = "UTC";
   services.openssh = {
