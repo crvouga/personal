@@ -26,12 +26,13 @@ MOCK
   };
 in pkgs.testers.runNixOSTest {
   name = "self-hosting";
+  # hosts/ci.nix picks the hardware profile while resolving imports.
+  node.specialArgs = { settings = testSettings; };
   nodes.machine = { config, ... }: {
     imports = [ sopsModule diskoModule ../hosts/ci.nix ];
     # The VM root is the test image. Disko still evaluates, but must not mount the host disk layout.
     disko.enableConfig = lib.mkForce false;
     _module.args = {
-      settings = testSettings;
       hardware = { cores = 16; ramGiB = 32; };
       registrationProvider = pkgs.writeShellScript "mock-registration" ''
         install -d -m 0700 /run/fleet/tokens

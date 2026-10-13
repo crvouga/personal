@@ -7,6 +7,9 @@ build-iso:
 build-node:
     nix build -L path:.#node -o result-node
 
+build-web:
+    nix build -L path:.#web -o result-web
+
 flash-usb iso device:
     bash scripts/flash-usb.sh {{quote(iso)}} {{quote(device)}}
 

@@ -1,5 +1,5 @@
 {
-  description = "Disposable, trusted-code-only GitHub Actions runner fleet";
+  description = "NixOS configurations for physical machines we run ourselves";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     disko.url = "github:nix-community/disko";
@@ -11,10 +11,16 @@
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
     settings = import ./fleet.nix;
+    webSettings = import ./web.nix;
     node = nixpkgs.lib.nixosSystem {
       inherit system;
       specialArgs = { inherit settings; };
       modules = [ disko.nixosModules.disko sops-nix.nixosModules.sops ./hosts/ci.nix ];
+    };
+    web = nixpkgs.lib.nixosSystem {
+      inherit system;
+      specialArgs = { settings = webSettings; };
+      modules = [ disko.nixosModules.disko sops-nix.nixosModules.sops ./hosts/web.nix ];
     };
     installer = nixpkgs.lib.nixosSystem {
       inherit system;
@@ -26,10 +32,12 @@
     nixosConfigurations = {
       ${settings.profile} = node;
       ci = node;
+      web = web;
       "installer-${settings.profile}" = installer;
     };
     packages.${system} = {
       node = node.config.system.build.toplevel;
+      web = web.config.system.build.toplevel;
       installer = installer.config.system.build.isoImage;
       default = self.packages.${system}.node;
       disko = pkgs.writeShellScript "fleet-disko" ''
@@ -45,6 +53,13 @@
       installer = self.packages.${system}.installer;
       vm = import ./tests/vm.nix {
         inherit pkgs settings;
+        inherit (nixpkgs) lib;
+        sopsModule = sops-nix.nixosModules.sops;
+        diskoModule = disko.nixosModules.disko;
+      };
+      web = self.packages.${system}.web;
+      web-vm = import ./tests/web.nix {
+        inherit pkgs;
         inherit (nixpkgs) lib;
         sopsModule = sops-nix.nixosModules.sops;
         diskoModule = disko.nixosModules.disko;
