@@ -61,9 +61,13 @@ class FetchIsoTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(dest.read_bytes(), b"iso-bytes")
         log = self.log.read_text()
-        self.assertIn("run list", log)
+        lines = [line for line in log.splitlines() if line]
+        self.assertEqual(lines[0].split()[0:2], ["run", "list"], log)
+        self.assertEqual(lines[1].split()[0:2], ["run", "download"], log)
         self.assertIn("fleet-installer", log)
-        self.assertNotIn("nix", log)
+        # The temp dir under nix develop contains "nix-shell". That is not a build.
+        self.assertNotIn("nix build", log)
+        self.assertNotIn("nix flake", log)
 
     def test_missing_run_exits(self):
         write_executable(self.bin / "gh", """\

@@ -18,6 +18,7 @@ Installing a node needs `gh` and a USB port. It does not need Nix, an age key, o
    ```
 
    The script prints the disk identity and requires typing that same path. It refuses an internal disk.
+
 4. Boot the stick on the new machine. The console logs in as `nixos` and prints the install command. Run one of `fleet-install ci`, `web`, `cache`, or `netboot`. `ci-gpu` is not on this image. The command prints the internal disk (`select-disk` skips USB, removable, hotplug, and mounted disks) and waits for that path. It then generates `/nix/fleet-state/secrets/age.key`, installs the closure from the image, and prints the public key. The private key is not printed.
 5. Plug in a filesystem labeled `FLEET-KEY` first when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
 6. Remove the USB and reboot. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
