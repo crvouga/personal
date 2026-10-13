@@ -1,4 +1,8 @@
 { lib, ... }: {
+  # make-iso9660-image writes $out/iso/${image.baseName}.iso. image.fileName
+  # only sets image.filePath, so the built file stayed nixos-<label>-<system>.iso
+  # and the Fleet upload found nothing at iso/fleet-installer.iso.
+  image.baseName = lib.mkForce "fleet-installer";
   image.fileName = "fleet-installer.iso";
   isoImage.makeEfiBootable = true;
   isoImage.makeUsbBootable = true;
