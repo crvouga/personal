@@ -4,7 +4,24 @@
   # the same fallback when a test does not pass specialArgs.revision.
   rev = if revision == null then "unknown" else revision;
   server = pkgs.writeText "fleet-revision.py" ''
+    import os
+    import socket
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    def notify_ready():
+        # Type=notify stays activating until this datagram. The VM reaches
+        # multi-user.target only after that, then curls the metrics port.
+        raw = os.environ.get("NOTIFY_SOCKET")
+        if not raw:
+            raise SystemExit("NOTIFY_SOCKET is unset")
+        if raw[0] == "@":
+            addr = b"\0" + raw[1:].encode()
+        else:
+            addr = os.fsencode(raw)
+        notify = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        notify.connect(addr)
+        notify.sendall(b"READY=1\n")
+        notify.close()
 
     def esc(value):
         return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "")
@@ -82,7 +99,9 @@
             return
 
 
-    ThreadingHTTPServer(("127.0.0.1", 9101), Handler).serve_forever()
+    server = ThreadingHTTPServer(("127.0.0.1", 9101), Handler)
+    notify_ready()
+    server.serve_forever()
   '';
 in {
   system.configurationRevision = lib.mkDefault rev;
@@ -94,6 +113,8 @@ in {
     wants = [ "node-identity.service" ];
     serviceConfig = {
       ExecStart = "${pkgs.python3}/bin/python3 ${server}";
+      # simple is active at exec, before the listen. Notify after bind.
+      Type = "notify";
       DynamicUser = true;
       Restart = "on-failure";
     };
