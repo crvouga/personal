@@ -4,45 +4,28 @@ Git is the control surface. After bootstrap, SSH is read-only emergency access. 
 
 The human steps that git cannot do are physical: hardware replacement, cleaning, and one-time BIOS setup. They are listed in [checklist.md](checklist.md). Anything else that seems to need a person at a running node is a bug. Fix it in code.
 
-Use a Nix-enabled x86_64 Linux work computer or a configured Linux remote builder. A macOS work computer can run bootstrap and orchestrate; it cannot build x86_64 Linux closures or the VM tests without a Linux builder. Install `just`, Nix with `nix-command flakes`, `age`, and `sops`. Work in `packages/fleet`.
+Installing a node needs `gh` and a USB port. It does not need Nix, an age key, or an SSH key on the computer that flashes the stick. `just check` and `just vm-test` still need an x86_64 Linux builder. Work in `packages/fleet`.
 
 ## Install one machine
 
-1. Back up anything on the disk. Installation erases it, including Windows. Obtain explicit human approval of that disk. Do not run bootstrap against a machine you have not identified.
-2. Do the firmware, cabling, SSH key, and role-key steps in the checklist. Do not write a disk path into the role settings file. Bootstrap prints the internal disk the installer found. USB, removable, hotplug, and mounted disks are skipped. You type that path before anything is erased.
-3. For a CI node, choose the GitHub scope in `fleet.nix`. Organizations can share a group across selected private repos; personal accounts must use `scope = "repository"` and `repositories = [ "owner/private-repo" ... ]`. Nothing in this package changes GitHub settings. With human approval, create a GitHub App with organization **Self-hosted runners: write**, or repository **Administration: write**, as required by the [registration API](https://docs.github.com/en/rest/actions/self-hosted-runners). Install it only on intended trusted scopes. Fill the App ID and installation ID. Restrict the group to selected private repositories. Do not switch production workflows yet. Encrypt `secrets/fleet.yaml` for `ci.age` as described in [secrets/README.md](../secrets/README.md), then set `secretsFile`.
-4. Web, cache, and netboot each get their own age key and their own encrypted file before `secretsFile` is set. Leave `secretsFile` null until that file exists. Cache and netboot do not import the CI runners.
-5. Build from the committed lock:
+1. Back up anything on the disk. Installation erases it, including Windows. The person at the machine types the disk path before anything is erased.
+2. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git.
+3. Download the image the `Fleet` workflow already built and flash it. On Linux the device is `/dev/disk/by-id/usb-*`. On macOS it is `/dev/diskN` from `diskutil list external physical`.
 
    ```sh
-   just check-local
-   just build-iso
-   just build-node
-   just build-web
-   just build-cache
-   just build-netboot
+   just fetch-iso
+   just flash-usb fleet-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
    ```
 
-   `just check` and `just vm-test` need an x86_64 Linux builder. The ISO file is `result-iso/iso/fleet-installer.iso`.
+   The script prints the disk identity and requires typing that same path. It refuses an internal disk.
+4. Boot the stick on the new machine. The console logs in as `nixos` and prints the install command. Run one of `fleet-install ci`, `web`, `cache`, or `netboot`. `ci-gpu` is not on this image. The command prints the internal disk (`select-disk` skips USB, removable, hotplug, and mounted disks) and waits for that path. It then generates `/nix/fleet-state/secrets/age.key`, installs the closure from the image, and prints the public key. The private key is not printed.
+5. Plug in a filesystem labeled `FLEET-KEY` first when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
+6. Remove the USB and reboot. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
+7. `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there. It does not build and it does not read a key file. With `sshKeys` empty, use the console.
 
-6. Flash that ISO once. On Linux, identify the USB with `lsblk` and `udevadm info`, unmount every partition, and pass the exact stable path:
+TODO: the netboot ramdisk does not carry the role closures, and the netboot host does not serve this ISO. A reinstall flag boots a live image that cannot install. Use the USB image until that serving exists.
 
-   ```sh
-   just flash-usb result-iso/iso/fleet-installer.iso /dev/disk/by-id/usb-EXACT_DEVICE
-   ```
-
-   The script shows model, serial, and mounts, requires USB transport, refuses mounted descendants, and requires typing the full path. On macOS the guard refuses to run. Use a reviewed flashing tool, or inspect `diskutil list external physical`, confirm the whole external USB, `diskutil unmountDisk`, and `sudo dd` to the raw device. Recheck the identity immediately before writing.
-
-7. Boot the stick, or PXE-boot from a netboot node that is already installed. The installer only starts SSH. It does not count down and it does not format a disk. Log in with the admin key. The live image has no fleet hostname.
-8. From the work computer, with a terminal so the confirmation can be typed:
-
-   ```sh
-   just bootstrap ci NODE
-   ```
-
-   Replace `ci` with `web`, `cache`, `netboot`, or `ci-gpu`. `NODE` is the installer address. `ci-gpu` uses the `ci` age key. The command refuses a missing role key, a key inside this repo, two identical role keys, and an empty SSH key list. It builds the shared disko script and that configuration, then nixos-anywhere wipes the disk and copies the age key. The first bootstrap builds locally. Later nodes can substitute from attic once that cache is real.
-
-9. Remove the USB. On the console, read `ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub` and accept that fingerprint. Then `just status NODE`. A CI hostname looks like `ci-a3f9`, `ci-gpu-7c21`, or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`.
+A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same image and, for a shared sops file, plug in the same `FLEET-KEY` volume.
 
 To install another node of the same role, boot the same USB and run bootstrap again. The DMI UUID supplies the stable id. No per-node Nix file is added.
 

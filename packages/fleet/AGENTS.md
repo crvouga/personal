@@ -1,6 +1,6 @@
 OS-level configuration for machines we operate (NixOS roles, hardware profiles, bootstrap, sync). Does not create cloud resources or DNS; that's `../infra`.
 
-Git is the only control surface after bootstrap. After that, SSH is read-only emergency access. No changes are ever made over SSH. `just status NODE` only reads. `just bootstrap ROLE IP` is the one-time install write, and it wipes the disk.
+Git is the only control surface after bootstrap. After that, SSH is read-only emergency access. No changes are ever made over SSH. `just status NODE` only reads. `fleet-install ROLE` on the live image is the one-time install write, and it wipes the disk.
 
 After the first bootstrap, the only manual tasks are physical: hardware replacement, cleaning, and one-time BIOS setup. Anything else that seems to need a person at the machine is a bug in the automation. Fix it in this package.
 
@@ -13,11 +13,11 @@ Roles:
 - `cache`: `hosts/cache.nix`, `cache.nix`, `modules/cache-server.nix`. This is the attic binary cache. It is not the optional CI scratch substituter in `modules/cache.nix`.
 - `netboot`: `hosts/netboot.nix`, `netboot.nix`, `modules/netboot.nix`. Firmware tries the network first. Pixiecore asks `fleet-netboot-policy`, which tells the client to boot the local disk unless `reinstall.nodes` or `reinstall.roles` in `settings/shared.nix` flags it. A flag serves the shared installer. `dhcpNoBind` stays true unless this host is the DHCP server for that network.
 
-CI and web must never share an age key or a secrets file. Cache and netboot use their own keys and files too. Bootstrap refuses two role keys that compare equal.
+CI and web must never share an age key or a secrets file. Cache and netboot use their own keys and files too. `fleet-install` refuses two role keys on the `FLEET-KEY` volume that compare equal.
 
 To add a role, add `modules/<role>.nix` with only that role's services, add `hosts/<role>.nix` that imports `base.nix` and that module, and add a settings file plus a `nixosSystem` in `flake.nix`. Set `reboot.drainCommand` only when the role must drain before a kernel reboot. Every role uses `modules/disks/internal.nix`.
 
-To add a machine of an existing role, boot the installer and run bootstrap for that role. Do not add a host file, a profile, or a hand-picked name.
+To add a machine of an existing role, boot the installer image and run `fleet-install` for that role on its console. Do not add a host file, a profile, or a hand-picked name.
 
 ## Cattle, not pets
 
@@ -47,13 +47,13 @@ To add an app on the web role, append one attrset to `apps` in `web.nix`: `name`
 
 ## Bootstrap
 
-The installer is generic. `just build-iso` produces `fleet-installer.iso`: SSH, DHCP, and the admin public keys from `settings/shared.nix`. It does not partition a disk or embed a role. One USB is used for every box. The netboot role serves that same installer only to a node or role flagged in `reinstall`. Every other client is told to boot its local disk.
+The installer ISO is built by the `Fleet` workflow and uploaded as `fleet-installer`. `just fetch-iso` downloads it onto any computer with `gh`. It contains the `ci`, `web`, `cache`, and `netboot` closures. `ci-gpu` is not on the image. One USB is used for every box. Boot it. The console logs in as `nixos` and prints `fleet-install ci`. That command, on the machine, selects the internal disk, waits for that path to be typed, generates the role age key, and installs the closure that is already on the image. `sshKeys` may stay empty. `just bootstrap ROLE IP` only forwards a keyboard over SSH when a key is configured. It does not build Nix and it does not read an age key.
 
-`nix run .#bootstrap -- <role> <ip>` (or `just bootstrap ROLE IP`) wraps nixos-anywhere. The target must already be booted into this installer, which has `select-disk` on `PATH`. The role is `ci`, `web`, `cache`, `netboot`, or `ci-gpu`. The age key is the role prefix: `ci-gpu` uses `ci.age`, from `$HOME/.config/fleet/keys/<role>.age` or `$FLEET_KEY_DIR/<role>.age`. Generate it with `age-keygen`. This package does not generate keys. The key must not live inside the git checkout. Bootstrap copies it with `--extra-files` to `/nix/fleet-state/secrets/age.key` on the persistent `/nix` partition. The operator types the disk path the installer discovered. An empty `sshKeys` list or a missing key refuses to run. The first install builds on the operator machine because the attic cache does not exist yet.
+The private key is created at `/nix/fleet-state/secrets/age.key`. The public key is printed on the console and stored in `age.pub`. A filesystem labeled `FLEET-KEY` supplies `<role>.age` when the file is already there, and receives a newly generated key when it is not, so the next node of that role can decrypt the same sops file. This package does not generate a key into git. The netboot ramdisk does not carry the role closures. TODO: the netboot host does not serve this ISO, so a flagged reinstall still needs the USB image.
 
-The ISO host key is ephemeral. The installed host key is `/nix/fleet-state/ssh/ssh_host_ed25519_key`. Read its fingerprint on the console before accepting it. Steps that stay outside git are in `docs/checklist.md`.
+The ISO host key is ephemeral. The installed host key is `/nix/fleet-state/ssh/ssh_host_ed25519_key`, generated on the machine. The console prints its fingerprint after reboot. Steps that stay physical are in `docs/checklist.md`.
 
-To rotate a role age key, follow `secrets/README.md`. The new private key is encrypted to the current key as the sops secret `age-key-next`. Set `rotateAgeKey = true` on that role in the same commit. The node installs it to `/nix/fleet-state/secrets/age.key` when it pulls. A second commit drops the old recipient. Do not SSH the key onto the node. `ci-gpu` uses `ci.age`. This package does not generate keys.
+To rotate a role age key, follow `secrets/README.md`. The new private key is encrypted to the current key as the sops secret `age-key-next`. Set `rotateAgeKey = true` on that role in the same commit. The node installs it to `/nix/fleet-state/secrets/age.key` when it pulls. A second commit drops the old recipient. Do not SSH the key onto the node. `ci-gpu` uses the `ci` key. This package does not generate keys into git.
 
 To reinstall, add the 4-hex stable id to `reinstall.nodes` or the role name to `reinstall.roles` and merge. The netboot server pulls that commit. The next boot asks the network first and is served the installer. Clear the flag in a follow-up commit after bootstrap. TODO: no smart PDU model is selected and this repo does not power-cycle a node. A power cycle is physical until that integration exists. Do not invent a vendor, a host, or a credential.
 
@@ -85,7 +85,7 @@ One path changes a node. Open a pull request, let `Required` and `Fleet` pass on
 
 This package does not own GitHub configuration, buckets, billing, DNS, or other workspace infrastructure. Every dependency is pinned in `flake.lock`. Do not update it implicitly. Do not commit tokens, age private keys, or plaintext secrets.
 
-Run `bun run --filter @pkgs/fleet check` for portable checks. From this package: `just check`, `build-node`, `build-web`, `build-cache`, `build-netboot`, `build-iso`, `vm-test`, `flash-usb ISO DEVICE`, `bootstrap ROLE IP`, and `status NODE`.
+Run `bun run --filter @pkgs/fleet check` for portable checks. From this package: `just check`, `build-node`, `build-web`, `build-cache`, `build-netboot`, `build-iso`, `vm-test`, `fetch-iso`, `flash-usb ISO DEVICE`, `bootstrap ROLE IP`, and `status NODE`. `fetch-iso` and `flash-usb` do not need Nix. `bootstrap` does not build.
 
 `flash-usb` and `bootstrap` are destructive. Obtain explicit human approval identifying the disk before executing them. An interactive confirmation is an additional check, never authorization. Do not execute a generated installer or a VM against physical disks. Never print secrets, place them in CLI arguments, or copy plaintext credentials into the Nix store. Never change GitHub settings, secrets, or billing without explicit approval. Runtime registration uses the configured GitHub App; tokens remain in `/run`.
 

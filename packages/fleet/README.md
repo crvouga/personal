@@ -8,7 +8,7 @@
 - `hosts/netboot.nix`: Pixiecore serving the shared installer, without taking over DHCP.
 
 - [Node and fleet operations](docs/runbook.md): bootstrap, sync, rollback.
-- [Manual checklist](docs/checklist.md): firmware, cabling, and where the role key lives.
+- [Manual checklist](docs/checklist.md): firmware, cabling, and the USB install.
 - [Onboard any project](docs/onboard-project.md): devShell, workflow, cache and hosted fallback.
 - [Verified hardware and upstream sources](docs/hardware.md).
 - [Agent operating rules](AGENTS.md).
@@ -16,7 +16,7 @@
 
 `fleet.nix` is the CI settings file (the historical name). Shared non-secret values live in `settings/shared.nix`. Hardware is `modules/hardware/generic.nix`, not a model profile. Runner slots are counted at boot: reserve 4 GiB, then one slot per 2 cores and 6 GiB, at most 8. A 16-core 32 GiB machine still gets **4 slots**. Slots are distributed round-robin among repository scopes, rather than multiplying capacity per repository. A hostname is `<role>[-gpu][-highmem]-<4 hex>`, for example `ci-a3f9` or `ci-highmem-02be`. A web node does not write `/run/fleet/identity`.
 
-The root is tmpfs. Persistence is the EFI boot partition and `/nix`: store, Nix database/profiles, disposable slot caches, attic data, and `/nix/fleet-state`. Each role has its own age key. Back the keys up outside the fleet. No plaintext secrets are in the flake or ISO.
+The root is tmpfs. Persistence is the EFI boot partition and `/nix`: store, Nix database/profiles, disposable slot caches, attic data, and `/nix/fleet-state`. Each role has its own age key, created on the first node of that role. The public key is printed on the console. A `FLEET-KEY` volume carries the private key to the next node of the same role. No plaintext secrets are in the flake or ISO.
 
 After bootstrap, every node polls `main` and switches only when its system is already in the binary cache. The pull agent is `fleet-sync` because comin is not in the pinned nixpkgs. The node does not build locally.
 

@@ -54,6 +54,13 @@ jobs:
             'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot'
           nix build -o result-iso -L 'path:.#installer'
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fleet-installer
+          path: packages/fleet/result-iso/iso/fleet-installer.iso
+          if-no-files-found: error
+          retention-days: 14
+
   cache:
     needs: [changes, check]
     if: always() && github.event_name == 'merge_group' && needs.changes.outputs.fleet == 'true' && needs.check.result == 'success'

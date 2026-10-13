@@ -1,8 +1,9 @@
 # Values shared by every physical role. Not a per-machine file.
 # Private keys, tokens, and age keys do not belong here.
 {
-  # TODO: this work computer's public SSH keys. The installer ISO and every
-  # installed role use this same list. One USB then logs into any box.
+  # Optional emergency SSH access. Empty is valid: the installer console runs
+  # fleet-install, and the installed system has no remote login until keys
+  # are committed here. The same list is used by the ISO and every role.
   sshKeys = [ ];
 
   # systemd-boot entries kept on the EFI partition. Older generations stay

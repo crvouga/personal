@@ -27,31 +27,6 @@ case "$role" in
     ;;
 esac
 
-manifest=${FLEET_MANIFEST:-/iso/fleet-install-manifest}
-if [ ! -f "$manifest" ]; then
-  echo 'fleet-install: no role systems on this boot.' >&2
-  echo 'Boot the USB image from the Fleet workflow artifact. A netboot ramdisk does not carry them.' >&2
-  exit 1
-fi
-
-toplevel=$(awk -v role="$role" '$1 == role { print $2 }' "$manifest")
-disko=$(awk '$1 == "disko" { print $2 }' "$manifest")
-if [ -z "$toplevel" ] || [ ! -d "$toplevel" ]; then
-  echo "fleet-install: $role is not a directory on this image" >&2
-  exit 1
-fi
-if [ -z "$disko" ] || [ ! -x "$disko" ]; then
-  echo 'fleet-install: disko script is missing on this image' >&2
-  exit 1
-fi
-
-select_disk=${FLEET_SELECT_DISK:-select-disk}
-age_keygen=${FLEET_AGE_KEYGEN:-age-keygen}
-ssh_keygen=${FLEET_SSH_KEYGEN:-ssh-keygen}
-nixos_install=${FLEET_NIXOS_INSTALL:-nixos-install}
-mnt=${FLEET_MNT:-/mnt}
-recorded=${FLEET_RECORDED:-/run/fleet-install-disk}
-
 key_dir=${FLEET_KEY_DIR:-}
 mounted_key=0
 cleanup() {
@@ -80,6 +55,31 @@ if [ -n "$key_dir" ] && [ -d "$key_dir" ]; then
     done
   done
 fi
+
+manifest=${FLEET_MANIFEST:-/iso/fleet-install-manifest}
+if [ ! -f "$manifest" ]; then
+  echo 'fleet-install: no role systems on this boot.' >&2
+  echo 'Boot the USB image from the Fleet workflow artifact. A netboot ramdisk does not carry them.' >&2
+  exit 1
+fi
+
+toplevel=$(awk -v role="$role" '$1 == role { print $2 }' "$manifest")
+disko=$(awk '$1 == "disko" { print $2 }' "$manifest")
+if [ -z "$toplevel" ] || [ ! -d "$toplevel" ]; then
+  echo "fleet-install: $role is not a directory on this image" >&2
+  exit 1
+fi
+if [ -z "$disko" ] || [ ! -x "$disko" ]; then
+  echo 'fleet-install: disko script is missing on this image' >&2
+  exit 1
+fi
+
+select_disk=${FLEET_SELECT_DISK:-select-disk}
+age_keygen=${FLEET_AGE_KEYGEN:-age-keygen}
+ssh_keygen=${FLEET_SSH_KEYGEN:-ssh-keygen}
+nixos_install=${FLEET_NIXOS_INSTALL:-nixos-install}
+mnt=${FLEET_MNT:-/mnt}
+recorded=${FLEET_RECORDED:-/run/fleet-install-disk}
 
 device=$("$select_disk")
 [[ "$device" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]] || {

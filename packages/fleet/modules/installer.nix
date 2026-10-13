@@ -50,8 +50,8 @@
     initialHashedPassword = lib.mkForce null;
     openssh.authorizedKeys.keys = settings.sshKeys;
   };
-  # The minimal CD creates a nixos user and sets a password. Lock it, and clear
-  # the password options so they are not set twice. Login is the admin key only.
+  # The minimal CD creates a nixos user and sets a password. Lock it. The
+  # console is autologin. SSH still requires a key from settings.sshKeys.
   users.users.nixos = {
     hashedPassword = lib.mkForce "!";
     initialPassword = lib.mkForce null;

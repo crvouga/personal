@@ -27,7 +27,7 @@ just vm-test
 
 Bootstrap, `fleet-sync`, the attic and netboot roles, the lifecycle and netboot VM tests, and `.github/workflows/fleet.yml` were added on a Mac without Nix. This change was not evaluated with `nix flake check`, and the VM tests were not executed. Do not treat the 2026-10-10 evaluation above as coverage for this tree. The CI closure changes on purpose: `base.nix` now imports sync, the revision endpoint, the generation limit, and the optional attic substituter. comin was not added; it is not in nixpkgs at `7c8764b7`, and an unlocked input was not pinned from this machine.
 
-Before node installation, fill that role's settings file and its encrypted secret file, rerun the acceptance checks against that exact source, and qualify the real NICs, firmware, thermals, and hardware watchdog. The default template stays evaluable. Bootstrap refuses empty SSH keys and a missing role age key. The disk is chosen on the installer and confirmed on a terminal.
+Before node installation, fill that role's settings file and its encrypted secret file, rerun the acceptance checks against that exact source, and qualify the real NICs, firmware, thermals, and hardware watchdog. The default template stays evaluable. `fleet-install` runs on the machine and generates the role age key there. Empty `sshKeys` is valid. The disk is chosen on the installer and confirmed on its terminal.
 
 ## 2026-10-12 interchangeable hardware
 
@@ -40,3 +40,5 @@ Nodes poll `main` and switch only from the binary cache. `deploy` and `canary` a
 ## 2026-10-13 self-healing
 
 Post-switch health checks, previous-generation rollback, systemd-boot tries-left, the netboot local-disk default, `fleet-disk`, and the `follow-up` nixosTest were added on a Mac without Nix. `nix flake check` was not run. The `follow-up` VM test was not executed. `bun run --filter @pkgs/fleet check` passed: 49 tests OK, covering the sync rollback, the boot-count script, and the netboot decision with stand-ins, plus shell syntax, ShellCheck, workflow copies, and cattle enforcement. Do not treat that as a NixOS evaluation. `monitoring.pushUrl` is unused. No PDU model is integrated. Nothing was deployed and no machine was contacted.
+
+The installer ISO now carries the `ci`, `web`, `cache`, and `netboot` closures, and `fleet-install` on that image generates the age key and installs without a work computer. `just fetch-iso` downloads the `Fleet` workflow artifact. That workflow change was not run. The ISO was not built, flashed, or booted. `bun run --filter @pkgs/fleet check` was not re-run; from `packages/fleet`, `python3 -B -m unittest discover -s tests -p 'test_*.py'` passed with 67 tests OK, and ShellCheck, cattle enforcement, and `git diff --check` passed. Those tests cover `fleet-install`, `fetch-iso`, and `flash-usb` with stand-ins. The netboot ramdisk still does not carry the closures, and the netboot host does not serve the ISO.
