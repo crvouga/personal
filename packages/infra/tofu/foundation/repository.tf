@@ -2,6 +2,7 @@ locals {
   merge_gate = local.config.github.pr_ready
   pr_rule    = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "pull_request"])
   check_rule = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "required_status_checks"])
+  mq_rule    = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "merge_queue"])
   application_repository_defaults = {
     visibility                  = "public"
     archived                    = false
@@ -442,6 +443,16 @@ resource "github_repository_ruleset" "main" {
           integration_id = required_check.value.integration_id
         }
       }
+    }
+    # MERGE keeps the merge_group SHA. That is the SHA pushed to the binary cache.
+    merge_queue {
+      check_response_timeout_minutes    = local.mq_rule.check_response_timeout_minutes
+      grouping_strategy                 = local.mq_rule.grouping_strategy
+      max_entries_to_build              = local.mq_rule.max_entries_to_build
+      max_entries_to_merge              = local.mq_rule.max_entries_to_merge
+      merge_method                      = local.mq_rule.merge_method
+      min_entries_to_merge              = local.mq_rule.min_entries_to_merge
+      min_entries_to_merge_wait_minutes = local.mq_rule.min_entries_to_merge_wait_minutes
     }
   }
 }

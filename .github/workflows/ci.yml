@@ -1,6 +1,7 @@
 # Production monorepo pipeline; runner-check.yml is a separate opt-in project onboarding entrypoint.
 #
 #   push (main) / production dispatch .... vault-state → vault? → check → publish? → deploy
+#   pull_request / merge_group .......... Required (and Fleet, in fleet.yml) must report
 #   workflow_dispatch ...... manual check / publish / vault rebuild / fleet redeploy
 #   workflow_call .......... sibling app repos publish their image (was publish-image.yml)
 #   repository_dispatch .... sibling publish notify → fleet deploy (deploy-service)
@@ -40,9 +41,10 @@ on:
   # the fleet is touched — see publish-plan.
   schedule:
     - cron: '0 13 * * *' # 13:00 UTC — early morning in America/Los_Angeles
-  # No paths-ignore on PRs: the `Required` gate must report on every PR (the
-  # `changes` job already skips heavy work for docs-only diffs).
+  # No paths-ignore on PRs or the merge queue: `Required` must report on
+  # every one. A skipped workflow reports no status and stalls the queue.
   pull_request:
+  merge_group:
   workflow_dispatch:
     inputs:
       publish:
@@ -176,8 +178,10 @@ jobs:
           fetch-depth: 0
       - uses: dorny/paths-filter@v4
         id: filter
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
         with:
+          base: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+          ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
           filters: |
             check:
               - 'packages/**'
@@ -273,7 +277,8 @@ jobs:
             PORTFOLIO=true
           elif [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             DEPLOY=true
-          elif [ "${EVENT_NAME}" = "pull_request" ]; then
+          elif [ "${EVENT_NAME}" = "pull_request" ] || [ "${EVENT_NAME}" = "merge_group" ]; then
+            # The queue re-runs the same path filter. It must not publish or deploy.
             CHECK="${FILTER_CHECK:-false}"
             PORTFOLIO="${FILTER_PORTFOLIO:-false}"
           else
@@ -499,33 +504,35 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Portable checks and Linux system, ISO, mocked VM
+      - name: Portable checks
         working-directory: packages/fleet
-        run: |
-          nix develop --command bash scripts/check.sh
-          nix flake check --no-write-lock-file --system x86_64-linux -L
+        run: nix develop --command bash scripts/check.sh
 
-  # Single required status check for the `main` ruleset (scripts/pr-ready).
+  # Required status check for the `main` ruleset (scripts/pr-ready).
   # Path-filtered jobs may be skipped; anything else must succeed.
+  # The merge queue re-runs this job. commitlint and pr-title stay on the PR.
   Required:
     needs: [changes, check, portfolio-health-check, commitlint, pr-title, runner-fleet]
-    if: always() && github.event_name == 'pull_request'
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify PR branches and needed job results
+      - name: Verify branches and needed job results
         env:
-          BASE_REF: ${{ github.base_ref }}
-          HEAD_REF: ${{ github.head_ref }}
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+          HEAD_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_ref || github.head_ref }}
           RESULTS: ${{ toJSON(needs) }}
         run: |
           set -euo pipefail
-          if [ "${BASE_REF}" != "main" ]; then
-            echo "::error::PR base must be main, got ${BASE_REF}"
+          base="${BASE_REF#refs/heads/}"
+          head="${HEAD_REF#refs/heads/}"
+          if [ "${base}" != "main" ]; then
+            echo "::error::base must be main, got ${BASE_REF}"
             exit 1
           fi
-          if [ "${HEAD_REF}" = "main" ]; then
-            echo "::error::PR head must not be main"
+          if [ "${head}" = "main" ]; then
+            echo "::error::head must not be main"
             exit 1
           fi
           bad="$(jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key)=\(.value.result)"' <<< "${RESULTS}")"
@@ -534,8 +541,12 @@ jobs:
             echo "::error::required jobs did not succeed: ${bad//$'\n'/, }"
             exit 1
           fi
-          # changes/commitlint/pr-title always run on PRs; skipping them is a failure.
-          for job in changes commitlint pr-title; do
+          # changes always runs. commitlint and pr-title run on the pull request.
+          must_succeed=(changes)
+          if [ "${EVENT}" = "pull_request" ]; then
+            must_succeed+=(commitlint pr-title)
+          fi
+          for job in "${must_succeed[@]}"; do
             result="$(jq -r --arg job "${job}" '.[$job].result' <<< "${RESULTS}")"
             if [ "${result}" != "success" ]; then
               echo "::error::${job} must succeed, got ${result}"

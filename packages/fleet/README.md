@@ -22,4 +22,4 @@ After bootstrap, every node polls `main` and switches only when its system is al
 
 Run portable checks with `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
 
-GitHub only loads reusable workflows from `.github/workflows`, so the callable runner entrypoint is [runner-check.yml](../../.github/workflows/runner-check.yml). The fleet gate is [fleet.yml](../../.github/workflows/fleet.yml), copied from this package. Existing `.github/workflows/ci.yml` stays on GitHub-hosted runners.
+GitHub only loads reusable workflows from `.github/workflows`, so the callable runner entrypoint is [runner-check.yml](../../.github/workflows/runner-check.yml). The fleet gate is [fleet.yml](../../.github/workflows/fleet.yml), copied from this package. It runs on GitHub-hosted runners. `ci.yml` stays there too. The merge queue fills the binary cache before a fleet commit reaches `main`.

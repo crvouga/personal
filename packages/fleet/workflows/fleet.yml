@@ -1,66 +1,66 @@
 name: Fleet
 
 # GitHub-hosted runners only. A broken fleet must still be able to ship a fix.
+# No path filter on `on:`. A skipped workflow reports no status, and a required
+# check that never reports stalls the merge queue. `Fleet` always reports.
+# There is no post-merge cache job. The ruleset merge queue uses MERGE, so the
+# merge_group head is the commit that lands on main and the cache key matches
+# system.configurationRevision. Squash or rebase would not.
 on:
   pull_request:
-    paths:
-      - 'packages/fleet/**'
-      - '.github/workflows/fleet.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'packages/fleet/**'
-      - '.github/workflows/fleet.yml'
+  merge_group:
   workflow_dispatch:
-    inputs:
-      action:
-        description: promote-deploy copies canary onto deploy. rollback-deploy points deploy at an older main commit.
-        type: choice
-        options:
-          - promote-deploy
-          - rollback-deploy
-        required: true
-      soak_ok:
-        description: The canary soak reported no drift or health failures.
-        type: boolean
-        required: false
-        default: false
-      sha:
-        description: Full 40-character commit for rollback-deploy. It must already be on main.
-        type: string
-        required: false
-        default: ''
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      fleet: ${{ steps.filter.outputs.fleet }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        with:
+          base: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+          ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
+          filters: |
+            fleet:
+              - 'packages/fleet/**'
+              - '.github/workflows/fleet.yml'
+              - 'packages/fleet/workflows/fleet.yml'
+
   check:
-    if: github.event_name != 'workflow_dispatch'
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Flake check, every host, and every NixOS test
+      - name: Flake check, role closures, and NixOS tests
         working-directory: packages/fleet
         run: |
           set -euo pipefail
           nix flake check --no-write-lock-file --system x86_64-linux -L
+          # ci-gpu stays a nixosConfiguration. It is not a default build.
           nix build --no-link -L \
             'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot' 'path:.#installer'
 
-  canary:
-    needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  cache:
+    needs: [changes, check]
+    if: always() && github.event_name == 'merge_group' && needs.changes.outputs.fleet == 'true' && needs.check.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Push closures when the attic cache is configured
+      - name: Push role closures before this commit can reach main
         working-directory: packages/fleet
         env:
           CACHE_URL: ${{ vars.FLEET_CACHE_URL }}
@@ -69,8 +69,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CACHE_URL}" ] || [ -z "${CACHE_NAME}" ] || [ -z "${ATTIC_TOKEN}" ]; then
-            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. Skipping the cache push.'
-            exit 0
+            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. A fleet commit cannot merge until the cache push succeeds.' >&2
+            exit 1
           fi
           for attr in ci web cache netboot; do
             nix build --no-link -o "result-${attr}" "path:.#${attr}"
@@ -79,55 +79,36 @@ jobs:
           for attr in ci web cache netboot; do
             nix run 'path:.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
           done
-      - name: Advance canary to this commit
-        run: |
-          set -euo pipefail
-          git push origin HEAD:refs/heads/canary
 
-  promote-deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.action == 'promote-deploy'
+  gate:
+    name: Fleet
+    needs: [changes, check, cache]
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Move deploy to the soaked canary commit
+      - name: Report the fleet check
         env:
-          SOAK_OK: ${{ inputs.soak_ok }}
+          EVENT: ${{ github.event_name }}
+          CHANGES: ${{ needs.changes.result }}
+          FLEET: ${{ needs.changes.outputs.fleet }}
+          CHECK: ${{ needs.check.result }}
+          CACHE: ${{ needs.cache.result }}
         run: |
           set -euo pipefail
-          if [ "$SOAK_OK" != 'true' ]; then
-            echo 'Refusing to advance deploy. There is no automatic health or drift signal yet; pass soak_ok after the canary looks healthy.' >&2
+          echo "event=${EVENT} changes=${CHANGES} fleet=${FLEET} check=${CHECK} cache=${CACHE}"
+          if [ "${CHANGES}" != "success" ]; then
+            echo "changes job ${CHANGES}" >&2
             exit 1
           fi
-          git fetch origin canary
-          git push origin origin/canary:refs/heads/deploy
-
-  rollback-deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback-deploy'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Point deploy at a previous main commit
-        env:
-          SHA: ${{ inputs.sha }}
-        run: |
-          set -euo pipefail
-          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo 'sha must be the full 40-character commit' >&2
+          if [ "${EVENT}" != "workflow_dispatch" ] && [ "${FLEET}" != "true" ]; then
+            exit 0
+          fi
+          if [ "${CHECK}" != "success" ]; then
+            echo "fleet check did not succeed: ${CHECK}" >&2
             exit 1
           fi
-          git fetch origin main
-          git cat-file -e "${SHA}^{commit}"
-          git merge-base --is-ancestor "$SHA" origin/main
-          # The systems for this commit are already in the cache or on the nodes.
-          # This does not rebuild them. It is a force-push because deploy moves backward.
-          git push --force origin "${SHA}:refs/heads/deploy"
+          if [ "${EVENT}" = "merge_group" ] && [ "${CACHE}" != "success" ]; then
+            echo "binary cache push did not succeed: ${CACHE}" >&2
+            exit 1
+          fi

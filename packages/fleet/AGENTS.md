@@ -63,13 +63,13 @@ Git read access is `repo.auth`: `none`, `ssh` (`/run/secrets/git-read-key`), or 
 
 The fleet binary cache is attic. Clients add it as a substituter only when `binaryCache.url` and `binaryCache.publicKey` are both set and neither contains `TODO`. Leave both null until they are real. Do not enable it together with `cache.remote`. Attic storage is bind-mounted from `/nix/fleet-state/attic` because the root is tmpfs. The cache role stays off while its `secretsFile` is null, so a build does not mint a JWT.
 
-`.github/workflows/fleet.yml` is a byte copy of `workflows/fleet.yml`. It runs on `ubuntu-latest`, never on this fleet, so a broken fleet can still be fixed by pushing a commit. Pull requests run `nix flake check` and build every host. A push to main does that, pushes the four toplevels to attic when the cache variables and token exist, and fast-forwards `canary`. Missing cache credentials skip the push and still advance `canary`.
+`.github/workflows/fleet.yml` is a byte copy of `workflows/fleet.yml`. It runs on `ubuntu-latest`, never on this fleet, so a broken fleet can still be fixed by merging. It has no `on.paths` filter. The `Fleet` job always reports a status. When the diff does not touch this package, that job succeeds without building. A pull request that does touch it runs `nix flake check` (cattle enforcement and the NixOS VM tests) and builds `ci`, `web`, `cache`, `netboot`, and the installer. `ci-gpu` is evaluated and is not a default build.
 
-Nothing reports drift or health back to GitHub, so the soak is a manual `workflow_dispatch`. After the canary looks healthy (24 hours is the recommendation), run the workflow with action `promote-deploy` and `soak_ok` true. That moves `deploy` to `canary` and does not rebuild.
+The merge queue runs the same check, then pushes those four toplevels to attic. The push fails closed while `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, or `FLEET_ATTIC_TOKEN` is unset. Do not invent them. There is no post-merge cache job. The ruleset's merge method is `MERGE`, so the merge-group commit is the commit that lands on `main`, and `configurationRevision` matches the cached system. Squash or rebase would not.
 
-A rollback is a git revert on main, which flows through the same pipeline. The fast path is `workflow_dispatch` action `rollback-deploy` with a 40-character sha that is already on `origin/main`. It force-pushes that sha to `deploy` and does not rebuild. The previous systemd-boot generation stays selectable from the console.
+A rollback is a revert pull request through the same checks and the same queue. The previous commit's systems are already in the cache. systemd-boot keeps `bootGenerationLimit` generations (8), selectable from the console. There is no force-push rollback.
 
-Branch protection is a GitHub setting this package does not apply: only the GitHub Actions identity may push `deploy` and `canary`.
+`main` requires a pull request, the `Required` and `Fleet` checks, and the merge queue. Direct pushes and force pushes are refused. That ruleset is OpenTofu in `packages/infra` (`inventory.tf.json` and `foundation/repository.tf`). Declaring it is not applying it. Apply a reviewed plan. Do not apply it from this package.
 
 This package does not own GitHub configuration, buckets, billing, DNS, or other workspace infrastructure. Every dependency is pinned in `flake.lock`. Do not update it implicitly. Do not commit tokens, age private keys, or plaintext secrets.
 

@@ -58,20 +58,18 @@ The running commit is `cat /etc/fleet/revision` and `curl -fsS http://127.0.0.1:
 
 Failed pulls leave the running generation in place. There is no automatic recovery of a failed boot without a BMC. Keep a console available. The systemd-boot menu still boots an older generation.
 
-## Canary, deploy, and rollback
+## Checks, the merge queue, and rollback
 
-The workflow is `.github/workflows/fleet.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet.
+The workflow is `.github/workflows/fleet.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
 
-- A pull request runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, and the installer.
-- A push to `main` does that, pushes the four toplevels to attic when `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, and `FLEET_ATTIC_TOKEN` are set, and fast-forwards `canary`. If those credentials are absent the push is skipped and `canary` still advances. Do not invent the cache URL to make the step pass.
-- Watch the canary node. Nothing in GitHub can see its health or its revision, so the soak is not a `sleep` in Actions. 24 hours with no drift and no failed units is the recommendation.
-- Run the workflow manually with action `promote-deploy` and `soak_ok` set. That moves `deploy` to the canary commit. It does not rebuild.
+- A pull request that touches this package runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, and the installer. `ci-gpu` is not in that build.
+- The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
+- The merge queue repeats the check and pushes the four toplevels to attic before the commit reaches `main`. Missing `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, or `FLEET_ATTIC_TOKEN` fails the queue. Do not invent the cache URL.
+- The queue merges with `MERGE`. The commit that was tested and cached is the commit that lands. There is no second cache push after merge.
 
-A normal rollback is a revert on `main`. It goes through the same pull-request check, canary, soak, and promote steps. The previous generation stays bootable the whole time.
+A rollback is a revert pull request. It uses the same checks and the same queue. The previous systems are already in the cache, so nodes converge by substituting. systemd-boot keeps 8 generations. If SSH is gone, pick an older generation from the console. Nothing force-pushes `main`.
 
-The fast path does not rebuild. Run the workflow manually with action `rollback-deploy` and the full 40-character sha. The sha must already be on `origin/main`. The job force-pushes it to `deploy`. Nodes pull that commit. Systems already in the cache or already on disk are reused. If SSH is gone, pick the previous generation from the systemd-boot menu.
-
-Only the GitHub Actions identity should be allowed to push `deploy` and `canary`. That rule is branch protection in GitHub. This package does not change it.
+The `main` ruleset (pull request, `Required`, `Fleet`, merge queue, no force-push) is declared in OpenTofu. This package does not apply it. Apply a reviewed plan from `packages/infra`.
 
 ## CI health
 
