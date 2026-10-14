@@ -238,6 +238,7 @@ export type TunnelSpec = {
 
 /** OpenTofu inventory consumed by documentation and builds. */
 export type InfraConfig = {
+  readonly domains?: Readonly<Record<string, import('./domains/model.js').DomainSpec>>;
   readonly zone: string;
   readonly image_owner: string;
   readonly default_image_tag: string;

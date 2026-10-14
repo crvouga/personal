@@ -10,6 +10,7 @@ terraform {
     atlas       = { source = "ariga/atlas", version = "= 0.10.3" }
     time        = { source = "hashicorp/time", version = "= 0.13.1" }
     random      = { source = "hashicorp/random", version = "= 3.8.1" }
+    restapi     = { source = "Mastercard/restapi", version = "= 3.0.0" }
   }
   backend "s3" {}
   encryption {

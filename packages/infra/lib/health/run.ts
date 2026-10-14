@@ -1,6 +1,7 @@
 /** The health groups, in report order, and the runner that executes them. */
 import { assert } from "@pkgs/assert";
 import { checkDns } from "./check-dns.js";
+import { checkDomains } from './check-domains.js';
 import { checkDrift } from "./check-drift.js";
 import { checkGithub } from "./check-github.js";
 import { checkImages } from "./check-images.js";
@@ -23,6 +24,7 @@ export type HealthGroup = {
 export const HEALTH_GROUPS: readonly HealthGroup[] = [
   { id: "inventory", title: "Inventory", covers: "offline consistency of the OpenTofu inventory", run: checkInventory },
   { id: "dns", title: "DNS", covers: "Cloudflare delegation and every declared record", run: checkDns },
+  { id: 'domains', title: 'Domains', covers: 'registrar, exact account delegation, DNSSEC, migration records and HTTPS', run: checkDomains },
   { id: "tls", title: "TLS", covers: "certificate trust and expiry for every public hostname", run: checkTls },
   { id: "services", title: "Services", covers: "Railway service health endpoints and Cloudflare redirects", run: checkServices },
   { id: "tunnels", title: "Tunnels", covers: "Cloudflare tunnel connectors", run: checkTunnels },
