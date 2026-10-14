@@ -83,8 +83,8 @@ in {
   # softdog is not a substitute. Boot counting covers a generation that never
   # reaches userspace.
   systemd.settings.Manager = { RuntimeWatchdogSec = "30s"; RebootWatchdogSec = "5min"; };
-  # The root is tmpfs, so the journal lives in RAM. Cap it. TODO: ship it
-  # off-node once monitoring.pushUrl has a real collector. Do not invent one.
+  # The root is tmpfs, so the journal lives in RAM. Cap it. Logs stay on the
+  # node; the heartbeat to the fleet API carries failed units and rollbacks.
   services.journald.storage = "volatile";
   services.journald.extraConfig = ''
     RuntimeMaxUse=256M
@@ -98,8 +98,8 @@ in {
     "d /nix/fleet-state/secrets 0700 root root -"
     "d /run/fleet 0755 root root -"
   ];
-  # Local signal only. A failed unit is the alert. TODO: nothing scrapes
-  # 127.0.0.1:9101, and monitoring.pushUrl is not read.
+  # Local signal. A failed unit is the alert, and fleet-agent reports failed
+  # units to the fleet API. Nothing scrapes 127.0.0.1:9101.
   # Public material only. The private age key stays in fleet-state.
   systemd.services.fleet-console-info = {
     description = "Print the age public key and host fingerprint on the console";

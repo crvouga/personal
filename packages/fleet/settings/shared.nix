@@ -16,7 +16,8 @@
 
   disk = {
     # fleet-disk fails when /nix or /boot is at or above this percent.
-    # TODO: the failure is local. Nothing scrapes it. monitoring.pushUrl is unused.
+    # The failure is also reported in the heartbeat to the fleet API
+    # (packages/fleet-api), so it shows on the dashboard.
     alertPercent = 90;
   };
 
@@ -32,9 +33,9 @@
     url = "https://fleet.chrisvouga.dev";
   };
 
-  # TODO: central monitoring does not exist. null is not read. Do not invent
-  # a collector, a host, or a token. Fleet does not provision one. Logs stay
-  # in the journal. Metrics stay on 127.0.0.1:9101.
+  # Central monitoring is the fleet API (fleetApi.url): every node reports a
+  # heartbeat to it. pushUrl is not read and stays null. Logs stay in the
+  # journal and metrics stay on 127.0.0.1:9101.
   monitoring = {
     pushUrl = null;
   };
