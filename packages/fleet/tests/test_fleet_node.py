@@ -1790,6 +1790,69 @@ class RemoveTests(unittest.TestCase):
         self.assertIn("Power it off by hand", result.stderr)
         self.assertTrue((self.state / "withdrawn").is_file())
 
+    def agent_stand_in(self, exit_code=0):
+        """Records whether the runner was already withdrawn when it ran."""
+        order = self.root / "order"
+        write_executable(self.bin / "fleet-agent", f"""\
+            #!/bin/bash
+            if grep -q '^withdraw ' {self.control_log}; then echo "retire-after-withdraw $*" >> {order}; else echo "retire-too-early $*" >> {order}; fi
+            exit {exit_code}
+            """)
+        write_executable(self.bin / "poweroff-stand-in", f"""\
+            #!/bin/bash
+            echo poweroff >> {order}
+            """)
+        self.env["FLEET_AGENT"] = str(self.bin / "fleet-agent")
+        self.env["FLEET_POWEROFF"] = str(self.bin / "poweroff-stand-in")
+        return order
+
+    def test_removal_retires_the_node_from_the_fleet_api_after_the_withdraw_and_before_power_off(self):
+        order = self.agent_stand_in()
+        result = self.run_remove()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(order.read_text().splitlines(), ["retire-after-withdraw retire", "poweroff"])
+
+    def test_a_failing_fleet_agent_never_blocks_removal(self):
+        for exit_code in (1, 7):
+            with self.subTest(exit_code=exit_code):
+                order = self.agent_stand_in(exit_code)
+                order.unlink(missing_ok=True)
+                result = self.run_remove()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("poweroff", order.read_text().splitlines())
+        self.env["FLEET_AGENT"] = str(self.root / "no-such-fleet-agent")
+        self.assertEqual(self.run_remove().returncode, 0)
+
+    def test_the_fleet_agent_call_has_a_ten_second_limit_and_swallows_every_failure(self):
+        calls = []
+
+        def hang(argv, **kwargs):
+            calls.append((argv, kwargs))
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+        original = os.environ.get("FLEET_AGENT")
+        os.environ["FLEET_AGENT"] = "/test/fleet-agent"
+        try:
+            DECIDE_MODULE.subprocess.run, saved = hang, DECIDE_MODULE.subprocess.run
+            try:
+                DECIDE_MODULE.retire_from_fleet_api()
+            finally:
+                DECIDE_MODULE.subprocess.run = saved
+        finally:
+            if original is None:
+                os.environ.pop("FLEET_AGENT", None)
+            else:
+                os.environ["FLEET_AGENT"] = original
+        self.assertEqual([call[0] for call in calls], [["/test/fleet-agent", "retire"]])
+        self.assertEqual(calls[0][1]["timeout"], 10)
+
+    def test_a_busy_node_is_not_retired(self):
+        (self.busy / "slot-1" / "busy").write_text("running\n")
+        order = self.agent_stand_in()
+        result = self.run_remove()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(order.exists())
+
     def test_a_busy_job_is_not_stopped(self):
         (self.busy / "slot-1" / "busy").write_text("running\n")
         result = self.run_remove()

@@ -2,7 +2,8 @@
   settings = import ../netboot.nix;
 in pkgs.testers.runNixOSTest {
   name = "fleet-netboot";
-  node.specialArgs = { inherit settings; installer = installerNetboot; };
+  # No route to the fleet API in the VM: leave the agent out.
+  node.specialArgs = { settings = settings // { fleetApi = { url = ""; }; }; installer = installerNetboot; };
   nodes.machine = {
     imports = [ sopsModule diskoModule ../hosts/netboot.nix ];
     disko.enableConfig = lib.mkForce false;

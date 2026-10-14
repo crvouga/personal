@@ -2932,8 +2932,24 @@ exec "$py" "$payload" "$@"
 #         if not withdrawn:
 #             write_text(directory / "withdrawn", f"status=withdrawn\nrole={role or 'unknown'}\n")
 #         say("The machine can be powered off.")
+#         retire_from_fleet_api()
 #         return power_off(role)
 #     return plan["code"]
+#
+#
+# def retire_from_fleet_api():
+#     """Tell the fleet API this node is leaving. Best effort: ten seconds at most, and no failure here
+#     ever blocks or fails the removal. FLEET_AGENT names the command (tests); a test state directory
+#     without it skips the call."""
+#     command = os.environ.get("FLEET_AGENT")
+#     if command is None and not os.environ.get("FLEET_STATE"):
+#         command = shutil.which("fleet-agent")
+#     if not command:
+#         return
+#     try:
+#         subprocess.run([*command.split(), "retire"], check=False, timeout=10, capture_output=True)
+#     except (OSError, subprocess.SubprocessError, ValueError):
+#         pass
 #
 #
 # def power_off(role):

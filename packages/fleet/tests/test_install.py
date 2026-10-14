@@ -371,6 +371,71 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertEqual((self.mnt / "nix/fleet-state/secrets/age.key").read_text(), "AGE-SECRET-KEY-ENROLLED\n")
 
+    def run_enrolled(self, reply, fail_after=False):
+        env = self.enroll_env(reply)
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        return env, result
+
+    def agent_dir(self):
+        return self.mnt / "nix/fleet-state/agent"
+
+    def test_the_fleet_api_role_token_is_installed_privately_and_never_printed(self):
+        token = "ci-role-token-9f8e7d6c5b4a"
+        env, result = self.run_enrolled('{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":"' + token + '"}}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = self.agent_dir() / "role-token"
+        self.assertEqual(installed.read_text(), token + "\n")
+        self.assertEqual(installed.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.agent_dir().stat().st_mode & 0o777, 0o700)
+        self.assertEqual([path.name for path in self.agent_dir().iterdir()], ["role-token"])
+        for text in (result.stdout, result.stderr, (self.root / "install.log").read_text(), self.log.read_text()):
+            self.assertNotIn(token, text)
+        self.assertIn("fleet API role token: installed", (self.root / "install.log").read_text())
+
+    def test_a_token_document_without_api_token_installs_without_one(self):
+        env, result = self.run_enrolled('{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED"}}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.agent_dir().exists())
+        self.assertEqual((self.mnt / "nix/fleet-state/secrets/age.key").read_text(), "AGE-SECRET-KEY-ENROLLED\n")
+
+    def test_the_api_token_may_sit_in_an_unversioned_document(self):
+        token = "flat.token_value-123"
+        env, result = self.run_enrolled('{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":"' + token + '"}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.agent_dir() / "role-token").read_text(), token + "\n")
+
+    def test_an_unusable_api_token_is_dropped_and_the_install_still_succeeds(self):
+        for index, bad in enumerate(("has space in it", "short", "x" * 513, "semi;colon-token", "new\\nline-token", "")):
+            with self.subTest(token=bad):
+                reply = '{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":"' + bad + '"}}}'
+                (self.root / "enrolled").mkdir(exist_ok=True)
+                for leftover in (self.root / "enrolled").iterdir():
+                    leftover.unlink()
+                env, result = self.run_enrolled(reply)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.agent_dir() / "role-token").exists())
+
+    def test_a_non_string_api_token_is_dropped(self):
+        env, result = self.run_enrolled('{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":12345678}}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.agent_dir() / "role-token").exists())
+
+    def test_a_retry_in_the_same_boot_keeps_the_api_token(self):
+        token = "ci-role-token-retry-1234"
+        env, first = self.run_enrolled('{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":"' + token + '"}}}')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        (self.agent_dir() / "role-token").unlink()
+        (self.root / "curl-fail").write_text("1")
+        again = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertEqual((self.agent_dir() / "role-token").read_text(), token + "\n")
+
+    def test_a_refused_enrollment_never_leaves_a_token_on_the_new_disk(self):
+        env = self.enroll_env("{}", fail=True)
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.agent_dir().exists())
+
     def test_the_stick_key_wins_over_a_token(self):
         stick = self.root / "stick"
         stick.mkdir()

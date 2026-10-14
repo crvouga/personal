@@ -20,6 +20,18 @@
     alertPercent = 90;
   };
 
+  # The fleet API (packages/fleet-api). Every node reports to it with a
+  # heartbeat and receives its dynamic settings from it: sync pause, reboot
+  # policy, disk alert, capacity, runner repositories and labels. It sends data,
+  # never code, and a node works without it: unreachable means the last
+  # applied settings and the values in this file stay in force. Empty or a URL
+  # containing TODO leaves the agent out of the image. docs/dynamic-config.md
+  # lists every key. The role token that lets a node register without a
+  # person is not here; the installer places it on the machine.
+  fleetApi = {
+    url = "https://fleet.chrisvouga.dev";
+  };
+
   # TODO: central monitoring does not exist. null is not read. Do not invent
   # a collector, a host, or a token. Fleet does not provision one. Logs stay
   # in the journal. Metrics stay on 127.0.0.1:9101.

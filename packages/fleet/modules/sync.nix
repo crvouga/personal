@@ -5,6 +5,7 @@
   auth = repo.auth or "none";
   gitKey = if auth == "ssh" then config.sops.secrets.git-read-key.path else "";
   gitToken = if auth == "token" then config.sops.secrets.git-read-token.path else "";
+  tools = import ./fleet-tools.nix { inherit lib pkgs; };
 in {
   # comin is not in nixpkgs at the pinned revision 7c8764b7, so this timer is
   # the pull agent. It fetches main and switches nixosConfigurations.<flakeAttr>
@@ -43,7 +44,8 @@ in {
     FLEET_SYSTEMCTL=${lib.escapeShellArg (settings.fleetSystemctl or "${pkgs.systemd}/bin/systemctl")}
     FLEET_GIT=${lib.escapeShellArg "${pkgs.git}/bin/git"}
     FLEET_HEALTH=${lib.escapeShellArg (settings.fleetHealth or "")}
-    CATTLE_PY=${lib.escapeShellArg "${../scripts/cattle.py}"}
+    CATTLE_PY=${lib.escapeShellArg "${tools.scripts}/cattle.py"}
+    FLEETCONF=${lib.escapeShellArg "${tools.fleetconf}/bin/fleetconf"}
     PYTHON=${lib.escapeShellArg "${pkgs.python3}/bin/python3"}
   '';
   sops.secrets = lib.mkIf (settings.secretsFile != null) (lib.mkMerge [

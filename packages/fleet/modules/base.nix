@@ -1,4 +1,6 @@
-{ lib, pkgs, settings, ... }: {
+{ lib, pkgs, settings, ... }: let
+  fleetTools = import ./fleet-tools.nix { inherit lib pkgs; };
+in {
   imports = [
     ./disks/internal.nix
     ./hardware/generic.nix
@@ -7,6 +9,7 @@
     ./sync.nix
     ./revision.nix
     ./drift.nix
+    ./agent.nix
   ];
   # The module system ignores `revision ? null` and throws if the argument is
   # absent. Tests omit it. The flake passes the real commit via specialArgs,
@@ -127,6 +130,12 @@
       set -eu
       install -d -m 0755 /run/fleet
       : > /run/fleet/disk-alert
+      # The fleet API may change the threshold (disk.alertPercent). A missing or
+      # unusable setting leaves the value built into this image.
+      threshold=$(${fleetTools.fleetconf}/bin/fleetconf get disk.alertPercent ${toString settings.disk.alertPercent} 2>/dev/null) || threshold=${toString settings.disk.alertPercent}
+      case "$threshold" in
+        ""|*[!0-9]*) threshold=${toString settings.disk.alertPercent} ;;
+      esac
       fail=0
       for mount in /nix /boot; do
         if [ ! -d "$mount" ]; then
@@ -134,7 +143,7 @@
         fi
         used=$(df -P "$mount" | awk 'NR==2 { gsub("%","",$5); print $5 }')
         printf '%s %s\n' "$mount" "$used" >> /run/fleet/disk-alert
-        if [ "$used" -ge ${toString settings.disk.alertPercent} ]; then
+        if [ "$used" -ge "$threshold" ]; then
           echo "fleet-disk: $mount is ''${used}% full" >&2
           fail=1
         fi
