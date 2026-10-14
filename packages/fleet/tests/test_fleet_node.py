@@ -1101,7 +1101,7 @@ class NodeEntryTests(unittest.TestCase):
         extracted = self.root / "extracted.py"
         subprocess.check_call([
             "bash", "-c",
-            "sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' \"$1\" | sed '1d;$d;s/^# //;s/^#$//' > \"$2\"",
+            "sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' \"$1\" | sed '1d;$d;s/^#$//;s/^# //' > \"$2\"",
             "bash", str(SCRIPT), str(extracted),
         ])
         self.assertEqual(extracted.read_bytes(), DECIDE.read_bytes())

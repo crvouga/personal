@@ -18,7 +18,7 @@ if [ "${1:-}" = guide ]; then
   if [ -f "$here/../docs/agent-install.md" ]; then
     cat "$here/../docs/agent-install.md"
   else
-    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//'
+    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //'
   fi
   exit 0
 fi
@@ -44,7 +44,7 @@ trap cleanup EXIT
 if [ -f "$here/decide.py" ]; then
   cp "$here/decide.py" "$payload"
 else
-  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//' > "$payload"
+  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload"
 fi
 
 exec "$py" "$payload" "$@"
