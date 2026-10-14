@@ -127,6 +127,10 @@
     {
       "to": "github_repository_file.publish[\"violets-garden\"]",
       "id": "violets-garden:.github/workflows/publish.yml:main"
+    },
+    {
+      "to": "github_repository_pages.application[\"match-three\"]",
+      "id": "match-three"
     }
   ]
 }

@@ -132,12 +132,14 @@ resource "github_repository" "application" {
     secret_scanning_push_protection { status = each.value.secret_scanning_push_protection }
     secret_scanning_non_provider_patterns { status = "disabled" }
   }
-  lifecycle { prevent_destroy = true }
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [pages]
+  }
 }
 
-# Removing the deprecated pages block makes the repository resource disable the
-# site. This resource enables the same site later in the same apply. Importing
-# it first would leave the site disabled.
+# The separate Pages resource owns site configuration. Ignore the deprecated
+# repository block so adoption cannot disable the existing site.
 resource "github_repository_pages" "application" {
   for_each   = { for name, settings in local.application_repositories : name => settings if try(settings.pages, null) != null }
   repository = github_repository.application[each.key].name
