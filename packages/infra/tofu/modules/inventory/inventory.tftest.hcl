@@ -49,3 +49,27 @@ run "fleet_contract" {
     error_message = "PostgreSQL must stay the cheapest single-node single-region size."
   }
 }
+
+run "domain_migration_contract" {
+  command = plan
+  assert {
+    condition     = length(output.config.domains) == 14
+    error_message = "Preserve all 14 domains supplied from the Squarespace account."
+  }
+  assert {
+    condition     = toset([for domain, spec in output.config.domains : domain if spec.availability == "critical"]) == toset(["chrisvouga.dev", "gamezilla.app"])
+    error_message = "chrisvouga.dev and gamezilla.app must retain mandatory availability gates."
+  }
+  assert {
+    condition     = alltrue([for domain, spec in output.config.domains : spec.availability != "critical" || spec.dns_migration == "preserve"])
+    error_message = "Never retire either critical domain's DNS records."
+  }
+  assert {
+    condition     = alltrue([for domain, spec in output.config.domains : spec.settle_seconds >= 172800 && (spec.availability != "critical" || (spec.web_usage == "required" && length(spec.https) >= 2))])
+    error_message = "Keep the cache safety window and both critical apex/www probes."
+  }
+  assert {
+    condition     = output.config.domains[output.config.zone].dnssec_status == output.config.cloudflare.dnssec_status
+    error_message = "Primary DNSSEC policy must agree with the existing primary resource."
+  }
+}

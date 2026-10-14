@@ -25,6 +25,8 @@
     "gh:ci:status": "gh run list --workflow ci.yml --limit 3",
     "gh:ci:watch": "gh run watch \"$(gh run list --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')\" --exit-status",
     "health": "bun run packages/infra/scripts/health.ts",
+    "domains": "bun run packages/infra/scripts/domains.ts",
+    "migrate-domains-to-cloudflare": "bun run packages/infra/scripts/migrate-domains-to-cloudflare.ts",
     "health-check": "bun run --filter @pkgs/infra health-check",
     "list-deploy-service-ids": "bun run --filter @pkgs/infra list-deploy-service-ids",
     "list-publish-service-ids": "bun run --filter @pkgs/infra list-publish-service-ids",

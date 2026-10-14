@@ -2,6 +2,354 @@
   "locals": {
     "inventory": {
       "zone": "chrisvouga.dev",
+      "domains": {
+        "chrisvouga.dev": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://chrisvouga.dev/",
+              "status": 301,
+              "location": "https://www.chrisvouga.dev/"
+            },
+            {
+              "url": "https://www.chrisvouga.dev/",
+              "status": 200
+            }
+          ],
+          "availability": "critical",
+          "dns_migration": "preserve"
+        },
+        "colddrive.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://colddrive.app/",
+              "status": 200
+            },
+            {
+              "url": "https://www.colddrive.app/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "datoms.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://datoms.app/",
+              "status": 200
+            },
+            {
+              "url": "https://www.datoms.app/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "emulates.dev": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://emulates.dev/",
+              "status": 200
+            },
+            {
+              "url": "https://www.emulates.dev/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "gamezilla.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://gamezilla.app/",
+              "status": 301,
+              "location": "https://www.gamezilla.app/"
+            },
+            {
+              "url": "https://www.gamezilla.app/",
+              "status": 200
+            }
+          ],
+          "availability": "critical",
+          "dns_migration": "preserve"
+        },
+        "imageresizerservice.com": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://imageresizerservice.com/",
+              "status": 301,
+              "location": "http://www.imageresizerserver.com"
+            },
+            {
+              "url": "https://imageresizerservice.com/domain-migration-probe",
+              "status": 301,
+              "location": "http://www.imageresizerserver.com/domain-migration-probe"
+            },
+            {
+              "url": "https://imageresizerservice.com/domain-migration-probe?migration_probe=1",
+              "status": 301,
+              "location": "http://www.imageresizerserver.com/domain-migration-probe"
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "linkpage.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://linkpage.app/",
+              "status": 301,
+              "location": "http://www.linkpage.app"
+            },
+            {
+              "url": "https://www.linkpage.app/",
+              "status": 200
+            },
+            {
+              "url": "https://linkpage.app/domain-migration-probe",
+              "status": 301,
+              "location": "http://www.linkpage.app"
+            },
+            {
+              "url": "https://linkpage.app/domain-migration-probe?migration_probe=1",
+              "status": 301,
+              "location": "http://www.linkpage.app"
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "moviefinder.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://moviefinder.app/",
+              "status": 301,
+              "location": "https://www.moviefinder.app/"
+            },
+            {
+              "url": "https://www.moviefinder.app/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "normalizer.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://normalizer.app/",
+              "status": 301,
+              "location": "https://www.normalizer.app/"
+            },
+            {
+              "url": "https://www.normalizer.app/",
+              "status": 301,
+              "location": "https://normalizer.chrisvouga.dev/"
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "patchdb.dev": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://patchdb.dev/",
+              "status": 200
+            },
+            {
+              "url": "https://www.patchdb.dev/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "tabular.chat": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://tabular.chat/",
+              "status": 200
+            },
+            {
+              "url": "https://www.tabular.chat/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "thehiccups.band": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://thehiccups.band/",
+              "status": 200
+            },
+            {
+              "url": "https://www.thehiccups.band/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "tripolar.band": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://tripolar.band/",
+              "status": 301,
+              "location": "https://www.tripolar.band/"
+            },
+            {
+              "url": "https://www.tripolar.band/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        },
+        "voteonit.app": {
+          "manage_zone": false,
+          "records": {},
+          "dnssec_status": "disabled",
+          "manage_registration": false,
+          "transfer_enabled": false,
+          "settle_seconds": 172800,
+          "web_usage": "required",
+          "forwarding_enabled": false,
+          "forwarding": [],
+          "https": [
+            {
+              "url": "https://voteonit.app/",
+              "status": 200
+            },
+            {
+              "url": "https://www.voteonit.app/",
+              "status": 200
+            }
+          ],
+          "availability": "best-effort",
+          "dns_migration": "retire-unused"
+        }
+      },
       "image_owner": "crvouga",
       "image_prefix": "chrisvouga",
       "default_image_tag": "latest",
