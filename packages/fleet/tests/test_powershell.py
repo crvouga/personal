@@ -10,7 +10,6 @@ When neither exists these tests are SKIPPED with a loud message locally, and FAI
 when the CI environment variable is set: a green run must have parsed the scripts.
 """
 
-import importlib.util
 import json
 import os
 import shutil
@@ -21,10 +20,9 @@ import unittest.mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("decide", ROOT / "scripts" / "decide.py")
-decide = importlib.util.module_from_spec(spec)
-sys.modules["decide"] = decide
-spec.loader.exec_module(decide)
+sys.path.insert(0, str(ROOT / "wizard"))
+import bootstrap  # noqa: E402,F401
+import decide  # noqa: E402
 
 DOCKER_IMAGE = os.environ.get("FLEET_PWSH_DOCKER_IMAGE", "mcr.microsoft.com/powershell:lts-ubuntu-22.04")
 PWSH_FLAGS = ["pwsh", "-NoProfile", "-NonInteractive"]

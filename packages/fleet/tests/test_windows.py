@@ -3,7 +3,6 @@
 sequence (shrink, write, boot entry, undo) is exercised through the shipped
 entry in test_fleet_node.py; these cover the parts that decide whether it is safe."""
 
-import importlib.util
 import os
 import sys
 import tempfile
@@ -15,10 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import iso_fixture  # noqa: E402
 
-spec = importlib.util.spec_from_file_location("decide", ROOT / "scripts" / "decide.py")
-decide = importlib.util.module_from_spec(spec)
-sys.modules["decide"] = decide
-spec.loader.exec_module(decide)
+sys.path.insert(0, str(ROOT / "wizard"))
+import bootstrap  # noqa: E402,F401
+import decide  # noqa: E402
 
 GOOD = {"Letter": "C", "DiskNumber": 0, "PartitionNumber": 3, "Size": 500 * 1024 ** 3, "SizeMin": 100 * 1024 ** 3,
         "SizeMax": 500 * 1024 ** 3, "Style": "GPT", "EspNumber": 1, "SecureBoot": False, "Firmware": 2}

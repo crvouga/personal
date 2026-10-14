@@ -3,7 +3,6 @@
 system partition, bcdedit, UEFI variables, shutdown), with a failure injected after each step.
 Whatever step fails, the model must end up exactly as it started."""
 
-import importlib.util
 import json
 import os
 import re
@@ -20,10 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import iso_fixture  # noqa: E402
 from test_windows_firmware import FakeFirmware  # noqa: E402
 
-spec = importlib.util.spec_from_file_location("decide", ROOT / "scripts" / "decide.py")
-decide = importlib.util.module_from_spec(spec)
-sys.modules["decide"] = decide
-spec.loader.exec_module(decide)
+sys.path.insert(0, str(ROOT / "wizard"))
+import bootstrap  # noqa: E402,F401
+import decide  # noqa: E402
 
 ENTRY = "{11111111-2222-3333-4444-555555555555}"
 C_SIZE = 500 * 1024 ** 3

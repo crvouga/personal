@@ -4,7 +4,6 @@ is checked byte for byte against a value worked out by hand from the UEFI specif
 the kernel32 calls run against stand-in DLLs, so nothing here can reach real firmware."""
 
 import ctypes
-import importlib.util
 import os
 import struct
 import sys
@@ -15,10 +14,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("decide", ROOT / "scripts" / "decide.py")
-decide = importlib.util.module_from_spec(spec)
-sys.modules["decide"] = decide
-spec.loader.exec_module(decide)
+sys.path.insert(0, str(ROOT / "wizard"))
+import bootstrap  # noqa: E402,F401
+import decide  # noqa: E402
 
 GUID = "{11223344-5566-7788-99aa-bbccddeeff00}"
 # Worked out by hand: partition 1, starts at LBA 2048 (1 MiB of 512-byte sectors), 204800 sectors (100 MiB).

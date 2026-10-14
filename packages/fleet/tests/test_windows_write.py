@@ -3,7 +3,6 @@
 alignment, and the retry through the partition's own device when the whole-disk handle is refused."""
 
 import errno
-import importlib.util
 import os
 import sys
 import tempfile
@@ -12,10 +11,9 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("decide", ROOT / "scripts" / "decide.py")
-decide = importlib.util.module_from_spec(spec)
-sys.modules["decide"] = decide
-spec.loader.exec_module(decide)
+sys.path.insert(0, str(ROOT / "wizard"))
+import bootstrap  # noqa: E402,F401
+import decide  # noqa: E402
 
 GIB = 1024 ** 3
 TIB = 1024 ** 4
