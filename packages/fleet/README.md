@@ -118,14 +118,14 @@ Git is the only control surface. Open a pull request; `Required` and `Fleet` pas
 
 ## What is tested, and what is not
 
-| Layer                                                                     | How                                                                                          |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Role selection, disk refusals, confirmation, logs, exit codes             | `tests/test_fleet_node.py` runs the shipped one-file entry on Linux, macOS and Windows disks |
-| Windows conversion (shrink, raw write, read-back, boot entry, undo)       | `tests/test_fleet_node.py`, `tests/test_windows.py` with stand-in `powershell`, `bcdedit`    |
-| Approval (X25519 against RFC 7748, sealing, polling, the workflow's half) | `tests/test_enroll.py` against fake GitHub and fake Vault servers                            |
-| One-time setup (manifest flow, App token, `sops` round trip, `fleet.nix`) | `tests/test_setup.py` against a fake GitHub, plus real `sops` and `age` when installed       |
-| The wizard (server, helper, USB writer, page)                             | `tests/test_wizard.py`; `wizard/ui-e2e.cjs` in Chromium; each build's `--selftest` on 5 OSes |
-| Role closures, installer ISO, sync, rollback, lifecycle                   | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                 |
+| Layer                                                                     | How                                                                                                                                                                                       |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Role selection, disk refusals, confirmation, logs, exit codes             | `tests/test_fleet_node.py` runs the shipped one-file entry on Linux, macOS and Windows disks                                                                                              |
+| Windows conversion (shrink, raw write, read-back, boot entry, undo)       | `tests/test_fleet_node.py`, `tests/test_windows*.py` with stand-in `powershell`, `bcdedit`, UEFI variables; every script through the real PowerShell parser in `tests/test_powershell.py` |
+| Approval (X25519 against RFC 7748, sealing, polling, the workflow's half) | `tests/test_enroll.py` against fake GitHub and fake Vault servers                                                                                                                         |
+| One-time setup (manifest flow, App token, `sops` round trip, `fleet.nix`) | `tests/test_setup.py` against a fake GitHub, plus real `sops` and `age` when installed                                                                                                    |
+| The wizard (server, helper, USB writer, page)                             | `tests/test_wizard.py`; `wizard/ui-e2e.cjs` in Chromium; each build's `--selftest` on 5 OSes                                                                                              |
+| Role closures, installer ISO, sync, rollback, lifecycle                   | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                                                                                                              |
 
 Run the portable ones with `bun run --filter @pkgs/fleet check`. Be clear about the gaps: no change here has been run on a real machine. The Windows conversion, the unsigned-GRUB boot from a raw partition and the real GitHub App creation are covered by stand-ins, not by hardware. Run them on a spare machine before relying on them, and read [the validation record](docs/validation.md).
 

@@ -58,3 +58,7 @@ Ran and passed here (306 tests, `bun run --filter @pkgs/fleet check`, which incl
 - Any hardware: no NIC, firmware, thermal or watchdog qualification, and no machine was contacted.
 
 The installer release does not exist until a fleet change lands on `main` and the `Fleet` workflow publishes it. Until then the wizard says the installer cannot be reached.
+
+## 2026-10-14 Windows conversion hardening
+
+Run on a Mac, without Windows. Added: both one-time boot mechanisms (`bcdedit` and direct UEFI variables), the early shrink check that also asks for the download's room and the exact re-measurement after the download, deleting the installer's own downloaded copy, the RAM refusal (image size plus 2 GiB), the retry through the partition device, `--plan`, and `docs/windows.md`. Ran and passed here: every generated PowerShell script through the real PowerShell 7.6 parser and against stand-in cmdlets (Docker, arm64 Linux); the `Boot####` load option byte for byte against a hand-derived value; the `kernel32` calls against stand-in DLLs; the whole conversion against a model of Windows with a failure injected at each step, requiring the model to end as it began; raw writes at offsets past 4 GiB and past 2 TiB (a real sparse file and a sector-checking fake device). **Not run:** anything on Windows. See "What is verified and what is not" in `docs/windows.md` for the six places a first real run is most likely to fail.

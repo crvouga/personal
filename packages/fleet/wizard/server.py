@@ -213,9 +213,14 @@ class Wizard:
             blockers = self.here_blockers(disks, internal)
             decide.invariant(not blockers, "this computer cannot install itself", " ".join(blockers))
             findings = decide.preflight(self.os_name, role, "install", token, directory, need_root=False, ssh_key=ssh_key,
-                                        auto_enroll=decide.enroll_enabled(), disk_path=internal["path"])
+                                        auto_enroll=decide.enroll_enabled(), disk_path=internal["path"],
+                                        iso_path=imaging.cache_dir(self.os_name) / "fleet-installer.iso")
             erase, disk_id, target = internal["plain"], internal["disk_id"], internal["path"]
             summary = f"This erases {internal['plain']}, including this computer's operating system and every file on it, and installs a {ROLE_INFO[role][0]}."
+            if self.os_name == "Windows":
+                summary += (" Until it restarts, Windows is only prepared: C: is shrunk by the installer's size, the installer is written into a new partition and read back, "
+                            "and the computer is told to start it once. If any step fails, everything is put back and Windows starts as before. "
+                            "Save the BitLocker recovery key and plug in the power first; `fleet-node.sh ROLE --plan` prints the exact steps and sizes.")
         problems = [item for item in findings if item["status"] == "fail"]
         plan = {
             "id": secrets.token_hex(8), "mode": mode, "role": role, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,

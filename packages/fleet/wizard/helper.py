@@ -175,7 +175,7 @@ def install_here(request, progress):
     chosen = decide.choose_disk(os_name, "install")
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))
     decide.invariant(chosen["disk_id"] == request.get("disk_id"), "the internal disk is not the one that was chosen", "Disks changed. Run the wizard again.")
-    found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"])
+    found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
     problems = [item for item in found if item["status"] == "fail"]
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
     if decide.installed_for(role, directory):

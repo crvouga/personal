@@ -84,6 +84,15 @@ class NodeEntryTests(unittest.TestCase):
             url=${{@: -1}}
             printf '%s\\n' "$url" >> {self.curl_log}
             mode=$(cat {self.curl_mode})
+            headers=""
+            prev=""
+            for arg in "$@"; do
+              if [ "$prev" = "-D" ]; then headers=$arg; fi
+              prev=$arg
+            done
+            if [ -n "$headers" ] && [ -f {self.root}/probe-size ]; then
+              printf 'content-range: bytes 0-0/%s\\r\\n' "$(cat {self.root}/probe-size)" > "$headers"
+            fi
             if [ "$mode" = "fail" ]; then echo 'curl: (22) The requested URL returned error: 404' >&2; exit 22; fi
             case "$url" in
               */sys/wrapping/lookup)
@@ -155,16 +164,22 @@ class NodeEntryTests(unittest.TestCase):
                 fi
                 ;;
               *Get-PartitionSupportedSize*ConvertTo-Json*) cat {self.root}/windows-facts.json ;;
+              *TotalPhysicalMemory*) cat {self.root}/memory 2>/dev/null ;;
               *)
                 printf '%s\\n' "$cmd" >> {self.root}/powershell-calls
                 case "$cmd" in
                   *New-Partition*) echo '{{"Number":5,"Offset":1048576,"Size":16777216}}' ;;
-                  *mountvol*/S*) echo '{self.root}/esp/' ;;
+                  *mountvol*/S*) echo '{{"Root":"{self.root}/esp/","Letter":"Z"}}' ;;
+                  *Get-Partition\\ -DriveLetter*ConvertTo-Json*) cat {self.root}/esp-part.json 2>/dev/null ;;
                 esac
                 ;;
             esac
             """)
         (self.root / "esp").mkdir()
+        (self.root / "esp-part.json").write_text(json.dumps({
+            "DiskNumber": 0, "Number": 1, "Offset": 1048576, "Size": 104857600, "Guid": "{aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}",
+            "GptType": "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}", "LogicalSectorSize": 512,
+        }))
         (self.root / "windows-facts.json").write_text(json.dumps({
             "Letter": "C", "DiskNumber": 0, "PartitionNumber": 3, "Size": 2000000000000, "SizeMin": 100000000000,
             "SizeMax": 2000000000000, "Style": "GPT", "EspNumber": 1, "SecureBoot": False, "Firmware": 2,
@@ -711,6 +726,157 @@ class NodeEntryTests(unittest.TestCase):
         self.assertNotIn("FLEET-WIPE", text)
         self.assertFalse(self.bcd_log.exists(), "the firmware must not be touched before the image is proven")
         self.assertIn("Remove-Partition", (self.root / "powershell-calls").read_text())
+
+    # ---- two one-time boot mechanisms --------------------------------------------------
+
+    def _firmware_env(self):
+        """The Windows run with a directory standing in for the UEFI variables."""
+        nvram = self.root / "nvram"
+        nvram.mkdir(exist_ok=True)
+        env = self._windows_env()
+        env["FLEET_FIRMWARE_STANDIN"] = str(nvram)
+        return env, nvram
+
+    def _variables(self, nvram):
+        return sorted(path.name for path in nvram.iterdir())
+
+    def test_windows_installs_both_one_time_boots_and_verifies_them(self):
+        env, nvram = self._firmware_env()
+        result = self.run_entry(["ci", "--yes"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertEqual(self._variables(nvram), ["Boot0000", "BootNext"])
+        option = (nvram / "Boot0000").read_bytes()
+        self.assertEqual(option[4:], DECIDE_MODULE.loader_load_option(json.loads((self.root / "esp-part.json").read_text()), 512))
+        self.assertEqual((nvram / "BootNext").read_bytes()[4:], b"\x00\x00")
+        self.assertIn("/set {fwbootmgr} bootsequence {11111111-2222-3333-4444-555555555555}", self.bcd_log.read_text())
+        self.assertIn("/set {fwbootmgr} displayorder {11111111-2222-3333-4444-555555555555} /addlast", self.bcd_log.read_text())
+        self.assertNotIn("/addfirst", self.bcd_log.read_text(), "the installer must never be first in the normal boot order")
+        self.assertRegex(self.shutdown_log.read_text(), r"^/r /t 15")
+        self.assertFalse((self.state / "fleet-installer.iso").exists(), "the downloaded copy is removed once it is written and read back")
+        self.assertIn("role=ci\n", (self.state / "installed").read_text())
+
+    def test_bcdedit_refusing_is_survived_by_the_firmware_variables(self):
+        (self.root / "bcd-reject").write_text("")
+        env, nvram = self._firmware_env()
+        result = self.run_entry(["ci", "--yes"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertEqual(self._variables(nvram), ["Boot0000", "BootNext"])
+        self.assertIn("/delete {11111111-2222-3333-4444-555555555555}", self.bcd_log.read_text(), "the bcdedit entry is taken back")
+        self.assertTrue((self.root / "esp" / "EFI" / "fleet" / "grubx64.efi").exists())
+
+    def test_unreadable_firmware_variables_are_survived_by_bcdedit(self):
+        (self.root / "esp-part.json").unlink()
+        env, nvram = self._firmware_env()
+        result = self.run_entry(["ci", "--yes"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertEqual(self._variables(nvram), [])
+        self.assertIn("/set {fwbootmgr} bootsequence", self.bcd_log.read_text())
+
+    def test_neither_mechanism_verifying_puts_everything_back_and_says_what_to_do(self):
+        (self.root / "bcd-reject").write_text("")
+        (self.root / "esp-part.json").unlink()
+        env, nvram = self._firmware_env()
+        result = self.run_entry(["ci", "--yes"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 71, text)
+        self.assertIn("no one-time boot entry could be installed and verified", text)
+        self.assertEqual(text.count("Next:"), 1, text)
+        self.assertIn("install USB", text)
+        self.assertEqual(self._variables(nvram), [])
+        self.assertFalse(self.shutdown_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+        self.assertFalse((self.root / "esp" / "EFI" / "fleet").exists())
+        self.assertTrue((self.state / "fleet-installer.iso").exists(), "a failed run keeps the download for the retry")
+        calls = (self.root / "powershell-calls").read_text()
+        self.assertIn("Remove-Partition", calls)
+        self.assertIn("SizeMax", calls)
+
+    # ---- the plan, and what the person is told before anything changes -------------
+
+    def test_plan_prints_the_exact_steps_and_changes_nothing(self):
+        result = self.run_entry(["ci", "--plan"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        for needle in ("Shrink C:", "partition of type Linux data", "\\EFI\\fleet\\grubx64.efi", "bcdedit", "ERASES the whole of disk 0", "only the plan"):
+            self.assertIn(needle, text)
+        self.assertIn("1862.6 GiB to", text, "the sizes come from this machine")
+        self.assertNotIn("FLEET-WIPE", text)
+        self.assertFalse((self.root / "powershell-calls").exists())
+        self.assertFalse(self.bcd_log.exists())
+        self.assertFalse(self.shutdown_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+        self.assertFalse((self.state / "fleet-installer.iso").exists(), "a plan downloads nothing")
+
+    def test_plan_with_a_blocker_refuses_like_the_real_run(self):
+        self._facts(SecureBoot=True)
+        result = self.run_entry(["ci", "--plan"], "", self._windows_env())
+        self.assertEqual(result.returncode, 2, self.combined(result))
+        self.assertIn("shutdown /r /fw", self.combined(result))
+
+    def test_plan_never_asks_for_approval_or_a_confirmation(self):
+        env = self._windows_env()
+        env.pop("FLEET_NO_ENROLL", None)
+        env["FLEET_NO_BROWSER"] = "1"
+        result = self.run_entry(["ci", "--plan"], "", env, timeout=10)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertNotIn("Type this line exactly", self.combined(result))
+
+    def test_doctor_on_windows_shows_the_plan_in_text_and_in_json(self):
+        text_run = self.run_entry(["doctor", "ci"], "", self._windows_env())
+        self.assertEqual(text_run.returncode, 0, self.combined(text_run))
+        self.assertIn("What installing would do (nothing has been changed):", self.combined(text_run))
+        self.assertIn("Restart 15 seconds later", self.combined(text_run))
+        json_run = self.run_entry(["doctor", "ci", "--json"], "", self._windows_env())
+        plan = json.loads(json_run.stdout)["plan"]
+        self.assertEqual(len(plan), 7)
+        self.assertTrue(plan[0].startswith("0. Download"))
+        self.assertIn("Undo:", plan[-1])
+
+    def test_doctor_on_linux_has_no_plan_section(self):
+        self._linux([self._disk("internal")[0]])
+        result = self.run_entry(["doctor", "ci", "--json"])
+        self.assertEqual(json.loads(result.stdout)["plan"], [])
+
+    def test_the_early_check_asks_for_the_room_for_the_download_as_well(self):
+        self._facts(SizeMin=2000000000000 - 12 * 1024 ** 3)  # 12 GiB can go: the 8 GiB estimate fits, 8 GiB twice does not
+        result = self.run_entry(["doctor", "ci"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("including 8192 MiB for the download", text)
+        self.assertFalse((self.root / "powershell-calls").exists())
+
+    def test_a_download_that_is_already_there_is_not_counted_twice(self):
+        self._facts(SizeMin=2000000000000 - 12 * 1024 ** 3)
+        (self.state / "fleet-installer.iso").write_bytes(ISO_BYTES)
+        result = self.run_entry(["doctor", "ci"], "", self._windows_env())
+        self.assertEqual(result.returncode, 0, self.combined(result))
+
+    # ---- memory: the image is copied into RAM, plus room for the installer ---------
+
+    def _memory(self, gib, installer_gib=8):
+        (self.root / "probe-size").write_text(str(installer_gib * 1024 ** 3))
+        (self.root / "memory").write_text(str(gib * 1024 ** 3))
+
+    def test_windows_with_too_little_ram_is_refused_before_anything_changes(self):
+        self._memory(8)
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("FAIL  memory", text)
+        self.assertIn("needs 10.0 GiB", text)
+        self.assertIn("An install USB cannot help", text)
+        self.assert_one_next(text)
+        self.assertFalse((self.root / "powershell-calls").exists())
+        self.assertFalse(self.shutdown_log.exists())
+
+    def test_the_line_is_drawn_at_the_image_plus_two_gib(self):
+        self._memory(10)
+        enough = self.run_entry(["doctor", "ci"], "", self._windows_env())
+        self.assertEqual(enough.returncode, 0, self.combined(enough))
+        self.assertIn("ok    memory", self.combined(enough))
+        (self.root / "memory").write_text(str(10 * 1024 ** 3 - 1))
+        short = self.run_entry(["doctor", "ci"], "", self._windows_env())
+        self.assertEqual(short.returncode, 2, self.combined(short))
 
     # ---- self-service enrollment through GitHub ---------------------------------
 
