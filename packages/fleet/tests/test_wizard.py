@@ -496,6 +496,15 @@ class ServerTests(WizardCase):
     def test_listening_on_loopback_only(self):
         self.assertEqual(self.httpd.server_address[0], "127.0.0.1")
 
+    def test_startup_and_requests_do_not_need_dns(self):
+        with mock.patch("socket.getfqdn", side_effect=RuntimeError("DNS is unavailable")):
+            self.start_server()
+            self.assertEqual(self.httpd.server_name, "127.0.0.1")
+            self.assertEqual(self.httpd.server_port, self.port)
+            status, page = self.call("GET", "/", token=False)
+        self.assertEqual(status, 200)
+        self.assertIn(b"Fleet installer", page)
+
     def test_plan_for_a_usb_disk_that_is_not_there_is_refused_with_a_fix(self):
         status, body = self.call("POST", "/api/plan", {"mode": "usb", "disk_id": "deadbeefdeadbeef"})
         self.assertEqual(status, 409)

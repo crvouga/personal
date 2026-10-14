@@ -10,6 +10,7 @@ import json
 import os
 import secrets
 import shutil
+import socketserver
 import threading
 import time
 import traceback
@@ -396,9 +397,17 @@ class Handler(BaseHTTPRequestHandler):
         self.route("POST")
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer resolves its hostname here. A loopback-only wizard needs
+        # no DNS; slow macOS reverse lookups can block it before it prints a URL.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def serve(wizard, port=0):
     bound = type("BoundHandler", (Handler,), {"wizard": wizard})
-    server = ThreadingHTTPServer(("127.0.0.1", port), bound)
+    server = LoopbackServer(("127.0.0.1", port), bound)
     decide.invariant(server.server_address[0] == "127.0.0.1", "the server must listen on loopback only", address=server.server_address)
     return server
 
