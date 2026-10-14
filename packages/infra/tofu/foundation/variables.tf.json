@@ -34,6 +34,12 @@
       "type": "string",
       "sensitive": true
     },
+    "neon_api_key": {
+      "type": "string",
+      "sensitive": true,
+      "default": "",
+      "description": "Retired Neon key. Only needed until neon_project.openbao has been forgotten from state."
+    },
     "vault_image_tag": {
       "type": "string",
       "default": "latest"

@@ -43,6 +43,7 @@ env:
   TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
   TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
   TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
   TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
   TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
   TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
