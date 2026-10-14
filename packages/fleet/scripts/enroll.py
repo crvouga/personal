@@ -11,10 +11,18 @@ public key in the issue. The result file holds one line the node understands:
 
 Always exits 0 after writing the result, so the workflow can post either line.
 """
-import importlib.util
-import json
 import os
 import sys
+
+# scripts/ holds a token.py (the GitHub App helper). Python puts a script's own
+# directory first on sys.path, where it would shadow the standard `token`
+# module that tokenize, linecache and traceback import. Remove it before
+# anything else is imported, so `python3 scripts/enroll.py` works as written.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path[:] = [entry for entry in sys.path if os.path.abspath(entry or ".") != _HERE]
+
+import importlib.util
+import json
 import urllib.error
 import urllib.request
 from pathlib import Path

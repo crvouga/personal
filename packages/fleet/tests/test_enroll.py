@@ -221,7 +221,7 @@ class WorkflowTest(unittest.TestCase):
             "ISSUE_BODY": body,
             "RESULT_FILE": str(self.result),
         }
-        done = subprocess.run([sys.executable, "-I", str(ROOT / "scripts" / "enroll.py")], env=env, capture_output=True, text=True, timeout=30)
+        done = subprocess.run([sys.executable, str(ROOT / "scripts" / "enroll.py")], env=env, capture_output=True, text=True, timeout=30)
         self.assertEqual(done.returncode, 0, done.stderr)
         return done, self.result.read_text().strip()
 

@@ -31,7 +31,7 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           RESULT_FILE: ${{ runner.temp }}/result.txt
-        run: python3 packages/fleet/scripts/enroll.py
+        run: python3 -I packages/fleet/scripts/enroll.py
       - name: Answer on the issue and close it
         env:
           GH_TOKEN: ${{ github.token }}
