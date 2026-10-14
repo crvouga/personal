@@ -25,7 +25,7 @@ in pkgs.testers.runNixOSTest {
     };
   };
   testScript = ''
-    start_all()
+    machine.start(allow_reboot=True)
     machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("sshd.service")
     machine.succeed("grep -qx role=devbox /etc/fleet/node.conf")
