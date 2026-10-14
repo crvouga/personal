@@ -427,11 +427,18 @@
           (j.percent == null ? '' : 'value="' + j.percent + '"') +
           '></progress>';
         if (j.state === 'downloading')
-          h +=
-            '<p><button onclick="api(\'/api/cancel\', {})">Cancel</button></p>';
+          h += '<p><button onclick="cancelBeforeWrite()">Cancel</button></p>';
         h += '<pre>' + esc(j.log.join('\n')) + '</pre>';
         show(h);
         setTimeout(progress, 600);
+      }
+
+      async function cancelBeforeWrite() {
+        try {
+          await api('/api/cancel', {});
+        } catch (e) {
+          alert(e.message + (e.fix ? '\n' + e.fix : ''));
+        }
       }
 
       function finish(j) {

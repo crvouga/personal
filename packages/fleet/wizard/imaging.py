@@ -91,7 +91,9 @@ def download(url, dest, expected_sha256, progress=_noop, cancel=None):
     decide.invariant(SHA_RE.match(expected) is not None, "download was given a malformed sha256", sha=expected_sha256)
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.is_file() and sha256_of(dest) == expected:
+    if cancel and cancel():
+        raise Cancelled()
+    if dest.is_file() and sha256_of(dest, cancel=cancel) == expected:
         progress(dest.stat().st_size, dest.stat().st_size)
         return dest
     # Multiple wizard windows must never share a partial download.

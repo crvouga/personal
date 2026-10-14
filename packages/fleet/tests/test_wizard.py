@@ -125,6 +125,10 @@ class ImagingTests(unittest.TestCase):
             imaging.download(self.iso.as_uri(), self.root / "out.iso", self.sha, cancel=lambda: True)
         self.assertEqual([p.name for p in self.root.glob("out.iso*")], [])
 
+    def test_cancel_cannot_be_ignored_when_the_image_is_already_cached(self):
+        with self.assertRaises(imaging.Cancelled):
+            imaging.download("unused", self.iso, self.sha, cancel=lambda: True)
+
     def test_probe_reports_size_and_errors(self):
         error, size = imaging.probe(self.iso.as_uri())
         self.assertIsNone(error)
@@ -673,6 +677,21 @@ class ServerTests(WizardCase):
             job.move("downloading")
         job.move("done", {"ok": True, "message": "verified"})
         self.assertEqual(job.snapshot()["result"]["message"], "verified")
+
+    def test_cancellation_wins_atomically_before_the_privileged_step(self):
+        job = server.Job()
+        job.move("downloading")
+        job.request_cancel()
+        with self.assertRaises(imaging.Cancelled):
+            job.move("working")
+        self.assertEqual(job.snapshot()["state"], "downloading")
+        job.move("cancelled", {"ok": False})
+        other = server.Job()
+        other.move("downloading")
+        other.move("working")
+        with self.assertRaises(decide.Invariant):
+            other.request_cancel()
+        self.assertFalse(other.cancel.is_set())
 
 
 class DevboxKeyTests(unittest.TestCase):

@@ -90,11 +90,19 @@ class Job:
     def move(self, new, result=None):
         with self.lock:
             decide.invariant(new in TRANSITIONS[self.state], "illegal job state change", state=self.state, to=new)
+            if new == "working" and self.cancel.is_set():
+                raise imaging.Cancelled()
             if new in ("done", "failed", "cancelled"):
                 decide.invariant(isinstance(result, dict) and result.get("ok") is (new == "done"),
                                  "a terminal job must have a matching result", state=new, result=result)
                 self.result = result
             self.state = new
+
+    def request_cancel(self):
+        with self.lock:
+            decide.invariant(self.state == "downloading", "disk work has already started or finished",
+                             "Wait for the result. Do not unplug the disk while it is being written.")
+            self.cancel.set()
 
     def note(self, message, percent=None):
         with self.lock:
@@ -369,7 +377,7 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return None
             if method == "POST" and path == "/api/cancel":
-                self.wizard.job.cancel.set()
+                self.wizard.job.request_cancel()
                 return self.reply(200, {"cancelled": True})
             return self.reply(404, {"error": "not found"})
         except decide.Invariant as broken:
