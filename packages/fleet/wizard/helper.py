@@ -167,7 +167,7 @@ def install_here(request, progress):
     decide.invariant(role in decide.ROLES, "the request names an unknown role", role=role)
     if role == "devbox":
         os.environ["FLEET_DEVBOX_SSH_KEY"] = decide.validate_ssh_key(request.get("ssh_key"))
-    decide.invariant(os_name == "Linux" or os.environ.get("FLEET_ALLOW_ANY_OS_INSTALL") == "1", "installing in place is only possible from Linux", "Make an install USB instead.", os=os_name)
+    decide.invariant(os_name in ("Linux", "Windows") or os.environ.get("FLEET_ALLOW_ANY_OS_INSTALL") == "1", "installing in place is only possible from Linux or Windows", "Make an install USB instead.", os=os_name)
     token = request.get("token") or None
     decide.invariant(token is None or TOKEN_RE.fullmatch(str(token)) is not None, "the enrollment token is malformed")
     iso, sha = verified_iso(request, progress)
@@ -175,7 +175,7 @@ def install_here(request, progress):
     chosen = decide.choose_disk(os_name, "install")
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))
     decide.invariant(chosen["disk_id"] == request.get("disk_id"), "the internal disk is not the one that was chosen", "Disks changed. Run the wizard again.")
-    found = decide.preflight(os_name, role, "install", token, directory)
+    found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"])
     problems = [item for item in found if item["status"] == "fail"]
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
     if decide.installed_for(role, directory):
@@ -183,16 +183,23 @@ def install_here(request, progress):
     with leases.DeviceLease(chosen["path"]):
         # The handoff image is shared state too: a second helper must not
         # replace it while the first is loading its kernel or restarting.
-        staged = Path(directory) / "fleet-installer.iso"
-        Path(directory).mkdir(parents=True, exist_ok=True)
-        progress.emit("stage", "Copying the verified installer next to the system")
-        if not (staged.is_file() and imaging.sha256_of(staged) == sha):
-            shutil.copyfile(iso, staged)
-        decide.invariant(imaging.sha256_of(staged) == sha, "the staged installer is not the verified image", file=str(staged))
+        if os_name == "Windows":
+            # Windows writes the verified image straight into a new partition; no copy to stage.
+            staged = iso
+        else:
+            staged = Path(directory) / "fleet-installer.iso"
+            Path(directory).mkdir(parents=True, exist_ok=True)
+            progress.emit("stage", "Copying the verified installer next to the system")
+            if not (staged.is_file() and imaging.sha256_of(staged) == sha):
+                shutil.copyfile(iso, staged)
+            decide.invariant(imaging.sha256_of(staged) == sha, "the staged installer is not the verified image", file=str(staged))
         again = decide.choose_disk(os_name, "install")
         decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before reboot", "Review the disk again.")
         progress.emit("reboot", "Restarting into the installer. This computer will erase its disk and install " + role + ".")
-        code = decide.perform_install(os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen)
+        code = decide.perform_install(
+            os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen,
+            lambda done, total: progress.emit("write", "Writing the installer into a new partition and checking it", int(done * 100 / total) if total else None),
+        )
     decide.invariant(code == 0, "the reboot into the installer did not start", "Make an install USB instead.", code=code)
     return f"Installing {role}."
 

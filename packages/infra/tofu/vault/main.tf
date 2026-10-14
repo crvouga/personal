@@ -50,7 +50,8 @@ resource "vault_jwt_auth_backend_role" "github" {
   bound_audiences   = [local.vault_addr]
   bound_claims_type = "glob"
   bound_claims = merge({ repository = "${local.config.github.org}/*" },
-  try(each.value.bound_ref, null) == null ? {} : { ref = each.value.bound_ref })
+    try(each.value.bound_ref, null) == null ? {} : { ref = each.value.bound_ref },
+  try(each.value.bound_claims, {}))
   token_policies          = [each.value.policy]
   token_ttl               = parseint(trimsuffix(each.value.ttl, "m"), 10) * 60
   token_max_ttl           = parseint(trimsuffix(each.value.max_ttl, "m"), 10) * 60

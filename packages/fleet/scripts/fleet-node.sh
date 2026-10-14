@@ -43,17 +43,24 @@ exec "$py" "$payload" "$@"
 # import base64
 # import datetime
 # import hashlib
+# import hmac
 # import json
 # import os
 # import platform
 # import re
 # import select
 # import shutil
+# import stat
 # import subprocess
 # import sys
 # import tempfile
 # import threading
+# import time
 # import traceback
+# import urllib.error
+# import urllib.parse
+# import urllib.request
+# import webbrowser
 # from pathlib import Path
 #
 # ROLES = ("ci", "web", "cache", "netboot", "devbox")
@@ -1035,18 +1042,20 @@ exec "$py" "$payload" "$@"
 #     return str(kernel_path), str(initrd_path), block.get("append", "")
 #
 #
-# def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None):
+# def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True):
 #     tokens = append.split()
 #     if any(any(char.isspace() for char in token) for token in tokens):
 #         raise ValueError("boot command is not one line")
-#     iso_abs = str(Path(iso_path).resolve())
-#     if iso_abs == "" or any(char.isspace() for char in iso_abs):
-#         raise ValueError("installer path is not a single word")
-#     extras = ["copytoram", f"findiso={iso_abs}"]
+#     extras = ["copytoram"]
+#     if findiso:
+#         iso_abs = str(Path(iso_path).resolve())
+#         if iso_abs == "" or any(char.isspace() for char in iso_abs):
+#             raise ValueError("installer path is not a single word")
+#         extras.append(f"findiso={iso_abs}")
 #     role_token = f"fleet.role={role}"
 #     if vault and any(char.isspace() for char in vault):
 #         raise ValueError("vault address is not a single word")
-#     kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh="))]
+#     kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "findiso="))]
 #     enroll = [f"fleet.enroll={token}"] if token else []
 #     where = [f"fleet.vault={vault}"] if token and vault else []
 #     invariant(role in ROLES, "refusing to build a boot command for an unknown role", role=role)
@@ -1087,6 +1096,297 @@ exec "$py" "$payload" "$@"
 #     if execute.returncode != 0:
 #         say(flash)
 #         return execute.returncode or 1
+#     return 0
+#
+#
+# # ---- Windows: convert this computer in place -------------------------------------
+# # Windows cannot kexec. Instead the installer image is written raw into a new
+# # partition carved out of C:, GRUB (taken from that same image) is placed on the
+# # EFI system partition with a config that boots the image's own kernel for the
+# # chosen role, and the firmware is told to boot it once. On reboot the installer
+# # erases the whole disk (Windows, the new partition and all) and installs NixOS.
+# # Everything before the reboot can be undone, and is, if a step fails.
+#
+# LINUX_DATA_GUID = "{0fc63daf-8483-4772-8e79-3d69d8477de4}"
+# ESP_GUID = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}"
+# MIB = 1024 * 1024
+# WINDOWS_MARGIN = 64 * MIB
+# ESTIMATED_ISO = 8 * 1024 ** 3  # used for the early check when the release size is not known yet
+# ISO_SYSTEM_AREA = 16 * 2048  # the hybrid MBR; blank here so the partition holds one signature only
+# WRITE_CHUNK = 4 * MIB
+# WRITE_SECTOR = 4096
+# GUID_RE = re.compile(r"\{[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\}")
+# BOOT_LOADER_PARTS = ("EFI", "fleet", "grubx64.efi")
+# BOOT_LOADER_FIRMWARE_PATH = "\\" + "\\".join(BOOT_LOADER_PARTS)
+#
+#
+# def windows_disk_target(disk):
+#     """The device the installer image is written to. FLEET_WINDOWS_TARGET redirects
+#     the write to a plain file for tests; a device or a symlink is refused, so the
+#     redirect can never reach a real disk."""
+#     redirect = os.environ.get("FLEET_WINDOWS_TARGET")
+#     if redirect:
+#         try:
+#             mode = os.lstat(redirect).st_mode
+#         except OSError:
+#             mode = 0
+#         invariant(stat.S_ISREG(mode), "the test write target must be an existing regular file, never a device or symlink", path=redirect)
+#         return redirect
+#     return f"\\\\.\\PHYSICALDRIVE{disk}"
+#
+#
+# def windows_ps(script):
+#     tool = os.environ.get("FLEET_POWERSHELL") or shutil.which("powershell.exe") or "powershell"
+#     done = run_logged([tool, "-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference = 'Stop'; " + script],
+#                       capture_output=True, text=True)
+#     invariant(done.returncode == 0, "a Windows disk command failed",
+#               "Nothing that cannot be undone was changed. Read the log, fix what it names, and run this program again.",
+#               command=script.strip().splitlines()[0][:120], code=done.returncode, error=(done.stderr or done.stdout or "").strip()[-300:])
+#     return done.stdout
+#
+#
+# def windows_facts():
+#     """One read-only query: the system disk, how far C: can shrink, the EFI system partition."""
+#     raw = windows_ps(
+#         "$letter = $env:SystemDrive.Substring(0, 1); "
+#         "$c = Get-Partition -DriveLetter $letter; "
+#         "$limit = Get-PartitionSupportedSize -DriveLetter $letter; "
+#         "$disk = Get-Disk -Number $c.DiskNumber; "
+#         f"$esp = Get-Partition -DiskNumber $c.DiskNumber | Where-Object {{ $_.GptType -eq '{ESP_GUID}' }} | Select-Object -First 1; "
+#         "$secure = $null; try { $secure = [bool](Confirm-SecureBootUEFI) } catch { }; "
+#         "$fw = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control').PEFirmwareType; "
+#         "[PSCustomObject]@{ Letter = $letter; DiskNumber = [int]$c.DiskNumber; PartitionNumber = [int]$c.PartitionNumber; "
+#         "Size = [int64]$c.Size; SizeMin = [int64]$limit.SizeMin; SizeMax = [int64]$limit.SizeMax; Style = [string]$disk.PartitionStyle; "
+#         "EspNumber = $(if ($esp) { [int]$esp.PartitionNumber } else { $null }); SecureBoot = $secure; Firmware = [int]$fw } | ConvertTo-Json -Compress")
+#     facts = json.loads(raw)
+#     invariant(isinstance(facts, dict) and "DiskNumber" in facts, "Windows described its system disk in an unexpected way", output=raw[-200:])
+#     return facts
+#
+#
+# def padded_size(size):
+#     return (size + WRITE_SECTOR - 1) // WRITE_SECTOR * WRITE_SECTOR
+#
+#
+# def windows_need(iso_size):
+#     return (padded_size(iso_size) + WINDOWS_MARGIN + MIB - 1) // MIB * MIB
+#
+#
+# def windows_findings(iso_size, disk_path=None, strict=True):
+#     """Everything about this Windows installation that decides whether it can convert itself.
+#     strict=False is the wizard's review, which is not elevated: Windows may refuse its
+#     storage queries there, and the elevated helper repeats this check with strict=True."""
+#     found = []
+#     bcdedit = os.environ.get("FLEET_BCDEDIT", "bcdedit")
+#     if shutil.which(bcdedit) or os.path.isfile(bcdedit):
+#         found.append(finding("boot-tool", "ok", "bcdedit"))
+#     else:
+#         found.append(finding("boot-tool", "fail", "bcdedit is not available", "Run this program from an administrator account on Windows, or make an install USB with the word flash."))
+#         return found
+#     try:
+#         facts = windows_facts()
+#     except (Invariant, OSError, ValueError) as exc:
+#         if not strict:
+#             found.append(finding("windows", "info", "the disk, firmware and Secure Boot checks run once you accept the administrator prompt"))
+#             return found
+#         found.append(finding("windows", "fail", f"Windows could not describe its system disk ({getattr(exc, 'what', exc)})",
+#                              "Run this program as administrator. If it repeats, make an install USB with the word flash."))
+#         return found
+#     if facts.get("Firmware") == 2:
+#         found.append(finding("firmware", "ok", "booted in UEFI mode"))
+#     else:
+#         found.append(finding("firmware", "fail", "Windows is booted in legacy BIOS mode",
+#                              "Convert the disk to GPT and enable UEFI in the firmware settings, or make an install USB with the word flash."))
+#     secure = facts.get("SecureBoot")
+#     if secure is True:
+#         found.append(finding("secure-boot", "fail", "Secure Boot is on and the installer is not signed",
+#                              "Turn Secure Boot off once: run `shutdown /r /fw`, open the Boot or Security page, set Secure Boot to Disabled, save, start Windows, and run this program again."))
+#     elif secure is None:
+#         found.append(finding("secure-boot", "warn", "Secure Boot state could not be read", "If the installer does not start, turn Secure Boot off in the firmware settings."))
+#     else:
+#         found.append(finding("secure-boot", "ok", "off"))
+#     if facts.get("Style") == "GPT":
+#         found.append(finding("partition-style", "ok", "GPT"))
+#     else:
+#         found.append(finding("partition-style", "fail", f"the system disk uses {facts.get('Style')} partitions", "Only GPT/UEFI disks convert in place. Make an install USB with the word flash."))
+#     if disk_path is not None:
+#         wanted = f"\\\\.\\PHYSICALDRIVE{facts.get('DiskNumber')}"
+#         if disk_path.upper() == wanted.upper():
+#             found.append(finding("system-disk", "ok", "the disk that would be erased holds Windows"))
+#         else:
+#             found.append(finding("system-disk", "fail", f"Windows runs from disk {facts.get('DiskNumber')}, not {disk_path}",
+#                                  "Disconnect the other internal disks, or make an install USB with the word flash."))
+#     if facts.get("EspNumber") is None:
+#         found.append(finding("efi-partition", "fail", "no EFI system partition on the system disk", "Make an install USB with the word flash."))
+#     else:
+#         found.append(finding("efi-partition", "ok", f"partition {facts['EspNumber']}"))
+#     need = windows_need(iso_size or ESTIMATED_ISO)
+#     room = int(facts.get("Size") or 0) - int(facts.get("SizeMin") or 0)
+#     if room >= need:
+#         found.append(finding("shrink", "ok", f"{facts['Letter']}: can give up {room // 1024 ** 3} GiB, the installer needs {need // MIB} MiB"))
+#     else:
+#         found.append(finding("shrink", "fail", f"{facts['Letter']}: can only shrink by {max(room, 0) // MIB} MiB, the installer needs {need // MIB} MiB",
+#                              f"Free space on {facts['Letter']}: (empty the Recycle Bin, remove large files, turn off hibernation with `powercfg /h off`), then run this program again."))
+#     return found
+#
+#
+# def write_region(iso, target, offset, zero_head=0, on_progress=None):
+#     """Write the image at a byte offset of a disk (or any file in tests), sync,
+#     read it back, and prove the bytes match. The first zero_head bytes are
+#     written as zeros: an ISO's hybrid MBR would otherwise make the partition
+#     look like both a filesystem and a partition table."""
+#     size = os.path.getsize(iso)
+#     invariant(offset % WRITE_SECTOR == 0, "the write offset is not sector aligned", offset=offset)
+#     fd = os.open(target, os.O_RDWR | getattr(os, "O_BINARY", 0))
+#     written = 0
+#     expected = hashlib.sha256()
+#     try:
+#         os.lseek(fd, offset, os.SEEK_SET)
+#         with open(iso, "rb") as source:
+#             while written < size:
+#                 block = source.read(WRITE_CHUNK)
+#                 invariant(block != b"", "the image ended early while writing", wrote=written, want=size)
+#                 if written < zero_head:
+#                     cut = min(zero_head - written, len(block))
+#                     block = bytes(cut) + block[cut:]
+#                 expected.update(block)
+#                 if len(block) % WRITE_SECTOR:
+#                     block = block + b"\0" * (padded_size(len(block)) - len(block))
+#                 count = os.write(fd, block)
+#                 invariant(count == len(block), "the disk accepted a short write", wrote=count, asked=len(block), at=written)
+#                 written += min(len(block), size - written)
+#                 if on_progress:
+#                     on_progress(written, size)
+#         os.fsync(fd)
+#         os.lseek(fd, offset, os.SEEK_SET)
+#         seen, remaining = hashlib.sha256(), size
+#         while remaining:
+#             block = os.read(fd, min(WRITE_CHUNK, padded_size(remaining)))
+#             invariant(len(block) > 0, "the disk returned nothing while reading back", missing=remaining)
+#             take = min(len(block), remaining)
+#             seen.update(block[:take])
+#             remaining -= take
+#     finally:
+#         os.close(fd)
+#     invariant(seen.digest() == expected.digest(), "the partition does not hold the installer after writing",
+#               "The disk may be failing. Nothing that cannot be undone was changed; run this program again or make an install USB.")
+#     return size
+#
+#
+# def grub_config(role, linux_path, initrd_path, cmdline):
+#     invariant(role in ROLES, "refusing to write a boot config for an unknown role", role=role)
+#     for word in (linux_path, initrd_path, cmdline):
+#         invariant("\n" not in word and "\r" not in word and "'" not in word, "the boot config would span lines or quote badly", value=word[:80])
+#     return (
+#         "set timeout=3\n"
+#         "set default=0\n"
+#         "search --no-floppy --set=root --file /EFI/nixos-installer-image\n"
+#         f"menuentry 'Fleet installer: ERASES the internal disk and installs {role}' {{\n"
+#         f"    linux {linux_path} {cmdline}\n"
+#         f"    initrd {initrd_path}\n"
+#         "}\n"
+#     )
+#
+#
+# def iso_boot_material(iso_path, role):
+#     """The role's boot entry and GRUB program, read out of the installer image."""
+#     with Path(iso_path).open("rb") as handle:
+#         files = _iso_index(handle)
+#         config = _iso_bytes(handle, files, "isolinux/isolinux.cfg").decode("utf-8", "replace")
+#         block = _choose_block(_boot_blocks(config), role)
+#         grub = _iso_bytes(handle, files, "EFI/BOOT/BOOTX64.EFI")
+#     return block["linux"], block["initrd"], block.get("append", ""), grub
+#
+#
+# class WindowsUndo:
+#     """Steps to take back if a later step fails. Run newest first."""
+#
+#     def __init__(self):
+#         self.steps = []
+#
+#     def add(self, what, action):
+#         self.steps.append((what, action))
+#
+#     def run(self):
+#         for what, action in reversed(self.steps):
+#             try:
+#                 action()
+#                 log(f"undo ok: {what}")
+#             except Exception as exc:  # best effort: report every step, stop on none
+#                 log(f"undo FAILED: {what}: {exc}", "ERROR")
+#                 say(f"Could not undo: {what}. See the log; Windows disk tools can finish it.")
+#         self.steps = []
+#
+#
+# def bcd(*args):
+#     tool = os.environ.get("FLEET_BCDEDIT", "bcdedit")
+#     done = run_logged([tool, *args], capture_output=True, text=True)
+#     invariant(done.returncode == 0, "bcdedit refused a firmware boot entry change", "Windows was not changed beyond what was undone. Make an install USB with the word flash.",
+#               args=" ".join(args), code=done.returncode, error=(done.stdout or done.stderr or "").strip()[-200:])
+#     return done.stdout
+#
+#
+# def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None):
+#     """Carve a partition out of C:, put the installer in it, and arrange one boot
+#     into it. Returns 0 once the restart is scheduled; anything else changed nothing."""
+#     writer = writer or write_region
+#     invariant(role in ROLES, "refusing to stage an unknown role", role=role)
+#     iso_size = os.path.getsize(iso)
+#     findings = windows_findings(iso_size, chosen["path"] if chosen else None)
+#     problems = [item for item in findings if item["status"] == "fail"]
+#     if problems:
+#         say("Next: " + problems[0]["fix"] + " Nothing was written.")
+#         return 2
+#     facts = windows_facts()
+#     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
+#     cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False)
+#     config = grub_config(role, linux_path, initrd_path, cmdline)
+#     disk, need = int(facts["DiskNumber"]), windows_need(iso_size)
+#     undo = WindowsUndo()
+#     try:
+#         say(f"Making room: shrinking {facts['Letter']}: by {need // MIB} MiB.")
+#         windows_ps(f"Resize-Partition -DriveLetter {facts['Letter']} -Size {int(facts['Size']) - need}")
+#         undo.add(f"give {facts['Letter']}: its space back", lambda: windows_ps(
+#             f"$m = Get-PartitionSupportedSize -DriveLetter {facts['Letter']}; Resize-Partition -DriveLetter {facts['Letter']} -Size $m.SizeMax"))
+#         created = json.loads(windows_ps(
+#             f"$p = New-Partition -DiskNumber {disk} -Size {padded_size(iso_size)} -GptType '{LINUX_DATA_GUID}'; "
+#             "[PSCustomObject]@{ Number = [int]$p.PartitionNumber; Offset = [int64]$p.Offset; Size = [int64]$p.Size } | ConvertTo-Json -Compress"))
+#         undo.add("remove the installer partition", lambda: windows_ps(f"Remove-Partition -DiskNumber {disk} -PartitionNumber {created['Number']} -Confirm:$false"))
+#         invariant(created["Size"] >= padded_size(iso_size) and created["Offset"] % WRITE_SECTOR == 0,
+#                   "Windows made a partition that cannot hold the installer", created=created)
+#         say("Writing the installer into the new partition and reading it back.")
+#         writer(iso, windows_disk_target(disk), int(created["Offset"]), ISO_SYSTEM_AREA, on_progress)
+#         say("Placing the boot loader on the EFI system partition.")
+#         esp = Path(windows_ps(
+#             "$letter = 'ZYXWVUTSRQP'.ToCharArray() | Where-Object { -not (Test-Path ($_ + ':\\')) } | Select-Object -First 1; "
+#             "mountvol ($letter + ':') /S; if ($LASTEXITCODE -ne 0) { throw 'mountvol failed' }; ($letter + ':\\')").strip())
+#         undo.add("unmount the EFI system partition", lambda: windows_ps(f"mountvol {str(esp).rstrip(chr(92))} /D"))
+#         loader = esp.joinpath(*BOOT_LOADER_PARTS)
+#         loader.parent.mkdir(parents=True, exist_ok=True)
+#         undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent, ignore_errors=True))
+#         loader.write_bytes(grub)
+#         cfg = esp / "EFI" / "BOOT" / "grub.cfg"
+#         cfg.parent.mkdir(parents=True, exist_ok=True)
+#         saved = cfg.read_bytes() if cfg.is_file() else None
+#         cfg.write_text(config, encoding="utf-8", newline="\n")
+#         undo.add("restore the boot config", (lambda: cfg.write_bytes(saved)) if saved is not None else (lambda: cfg.unlink()))
+#         invariant(cfg.read_text(encoding="utf-8") == config and loader.read_bytes() == grub, "the EFI system partition did not keep the boot loader")
+#         say("Telling the firmware to start the installer once.")
+#         copied = GUID_RE.search(bcd("/copy", "{bootmgr}", "/d", "Fleet installer"))
+#         invariant(copied is not None, "bcdedit gave no id for the new boot entry")
+#         entry = copied.group(0)
+#         undo.add("delete the firmware boot entry", lambda: bcd("/delete", entry))
+#         bcd("/set", entry, "path", BOOT_LOADER_FIRMWARE_PATH)
+#         bcd("/set", "{fwbootmgr}", "displayorder", entry, "/addfirst")
+#         bcd("/set", "{fwbootmgr}", "bootsequence", entry)
+#         shown = bcd("/enum", "{fwbootmgr}")
+#         invariant(re.search(r"bootsequence\s+" + re.escape(entry), shown, re.I) is not None,
+#                   "the firmware did not accept the one-time boot entry", "Windows was left as it was. Make an install USB with the word flash.", entry=entry)
+#         shutdown = os.environ.get("FLEET_SHUTDOWN", "shutdown")
+#         restart = run_logged([shutdown, "/r", "/t", "15", "/c", "Fleet installer: this computer will erase its disk and become a " + role + " node."], capture_output=True, text=True)
+#         invariant(restart.returncode == 0, "Windows would not schedule the restart", "Restart the computer by hand now; it will boot the installer once.", code=restart.returncode)
+#     except BaseException:
+#         undo.run()
+#         raise
 #     return 0
 #
 #
@@ -1176,6 +1476,12 @@ exec "$py" "$payload" "$@"
 #             return int(_run(["sysctl", "-n", "hw.memsize"]).strip())
 #         except (OSError, RuntimeError, ValueError):
 #             return None
+#     if os_name == "Windows":
+#         tool = os.environ.get("FLEET_POWERSHELL") or shutil.which("powershell.exe") or "powershell"
+#         try:
+#             return int(_run([tool, "-NoProfile", "-Command", "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"]).strip())
+#         except (OSError, RuntimeError, ValueError):
+#             return None
 #     return None
 #
 #
@@ -1262,7 +1568,7 @@ exec "$py" "$payload" "$@"
 # NET = {}
 #
 #
-# def preflight(os_name, role, action, token, directory, need_root=True, ssh_key=None):
+# def preflight(os_name, role, action, token, directory, need_root=True, ssh_key=None, auto_enroll=False, disk_path=None):
 #     """Everything that can be known before anything is erased. All problems are
 #     reported together so one fix pass is enough."""
 #     found = []
@@ -1296,19 +1602,22 @@ exec "$py" "$payload" "$@"
 #             else:
 #                 found.append(finding("firmware", "fail", "booted in legacy BIOS mode",
 #                                      "Turn on UEFI boot (and turn off CSM or legacy boot) in the firmware settings, then run this program again."))
-#         tool = os_boot_tool(os_name)
-#         if shutil.which(tool) or os.path.isfile(tool):
-#             found.append(finding("boot-tool", "ok", tool))
-#         else:
-#             found.append(finding("boot-tool", "fail", f"{tool} is not installed",
-#                                  "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
-#         stage = iso_filesystem(directory)
-#         if stage in SAFE_ISO_FS:
-#             found.append(finding("staging", "ok", f"the installer is staged on {stage}"))
-#         else:
-#             found.append(finding("staging", "fail", f"the installer would be staged on {stage or 'an unknown filesystem'}",
-#                                  "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
+#         if os_name != "Windows":
+#             tool = os_boot_tool(os_name)
+#             if shutil.which(tool) or os.path.isfile(tool):
+#                 found.append(finding("boot-tool", "ok", tool))
+#             else:
+#                 found.append(finding("boot-tool", "fail", f"{tool} is not installed",
+#                                      "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
+#             stage = iso_filesystem(directory)
+#             if stage in SAFE_ISO_FS:
+#                 found.append(finding("staging", "ok", f"the installer is staged on {stage}"))
+#             else:
+#                 found.append(finding("staging", "fail", f"the installer would be staged on {stage or 'an unknown filesystem'}",
+#                                      "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
 #     error, size = NET.get("probe", probe_installer)()
+#     if action == "install" and os_name == "Windows":
+#         found.extend(NET.get("windows", windows_findings)(size, disk_path, need_root))
 #     if error:
 #         found.append(finding("network", "fail", f"the installer cannot be downloaded ({error})",
 #                              "Check the network. If the release is missing, wait for the Fleet workflow to publish it on merge, then run this program again."))
@@ -1328,6 +1637,8 @@ exec "$py" "$payload" "$@"
 #     if action == "install":
 #         if token:
 #             found.append(NET.get("lookup", lookup_token)(token, role))
+#         elif auto_enroll:
+#             found.append(finding("enrollment", "info", "the repository owner will be asked to approve this node on GitHub before anything is erased"))
 #         else:
 #             found.append(finding("enrollment", "warn", "no enrollment token; this node would generate a key no other node shares",
 #                                  f"Mint one with `just enroll {role or '<role>'}` and rerun with its line, unless this role has no encrypted secrets yet."))
@@ -1364,7 +1675,8 @@ exec "$py" "$payload" "$@"
 #             return fail(error, 2)
 #     directory = state_dir()
 #     chosen = choose_disk(os_name, "install")
-#     found = preflight(os_name, role, "install", token, directory)
+#     found = preflight(os_name, role, "install", token, directory, auto_enroll=enroll_enabled() and role is not None,
+#                       disk_path=chosen["path"] if chosen["ok"] else None)
 #     if chosen["ok"]:
 #         found.append(finding("disk", "ok", chosen["plain"]))
 #     else:
@@ -1444,6 +1756,232 @@ exec "$py" "$payload" "$@"
 #
 #
 # ENROLL_RE = re.compile(r"^[A-Za-z0-9._-]{8,512}$")
+#
+# # ---- Self-service enrollment ---------------------------------------------------
+# # A new node has no credential for Vault, and the installer release is public, so
+# # a node cannot simply ask for its role key. The person who owns the repository
+# # approves the node instead: the node shows a prefilled GitHub issue, the owner
+# # submits it, and the `Fleet enroll` workflow (which logs in to Vault with its
+# # GitHub OIDC identity, never a stored secret) asks Vault for a single-use
+# # response-wrapped token and posts it as a comment sealed to the node's one-time
+# # public key. Only the node holds the matching private key, and the node alone
+# # can unwrap the token. Anyone else reading the comment sees ciphertext.
+#
+# REPO = "crvouga/workspace"
+# ENROLL_WAIT = 15 * 60
+# ENROLL_POLL = 15
+# FIELD_ROLE = "fleet-enroll-role: "
+# FIELD_KEY = "fleet-enroll-key: "
+# P25519 = 2 ** 255 - 19
+# BASE_POINT = (9).to_bytes(32, "little")
+#
+#
+# def x25519(scalar, point):
+#     """RFC 7748 X25519, in plain Python so the one downloaded file needs no
+#     package. Checked against the RFC's test vectors in tests/test_enroll.py."""
+#     invariant(len(scalar) == 32 and len(point) == 32, "x25519 needs 32-byte inputs", scalar=len(scalar), point=len(point))
+#     k = bytearray(scalar)
+#     k[0] &= 248
+#     k[31] &= 127
+#     k[31] |= 64
+#     k = int.from_bytes(k, "little")
+#     x1 = int.from_bytes(point, "little") & ((1 << 255) - 1)
+#     x2, z2, x3, z3, swap = 1, 0, x1, 1, 0
+#     for t in reversed(range(255)):
+#         bit = (k >> t) & 1
+#         swap ^= bit
+#         if swap:
+#             x2, x3, z2, z3 = x3, x2, z3, z2
+#         swap = bit
+#         a, b = (x2 + z2) % P25519, (x2 - z2) % P25519
+#         aa, bb = a * a % P25519, b * b % P25519
+#         e = (aa - bb) % P25519
+#         c, d = (x3 + z3) % P25519, (x3 - z3) % P25519
+#         da, cb = d * a % P25519, c * b % P25519
+#         x3 = (da + cb) ** 2 % P25519
+#         z3 = x1 * (da - cb) ** 2 % P25519
+#         x2 = aa * bb % P25519
+#         z2 = e * (aa + 121665 * e) % P25519
+#     if swap:
+#         x2, x3, z2, z3 = x3, x2, z3, z2
+#     return (x2 * pow(z2, P25519 - 2, P25519) % P25519).to_bytes(32, "little")
+#
+#
+# def _hkdf(secret, salt, info, length):
+#     prk = hmac.new(salt, secret, hashlib.sha256).digest()
+#     out, block, counter = b"", b"", 1
+#     while len(out) < length:
+#         block = hmac.new(prk, block + info + bytes([counter]), hashlib.sha256).digest()
+#         out += block
+#         counter += 1
+#     return out[:length]
+#
+#
+# def _stream(key, length):
+#     out = bytearray()
+#     counter = 0
+#     while len(out) < length:
+#         out += hmac.new(key, counter.to_bytes(8, "big"), hashlib.sha256).digest()
+#         counter += 1
+#     return bytes(out[:length])
+#
+#
+# def _b64(raw):
+#     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+#
+#
+# def _unb64(text):
+#     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+#
+#
+# def new_keypair():
+#     private = os.urandom(32)
+#     return private, x25519(private, BASE_POINT)
+#
+#
+# def seal(plaintext, recipient_public):
+#     """Encrypt to one public key: ephemeral X25519, HKDF-SHA256, an HMAC-SHA256
+#     keystream, and an HMAC-SHA256 tag over the ciphertext (encrypt-then-MAC)."""
+#     ephemeral = os.urandom(32)
+#     ephemeral_public = x25519(ephemeral, BASE_POINT)
+#     shared = x25519(ephemeral, recipient_public)
+#     invariant(shared != bytes(32), "the recipient public key is a low-order point")
+#     keys = _hkdf(shared, ephemeral_public + recipient_public, b"fleet-seal-v1", 64)
+#     cipher = bytes(a ^ b for a, b in zip(plaintext, _stream(keys[:32], len(plaintext))))
+#     tag = hmac.new(keys[32:], ephemeral_public + cipher, hashlib.sha256).digest()
+#     return _b64(ephemeral_public + cipher + tag)
+#
+#
+# def open_sealed(blob, private):
+#     """Returns the plaintext, or None when the blob is not for this key or was altered."""
+#     try:
+#         raw = _unb64(blob.strip())
+#     except ValueError:
+#         return None
+#     if len(raw) < 64:
+#         return None
+#     ephemeral_public, cipher, tag = raw[:32], raw[32:-32], raw[-32:]
+#     shared = x25519(private, ephemeral_public)
+#     if shared == bytes(32):
+#         return None
+#     public = x25519(private, BASE_POINT)
+#     keys = _hkdf(shared, ephemeral_public + public, b"fleet-seal-v1", 64)
+#     want = hmac.new(keys[32:], ephemeral_public + cipher, hashlib.sha256).digest()
+#     if not hmac.compare_digest(tag, want):
+#         return None
+#     return bytes(a ^ b for a, b in zip(cipher, _stream(keys[:32], len(cipher))))
+#
+#
+# def enroll_issue_url(role, public):
+#     body = (
+#         f"Approve a new fleet {role} node. Submit this issue as it is.\n\n"
+#         f"{FIELD_ROLE}{role}\n{FIELD_KEY}{_b64(public)}\n"
+#     )
+#     query = urllib.parse.urlencode({"title": f"fleet-enroll {role}", "body": body}, quote_via=urllib.parse.quote)
+#     return f"https://github.com/{REPO}/issues/new?{query}"
+#
+#
+# def parse_enroll_request(title, body):
+#     """(role, public key bytes) from an enrollment issue, or raises Invariant."""
+#     fields = {}
+#     for line in str(body or "").splitlines():
+#         for name in (FIELD_ROLE, FIELD_KEY):
+#             if line.startswith(name):
+#                 fields[name] = line[len(name):].strip()
+#     role = fields.get(FIELD_ROLE, "")
+#     invariant(role in ROLES, "the enrollment request names an unknown role", "Run the installer again.", role=role)
+#     invariant(str(title or "").strip() == f"fleet-enroll {role}", "the issue title does not match its role", title=title, role=role)
+#     try:
+#         public = _unb64(fields.get(FIELD_KEY, ""))
+#     except ValueError:
+#         public = b""
+#     invariant(len(public) == 32, "the enrollment request holds no valid public key", "Run the installer again.")
+#     return role, public
+#
+#
+# def _github(path, etag=None):
+#     base = os.environ.get("FLEET_GITHUB_API", "https://api.github.com").rstrip("/")
+#     headers = {"Accept": "application/vnd.github+json", "User-Agent": "fleet-node", "X-GitHub-Api-Version": "2022-11-28"}
+#     token = os.environ.get("FLEET_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+#     if token:
+#         headers["Authorization"] = "Bearer " + token
+#     if etag:
+#         headers["If-None-Match"] = etag
+#     try:
+#         with urllib.request.urlopen(urllib.request.Request(base + path, headers=headers), timeout=20) as reply:
+#             return reply.status, json.loads(reply.read().decode("utf-8", "replace")), reply.headers.get("ETag")
+#     except urllib.error.HTTPError as exc:
+#         return exc.code, None, etag
+#     except (urllib.error.URLError, OSError, ValueError):
+#         return 0, None, etag
+#
+#
+# def await_approval(role, private, public, wait=ENROLL_WAIT, interval=ENROLL_POLL, sleep=time.sleep, notify=None, cancel=None):
+#     """Poll the public issue until the workflow answers. Returns (token, error)."""
+#     marker = FIELD_KEY + _b64(public)
+#     issue, etags = None, {}
+#     deadline = time.monotonic() + wait
+#     while True:
+#         if issue is None:
+#             path = f"/repos/{REPO}/issues?state=all&sort=created&direction=desc&per_page=30"
+#             code, data, etags["issues"] = _github(path, etags.get("issues"))
+#             if code == 200:
+#                 for item in data:
+#                     if "pull_request" not in item and marker in str(item.get("body") or ""):
+#                         issue = item["number"]
+#                         if notify:
+#                             notify("The request was received. Waiting for the approval workflow.")
+#                         break
+#         if issue is not None:
+#             code, data, etags["comments"] = _github(f"/repos/{REPO}/issues/{issue}/comments?per_page=50", etags.get("comments"))
+#             for comment in (data or []) if code == 200 else []:
+#                 if (comment.get("user") or {}).get("login") != "github-actions[bot]":
+#                     continue
+#                 for line in str(comment.get("body") or "").splitlines():
+#                     if line.startswith("fleet-error: "):
+#                         return None, line[len("fleet-error: "):].strip()
+#                     if line.startswith("fleet-sealed: "):
+#                         plain = open_sealed(line[len("fleet-sealed: "):], private)
+#                         if plain is None:
+#                             continue
+#                         try:
+#                             answer = json.loads(plain.decode("utf-8"))
+#                         except ValueError:
+#                             continue
+#                         if answer.get("role") == role and ENROLL_RE.fullmatch(str(answer.get("token") or "")):
+#                             return answer["token"], None
+#         if cancel and cancel():
+#             return None, "cancelled"
+#         if time.monotonic() >= deadline:
+#             return None, "nobody approved this node in time"
+#         sleep(interval)
+#
+#
+# def self_enroll(role, notify=None, wait=None, cancel=None):
+#     """Ask the owner to approve this node. Returns (token, error). Nothing is
+#     erased here; a refusal or a timeout leaves every disk as it was."""
+#     say_it = notify or say
+#     private, public = new_keypair()
+#     url = enroll_issue_url(role, public)
+#     say_it("Approve this node: press 'Submit new issue' on the GitHub page that opens, signed in as the repository owner.")
+#     say_it("If no page opened, open this address on any computer: " + url)
+#     if not os.environ.get("FLEET_NO_BROWSER"):
+#         try:
+#             webbrowser.open(url)
+#         except webbrowser.Error:
+#             pass
+#     seconds = wait if wait is not None else int(os.environ.get("FLEET_ENROLL_WAIT") or ENROLL_WAIT)
+#     interval = int(os.environ.get("FLEET_ENROLL_POLL") or ENROLL_POLL)
+#     token, error = await_approval(role, private, public, seconds, interval, notify=notify, cancel=cancel)
+#     if token:
+#         say_it("Approved. The enrollment token arrived sealed and was opened on this machine.")
+#     return token, error
+#
+#
+# def enroll_enabled():
+#     return not flag(os.environ.get("FLEET_NO_ENROLL"))
+#
+#
 #
 #
 # def validate_ssh_key(value):
@@ -1535,12 +2073,19 @@ exec "$py" "$payload" "$@"
 #         return fail(chosen["next"], chosen.get("code", 2))
 #     # Every check that does not need a person runs before anyone is asked to
 #     # confirm, so a doomed install never gets as far as the prompt.
-#     found = preflight(os_name, role, action, token, directory)
+#     found = preflight(os_name, role, action, token, directory, auto_enroll=action == "install" and enroll_enabled(), disk_path=chosen["path"])
 #     show_findings(found)
 #     problems = [item for item in found if item["status"] == "fail"]
 #     if problems:
 #         say(f"Result: NOT ready, {len(problems)} problem{'s' if len(problems) != 1 else ''}.")
 #         return fail(next_for(problems[0]), 2)
+#     if action == "install" and not token and enroll_enabled() and not installed_for(role, directory):
+#         token, error = self_enroll(role)
+#         if error:
+#             return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
+#         verdict = NET.get("lookup", lookup_token)(token, role)
+#         if verdict["status"] == "fail":
+#             return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
 #     if action == "install":
 #         say(f"Role: {role}")
 #         say(f"Disk: {chosen['plain']}")
@@ -1584,14 +2129,17 @@ exec "$py" "$payload" "$@"
 #     return 0
 #
 #
-# def perform_install(os_name, role, iso, token, vault, directory, chosen):
+# def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None):
 #     """The point of no return, shared by the command line and the wizard. On a
 #     real machine kexec does not come back; the marker is for the test seam."""
 #     invariant(role in ROLES, "perform_install was given an unknown role", role=role)
 #     invariant(chosen.get("ok") and chosen.get("disk_id"), "perform_install needs a chosen disk", chosen=chosen)
 #     invariant(os.path.isfile(iso) and os.path.getsize(iso) > 0, "perform_install needs the verified installer image", iso=str(iso))
 #     retire_runner_for_install(directory)
-#     staged = stage_reboot(os_name, role, str(iso), token, vault)
+#     if os_name == "Windows":
+#         staged = stage_windows(role, str(iso), token, vault, chosen, on_progress)
+#     else:
+#         staged = stage_reboot(os_name, role, str(iso), token, vault)
 #     if staged != 0:
 #         return staged
 #     say(f"FLEET-WIPE role={role}")
@@ -1732,7 +2280,8 @@ exec "$py" "$payload" "$@"
 #   flash             write the installer to a USB disk
 #   guide             print the runbook an agent follows
 #
-# Flags: --yes (take the confirmation as typed), --token-file PATH, --json (doctor).
+# Flags: --yes (take the confirmation as typed), --token-file PATH, --no-enroll (skip the GitHub approval
+# and let the node make its own key), --json (doctor).
 # Every run writes a log; its path is printed when something fails.
 # Agent runbook: """ + GUIDE_URL
 #
@@ -1768,6 +2317,9 @@ exec "$py" "$payload" "$@"
 #     if any(a in ("--yes", "-y") for a in argv):
 #         os.environ["FLEET_YES"] = "1"
 #         argv = [a for a in argv if a not in ("--yes", "-y")]
+#     if "--no-enroll" in argv:
+#         os.environ["FLEET_NO_ENROLL"] = "1"
+#         argv = [a for a in argv if a != "--no-enroll"]
 #     if argv and argv[0] not in ("help", "-h", "--help"):
 #         start_log(argv)
 #     try:
@@ -1827,7 +2379,7 @@ exec "$py" "$payload" "$@"
 #
 #    It writes nothing. In the JSON, `ok` is true only when nothing stands in the way. For every check with `status` `fail`, `fix` says what to do. Do the fixes you can do yourself (install a package, rerun with `sudo`), then run `doctor` again. A fix that needs the person (a firmware setting, more RAM, a different computer) goes to them as one sentence. `warn` entries do not block; tell the person about them.
 #
-# 4. Enrollment. A node of a role that has encrypted secrets needs that role's key, delivered by a single-use token. If the person pasted a line containing `FLEET_ENROLL_TOKEN=...` or gave you a token, write the token alone into a file readable only by root (for example `install -m 600 /dev/null tok && printf %s "$TOKEN" > tok`), pass `--token-file tok` from here on, and delete the file afterward. `doctor` checks the token without spending it and refuses one made for a different role. With no token, `doctor` shows an `enrollment` warning: tell the person they can run `just enroll ROLE` on a computer with Vault access and give you the line it prints. If the role has no encrypted secrets yet, the warning can be accepted.
+# 4. Enrollment. A node of a role that has encrypted secrets needs that role's key. By default the install asks the repository owner to approve the node: it prints a link (and tries to open it) to a prefilled GitHub issue, and waits up to 15 minutes before anything is erased. You cannot press that button; show the person the link, say "press Submit new issue while signed in as the repository owner", and keep the command running. If the person pasted a line containing `FLEET_ENROLL_TOKEN=...` or gave you a token instead, write the token alone into a file readable only by root (for example `install -m 600 /dev/null tok && printf %s "$TOKEN" > tok`), pass `--token-file tok` from here on, and delete the file afterward; `doctor` checks it without spending it and refuses one made for a different role. If the approval workflow answers with `fleet-error:`, show the person that sentence. Only if the person says the node does not need the role's shared secrets, add `--no-enroll`.
 #
 # 5. Ask. Tell the person, in plain words: the role, `erases` from the JSON (the exact disk, which loses everything on it including Windows or any other OS), that the machine will reboot into the installer and this session will end, and any `warn` entries. Get an explicit yes.
 #
@@ -1837,7 +2389,7 @@ exec "$py" "$payload" "$@"
 #    sudo bash fleet-node.sh ROLE --yes --token-file tok
 #    ```
 #
-#    It repeats every check and refuses on its own if the disk changed or anything is wrong; nothing is erased in that case. When it prints `FLEET-WIPE role=ROLE` the machine is rebooting into the installer. The installer erases that disk, installs the role, and reboots into the node. This takes several minutes with no further input. The hostname is `<role>-<4 hex>` and is set from the hardware.
+#    It repeats every check and refuses on its own if the disk changed or anything is wrong; nothing is erased in that case. When it prints `FLEET-WIPE role=ROLE` the machine is rebooting into the installer. On Windows the install first shrinks `C:` and writes the installer into the freed space; it needs an elevated shell, UEFI/GPT, and Secure Boot off (`doctor` says so and what to run), and it restores everything if a step fails. The installer erases that disk, installs the role, and reboots into the node. This takes several minutes with no further input. The hostname is `<role>-<4 hex>` and is set from the hardware.
 #
 # 7. After the reboot, on the node (a person or a new session): `fleet-node status`. `Result: healthy.` means the node pulled its configuration and is polling `main`. The first sync can take a few minutes. The install record is `/nix/fleet-state/logs/install.log`.
 #

@@ -713,6 +713,10 @@
           {
             "name": "dev-read",
             "file": "packages/vault-service/config/policies/dev-read.hcl"
+          },
+          {
+            "name": "fleet-enroll",
+            "file": "packages/vault-service/config/policies/fleet-enroll.hcl"
           }
         ],
         "auth": {
@@ -727,6 +731,18 @@
                 "user_claim": "actor",
                 "max_ttl": "30m",
                 "no_default_policy": true
+              },
+              {
+                "name": "fleet-enroll",
+                "policy": "fleet-enroll",
+                "ttl": "5m",
+                "audience": "from_vault_addr",
+                "user_claim": "actor",
+                "max_ttl": "10m",
+                "no_default_policy": true,
+                "bound_claims": {
+                  "job_workflow_ref": "crvouga/workspace/.github/workflows/fleet-enroll.yml@refs/heads/main"
+                }
               }
             ]
           },

@@ -78,6 +78,7 @@ Import addresses (quote module addresses containing brackets):
 | Policy              | `vault_policy.this["<name>"]`                                | Policy name                                                           |
 | JWT auth            | `vault_jwt_auth_backend.github`                              | `jwt`                                                                 |
 | JWT role            | `vault_jwt_auth_backend_role.github["github-actions"]`       | `auth/jwt/role/github-actions`                                        |
+| JWT role (fleet)    | `vault_jwt_auth_backend_role.github["fleet-enroll"]`         | Created by the plan; nothing exists to import                         |
 | Userpass user       | `vault_generic_endpoint.admin["<username>"]`                 | `auth/userpass/users/<username>`                                      |
 | Userpass auth       | `vault_auth_backend.userpass`                                | `userpass`                                                            |
 | KV document         | `vault_kv_secret_v2.personal["dev" or "prd"]`                | `secret/data/personal/<config>`                                       |

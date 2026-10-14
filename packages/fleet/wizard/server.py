@@ -149,7 +149,7 @@ class Wizard:
 
     def here_blockers(self, disks, internal):
         reasons = []
-        if self.os_name != "Linux":
+        if self.os_name not in ("Linux", "Windows"):
             reasons.append(f"{OS_LABEL.get(self.os_name, self.os_name)} cannot restart straight into the installer. Make an install USB instead; it works from any computer.")
         if decide.machine_arch() not in decide.X86:
             reasons.append(f"This computer is {decide.machine_arch()}. Nodes are x86_64 UEFI machines, so this one can make a USB for another computer but cannot become a node.")
@@ -212,7 +212,8 @@ class Wizard:
             internal = decide.plan_disks(disks, "install")
             blockers = self.here_blockers(disks, internal)
             decide.invariant(not blockers, "this computer cannot install itself", " ".join(blockers))
-            findings = decide.preflight(self.os_name, role, "install", token, directory, need_root=False, ssh_key=ssh_key)
+            findings = decide.preflight(self.os_name, role, "install", token, directory, need_root=False, ssh_key=ssh_key,
+                                        auto_enroll=decide.enroll_enabled(), disk_path=internal["path"])
             erase, disk_id, target = internal["plain"], internal["disk_id"], internal["path"]
             summary = f"This erases {internal['plain']}, including this computer's operating system and every file on it, and installs a {ROLE_INFO[role][0]}."
         problems = [item for item in findings if item["status"] == "fail"]
@@ -258,6 +259,8 @@ class Wizard:
                              lambda done, total: job.note("", int(done * 100 / total) if total else None),
                              cancel=job.cancel.is_set)
             job.note("Download verified", 100)
+            if plan["mode"] == "here" and not plan["token"] and decide.enroll_enabled():
+                plan = self.enroll(job, plan)
             job.move("working")
             self.run_helper(job, plan, target, sha)
         except imaging.Cancelled:
@@ -267,6 +270,18 @@ class Wizard:
         except Exception as exc:
             decide.log(traceback.format_exc(), "ERROR")
             self.fail(job, f"{type(exc).__name__}: {exc}", "Read the log, then run the wizard again.")
+
+    def enroll(self, job, plan):
+        """Ask the repository owner to approve this node on GitHub. Nothing has
+        been erased, so a refusal or a timeout ends the job cleanly."""
+        token, error = decide.self_enroll(plan["role"], notify=job.note, cancel=job.cancel.is_set)
+        if error == "cancelled":
+            raise imaging.Cancelled()
+        decide.invariant(token is not None, f"this computer was not approved ({error})",
+                         "Run the wizard again and press 'Submit new issue' on the GitHub page, or paste an enrollment token.")
+        verdict = decide.NET.get("lookup", lookup_token_http)(token, plan["role"])
+        decide.invariant(verdict["status"] != "fail", f"the approval token is not usable ({verdict['detail']})", verdict["fix"])
+        return {**plan, "token": token}
 
     def fail(self, job, message, fix, log=None):
         job.move("failed", {"ok": False, "message": decide.redact(message), "fix": fix, "log": log or decide.LOG["path"]})

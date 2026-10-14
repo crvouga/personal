@@ -10,10 +10,23 @@ import stat
 import subprocess
 import tempfile
 import textwrap
+import sys
 import unittest
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+# Enrollment asks GitHub for approval. Tests that are not about it opt out.
+os.environ.setdefault("FLEET_NO_ENROLL", "1")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import iso_fixture  # noqa: E402
+from enroll_fakes import FakeGitHub  # noqa: E402
 
 ROOT = Path(__file__).parents[1]
+_spec = importlib.util.spec_from_file_location('decide_constants', ROOT / 'scripts' / 'decide.py')
+DECIDE_MODULE = importlib.util.module_from_spec(_spec)
+sys.modules['decide_constants'] = DECIDE_MODULE
+_spec.loader.exec_module(DECIDE_MODULE)
 SCRIPT = ROOT / "scripts" / "fleet-node.sh"
 DECIDE = ROOT / "scripts" / "decide.py"
 PLAIN = "internal NVMe, 2.0 TB, Samsung SSD 980"
@@ -21,113 +34,9 @@ USB_PLAIN = "USB disk, 8.0 GB, Flash"
 SECTOR = 2048
 
 
-def _dirent(iso_ident, extent, size, is_dir, rr_name=None):
-    """One ISO9660 directory record. Rock Ridge NM is the name the reader must use."""
-    if iso_ident == ".":
-        ident = b"\x00"
-    elif iso_ident == "..":
-        ident = b"\x01"
-    else:
-        ident = iso_ident.encode("ascii")
-    name_len = len(ident)
-    su = b""
-    if rr_name is not None:
-        encoded = rr_name.encode("ascii")
-        su = b"NM" + bytes([5 + len(encoded), 1, 0]) + encoded
-    su_off = 33 + name_len + (1 if name_len % 2 == 0 else 0)
-    record = bytearray(su_off + len(su))
-    record[0] = len(record)
-    record[2:6] = extent.to_bytes(4, "little")
-    record[6:10] = extent.to_bytes(4, "big")
-    record[10:14] = size.to_bytes(4, "little")
-    record[14:18] = size.to_bytes(4, "big")
-    record[25] = 2 if is_dir else 0
-    record[32] = name_len
-    record[33:33 + name_len] = ident
-    if su:
-        record[su_off:] = su
-    return bytes(record)
-
-
 def installer_iso_bytes():
     """A tiny ISO9660 image whose boot files are visible only through Rock Ridge."""
-    cfg = "\n".join([
-        "DEFAULT boot",
-        "LABEL boot",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=ci",
-        "INITRD /boot/initrd",
-        "LABEL boot-web",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=web",
-        "INITRD /boot/initrd",
-        "LABEL boot-cache",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=cache",
-        "INITRD /boot/initrd",
-        "LABEL boot-netboot",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=netboot",
-        "INITRD /boot/initrd",
-        "LABEL boot-devbox",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=devbox",
-        "INITRD /boot/initrd",
-        "LABEL boot-copytoram",
-        "LINUX /boot/bzImage",
-        "APPEND init=/nix/store/fleet/init fleet.role=ci copytoram",
-        "INITRD /boot/initrd",
-        "",
-    ]).encode()
-    kernel = b"kernel-bytes\n"
-    initrd = b"initrd-bytes\n"
-    kernel_rec = _dirent("KERNEL", 22, len(kernel), False, "bzImage")
-    initrd_rec = _dirent("INITRD", 23, len(initrd), False, "initrd")
-    boot_len = 34 + 34 + len(kernel_rec) + len(initrd_rec)
-    boot = b"".join([
-        _dirent(".", 20, boot_len, True),
-        _dirent("..", 18, 0, True),
-        kernel_rec,
-        initrd_rec,
-    ])
-    cfg_rec = _dirent("ISOCFG", 21, len(cfg), False, "isolinux.cfg")
-    iso_len = 34 + 34 + len(cfg_rec)
-    isolinux = b"".join([
-        _dirent(".", 19, iso_len, True),
-        _dirent("..", 18, 0, True),
-        cfg_rec,
-    ])
-    boot_dir = _dirent("BOOT", 20, len(boot), True, "boot")
-    iso_dir = _dirent("ISOLINUX", 19, len(isolinux), True, "isolinux")
-    root_len = 34 + 34 + len(iso_dir) + len(boot_dir)
-    root = b"".join([
-        _dirent(".", 18, root_len, True),
-        _dirent("..", 18, root_len, True),
-        iso_dir,
-        boot_dir,
-    ])
-    image = bytearray(24 * SECTOR)
-    pvd = bytearray(SECTOR)
-    pvd[0] = 1
-    pvd[1:6] = b"CD001"
-    pvd[6] = 1
-    pvd[128:130] = (SECTOR).to_bytes(2, "little")
-    pvd[130:132] = (SECTOR).to_bytes(2, "big")
-    root_rec = _dirent(".", 18, len(root), True)
-    pvd[156:156 + len(root_rec)] = root_rec
-    image[16 * SECTOR:(17 * SECTOR)] = pvd
-    term = bytearray(SECTOR)
-    term[0] = 255
-    term[1:6] = b"CD001"
-    term[6] = 1
-    image[17 * SECTOR:(18 * SECTOR)] = term
-    image[18 * SECTOR:18 * SECTOR + len(root)] = root
-    image[19 * SECTOR:19 * SECTOR + len(isolinux)] = isolinux
-    image[20 * SECTOR:20 * SECTOR + len(boot)] = boot
-    image[21 * SECTOR:21 * SECTOR + len(cfg)] = cfg
-    image[22 * SECTOR:22 * SECTOR + len(kernel)] = kernel
-    image[23 * SECTOR:23 * SECTOR + len(initrd)] = initrd
-    return bytes(image)
+    return iso_fixture.build(iso_fixture.installer_tree())
 
 
 ISO_BYTES = installer_iso_bytes()
@@ -235,13 +144,47 @@ class NodeEntryTests(unittest.TestCase):
         )
         write_executable(self.bin / "powershell", f"""\
             #!/bin/bash
-            printf '%s\\n' "$*" > {self.root}/powershell-cmd
             cmd="$*"
-            if [[ "$cmd" == *Win32_LogicalDisk* && "$cmd" == *Get-CimAssociatedInstance* && "$cmd" != *'Mounted=$false'* ]]; then
-              cat {self.root}/windows.json
-              exit 0
-            fi
-            python3 {strip} {self.root}/windows.json
+            case "$cmd" in
+              *Win32_DiskDrive*)
+                printf '%s\\n' "$cmd" > {self.root}/powershell-cmd
+                if [[ "$cmd" == *Win32_LogicalDisk* && "$cmd" == *Get-CimAssociatedInstance* && "$cmd" != *'Mounted=$false'* ]]; then
+                  cat {self.root}/windows.json
+                else
+                  python3 {strip} {self.root}/windows.json
+                fi
+                ;;
+              *Get-PartitionSupportedSize*ConvertTo-Json*) cat {self.root}/windows-facts.json ;;
+              *)
+                printf '%s\\n' "$cmd" >> {self.root}/powershell-calls
+                case "$cmd" in
+                  *New-Partition*) echo '{{"Number":5,"Offset":1048576,"Size":16777216}}' ;;
+                  *mountvol*/S*) echo '{self.root}/esp/' ;;
+                esac
+                ;;
+            esac
+            """)
+        (self.root / "esp").mkdir()
+        (self.root / "windows-facts.json").write_text(json.dumps({
+            "Letter": "C", "DiskNumber": 0, "PartitionNumber": 3, "Size": 2000000000000, "SizeMin": 100000000000,
+            "SizeMax": 2000000000000, "Style": "GPT", "EspNumber": 1, "SecureBoot": False, "Firmware": 2,
+        }))
+        self.partition = self.root / "partition.img"
+        with open(self.partition, "wb") as handle:
+            handle.truncate(32 * 1024 * 1024)
+        self.bcd_log = self.root / "bcd"
+        self.shutdown_log = self.root / "shutdown"
+        write_executable(self.bin / "bcdedit", f"""\
+            #!/bin/bash
+            printf '%s\\n' "$*" >> {self.bcd_log}
+            case "$1" in
+              /copy) echo 'The entry was successfully copied to {{11111111-2222-3333-4444-555555555555}}.' ;;
+              /enum) [ -f {self.root}/bcd-reject ] || echo 'bootsequence              {{11111111-2222-3333-4444-555555555555}}' ;;
+            esac
+            """)
+        write_executable(self.bin / "shutdown", f"""\
+            #!/bin/bash
+            printf '%s\\n' "$*" >> {self.shutdown_log}
             """)
         self._write_scenario("happy")
         self.env = os.environ.copy()
@@ -252,6 +195,9 @@ class NodeEntryTests(unittest.TestCase):
             "FLEET_LSBLK": str(self.bin / "lsblk"),
             "FLEET_DISKUTIL": str(self.bin / "diskutil"),
             "FLEET_POWERSHELL": str(self.bin / "powershell"),
+            "FLEET_BCDEDIT": str(self.bin / "bcdedit"),
+            "FLEET_SHUTDOWN": str(self.bin / "shutdown"),
+            "FLEET_WINDOWS_TARGET": str(self.partition),
             "FLEET_KEXEC": str(self.bin / "kexec"),
             "FLEET_DARWIN_BOOT": str(self.bin / "kexec"),
             "FLEET_WINDOWS_BOOT": str(self.bin / "kexec"),
@@ -644,6 +590,258 @@ class NodeEntryTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, self.combined(result))
         self.assertIn("https://vault.example/v1/sys/wrapping/lookup", self.curl_log.read_text())
         self.assertIn("fleet.vault=https://vault.example", self.boot_log.read_text())
+
+    # ---- Windows converts itself in place ---------------------------------------
+
+    def _windows_env(self):
+        env = self.env.copy()
+        env["FLEET_OS"] = "Windows"
+        return env
+
+    def _facts(self, **changes):
+        path = self.root / "windows-facts.json"
+        facts = json.loads(path.read_text())
+        facts.update(changes)
+        path.write_text(json.dumps(facts))
+
+    def test_windows_shrinks_c_writes_the_image_and_schedules_one_boot_without_kexec(self):
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        self.assertIn("FLEET-WIPE role=ci", text)
+        self.assertFalse(self.boot_log.exists(), "Windows has no kexec")
+        calls = (self.root / "powershell-calls").read_text()
+        self.assertLess(calls.index("Resize-Partition"), calls.index("New-Partition"))
+        self.assertLess(calls.index("New-Partition"), calls.index("mountvol"))
+        self.assertIn(f"-GptType '{DECIDE_MODULE.LINUX_DATA_GUID}'", calls)
+        written = self.partition.read_bytes()
+        offset = 1048576
+        self.assertEqual(written[offset + 32768:offset + len(ISO_BYTES)], ISO_BYTES[32768:])
+        self.assertEqual(written[offset:offset + 32768], bytes(32768), "the hybrid MBR must not reach the partition")
+        self.assertEqual(written[:offset], bytes(offset))
+        self.assertEqual((self.root / "esp" / "EFI" / "fleet" / "grubx64.efi").read_bytes(), b"grub-efi-program\n")
+        config = (self.root / "esp" / "EFI" / "BOOT" / "grub.cfg").read_text()
+        self.assertIn("fleet.role=ci", config)
+        self.assertIn("copytoram", config)
+        self.assertNotIn("findiso", config)
+        self.assertIn("--file /EFI/nixos-installer-image", config)
+        bcd = self.bcd_log.read_text().splitlines()
+        self.assertEqual(bcd[0], "/copy {bootmgr} /d Fleet installer")
+        self.assertIn("/set {11111111-2222-3333-4444-555555555555} path \\EFI\\fleet\\grubx64.efi", bcd)
+        self.assertIn("/set {fwbootmgr} bootsequence {11111111-2222-3333-4444-555555555555}", bcd)
+        self.assertRegex(self.shutdown_log.read_text(), r"^/r /t 15")
+        self.assertIn("role=ci\n", (self.state / "installed").read_text())
+
+    def test_windows_passes_the_enrollment_token_to_the_installer_not_to_the_output(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "", self._windows_env())
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertNotIn("hvs.CAESIwrapped", self.combined(result))
+        self.assertIn("fleet.enroll=hvs.CAESIwrapped", (self.root / "esp" / "EFI" / "BOOT" / "grub.cfg").read_text())
+
+    def test_windows_with_secure_boot_on_is_refused_with_the_one_physical_step(self):
+        self._facts(SecureBoot=True)
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("shutdown /r /fw", text)
+        self.assert_one_next(text)
+        self.assertFalse((self.root / "powershell-calls").exists(), "nothing may change before the checks pass")
+        self.assertFalse(self.shutdown_log.exists())
+
+    def test_windows_refuses_when_c_cannot_shrink_enough(self):
+        self._facts(Size=2000000000000, SizeMin=1999999000000)
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("can only shrink by", text)
+        self.assertFalse((self.root / "powershell-calls").exists())
+
+    def test_windows_on_another_disk_than_the_one_to_erase_is_refused(self):
+        self._facts(DiskNumber=1)
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        self.assertEqual(result.returncode, 2, self.combined(result))
+        self.assertIn("Windows runs from disk 1", self.combined(result))
+        self.assertFalse((self.root / "powershell-calls").exists())
+
+    def test_windows_doctor_reports_the_windows_facts_and_writes_nothing(self):
+        result = self.run_entry(["doctor", "ci", "--json"], "", self._windows_env())
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        report = json.loads(result.stdout)
+        names = {check["name"]: check["status"] for check in report["checks"]}
+        for name in ("firmware", "secure-boot", "partition-style", "system-disk", "efi-partition", "shrink", "boot-tool"):
+            self.assertEqual(names[name], "ok", names)
+        self.assertNotIn("staging", names)
+        self.assertFalse((self.root / "powershell-calls").exists())
+        self.assertFalse(self.bcd_log.exists())
+
+    def test_a_refused_firmware_entry_puts_everything_back(self):
+        (self.root / "bcd-reject").write_text("")
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 71, text)
+        self.assertIn("one-time boot entry", text)
+        self.assertNotIn("FLEET-WIPE", text)
+        self.assertFalse((self.state / "installed").exists())
+        self.assertFalse(self.shutdown_log.exists())
+        calls = (self.root / "powershell-calls").read_text()
+        self.assertIn("Remove-Partition -DiskNumber 0 -PartitionNumber 5", calls)
+        self.assertIn("SizeMax", calls)
+        self.assertIn("mountvol", calls.split("Remove-Partition")[0].split("New-Partition")[1])
+        self.assertIn("/delete {11111111-2222-3333-4444-555555555555}", self.bcd_log.read_text())
+        self.assertFalse((self.root / "esp" / "EFI" / "fleet").exists())
+        self.assertFalse((self.root / "esp" / "EFI" / "BOOT" / "grub.cfg").exists())
+
+    def test_an_existing_grub_config_is_restored_when_the_install_is_taken_back(self):
+        existing = self.root / "esp" / "EFI" / "BOOT"
+        existing.mkdir(parents=True)
+        (existing / "grub.cfg").write_text("# someone else's\n")
+        (self.root / "bcd-reject").write_text("")
+        result = self.run_entry(["ci", "--yes"], "", self._windows_env())
+        self.assertEqual(result.returncode, 71, self.combined(result))
+        self.assertEqual((existing / "grub.cfg").read_text(), "# someone else's\n")
+
+    def test_a_bad_read_back_never_reaches_the_boot_loader(self):
+        env = self._windows_env()
+        env["FLEET_WINDOWS_TARGET"] = str(self.root / "missing.img")
+        result = self.run_entry(["ci", "--yes"], "", env)
+        text = self.combined(result)
+        self.assertNotEqual(result.returncode, 0, text)
+        self.assertNotIn("FLEET-WIPE", text)
+        self.assertFalse(self.bcd_log.exists(), "the firmware must not be touched before the image is proven")
+        self.assertIn("Remove-Partition", (self.root / "powershell-calls").read_text())
+
+    # ---- self-service enrollment through GitHub ---------------------------------
+
+    def _enrolling(self, extra=None):
+        github = FakeGitHub()
+        self.addCleanup(github.close)
+        env = self.env.copy()
+        env.pop("FLEET_NO_ENROLL", None)
+        env.update({"FLEET_GITHUB_API": github.url, "FLEET_NO_BROWSER": "1", "FLEET_ENROLL_POLL": "1", "FLEET_ENROLL_WAIT": "20", **(extra or {})})
+        return github, env
+
+    def _start(self, args, env):
+        return subprocess.Popen([str(SCRIPT), *args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, env=env, cwd=self.root)
+
+    def _read_request(self, process):
+        """Read the node's output until it prints the approval link; return (link, lines)."""
+        lines = []
+        for line in process.stdout:
+            lines.append(line)
+            if "issues/new?" in line:
+                link = line[line.index("https://"):].strip()
+                return link, lines
+        self.fail("the node never printed an approval link:\n" + "".join(lines))
+
+    def _owner_approves(self, github, link, answer=None, role="ci", token="hvs.CAESIapproved"):
+        """What the owner's click and the Fleet enroll workflow do, against the fake GitHub."""
+        sys.path.insert(0, str(ROOT / "scripts"))
+        spec = importlib.util.spec_from_file_location("decide_for_enroll_test", DECIDE)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        query = parse_qs(urlparse(link).query)
+        _, public = module.parse_enroll_request(query["title"][0], query["body"][0])
+        number = github.open_issue(query["title"][0], query["body"][0])
+        github.comment(number, answer or "fleet-sealed: " + module.seal(json.dumps({"role": role, "token": token}).encode(), public))
+
+    def test_a_new_node_is_approved_on_github_and_installs_with_the_shared_key(self):
+        github, env = self._enrolling()
+        process = self._start(["ci", "--yes"], env)
+        link, lines = self._read_request(process)
+        self.assertIn("title=fleet-enroll%20ci", link)
+        self._owner_approves(github, link)
+        rest, _ = process.communicate(timeout=60)
+        text = "".join(lines) + rest
+        self.assertEqual(process.returncode, 0, text)
+        self.assertIn("Approved.", text)
+        self.assertIn("fleet.enroll=hvs.CAESIapproved", self.boot_log.read_text())
+        self.assertNotIn("hvs.CAESIapproved", text)
+        self.assertIn("/v1/sys/wrapping/lookup", self.curl_log.read_text())
+        self.assertNotIn("/unwrap", self.curl_log.read_text())
+
+    def test_nothing_is_erased_while_waiting_for_the_owner(self):
+        github, env = self._enrolling()
+        process = self._start(["ci", "--yes"], env)
+        self._read_request(process)
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+        process.kill()
+        process.communicate()
+
+    def test_no_approval_in_time_leaves_everything_alone(self):
+        _, env = self._enrolling({"FLEET_ENROLL_WAIT": "2"})
+        result = self.run_entry(["ci", "--yes"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("nobody approved this node in time", text)
+        self.assertIn("--no-enroll", text)
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+
+    def test_a_workflow_refusal_is_shown_with_its_fix(self):
+        github, env = self._enrolling()
+        process = self._start(["ci", "--yes"], env)
+        link, lines = self._read_request(process)
+        self._owner_approves(github, link, answer="fleet-error: Vault has no age key for the ci role. Run `just setup`.")
+        rest, _ = process.communicate(timeout=60)
+        text = "".join(lines) + rest
+        self.assertEqual(process.returncode, 2, text)
+        self.assertIn("just setup", text)
+        self.assertFalse(self.boot_log.exists())
+
+    def test_a_token_that_vault_no_longer_honors_stops_before_the_wipe(self):
+        github, env = self._enrolling()
+        process = self._start(["ci", "--yes"], env)
+        link, lines = self._read_request(process)
+        self.curl_mode.write_text("bad-token")
+        self._owner_approves(github, link)
+        rest, _ = process.communicate(timeout=60)
+        self.assertEqual(process.returncode, 2, "".join(lines) + rest)
+        self.assertIn("spent, expired", rest)
+        self.assertIn("approved again", rest)
+        self.assertFalse(self.boot_log.exists())
+
+    def test_the_approval_is_for_the_chosen_role(self):
+        github, env = self._enrolling({"FLEET_ENROLL_WAIT": "4"})
+        process = self._start(["ci", "--yes"], env)
+        link, lines = self._read_request(process)
+        self._owner_approves(github, link, role="web")
+        rest, _ = process.communicate(timeout=60)
+        self.assertEqual(process.returncode, 2, "".join(lines) + rest)
+        self.assertFalse(self.boot_log.exists(), "a token for another role must never be used")
+
+    def test_no_enroll_installs_without_asking_github(self):
+        github, env = self._enrolling()
+        result = self.run_entry(["ci", "--yes", "--no-enroll"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertRegex(self.combined(result), r"WARN\s+enrollment")
+        self.assertEqual(github.requests, [])
+        self.assertNotIn("fleet.enroll=", self.boot_log.read_text())
+
+    def test_a_supplied_token_skips_the_approval(self):
+        github, env = self._enrolling()
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertEqual(github.requests, [])
+
+    def test_doctor_announces_the_approval_without_asking_for_it(self):
+        github, env = self._enrolling()
+        result = self.run_entry(["doctor", "ci"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        self.assertRegex(text, r"info\s+enrollment\s+the repository owner will be asked")
+        self.assertEqual(github.requests, [])
+
+    def test_a_machine_that_is_already_installed_is_not_asked_again(self):
+        github, env = self._enrolling()
+        (self.state / "installed").write_text("role=ci\ndisk=whatever\nstatus=installed\n")
+        result = self.run_entry(["ci", "--yes"], "", env)
+        self.assertEqual(github.requests, [], self.combined(result))
 
     def _node(self, failed="", timer="active", revision="0123456789abcdef"):
         conf = self.root / "node.conf"
@@ -1156,7 +1354,8 @@ class NodeEntryTests(unittest.TestCase):
         hook.mkdir()
         (hook / "sitecustomize.py").write_text(
             "import os, sys\n"
-            "import hashlib, json, re, select, shutil, subprocess, tempfile, threading\n"
+            "import hashlib, hmac, json, re, select, shutil, subprocess, tempfile, threading, time, base64, datetime, platform, traceback\n"
+            "import urllib.request, urllib.error, urllib.parse, webbrowser\n"
             "import pathlib\n"
             "sys.platform = 'win32'\n"
             "if hasattr(os, 'uname'):\n"
@@ -1222,7 +1421,6 @@ class NodeEntryTests(unittest.TestCase):
         for os_name, key in (
             ("Linux", "FLEET_KEXEC"),
             ("Darwin", "FLEET_DARWIN_BOOT"),
-            ("Windows", "FLEET_WINDOWS_BOOT"),
         ):
             with self.subTest(os_name=os_name):
                 self._write_scenario("happy")

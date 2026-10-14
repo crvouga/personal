@@ -33,6 +33,12 @@ bootstrap role ip:
 fleet-keys:
     python3 scripts/fleet-keys.py
 
+# The one-time setup the repository owner does, once for the whole fleet: role
+# age keys, the runner GitHub App, the encrypted CI secrets, fleet.nix. A new
+# node never repeats any of it. Example: just setup --repos crvouga/private-app
+setup *args:
+    python3 scripts/setup.py {{args}}
+
 # Mint a single-use token for the role's key and print two ways to use it on
 # the new node: one shell line, or a prompt to give an agent running there.
 # Nothing is written to disk and the token is not logged.
