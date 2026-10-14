@@ -29,6 +29,7 @@ mock_provider "github" {
   }
 }
 mock_provider "planetscale" {}
+mock_provider "neon" {}
 mock_provider "atlas" {}
 mock_provider "time" {}
 mock_provider "random" {}
