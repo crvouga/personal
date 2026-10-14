@@ -24,9 +24,15 @@ in {
     openssh.authorizedKeys.keys = settings.sshKeys;
   };
   services.openssh.settings = {
-    AuthorizedKeysCommand = "${keys} %u";
+    AuthorizedKeysCommand = "/run/fleet/devbox-authorized-keys %u";
     AuthorizedKeysCommandUser = "root";
   };
+  # OpenSSH rejects AuthorizedKeysCommand below a group-writable directory.
+  # /nix/store is group-writable for builds. Copy, never symlink, the command
+  # into a root-owned runtime directory before sshd accepts connections.
+  systemd.services.sshd.preStart = lib.mkBefore ''
+    ${pkgs.coreutils}/bin/install -D -m 0755 ${keys} /run/fleet/devbox-authorized-keys
+  '';
   programs.nix-ld.enable = true;
   environment.systemPackages = with pkgs; [
     bun nodejs python3 gcc gnumake cmake pkg-config just ripgrep fd

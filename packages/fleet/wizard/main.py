@@ -135,7 +135,9 @@ def main(argv):
     if "--version" in argv:
         print(server.VERSION)
         return 0
+    print("Starting the local Fleet installer…", flush=True)
     decide.start_log(["wizard", *argv])
+    print(f"Log: {decide.LOG['path']}", flush=True)
     wizard = server.Wizard()
     port = 0
     if "--port" in argv:

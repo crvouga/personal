@@ -23,14 +23,18 @@ function fakeIso() {
 
 function startWizard(env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [MAIN, '--no-browser'], {
+    const child = spawn(PYTHON, ['-u', MAIN, '--no-browser'], {
       env: { ...process.env, ...env },
     });
     let out = '';
-    const timer = setTimeout(
-      () => reject(new Error('wizard did not start: ' + out)),
-      20000
-    );
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error('wizard did not start with ' + PYTHON + ': ' + out));
+    }, 20000);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
     child.stdout.on('data', (chunk) => {
       out += chunk;
       const match = out.match(/http:\/\/127\.0\.0\.1:\d+\/\?t=\S+/);
@@ -40,9 +44,10 @@ function startWizard(env) {
       }
     });
     child.stderr.on('data', (chunk) => (out += chunk));
-    child.on('exit', (code) =>
-      reject(new Error('wizard exited ' + code + ': ' + out))
-    );
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error('wizard exited ' + code + ': ' + out));
+    });
   });
 }
 

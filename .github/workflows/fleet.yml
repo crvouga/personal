@@ -86,6 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
+        id: python
         with:
           python-version: '3.12'
       - name: Wizard tests
@@ -94,6 +95,8 @@ jobs:
       - name: Click through the wizard page in a real browser
         working-directory: packages/fleet
         shell: bash
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
         run: |
           npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
