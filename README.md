@@ -35,12 +35,15 @@ After pushing, watch the complete CI run with `bun run gh:ci:watch`; local check
 
 ## Infra health
 
+Prepare and inspect the 14-domain Squarespace → Cloudflare migration with `bun migrate-domains-to-cloudflare`. It resumes private snapshots and checks without prompts, and exits 2 while registrar/access/provider steps remain blocked. It does not claim a completed unattended transfer. See the [domain migration runbook](packages/infra/docs/domain-migration.md) for the exact automation boundary, critical-domain policy, OpenTofu adoption, health gates and rollback.
+
 `bun run health` is the single place to check whether the platform is configured correctly and healthy. It reads the OpenTofu inventory and reports on everything it declares:
 
 | Group       | Checks                                                                                  | Needs             |
 | ----------- | --------------------------------------------------------------------------------------- | ----------------- |
 | `inventory` | Offline consistency: unique ids and hostnames, dangling references, policy files        | —                 |
 | `dns`       | Cloudflare delegation and every declared record                                         | —                 |
+| `domains`   | Domain registration, exact account delegation, DNSSEC, migration records and HTTPS      | Cloudflare token  |
 | `tls`       | Certificate trust and expiry for every public hostname                                  | —                 |
 | `services`  | Each Railway service's health endpoint; Cloudflare redirects                            | —                 |
 | `tunnels`   | Cloudflare tunnel connectors (an offline workstation connector warns)                   | —                 |

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "health": "bun run scripts/health.ts",
+    "domains": "bun run scripts/domains.ts",
     "health-check": "bun run scripts/health-check-urls.ts",
     "list-deploy-service-ids": "bun run scripts/list-deploy-service-ids.ts",
     "list-publish-service-ids": "bun run scripts/list-publish-service-ids.ts",

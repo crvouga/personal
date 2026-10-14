@@ -4,6 +4,7 @@ dist
 *.tsbuildinfo
 .turbo
 .wrangler
+.domain-migration
 .github
 packages/infra/lib
 packages/infra/scripts
