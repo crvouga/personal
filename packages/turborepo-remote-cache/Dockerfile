@@ -17,6 +17,7 @@ COPY packages/9router/package.json ./packages/9router/
 COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
+COPY packages/fleet-api/package.json ./packages/fleet-api/
 
 RUN bun install --frozen-lockfile
 

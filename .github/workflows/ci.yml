@@ -214,6 +214,7 @@ jobs:
             publish:
               - 'packages/turborepo-remote-cache/**'
               - 'packages/portfolio/**'
+              - 'packages/fleet-api/**'
               - 'packages/assert/**'
               - 'packages/logger/**'
               - 'packages/object-store/**'
@@ -365,6 +366,10 @@ jobs:
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
+      # The fleet-api tests apply packages/fleet-api/schema.hcl to a throwaway
+      # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
+      # under /usr/lib/postgresql/16/bin).
+      - uses: ariga/setup-atlas@v0
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check
         env:
