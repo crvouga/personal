@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -870,6 +871,9 @@ class NodeEntryTests(unittest.TestCase):
         self.assertFalse(self.shutdown_log.exists())
 
     def test_the_line_is_drawn_at_the_image_plus_two_gib(self):
+        free = shutil.disk_usage(self.state).free
+        if free < 12 * 1024 ** 3:
+            self.skipTest(f"the doctor also checks free disk for the 8 GiB image; this needs 12 GiB free in the temp directory, it has {free // 1024 ** 3}")
         self._memory(10)
         enough = self.run_entry(["doctor", "ci"], "", self._windows_env())
         self.assertEqual(enough.returncode, 0, self.combined(enough))
