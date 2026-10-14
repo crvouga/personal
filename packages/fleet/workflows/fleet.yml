@@ -177,7 +177,11 @@ jobs:
             exit 1
           fi
           for attr in ci web cache netboot devbox; do
-            nix build --no-link -o "result-${attr}" "path:.#${attr}"
+            nix build -o "result-${attr}" "path:.#${attr}"
+            if [ ! -L "result-${attr}" ] || [ ! -d "result-${attr}" ]; then
+              echo "Fleet cache: missing build result for ${attr}. Rebuild this role before publishing." >&2
+              exit 1
+            fi
           done
           nix run 'path:.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
           for attr in ci web cache netboot devbox; do
