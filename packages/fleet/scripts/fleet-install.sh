@@ -73,7 +73,11 @@ esac
 
 key_dir=${FLEET_KEY_DIR:-}
 mounted_key=0
+verified_age_key=""
 cleanup() {
+  if [ -n "$verified_age_key" ]; then
+    rm -f "$verified_age_key"
+  fi
   if [ "$mounted_key" -eq 1 ]; then
     umount "$key_dir" || true
   fi
@@ -95,6 +99,20 @@ if [ -n "$key_dir" ] && [ -d "$key_dir" ]; then
       if [ -f "$left" ] && [ -f "$right" ] && cmp -s "$left" "$right"; then
         echo "Role age keys must differ: ${roles[$i]} and ${roles[$j]}" >&2
         exit 2
+      fi
+      if [ -f "$left" ] && [ -f "$right" ]; then
+        # Comments do not change an identity. Compare the actual recipients,
+        # not just private-key file bytes, before any disk is touched.
+        if ! left_pub=$("${FLEET_AGE_KEYGEN:-age-keygen}" -y "$left" 2>/dev/null) \
+          || ! right_pub=$("${FLEET_AGE_KEYGEN:-age-keygen}" -y "$right" 2>/dev/null) \
+          || [[ ! "$left_pub" =~ ^age1[0-9a-z]+$ || ! "$right_pub" =~ ^age1[0-9a-z]+$ ]]; then
+          echo "Next: each FLEET-KEY role file must contain one valid age identity. Check $left and $right. Nothing was wiped." >&2
+          exit 2
+        fi
+        if [ "$left_pub" = "$right_pub" ]; then
+          echo "Role age keys must differ: ${roles[$i]} and ${roles[$j]} have the same recipient" >&2
+          exit 2
+        fi
       fi
     done
   done
@@ -219,6 +237,28 @@ nixos_install=${FLEET_NIXOS_INSTALL:-nixos-install}
 mnt=${FLEET_MNT:-/mnt}
 recorded=${FLEET_RECORDED:-/run/fleet-install-disk}
 
+source_age_key=""
+age_origin=""
+if [ -n "$key_dir" ] && [ -f "$key_dir/$role.age" ]; then
+  source_age_key=$key_dir/$role.age
+  age_origin="the FLEET-KEY volume"
+elif [ -n "$enrolled" ]; then
+  source_age_key=$enrolled
+  age_origin="the enrollment token"
+fi
+if [ -n "$source_age_key" ]; then
+  # Validate a stable snapshot on the live filesystem. A bad key, or removing
+  # the key USB during installation, must not strand an already erased node.
+  verified_age_key=$(mktemp)
+  install -m 0600 "$source_age_key" "$verified_age_key"
+  if ! recipient=$("$age_keygen" -y "$verified_age_key" 2>/dev/null) || [[ ! "$recipient" =~ ^age1[0-9a-z]+$ ]]; then
+    if [ "$age_origin" = "the enrollment token" ]; then rm -f "$enrolled"; fi
+    note 'invalid supplied age identity; nothing wiped'
+    echo "Next: the age key from $age_origin is invalid. Replace the FLEET-KEY role key, or fix the vault input and mint a fresh enrollment token. Nothing was wiped." >&2
+    exit 2
+  fi
+fi
+
 device=$("$select_disk")
 [[ "$device" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]] || {
   echo 'select-disk returned an unexpected path' >&2
@@ -269,12 +309,13 @@ fi
 secret=$mnt/nix/fleet-state/secrets
 install -d -m 0700 "$secret"
 dest=$secret/age.key
-if [ -n "$key_dir" ] && [ -f "$key_dir/$role.age" ]; then
-  note "age key: from the FLEET-KEY volume"
-  install -m 0600 "$key_dir/$role.age" "$dest"
-elif [ -n "$enrolled" ]; then
-  note "age key: from the enrollment token"
-  install -m 0600 "$enrolled" "$dest"
+if [ -n "$verified_age_key" ]; then
+  note "age key: from $age_origin"
+  install -m 0600 "$verified_age_key" "$dest"
+  cmp -s "$verified_age_key" "$dest" || {
+    echo 'FLEET-FAIL: the installed age key did not read back correctly.' >&2
+    exit 1
+  }
 else
   note "age key: generated on this machine (no token, no FLEET-KEY volume)"
   "$age_keygen" -o "$dest"

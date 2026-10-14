@@ -400,6 +400,49 @@ class InstallTests(unittest.TestCase):
         self.assertIn("must differ", result.stderr)
         self.assertFalse(self.log.exists())
 
+    def test_comment_changes_cannot_hide_a_shared_role_identity(self):
+        stick = self.root / "stick"
+        stick.mkdir()
+        (stick / "ci.age").write_text("# ci\nSAME-IDENTITY\n")
+        (stick / "web.age").write_text("# web\nSAME-IDENTITY\n")
+        env = dict(self.env, FLEET_KEY_DIR=str(stick), FLEET_AUTO="1")
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("same recipient", result.stderr)
+        self.assertNotIn("disko", self.log.read_text())
+
+    def reject_bad_age_keys(self):
+        write_executable(self.bin / "age-keygen", """\
+            #!/bin/bash
+            if [ "$1" = -y ]; then
+              grep -q CORRUPT "$2" && exit 1
+              echo age1validstub
+              exit 0
+            fi
+            exit 1
+            """)
+
+    def test_invalid_stick_identity_is_refused_before_partitioning(self):
+        self.reject_bad_age_keys()
+        stick = self.root / "stick"
+        stick.mkdir()
+        (stick / "ci.age").write_text("AGE-SECRET-KEY-CORRUPT\n")
+        env = dict(self.env, FLEET_KEY_DIR=str(stick), FLEET_AUTO="1")
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("Nothing was wiped", result.stderr)
+        self.assertFalse(self.log.exists())
+        self.assertNotIn("AGE-SECRET-KEY-CORRUPT", result.stdout + result.stderr)
+
+    def test_invalid_enrolled_identity_can_be_replaced_without_wiping(self):
+        self.reject_bad_age_keys()
+        env = self.enroll_env('{"data":{"data":{"age_key":"AGE-SECRET-KEY-CORRUPT"}}}')
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertNotIn("disko", self.log.read_text())
+        self.assertFalse((Path(env["FLEET_ENROLLED_DIR"]) / "ci.age").exists())
+        self.assertNotIn("AGE-SECRET-KEY-CORRUPT", result.stdout + result.stderr)
+
     def test_changed_disk_selection_aborts(self):
         write_executable(self.bin / "select-disk", f"""\
             #!/bin/bash
