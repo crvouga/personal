@@ -94,6 +94,8 @@ Then two reviewed steps, because infrastructure changes through a reviewed plan:
    bun run infra:vault apply fleet.plan
    ```
 
+3. Apply the `foundation` root (it creates the `fleet` Postgres schema and its tables) and the `fleet` root (it deploys the fleet API at https://fleet.chrisvouga.dev). CI does both in order on a merge once `TOFU_MIGRATION_READY` is true; the exact order and what to check is in [the infra README](../infra/tofu/README.md#fleet-api-fleet-api).
+
 After that, `bun run health` reports the Vault role and policy as healthy. Which repositories may use the fleet is a decision in `fleet.nix`, not something the installer guesses. Do not list public repositories: pull requests from strangers would run on your machines.
 
 ## How approval works
@@ -108,6 +110,15 @@ The installer release is public, so a machine cannot simply ask Vault for its ro
 
 If the workflow cannot help (no key in Vault yet, Vault down) it comments `fleet-error: …` with the fix, and the installer stops at once, still having erased nothing. CI and web never share an age key or a secrets file.
 
+## The fleet API and dashboard
+
+Every machine reports to the **fleet API** at https://fleet.chrisvouga.dev ([`packages/fleet-api`](../fleet-api/README.md)) and shows up on its dashboard within a minute of booting: online, stale or offline, its role, revision, load, memory, disk, runner slots busy, failed units and rollbacks, with a history and an event feed. A machine that stops reporting becomes `offline` and raises an event (and a webhook, if you set one), so a dead machine no longer goes unnoticed. One that removes itself with `fleet-node remove` is retired, not alarmed.
+
+- **Joining.** A machine approved through the GitHub flow holds its role's token and is accepted at once. Any other machine (a USB install, `--no-enroll`) appears under **Pending**, with its facts, until you approve it.
+- **Dynamic settings.** Heartbeat interval, pausing updates, reboot behavior, the disk alert threshold, runner capacity, runner labels, which repositories the runners serve, cordoning a machine, and the offline threshold are changed in the dashboard for the whole fleet, a role, or one machine, and reach the node within a minute. No commit, no rebuild. The list, bounds and what each does on the node is [dynamic-config.md](docs/dynamic-config.md). What a machine _is_ (role, closure, secrets, GitHub App) stays in git.
+- **Safe by construction.** The API sends data, never code, so a compromised API cannot run anything on the fleet. Without the API, nodes keep their last settings and the values in their image, and updates keep flowing from `main`.
+- **Isolated.** The service uses only the Postgres schema `fleet` in the shared database ([why and how](../fleet-api/README.md#the-database-is-shared)).
+
 ## What stays physical
 
 Hardware replacement and cleaning, cabling, and one-time firmware settings (Secure Boot off, UEFI boot, power-on after AC loss). See [the checklist](docs/checklist.md). Everything else that seems to need a person at a machine is a bug in the automation.
@@ -118,16 +129,20 @@ Git is the only control surface. Open a pull request; `Required` and `Fleet` pas
 
 ## What is tested, and what is not
 
-| Layer                                                                     | How                                                                                                                                                                                       |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Role selection, disk refusals, confirmation, logs, exit codes             | `tests/test_fleet_node.py` runs the shipped one-file entry on Linux, macOS and Windows disks                                                                                              |
-| Windows conversion (shrink, raw write, read-back, boot entry, undo)       | `tests/test_fleet_node.py`, `tests/test_windows*.py` with stand-in `powershell`, `bcdedit`, UEFI variables; every script through the real PowerShell parser in `tests/test_powershell.py` |
-| Approval (X25519 against RFC 7748, sealing, polling, the workflow's half) | `tests/test_enroll.py` against fake GitHub and fake Vault servers                                                                                                                         |
-| One-time setup (manifest flow, App token, `sops` round trip, `fleet.nix`) | `tests/test_setup.py` against a fake GitHub, plus real `sops` and `age` when installed                                                                                                    |
-| The wizard (server, helper, USB writer, page)                             | `tests/test_wizard.py`; `wizard/ui-e2e.cjs` in Chromium; each build's `--selftest` on 5 OSes                                                                                              |
-| Role closures, installer ISO, sync, rollback, lifecycle                   | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                                                                                                              |
+| Layer                                                                                  | How                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Role selection, disk refusals, confirmation, logs, exit codes                          | `tests/test_fleet_node.py` runs the shipped one-file entry on Linux, macOS and Windows disks                                                                                                                                                         |
+| Windows conversion (shrink, raw write, read-back, boot entry, undo)                    | `tests/test_fleet_node.py`, `tests/test_windows*.py` with stand-in `powershell`, `bcdedit`, UEFI variables; every script through the real PowerShell parser in `tests/test_powershell.py`                                                            |
+| Approval (X25519 against RFC 7748, sealing, polling, the workflow's half)              | `tests/test_enroll.py` against fake GitHub and fake Vault servers                                                                                                                                                                                    |
+| One-time setup (manifest flow, App token, `sops` round trip, `fleet.nix`)              | `tests/test_setup.py` against a fake GitHub, plus real `sops` and `age` when installed                                                                                                                                                               |
+| The wizard (server, helper, USB writer, page)                                          | `tests/test_wizard.py`; `wizard/ui-e2e.cjs` in Chromium; each build's `--selftest` on 5 OSes                                                                                                                                                         |
+| Everything together: installer scripts, approval, node agent, API, Postgres, dashboard | `tests/test_e2e_chain.py` runs the real programs against each other (no stand-ins except GitHub, Vault, the release host, the disk listing and `kexec`), once with the API as a process and once as its Docker image; CI job `fleet-e2e` requires it |
+| The node agent and dynamic settings (register, report, apply, offline, corrupt state)  | `tests/test_agent.py`, `tests/test_node_scripts.py` against a real HTTP server speaking the protocol                                                                                                                                                 |
+| The fleet API (routes, auth, jobs, schema isolation, dashboard)                        | `bun run --filter @pkgs/fleet-api test`: real Postgres built by the real Atlas CLI, decoy tables to prove nothing leaves the `fleet` schema                                                                                                          |
+| Every role evaluates with the agent wired in                                           | `agent-units` and the other `nix flake check` items                                                                                                                                                                                                  |
+| Role closures, installer ISO, sync, rollback, lifecycle                                | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                                                                                                                                                                         |
 
-Run the portable ones with `bun run --filter @pkgs/fleet check`. Be clear about the gaps: no change here has been run on a real machine. The Windows conversion, the unsigned-GRUB boot from a raw partition and the real GitHub App creation are covered by stand-ins, not by hardware. Run them on a spare machine before relying on them, and read [the validation record](docs/validation.md).
+Run the portable ones with `bun run --filter @pkgs/fleet check`. Be clear about the gaps: no change here has been run on a real machine or on github.com. The Windows conversion, the unsigned-GRUB boot from a raw partition, the real GitHub App creation and the production rollout of the API (Railway, Vault, PlanetScale) are covered by stand-ins and local equivalents, not by the real thing. Run them on a spare machine before relying on them, and read [the validation record](docs/validation.md).
 
 ## Reference
 
