@@ -41,6 +41,10 @@ COPY --from=build /app /app
 
 RUN chown -R bun:bun /app
 
+# Bun takes the JSX settings (hono/jsx) from the tsconfig in the working
+# directory, not from the one beside each file, so run from the package.
+WORKDIR /app/packages/fleet-api
+
 EXPOSE 8080
 
 USER bun
@@ -48,4 +52,4 @@ USER bun
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["bun", "-e", "const r = await fetch(`http://127.0.0.1:${process.env.PORT ?? 8080}/health`); process.exit(r.ok ? 0 : 1)"]
 
-CMD ["bun", "packages/fleet-api/src/server.ts"]
+CMD ["bun", "src/server.ts"]
