@@ -31,6 +31,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from e2e_support import AGE_KEY, ChainVault, NodeFiles, Stack, free_port, missing_tools, query, sha256_hex  # noqa: E402
@@ -418,13 +419,13 @@ class FullChainTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("fleet_nodes", text.decode())
 
-        form = "username=crvouga&password=wrong"
+        form = urlencode({"username": "crvouga", "password": "wrong"})
         request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
         self.assertNotEqual(caught.exception.code, 303)
 
-        form = "username=crvouga&password=correct+horse"
+        form = urlencode({"username": "crvouga", "password": self.vault.password})
         request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
         try:
             urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
@@ -441,7 +442,7 @@ class FullChainTest(unittest.TestCase):
         self.assertNotIn("Set-Cookie", "")
 
         # A person without the admin policy is refused even with the right password.
-        form = "username=guest&password=correct+horse"
+        form = urlencode({"username": "guest", "password": self.vault.password})
         request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
         try:
             urllib.request.build_opener(_NoRedirect).open(request, timeout=20)

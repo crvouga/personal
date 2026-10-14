@@ -5,6 +5,7 @@ and fixtures for a node's /proc, /run/fleet and /etc/fleet."""
 import hashlib
 import json
 import os
+import secrets
 import select
 import shutil
 import signal
@@ -48,6 +49,7 @@ class ChainVault:
     of secret/data/fleet/<role>, sys/wrapping lookup and unwrap, and userpass."""
 
     def __init__(self, role_token):
+        self.password = secrets.token_urlsafe(24)
         self.documents = {"ci": {"age_key": AGE_KEY, "api_token": role_token}}
         self.wrapped = {}
         self.spent = set()
@@ -110,7 +112,7 @@ class ChainVault:
                 if path == "/v1/sys/wrapping/unwrap":
                     return self.unwrap(self.headers.get("X-Vault-Token") or data.get("token"))
                 if path.startswith("/v1/auth/userpass/login/"):
-                    ok = data.get("password") == "correct horse"
+                    ok = data.get("password") == outer.password
                     policies = ["admin", "default"] if path.endswith("/crvouga") else ["default"]
                     return self.reply(200, {"auth": {"client_token": "user-token", "policies": policies}}) if ok else self.reply(400, {})
                 if path == "/v1/auth/token/revoke-self":

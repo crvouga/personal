@@ -4,6 +4,7 @@
 import base64
 import os
 import pty
+import secrets
 import stat
 import subprocess
 import tempfile
@@ -380,7 +381,7 @@ class InstallTests(unittest.TestCase):
         return self.mnt / "nix/fleet-state/agent"
 
     def test_the_fleet_api_role_token_is_installed_privately_and_never_printed(self):
-        token = "ci-role-token-9f8e7d6c5b4a"
+        token = secrets.token_hex(24)
         env, result = self.run_enrolled('{"data":{"data":{"age_key":"AGE-SECRET-KEY-ENROLLED","api_token":"' + token + '"}}}')
         self.assertEqual(result.returncode, 0, result.stderr)
         installed = self.agent_dir() / "role-token"
