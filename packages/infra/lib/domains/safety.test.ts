@@ -17,6 +17,7 @@ import { parseRecords, parity, rdata, settingsKey, txtValue } from './records.js
 import { migrationExitCode } from './runner.js';
 import { capture } from './capture.js';
 import { validateSpec } from './model.js';
+import { authCode, transferPreflight } from './transfers.js';
 
 const DOMAIN = 'example.dev';
 const ADDRESS: DnsRecord = { name: DOMAIN, type: 'A', content: '192.0.2.1', ttl: 300, proxied: false };
@@ -118,6 +119,35 @@ describe('DNS preservation', () => {
 });
 
 describe('migration gates and plan safety', () => {
+  test('transfer secrets never appear in errors and existing workflows cannot be submitted twice', async () => {
+    const account = 'a'.repeat(32);
+    const root = `https://api.cloudflare.com/client/v4/accounts/${account}/registrar`;
+    const ctx = fakeContext({ config: { ...fakeContext().config, domains: { [DOMAIN]: { ...SPEC, transfer_enabled: true } } },
+      env: { CF_API_TOKEN: 'test', CLOUDFLARE_ACCOUNT_ID: account, TF_VAR_domain_auth_codes: JSON.stringify({ [DOMAIN]: 'private-owner-code' }) },
+      fetch: fakeFetch({
+        [`${root}/extensions/dev`]: { body: { success: true, result: { transfer_schema: {} } } },
+        [`${root}/registrations/${DOMAIN}/transfer-in-status`]: { body: { success: true, result: { state: 'blocked' } } },
+      }),
+    });
+    await expect(transferPreflight(ctx, DOMAIN)).rejects.toThrow('already exists (blocked)');
+    expect(() => authCode({ ...ctx, env: { TF_VAR_domain_auth_codes: 'private-malformed-input' } }, DOMAIN)).toThrow('private JSON object');
+    const initial = { ...ctx, fetch: fakeFetch({
+      [`${root}/extensions/dev`]: { body: { success: true, result: { transfer_schema: {} } } },
+      [`${root}/registrations/${DOMAIN}/transfer-in-status`]: { status: 404 },
+    }) };
+    expect(await transferPreflight(initial, DOMAIN)).toContain('no existing transfer');
+  });
+  test('a billable transfer plan is confined to the selected one-time resource and secure payload', () => {
+    const after = { object_id: DOMAIN, path: `/${DOMAIN}/transfer-in`, create_method: 'POST', read_method: 'GET', read_path: `/${DOMAIN}`,
+      update_method: 'GET', update_path: `/${DOMAIN}`, destroy_method: 'GET', destroy_path: `/${DOMAIN}`, debug: false, ignore_all_server_changes: true,
+      data: JSON.stringify({ auth_code: Buffer.from('test-owner-code').toString('base64'), auto_renew: true, privacy_mode: 'redaction' }) };
+    const address = `restapi_object.domain_transfer["${DOMAIN}"]`;
+    expect(validatePlan({ resource_changes: [change(address, ['create'], after)] }, DOMAIN, 'transfer', [])).toHaveLength(1);
+    for (const altered of [{ ...after, create_method: 'PUT' }, { ...after, object_id: 'other.dev' }, { ...after, debug: true }, { ...after, destroy_method: 'DELETE' }]) {
+      expect(() => validatePlan({ resource_changes: [change(address, ['create'], altered)] }, DOMAIN, 'transfer', [])).toThrow('contract');
+    }
+    expect(() => validatePlan({ resource_changes: [change(address, ['update'], after)] }, DOMAIN, 'transfer', [])).toThrow('one-time');
+  });
   test('timestamps must be real, in the past, and beyond the full cache wait', () => {
     const now = new Date('2026-10-14T00:00:00Z');
     for (const since of ['', 'not-a-date', '2026-10-15T00:00:00Z', '2026-10-13T00:00:00Z']) expect(() => waited(now, since, 172800, 'DS')).toThrow();

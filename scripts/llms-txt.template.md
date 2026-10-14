@@ -45,7 +45,7 @@ All consumer credentials live in Vault. Vault is the only thing an integrating p
 
 This is a consumer guide, not an inventory dump. State backends, provider credentials, the OpenBao storage database, administrative tunnels, and control-plane tokens are intentionally excluded from consumer instructions. They remain OpenTofu-owned and must never be reused by an application.
 
-Domain registration/DNS consolidation is maintained in {{path:packages/infra/docs/domain-migration.md}}. The repository's `bun migrate-domains-to-cloudflare` command prepares observations and reports unresolved registrar/provider operations; consumers must not transfer registrations or change shared nameservers. `chrisvouga.dev` and `gamezilla.app` have mandatory availability gates.
+Domain registration/DNS consolidation is maintained in {{path:packages/infra/docs/domain-migration.md}}. The repository's `bun migrate-domains-to-cloudflare` command prepares observations, reviews/applies scoped saved OpenTofu plans, submits eligible transfers once and monitors them; `--audit` is read-only remotely. Missing original state or Squarespace owner access remains blocked; consumers must not transfer registrations or change shared nameservers. `chrisvouga.dev` and `gamezilla.app` have mandatory availability gates.
 
 ---
 

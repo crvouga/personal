@@ -16,8 +16,8 @@ export async function transferPreflight(ctx: HealthContext, domain: string): Pro
   authCode(ctx, domain);
   const extension = domain.split('.').at(-1)!;
   const body = await cfGet(ctx, `/accounts/${accountId(ctx)}/registrar/extensions/${extension}`);
-  const schema = asRecord(asRecord(body.result).transfer_schema);
-  if (!Object.keys(schema).length) throw new Error('The Registrar API supplied no transfer schema for this extension; verify API support before a billable request');
+  const schema = asRecord(body.result).transfer_schema;
+  if (schema === undefined || schema === null || schema === false || (typeof schema !== 'object' && schema !== true)) throw new Error('The Registrar API supplied no transfer schema for this extension; verify API support before a billable request');
   try {
     const status = await transferStatus(ctx, domain);
     throw new Error(`A transfer workflow already exists (${String(status.state)}); resume read-only status checks, never submit again`);

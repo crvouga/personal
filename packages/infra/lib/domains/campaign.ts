@@ -70,7 +70,7 @@ async function prepareDomain(ctx: HealthContext, domain: string, zones: readonly
   for (const result of finalChecks.filter((result) => result.status === 'fail')) blockers.push({ domain, code: 'FINAL_VERIFICATION_REQUIRED', detail: `${result.name}: ${result.detail}` });
   // Cloudflare initiation is implemented as an OpenTofu REST resource, but the
   // losing registrar's ownership operations cannot be inferred from DNS access.
-  if (!verified) blockers.push({ domain, code: 'SQUARESPACE_OWNER_ACCESS_REQUIRED', detail: 'Squarespace unlock/EPP/parent DS/nameserver operations require authenticated owner access; no configured adapter covers them. Cloudflare transfer initiation is available through a guarded OpenTofu transfer plan once its prerequisites exist. No transfer has been attempted' });
+  if (!verified) blockers.push({ domain, code: 'REGISTRATION_OR_DNS_INCOMPLETE', detail: 'Required final checks are incomplete. The executor can adopt DNS and submit an eligible Cloudflare transfer through OpenTofu; Squarespace owner operations require a supported authenticated access path' });
   return { verified, snapshot: snapshot ? { domain, records: snapshot.records.length, source: snapshot.source } : undefined };
 }
 

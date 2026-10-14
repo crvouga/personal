@@ -20,6 +20,8 @@ export function initialize(repo: string, domain: string): string {
   const dir = directory(repo, domain);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);
+  const shared = join(repo, '.domain-migration/account-operator.json');
+  if (!existsSync(shared)) privateJson(shared, { accountRecoveryReview: '', billingReview: '', retirementReview: '' });
   if (!existsSync(join(dir, 'operator.json'))) privateJson(join(dir, 'operator.json'), {
     sourceReview: '', dependenciesReview: '', accountRecoveryReview: '',
     transferEligibilityReview: '', billingReview: '', mailRoundTripReview: '', retirementReview: '',
@@ -40,9 +42,16 @@ export function evidence(repo: string, domain: string): OperatorEvidence {
     'freezeStartedAt', 'dsAbsentSince', 'delegationChangedAt'];
   if (keys.some((key) => typeof raw[key] !== 'string')) throw new Error('operator.json: every evidence field must be a string');
   const dir = directory(repo, domain);
+  const sharedPath = join(repo, '.domain-migration/account-operator.json');
+  const shared = existsSync(sharedPath) ? asRecord(readJson(sharedPath)) : {};
+  const common: Record<string, string> = {};
+  for (const key of ['accountRecoveryReview', 'billingReview', 'retirementReview']) {
+    if (shared[key] !== undefined && typeof shared[key] !== 'string') throw new Error('account-operator.json: evidence fields must be strings');
+    if (!String(raw[key]).trim() && typeof shared[key] === 'string') common[key] = shared[key];
+  }
   const freeze = existsSync(join(dir, 'freeze.json')) ? asRecord(readJson(join(dir, 'freeze.json'))) : {};
   const observations = existsSync(join(dir, 'observations.json')) ? asRecord(readJson(join(dir, 'observations.json'))) : {};
-  return { ...raw, ...freeze,
+  return { ...raw, ...common, ...freeze,
     ...(observations.baselineHash ? { dsAbsentSince: String(observations.dsAbsentSince ?? ''), delegationChangedAt: String(observations.delegationChangedAt ?? '') } : {}),
   } as OperatorEvidence;
 }

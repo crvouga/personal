@@ -58,7 +58,7 @@ export async function draft(ctx: HealthContext, domain: string, spec: DomainSpec
       } },
     } },
   };
-  const path = join(directory(ctx.repoRoot, domain), `inventory-draft-${Date.now()}.json`);
+  const path = join(directory(ctx.repoRoot, domain), `inventory-draft-${Date.now()}-${crypto.randomUUID()}.json`);
   privateJson(path, candidate);
   return path;
 }

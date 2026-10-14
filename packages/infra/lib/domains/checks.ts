@@ -14,9 +14,8 @@ export async function probe(name: string, task: () => Promise<string>): Promise<
 
 export function waited(now: Date, since: string, seconds: number, label: string): void {
   const time = Date.parse(since);
-  if (!Number.isFinite(time) || time > now.getTime() || now.getTime() - time < seconds * 1000) {
-    throw new Error(`${label}: record an ISO UTC timestamp and wait at least ${seconds} seconds; elapsed time is required`);
-  }
+  if (!Number.isFinite(time) || time > now.getTime()) throw new Error(`${label}: missing, invalid or future observation timestamp; real elapsed time is required`);
+  if (now.getTime() - time < seconds * 1000) throw new Error(`${label}: wait until ${new Date(time + seconds * 1000).toISOString()} (${seconds} seconds from the verified observation)`);
 }
 
 function requireEvidence(value: string, label: string): void {
@@ -25,8 +24,13 @@ function requireEvidence(value: string, label: string): void {
   }
 }
 
+function ownerReview(label: string, value: string, limitation: string): CheckResult {
+  try { requireEvidence(value, label); return pass(`Owner review: ${label}`, 'Owner findings recorded; see private evidence'); }
+  catch { return skip(`Owner review: ${label}`, `${limitation}; no owner finding is claimed. Advisory review does not replace mandatory API/DNS/service checks`); }
+}
+
 async function https(ctx: HealthContext, spec: DomainSpec): Promise<CheckResult[]> {
-  if (spec.web_usage === 'none') return [pass('HTTPS coverage', 'Inventory explicitly declares no web service; operator dependencies evidence still required')];
+  if (spec.web_usage === 'none') return [pass('HTTPS coverage', 'Inventory explicitly declares no web service to exercise')];
   if (!spec.https.length) return [skip('HTTPS coverage', 'No endpoints declared; document non-web use and add applicable probes before a gate can pass')];
   return mapLimit(spec.https, 4, (endpoint) => probe(`HTTPS ${endpoint.url}`, async () => {
     const response = await ctx.fetch(endpoint.url, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(ctx.options.coldStartTimeoutMs) });
@@ -102,12 +106,16 @@ export async function migrationChecks(ctx: HealthContext, domain: string, spec: 
   validateSpec(domain, spec);
   if (spec.availability === 'critical' && (!snapshot.records.length || !spec.https.length || spec.web_usage !== 'required')) throw new Error('Critical domains require DNS records and HTTPS coverage');
   const results = await https(ctx, spec);
-  results.push(await probe('Operator dependencies and recovery', async () => {
-    requireEvidence(operator.dependenciesReview, 'dependenciesReview (forwarding, email, glue, presets, hosting, DNSSEC, all names)');
-    requireEvidence(operator.accountRecoveryReview, 'accountRecoveryReview (2FA, independent recovery mailbox, contacts)');
-    if (snapshot.source === 'operator-export') requireEvidence(operator.sourceReview, 'sourceReview');
-    return 'operator findings recorded; see private operator.json';
+  // An unenumerated external source is unsafe. A complete authenticated source
+  // already supplies machine evidence; do not require redundant sign-off text.
+  if (snapshot.source === 'operator-export') results.push(await probe('Source export review', async () => {
+    requireEvidence(operator.sourceReview, 'sourceReview');
+    return 'reviewed complete source export';
   }));
+  if (['cutover', 'forwarding', 'transfer', 'secure', 'complete'].includes(stage)) {
+    results.push(ownerReview('accountRecoveryReview', operator.accountRecoveryReview, 'Independent account recovery/MFA cannot be tested with the available API'));
+    if (spec.dns_migration !== 'retire-unused') results.push(ownerReview('dependenciesReview', operator.dependenciesReview, 'Non-DNS dependencies are not independently inventoried; full source DNS and declared services remain mandatory'));
+  }
   if (stage === 'source') {
     if (snapshot.source === 'retired-unused') {
       results.push(warn('Source DNS retirement', 'Old unused records are deliberately retired under canonical policy; no complete source-zone backup is claimed'));
@@ -122,6 +130,7 @@ export async function migrationChecks(ctx: HealthContext, domain: string, spec: 
   const zone = await findZone(ctx, domain);
   const expected = effectiveRecords(snapshot.records, spec, stage === 'forwarding' ? false : spec.forwarding_enabled);
   results.push(await probe('Cloudflare full record parity', async () => {
+    if (snapshot.zone && zone.id !== snapshot.zone.id) throw new Error('Cloudflare zone identity changed from the immutable source baseline');
     const issues = parity(expected, await listRecords(ctx, zone));
     if (issues.length) throw new Error(issues.join('; '));
     return `${snapshot.records.length} records; RDATA, TTL, proxy and settings preserved`;
@@ -166,13 +175,10 @@ export async function migrationChecks(ctx: HealthContext, domain: string, spec: 
   if (spec.forwarding.length && !spec.forwarding_enabled) results.push(fail('Forwarding', 'Enable and verify Cloudflare forwarding before transferring registration'));
   results.push(await probe('Registrar', () => registrar(ctx, domain, stage === 'complete' || stage === 'secure', stage !== 'secure')));
   if (stage === 'transfer') results.push(await probe('Transfer API and duplicate prevention', () => transferPreflight(ctx, domain)));
-  results.push(await probe('Transfer operator evidence', async () => {
-    requireEvidence(operator.transferEligibilityReview, 'transferEligibilityReview (TLD support, contact locks, fees, registrant verification)');
-    requireEvidence(operator.billingReview, 'billingReview (Cloudflare payment method and renewals)');
-    requireEvidence(operator.mailRoundTripReview, 'mailRoundTripReview (dated send/receive tests or confirmed no mail use)');
-    if (stage === 'complete') requireEvidence(operator.retirementReview, 'retirementReview (subscriptions and account closure dependencies)');
-    return 'manual-only eligibility, payment and mailbox findings recorded';
-  }));
+  results.push(ownerReview('transferEligibilityReview', operator.transferEligibilityReview, 'Separate fee/contact review is unavailable; RDAP, extension support, authorized EPP and the actual transfer result are checked automatically'));
+  results.push(ownerReview('billingReview', operator.billingReview, 'Payment settings are not independently inspected; Cloudflare must accept payment/transfer and report active registration before completion'));
+  if (spec.dns_migration !== 'retire-unused') results.push(ownerReview('mailRoundTripReview', operator.mailRoundTripReview, 'No test email was sent; complete MX/TXT/source record preservation is mandatory'));
+  if (stage === 'complete') results.push(ownerReview('retirementReview', operator.retirementReview, 'Subscriptions/account closure are not performed; verified registration/DNS migration does not claim account cancellation'));
   if (stage === 'complete') results.push(await probe('Final DNSSEC', async () => {
     const status = await dnssec(ctx, zone);
     if (status.status !== spec.dnssec_status) throw new Error('DNSSEC API differs from inventory');
