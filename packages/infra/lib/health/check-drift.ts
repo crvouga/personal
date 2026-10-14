@@ -6,6 +6,7 @@
  * Initialization and credentials are the caller's job (CI: the tofu action).
  */
 import { join } from "node:path";
+import { deployableServices } from "../services.js";
 import { asRecord, errorMessage, type CommandResult, type HealthContext } from "./context.js";
 import { fail, pass, skip, type CheckResult } from "./report.js";
 import { missingFrom } from "./targets.js";
@@ -24,6 +25,20 @@ const PRESERVED_INPUTS: Readonly<Partial<Record<Root, { readonly variable: strin
   foundation: { variable: "TF_VAR_vault_image_tag", output: ["-raw", "vault_image_tag"] },
   fleet: { variable: "TF_VAR_image_tags", output: ["-json", "image_tags"] },
 };
+
+/**
+ * A service added to the inventory has no deployed revision to preserve. Give it
+ * the default tag, as CI does, so the complete-map check passes and the plan can
+ * report that the service is still to be created.
+ */
+export function withNewServices(ctx: HealthContext, deployed: string): string {
+  const tags = asRecord(JSON.parse(deployed));
+  const merged: Record<string, unknown> = { ...tags };
+  for (const service of deployableServices(ctx.config)) {
+    if (!(service.id in merged)) merged[service.id] = ctx.config.default_image_tag;
+  }
+  return JSON.stringify(merged);
+}
 
 export type PlanSummary = {
   readonly changes: readonly string[];
@@ -88,7 +103,7 @@ async function planRoot(ctx: HealthContext, root: Root): Promise<CheckResult> {
     if (output.code !== 0) {
       return fail(name, `cannot read deployed ${preserved.output[1]}: ${output.stderr.trim().split("\n").pop() ?? ""}`);
     }
-    env[preserved.variable] = output.stdout.trim();
+    env[preserved.variable] = root === "fleet" ? withNewServices(ctx, output.stdout.trim()) : output.stdout.trim();
   }
   const result = await ctx.run(
     "tofu",

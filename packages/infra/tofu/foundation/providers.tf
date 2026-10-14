@@ -16,3 +16,16 @@ provider "planetscale" {
 provider "neon" { api_key = var.neon_api_key }
 
 provider "atlas" {}
+
+# The same role, host and database local.database_url is assembled from; the
+# provider takes the unencoded parts, so nothing needs percent-decoding.
+provider "postgresql" {
+  host            = planetscale_postgres_branch_role.openbao.access_host_url
+  port            = 5432
+  database        = planetscale_postgres_branch_role.openbao.database_name
+  username        = planetscale_postgres_branch_role.openbao.username
+  password        = planetscale_postgres_branch_role.openbao.password
+  sslmode         = "require"
+  superuser       = false
+  connect_timeout = 30
+}

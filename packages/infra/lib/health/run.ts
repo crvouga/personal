@@ -2,6 +2,7 @@
 import { assert } from "@pkgs/assert";
 import { checkDns } from "./check-dns.js";
 import { checkDrift } from "./check-drift.js";
+import { checkFleetNodes } from "./check-fleet-nodes.js";
 import { checkGithub } from "./check-github.js";
 import { checkImages } from "./check-images.js";
 import { checkInventory } from "./check-inventory.js";
@@ -31,6 +32,7 @@ export const HEALTH_GROUPS: readonly HealthGroup[] = [
   { id: "images", title: "Images", covers: "public pullability of every deployed GHCR image", run: checkImages },
   { id: "github", title: "GitHub", covers: "repositories, publishers, secrets, merge gate and last CI run", run: checkGithub },
   { id: "runners", title: "CI runners", covers: "self-hosted runner fleet registrations", run: checkRunners },
+  { id: "fleet-nodes", title: "Fleet nodes", covers: "node agents reporting to the fleet API (approved, online, healthy)", run: checkFleetNodes },
   { id: "drift", title: "OpenTofu", covers: "state objects and `tofu plan` drift per root (--drift)", run: checkDrift },
 ];
 

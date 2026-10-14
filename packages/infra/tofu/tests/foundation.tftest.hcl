@@ -31,6 +31,7 @@ mock_provider "github" {
 mock_provider "planetscale" {}
 mock_provider "neon" {}
 mock_provider "atlas" {}
+mock_provider "postgresql" {}
 mock_provider "time" {}
 mock_provider "random" {}
 
@@ -71,6 +72,30 @@ run "complete_adoption_plan" {
   assert {
     condition     = length(github_actions_secret.repository) == 28 && length(output.unavailable_repository_secrets) == 0
     error_message = "GitHub-only secrets must be adopted without a duplicate plaintext Vault input."
+  }
+}
+
+run "fleet_database_is_isolated_in_its_own_schema" {
+  command = plan
+  assert {
+    condition     = postgresql_schema.fleet.name == "fleet" && postgresql_schema.fleet.if_not_exists
+    error_message = "OpenTofu's PostgreSQL provider must create the empty fleet schema, which Atlas needs to exist already."
+  }
+  assert {
+    condition     = endswith(atlas_schema.fleet.url, "&search_path=fleet") && !strcontains(atlas_schema.openbao.url, "search_path=fleet")
+    error_message = "The fleet Atlas resource must be scoped to the fleet schema; without search_path Atlas diffs and drops every schema in the shared database."
+  }
+  assert {
+    condition     = atlas_schema.fleet.hcl == file("${path.module}/../../../fleet-api/schema.hcl")
+    error_message = "The fleet schema must be read from packages/fleet-api/schema.hcl."
+  }
+  assert {
+    condition     = length(regexall("(?m)^schema \"", atlas_schema.fleet.hcl)) == 1 && strcontains(atlas_schema.fleet.hcl, "schema \"fleet\" {}")
+    error_message = "The fleet HCL must declare only the fleet schema."
+  }
+  assert {
+    condition     = atlas_schema.fleet.dev_url == var.schema_dev_url
+    error_message = "Atlas must plan against the disposable dev database."
   }
 }
 
