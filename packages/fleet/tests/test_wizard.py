@@ -824,6 +824,32 @@ class InstallHereTests(WizardCase):
         log = Path(decide.LOG["path"]).read_text()
         self.assertNotIn("hvs.CAESIwrapped", log)
 
+    def test_another_helper_cannot_replace_the_image_during_a_boot_handoff(self):
+        state = Path(os.environ["FLEET_STATE"])
+        state.mkdir(parents=True, exist_ok=True)
+        staged = state / "fleet-installer.iso"
+        original = self.iso.read_bytes()
+        staged.write_bytes(original)
+        replacement = self.root / "replacement.iso"
+        replacement.write_bytes(make_iso(fill=8))
+        entered, release = threading.Event(), threading.Event()
+        def hold_lease():
+            with leases.DeviceLease(INTERNAL["path"]):
+                entered.set()
+                release.wait(10)
+        holder = threading.Thread(target=hold_lease)
+        holder.start()
+        try:
+            self.assertTrue(entered.wait(5), "the foreign writer did not acquire its lease")
+            request = {"role": "web", "iso": str(replacement), "sha256": imaging.sha256_of(replacement), "disk_id": decide.disk_id(INTERNAL)}
+            with self.assertRaises(decide.Invariant):
+                helper.install_here(request, helper.Progress(self.root))
+            self.assertEqual(staged.read_bytes(), original, "the active writer's handoff image must remain intact")
+            self.assertEqual(self.calls, [])
+        finally:
+            release.set()
+            holder.join(5)
+
     def test_devbox_requires_a_public_key_in_the_review(self):
         status, body = self.call("POST", "/api/plan", {"mode": "here", "role": "devbox"})
         self.assertEqual(status, 409)

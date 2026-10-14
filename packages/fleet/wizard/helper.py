@@ -180,16 +180,18 @@ def install_here(request, progress):
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
     if decide.installed_for(role, directory):
         return f"This computer is already installed as {role}. Nothing was changed."
-    staged = Path(directory) / "fleet-installer.iso"
-    Path(directory).mkdir(parents=True, exist_ok=True)
-    progress.emit("stage", "Copying the verified installer next to the system")
-    if not (staged.is_file() and imaging.sha256_of(staged) == sha):
-        shutil.copyfile(iso, staged)
-    decide.invariant(imaging.sha256_of(staged) == sha, "the staged installer is not the verified image", file=str(staged))
-    progress.emit("reboot", "Restarting into the installer. This computer will erase its disk and install " + role + ".")
     with leases.DeviceLease(chosen["path"]):
+        # The handoff image is shared state too: a second helper must not
+        # replace it while the first is loading its kernel or restarting.
+        staged = Path(directory) / "fleet-installer.iso"
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        progress.emit("stage", "Copying the verified installer next to the system")
+        if not (staged.is_file() and imaging.sha256_of(staged) == sha):
+            shutil.copyfile(iso, staged)
+        decide.invariant(imaging.sha256_of(staged) == sha, "the staged installer is not the verified image", file=str(staged))
         again = decide.choose_disk(os_name, "install")
         decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before reboot", "Review the disk again.")
+        progress.emit("reboot", "Restarting into the installer. This computer will erase its disk and install " + role + ".")
         code = decide.perform_install(os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen)
     decide.invariant(code == 0, "the reboot into the installer did not start", "Make an install USB instead.", code=code)
     return f"Installing {role}."
