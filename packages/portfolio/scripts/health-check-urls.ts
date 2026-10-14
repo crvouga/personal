@@ -64,6 +64,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Hosts that answer GitHub-hosted runners with a bot-protection status. */
+const BOT_PROTECTED_STATUSES: Record<string, readonly number[]> = {
+  'oneorigin.us': [403],
+};
+
+function isBotProtected(url: string, status: number): boolean {
+  const host = new URL(url).hostname.replace(/^www\./, '');
+  return BOT_PROTECTED_STATUSES[host]?.includes(status) ?? false;
+}
+
 async function fetchOnce(
   url: string,
   method: 'HEAD' | 'GET',
@@ -77,7 +87,8 @@ async function fetchOnce(
   const isLinkedIn = url.includes('linkedin.com');
   const ok =
     response.ok ||
-    (isLinkedIn && (response.status === 999 || response.status === 405));
+    (isLinkedIn && (response.status === 999 || response.status === 405)) ||
+    isBotProtected(url, response.status);
   return { status: response.status, ok };
 }
 

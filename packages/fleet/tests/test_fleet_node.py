@@ -826,6 +826,8 @@ class NodeEntryTests(unittest.TestCase):
         hook.mkdir()
         (hook / "sitecustomize.py").write_text(
             "import os, sys\n"
+            "import hashlib, json, re, select, shutil, subprocess, tempfile, threading\n"
+            "import pathlib\n"
             "sys.platform = 'win32'\n"
             "if hasattr(os, 'uname'):\n"
             "    del os.uname\n"
