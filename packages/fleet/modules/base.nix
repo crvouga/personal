@@ -106,6 +106,9 @@
     script = ''
       exec > /dev/console
       echo "fleet revision: $(cat /etc/fleet/revision 2>/dev/null || echo unknown)"
+      echo "hostname: $(${pkgs.nettools}/bin/hostname)"
+      echo "network addresses:"
+      ${pkgs.iproute2}/bin/ip -brief address show scope global || true
       if [ -s /nix/fleet-state/secrets/age.pub ]; then
         echo "age public key:"
         cat /nix/fleet-state/secrets/age.pub
@@ -186,7 +189,7 @@
       message = "reinstall.nodes entries are 4 lowercase hex digits, the stable id.";
     }
     {
-      assertion = lib.all (role: builtins.elem role [ "ci" "web" "cache" "netboot" ]) settings.reinstall.roles;
+      assertion = lib.all (role: builtins.elem role [ "ci" "web" "cache" "netboot" "devbox" ]) settings.reinstall.roles;
       message = "reinstall.roles names a role. ci-gpu is role ci.";
     }
     {

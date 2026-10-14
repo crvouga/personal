@@ -36,9 +36,9 @@
   };
 
   repo = {
-    # TODO: real repository URL. Do not guess the owner. Every role polls main
-    # over HTTPS. There is no deploy branch and no canary branch.
-    url = "https://github.com/TODO/workspace.git";
+    # Every role polls main over HTTPS. There is no deploy branch and no
+    # canary branch.
+    url = "https://github.com/crvouga/workspace.git";
     flakeDir = "packages/fleet";
     branch = "main";
     pollSeconds = 300;

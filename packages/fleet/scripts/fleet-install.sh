@@ -1,16 +1,34 @@
 #!/usr/bin/env bash
 # Install one role from the live image. The USB ISO that CI built already
-# contains ci, web, cache, and netboot. This machine picks the disk, generates
+# contains ci, web, cache, netboot, and devbox. This machine picks the disk, generates
 # the age key, and installs. No work computer, Nix build, or SSH key is required.
 # FLEET_ALLOW_UNPRIVILEGED=1 is a unit-test seam. A real install is root.
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ] && [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
-  exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST -- "$0" "$@"
+  exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST,FLEET_ENROLL_TOKEN,FLEET_VAULT_ADDR,FLEET_DEVBOX_SSH_KEY_FILE -- "$0" "$@"
+fi
+
+# One timestamped line per step, kept on the live image and copied to the
+# installed node at the end (/nix/fleet-state/logs/install.log). Never a secret.
+log=${FLEET_INSTALL_LOG:-/run/fleet-install.log}
+note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$log" 2>/dev/null || true; }
+set -E
+on_error() {
+  note "FAIL exit $1 at line $2: $3"
+  printf 'FLEET-FAIL fleet-install stopped at line %s (exit %s): %s\nLog: %s\n' "$2" "$1" "$3" "$log" >&2
+}
+trap 'on_error $? $LINENO "$BASH_COMMAND"' ERR
+
+if [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
+  if [ "$(uname -m)" != x86_64 ] || [ ! -d /sys/firmware/efi ]; then
+    echo 'Next: this installer requires x86-64 hardware booted in UEFI mode. Enable UEFI and disable legacy/CSM boot. Nothing was wiped.' >&2
+    exit 2
+  fi
 fi
 
 usage() {
-  echo 'usage: fleet-install ci|web|cache|netboot' >&2
+  echo 'usage: fleet-install ci|web|cache|netboot|devbox' >&2
   echo 'The boot menu sets fleet.role= and the image installs that role.' >&2
   echo 'ci-gpu is not on this image.' >&2
 }
@@ -42,9 +60,9 @@ if [ -z "$role" ]; then
   role=$(role_from_cmdline "${FLEET_CMDLINE:-/proc/cmdline}")
 fi
 case "$role" in
-  ci|web|cache|netboot) ;;
+  ci|web|cache|netboot|devbox) ;;
   ci-gpu)
-    echo 'ci-gpu is not on the shared installer image. This image has ci, web, cache, and netboot.' >&2
+    echo 'ci-gpu is not on the shared installer image. This image has ci, web, cache, netboot, and devbox.' >&2
     exit 2
     ;;
   *)
@@ -69,7 +87,7 @@ if [ -z "${FLEET_KEY_DIR:-}" ] && [ -e /dev/disk/by-label/FLEET-KEY ]; then
 fi
 
 if [ -n "$key_dir" ] && [ -d "$key_dir" ]; then
-  roles=(ci web cache netboot)
+  roles=(ci web cache netboot devbox)
   for ((i = 0; i < ${#roles[@]}; i++)); do
     for ((j = i + 1; j < ${#roles[@]}; j++)); do
       left=$key_dir/${roles[$i]}.age
@@ -80,6 +98,100 @@ if [ -n "$key_dir" ] && [ -d "$key_dir" ]; then
       fi
     done
   done
+fi
+
+# fleet.enroll= is a single-use Vault wrapping token that holds this role's age
+# key. It is unwrapped before the disk is touched, so a bad or spent token
+# leaves every disk as it was. The key is kept on the live tmpfs so a retry in
+# the same boot does not need a second token.
+cmdline_value() {
+  local name=$1 file=${FLEET_CMDLINE:-/proc/cmdline}
+  [ -r "$file" ] || return 0
+  awk -v name="$name" '
+    {
+      for (i = 1; i <= NF; i++) {
+        if (index($i, name "=") == 1) { last = substr($i, length(name) + 2) }
+      }
+    }
+    END { printf "%s", last }
+  ' "$file"
+}
+
+enrolled=""
+# Prove SSH access before consuming a token or touching a disk. This public
+# key is carried by kexec, a FLEET-KEY volume, or the console for a USB boot.
+devbox_key_file=""
+if [ "$role" = devbox ]; then
+  devbox_key_file=$(mktemp)
+  if [ -n "${FLEET_DEVBOX_SSH_KEY_FILE:-}" ]; then
+    cat "$FLEET_DEVBOX_SSH_KEY_FILE" > "$devbox_key_file"
+  elif [ -n "$key_dir" ] && [ -f "$key_dir/devbox.pub" ]; then
+    cat "$key_dir/devbox.pub" > "$devbox_key_file"
+  elif [ -n "$(cmdline_value fleet.ssh)" ]; then
+    python3 -I -c 'import base64,sys; print(base64.b64decode(sys.argv[1], altchars=b"-_", validate=True).decode())' "$(cmdline_value fleet.ssh)" > "$devbox_key_file"
+  elif [ -r /dev/tty ] && [ -t 0 ]; then
+    echo 'Remote devbox: paste ONE SSH public key from your .pub file (never a private key):' >&2
+    read -r public_key
+    printf '%s\n' "$public_key" > "$devbox_key_file"
+    unset public_key
+  elif [ "${FLEET_AUTO:-}" = 1 ] && [ -c /dev/console ]; then
+    echo 'Remote devbox: paste ONE SSH public key from your .pub file (never a private key):' > /dev/console
+    read -r public_key < /dev/console
+    printf '%s\n' "$public_key" > "$devbox_key_file"
+    unset public_key
+  fi
+  if ! python3 -I -c '
+import base64,sys
+parts=open(sys.argv[1]).read().strip().split()
+if len(parts)<2 or parts[0] not in ("ssh-ed25519","ssh-rsa","ecdsa-sha2-nistp256","ecdsa-sha2-nistp384","ecdsa-sha2-nistp521"): raise ValueError("public key type")
+wire=base64.b64decode(parts[1],validate=True)
+if wire[4:4+int.from_bytes(wire[:4],"big")]!=parts[0].encode(): raise ValueError("public key wire type")
+open(sys.argv[1],"w").write(" ".join(parts[:2])+"\n")
+' "$devbox_key_file" 2>/dev/null || ! "${FLEET_SSH_KEYGEN:-ssh-keygen}" -lf "$devbox_key_file" >/dev/null 2>&1; then
+    rm -f "$devbox_key_file"
+    echo 'Next: a valid SSH public key is required for a devbox. Nothing was wiped. Use your .pub file in the wizard, or devbox.pub on a FLEET-KEY volume.' >&2
+    exit 2
+  fi
+fi
+if [ -z "$key_dir" ] || [ ! -f "$key_dir/$role.age" ]; then
+  enroll_dir=${FLEET_ENROLLED_DIR:-/run/fleet-enrolled}
+  retained=$enroll_dir/$role.age
+  token=${FLEET_ENROLL_TOKEN:-$(cmdline_value fleet.enroll)}
+  if [ -s "$retained" ]; then
+    enrolled=$retained
+  elif [ -n "$token" ]; then
+    vault=${FLEET_VAULT_ADDR:-$(cmdline_value fleet.vault)}
+    vault=${vault:-https://vault.chrisvouga.dev}
+    curl_bin=${FLEET_CURL:-curl}
+    install -d -m 0700 "$enroll_dir"
+    header=$(mktemp "$enroll_dir/header.XXXXXX")
+    printf 'X-Vault-Token: %s\n' "$token" > "$header"
+    reply=$(mktemp "$enroll_dir/reply.XXXXXX")
+    if ! "$curl_bin" -fsS --max-time 30 -X POST -H "@$header" -o "$reply" "$vault/v1/sys/wrapping/unwrap" 2>/dev/null; then
+      rm -f "$header" "$reply"
+      note 'enrollment token refused, expired, or Vault unreachable; nothing wiped'
+      echo 'Next: the enrollment token was refused or expired, or Vault is unreachable. Nothing was wiped. Mint a new single-use token and run this program again.' >&2
+      exit 1
+    fi
+    rm -f "$header"
+    key=$(python3 -I -c '
+import json, sys
+data = json.load(open(sys.argv[1])).get("data") or {}
+data = data.get("data") if isinstance(data.get("data"), dict) else data
+key = str(data.get("age_key") or "").strip()
+print(key if key.startswith("AGE-SECRET-KEY-") and key.isprintable() and " " not in key else "")
+' "$reply" 2>/dev/null || true)
+    rm -f "$reply"
+    if [ -z "$key" ]; then
+      note "enrollment token held no age key for $role; nothing wiped"
+      echo "Next: the enrollment token did not hold an age key for $role. Nothing was wiped." >&2
+      exit 1
+    fi
+    ( umask 077; printf '%s\n' "$key" > "$retained" )
+    unset key
+    enrolled=$retained
+  fi
+  unset token
 fi
 
 manifest=${FLEET_MANIFEST:-/iso/fleet-install-manifest}
@@ -120,6 +232,7 @@ again=$("$select_disk")
   exit 1
 }
 
+note "role=$role disk=$device auto=${FLEET_AUTO:-0}"
 echo "Role: $role" >&2
 echo "Disk: $device" >&2
 if [ "${FLEET_AUTO:-}" = 1 ]; then
@@ -138,14 +251,32 @@ else
   }
 fi
 
+note "partitioning with disko"
 "$disko"
+note "disko done"
+
+if [ "$role" = devbox ]; then
+  install -d -m 0700 "$mnt/nix/fleet-state/devbox"
+  install -m 0600 "$devbox_key_file" "$mnt/nix/fleet-state/devbox/authorized_keys"
+  cmp -s "$devbox_key_file" "$mnt/nix/fleet-state/devbox/authorized_keys" || {
+    echo 'FLEET-FAIL: the installed devbox SSH public key did not read back correctly.' >&2
+    exit 1
+  }
+  rm -f "$devbox_key_file"
+  note 'devbox SSH access: validated and installed for user dev'
+fi
 
 secret=$mnt/nix/fleet-state/secrets
 install -d -m 0700 "$secret"
 dest=$secret/age.key
 if [ -n "$key_dir" ] && [ -f "$key_dir/$role.age" ]; then
+  note "age key: from the FLEET-KEY volume"
   install -m 0600 "$key_dir/$role.age" "$dest"
+elif [ -n "$enrolled" ]; then
+  note "age key: from the enrollment token"
+  install -m 0600 "$enrolled" "$dest"
 else
+  note "age key: generated on this machine (no token, no FLEET-KEY volume)"
   "$age_keygen" -o "$dest"
   chmod 0600 "$dest"
   if [ -n "$key_dir" ]; then
@@ -164,11 +295,17 @@ if [ ! -s "$ssh_dir/ssh_host_ed25519_key" ]; then
   chmod 0600 "$ssh_dir/ssh_host_ed25519_key"
 fi
 
+note "nixos-install of $toplevel"
 "$nixos_install" --no-root-passwd --root "$mnt" --system "$toplevel"
+note "nixos-install done"
 
 # A finished install. A later run of the node program sees this and does not wipe again.
 printf 'role=%s\nstatus=installed\n' "$role" > "$mnt/nix/fleet-state/installed"
 chmod 0644 "$mnt/nix/fleet-state/installed"
+
+note "installed role=$role"
+install -d -m 0700 "$mnt/nix/fleet-state/logs"
+install -m 0600 "$log" "$mnt/nix/fleet-state/logs/install.log" 2>/dev/null || true
 
 echo "installed role=$role" >&2
 echo 'age public key:' >&2

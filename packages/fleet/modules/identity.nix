@@ -9,7 +9,7 @@ in {
       message = "Hostnames are assigned at boot. Leave networking.hostName empty.";
     }
     {
-      assertion = builtins.elem settings.role [ "ci" "web" "cache" "netboot" ];
+      assertion = builtins.elem settings.role [ "ci" "web" "cache" "netboot" "devbox" ];
       message = "settings.role must be a role, not a machine.";
     }
     {

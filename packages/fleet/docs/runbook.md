@@ -8,6 +8,8 @@ Adding a node does not need Nix, a git checkout, `just`, `gh`, or a second compu
 
 ## Install one machine
 
+A person who would rather click than type: [installer.md](installer.md) is the downloadable wizard (Windows, macOS, Linux). What follows is the command line the wizard is built on.
+
 The machine can already be running Windows, macOS, or Linux. Download one file onto that machine and run it. The same command is the reinstall. A machine with no operating system cannot download; write the installer to a USB disk with `bash fleet-node.sh flash` from a computer that has one, then boot that disk.
 
 1. Do the firmware and cabling steps in the checklist. Do not write a disk path, a MAC, or a name into git. The lasting boot order is network, then the internal disk.
@@ -18,14 +20,18 @@ The machine can already be running Windows, macOS, or Linux. Download one file o
    bash fleet-node.sh
    ```
 
-   Windows, from PowerShell: `curl.exe -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh` and then `bash fleet-node.sh`. The program asks for `ci`, `web`, `cache`, or `netboot`. It names that role and the internal disk in plain language. Nothing is erased until you type the line it shows. A timeout, an empty answer, a wrong line, or a USB, removable, hotplug, mounted, or ambiguous disk leaves every disk unchanged and prints one next step. If the download fails, the program exits non-zero, writes nothing, and prints one next step. `ci-gpu` is not on this image.
+   Windows, from PowerShell: `curl.exe -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh` and then `bash fleet-node.sh`. `bash fleet-node.sh ci --yes` (or `web`, `cache`, `netboot`, `devbox`) runs with no prompts; `--yes` skips only the typed confirmation and every disk refusal still applies. Without it, the program asks for `ci`, `web`, `cache`, `netboot`, or `devbox`. It names that role and the internal disk in plain language. Nothing is erased until you type the line it shows. A timeout, an empty answer, a wrong line, or a USB, removable, hotplug, or ambiguous disk leaves every disk unchanged and prints one next step. If the download fails, the program exits non-zero, writes nothing, and prints one next step. `ci-gpu` is not on this image.
 
-3. Plug in a filesystem labeled `FLEET-KEY` when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
-4. After the line matches, the machine reboots into the installer for that role. The installer skips USB, removable, hotplug, and mounted disks. It generates `/nix/fleet-state/secrets/age.key`, installs the closure, prints the public key, and reboots. The private key is not printed. The hostname is `<role>[-gpu][-highmem]-<4 hex>` from the hardware id. No host file is added.
+   Or hand it to an agent on the machine: tell it `Set this machine up as a fleet <role> node by following https://raw.githubusercontent.com/crvouga/workspace/main/packages/fleet/docs/agent-install.md`. It runs `doctor` first (read-only, every problem at once, the exact disk named), asks you to confirm that disk, and then installs. See [agent-install.md](agent-install.md).
+
+   To see what would happen without risk: `sudo bash fleet-node.sh doctor ci`. Every run writes a redacted log under the state directory (`~/.fleet/logs` before the install, `/nix/fleet-state/logs` after) and prints its path when something fails. After the node boots, `fleet-node status` on it says whether it is healthy.
+
+3. For a role with shared secrets, run `just fleet-keys` once, apply the vault root, then `just enroll <role>` and paste the shell line or the agent prompt it prints on the new node. The token is a single-use Vault wrapping token for that role's key (`--token-file PATH` or `FLEET_ENROLL_TOKEN`). The installer unwraps it before the disk is touched, so a spent or wrong token wipes nothing. The path is `vault_kv_secret_v2.fleet` in the vault OpenTofu root, fed by the `fleet_age_keys` input; apply a reviewed plan there first. Or plug in a filesystem labeled `FLEET-KEY` when this role already has a key, or when a later node of the same role must decrypt the same sops file. An existing `<role>.age` is installed. Otherwise the new key is written there. Two role files that compare equal are refused.
+4. After the line matches, the machine reboots into the installer for that role. The installer skips USB, removable, and hotplug disks, and anything mounted in the live image. It generates `/nix/fleet-state/secrets/age.key`, installs the closure, prints the public key, and reboots. The private key is not printed. The hostname is `<role>[-gpu][-highmem]-<4 hex>` from the hardware id. No host file is added.
 5. Run the same command again after a failure. Run it again after a finished install: a finished install is not wiped a second time.
 6. Pull a USB disk if this firmware would boot it again. The console prints the age public key and the host key fingerprint. Encrypt that role's secrets to the public key from any computer, then set `secretsFile`. Leave it null until the file exists. A CI node still needs its GitHub App id and installation id in `fleet.nix` before runners register. Nothing in this package changes GitHub settings.
 
-A blank disk uses the same program's `flash` action. It refuses an internal disk on Windows, macOS, and Linux. Boot the USB disk and choose the role on the installer menu. The menu installs `ci` after 5 seconds.
+A blank disk uses the same program's `flash` action. It refuses an internal disk on Windows, macOS, and Linux. Boot the USB disk and choose the role on the installer menu. The menu installs a role selected deliberately in the boot menu.
 
 `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there with the wipe already approved. It does not build and it does not read a key file. With `sshKeys` empty, the download above is the install.
 
@@ -37,7 +43,7 @@ A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks li
 
 One-time BIOS setup puts the network first and the internal disk second. On every boot the netboot server is asked what to do. With `reinstall.nodes` and `reinstall.roles` both empty, the client boots the local disk (`exit 1` back to firmware, or `sanboot` on BIOS).
 
-The netboot host does not serve an installer that can finish an install. Adding a 4-hex stable id to `reinstall.nodes`, or `ci`, `web`, `cache`, or `netboot` to `reinstall.roles`, does not install a node. Reinstall by running `fleet-node.sh` on that machine. The id `cattle.py` prints is the first 4 hex digits of sha256 of `dmi:` plus the SMBIOS UUID. `ci-gpu` is role `ci`. The installed system writes that role to `/boot/fleet-role.ipxe` on the ESP volume `SHBOOT`. The iPXE script reads it. A machine with no ESP file is selected only by its stable id. Clear a flag in a follow-up commit after `fleet-node.sh` has installed the machine. Leaving a role flagged is not an install.
+The netboot host does not serve an installer that can finish an install. Adding a 4-hex stable id to `reinstall.nodes`, or `ci`, `web`, `cache`, `netboot`, or `devbox` to `reinstall.roles`, does not install a node. Reinstall by running `fleet-node.sh` on that machine. The id `cattle.py` prints is the first 4 hex digits of sha256 of `dmi:` plus the SMBIOS UUID. `ci-gpu` is role `ci`. The installed system writes that role to `/boot/fleet-role.ipxe` on the ESP volume `SHBOOT`. The iPXE script reads it. A machine with no ESP file is selected only by its stable id. Clear a flag in a follow-up commit after `fleet-node.sh` has installed the machine. Leaving a role flagged is not an install.
 
 TODO: no smart PDU model is selected, and this repo does not call one. A remote power cycle is physical until a model and its integration are added in code. Do not invent a vendor, a host, or a credential. There is no SSH reinstall command.
 
@@ -61,7 +67,7 @@ A failed pull leaves the running generation in place. A switch that cannot reach
 
 The workflow is `.github/workflows/fleet.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
 
-- A pull request that touches this package runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, and the installer. `ci-gpu` is not in that build.
+- A pull request that touches this package runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, `devbox`, and the installer. `ci-gpu` is not in that build.
 - The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
 - The merge queue repeats the check and pushes the four toplevels to attic before the commit reaches `main`. Missing `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, or `FLEET_ATTIC_TOKEN` fails the queue. Do not invent the cache URL.
 - The queue merges with `MERGE`. The commit that was tested and cached is the commit that lands. There is no second cache push after merge.
@@ -99,7 +105,7 @@ The manager requests a 30-second hardware watchdog and a panic reboot. Recovery 
 
 After a RAM or CPU change, reboot. The slot count and the high-mem label are detected at boot. Do not edit a per-machine file. A 16-core 32 GiB machine stays at 4 slots. At 96 GiB the same formula allows 8, which is the cap. A machine that needs different software gets a capability module, not a host file.
 
-To remove a node, on that node run `fleet-remove` (or `bash fleet-node.sh remove`). It does not stop a busy CI job. It withdraws the node from new work with the credential already on the machine, and it is safe to run twice. When the machine is idle it says the machine can be powered off. If that credential is missing, it exits non-zero, does not claim the node was unregistered, and prints one next step. No per-node git edit and no SSH session from another computer are required. Role age-key rotation is two commits, described in [secrets/README.md](../secrets/README.md). Do not SSH a new key onto a running node.
+To remove a node, on that node run `fleet-remove` (or `bash fleet-node.sh remove`). It does not stop a busy CI job. It withdraws the node from new work with the credential already on the machine, and it is safe to run twice. When the machine is idle it writes `/nix/fleet-state/withdrawn`, which keeps the runner units from starting again after any reboot, and then powers the machine off by itself. Reinstalling with `fleet-node.sh` wipes that marker. If that credential is missing, it exits non-zero, does not claim the node was unregistered, and prints one next step. No per-node git edit and no SSH session from another computer are required. Role age-key rotation is two commits, described in [secrets/README.md](../secrets/README.md). Do not SSH a new key onto a running node.
 
 A pull request that touches this package runs `nix flake check`, which includes the `follow-up` VM test. That test is required. It does not add a new GitHub status name. The `Fleet` check is the one the ruleset names.
 

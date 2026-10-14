@@ -20,14 +20,14 @@
     (pkgs.writeShellScriptBin "fleet-install" ''
       export PATH=${lib.makeBinPath [
         pkgs.coreutils pkgs.bash pkgs.age pkgs.openssh pkgs.python3
-        pkgs.util-linux pkgs.gawk pkgs.sudo pkgs.diffutils
+        pkgs.util-linux pkgs.gawk pkgs.sudo pkgs.diffutils pkgs.curl
       ]}:$PATH
       exec ${pkgs.bash}/bin/bash ${../scripts/fleet-install.sh} "$@"
     '')
   ];
   users.motd = ''
     fleet installer. The boot menu chooses ci, web, cache, or netboot.
-    The default entry wipes the internal disk and installs ci.
+    Choose a role deliberately; every entry erases the internal disk.
     A failed install can be retried with: fleet-install ci
   '';
   systemd.services.fleet-auto-install = {

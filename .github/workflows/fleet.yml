@@ -53,7 +53,7 @@ jobs:
           nix flake check --no-write-lock-file --system x86_64-linux --max-jobs 2 -L
           # ci-gpu stays a nixosConfiguration. It is not a default build.
           nix build --no-link -L \
-            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot'
+            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot' 'path:.#devbox'
           nix build -o result-iso -L 'path:.#installer'
 
       - uses: actions/upload-artifact@v4
@@ -63,12 +63,59 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # The installer wizard is a program people download and double-click, so it is
+  # built and proven on every platform it ships for. Each build must pass its own
+  # --selftest (page bundled, server up, auth enforced, helper relaunch, write and
+  # read back) before it can be published.
+  wizard:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          [
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            macos-latest,
+            macos-15-intel,
+            windows-latest,
+          ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Wizard tests
+        working-directory: packages/fleet
+        run: python -B -m unittest discover -s tests -p "test_wizard.py" -v
+      - name: Click through the wizard page in a real browser
+        working-directory: packages/fleet
+        shell: bash
+        run: |
+          npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright" node wizard/ui-e2e.cjs
+      - name: Build the installer and run its self-test
+        working-directory: packages/fleet
+        run: |
+          python -m pip install "pyinstaller>=6,<7"
+          python wizard/build.py --version "${{ github.sha }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wizard-${{ matrix.os }}
+          path: packages/fleet/wizard/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
   # Actions artifacts expire. The release asset is the copy a new machine
   # downloads. pull_request skips this job; merge_group and workflow_dispatch
   # publish it. The gate requires that publish when a fleet change merges.
   publish:
-    needs: [changes, check]
-    if: always() && needs.check.result == 'success' && github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true')
+    needs: [changes, check, wizard]
+    if: always() && needs.check.result == 'success' && needs.wizard.result == 'success' && github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -78,6 +125,11 @@ jobs:
         with:
           name: fleet-installer
           path: installer-artifact
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wizard-*
+          path: wizard-artifacts
+          merge-multiple: true
       - name: Publish the installer and the one-file node entry
         env:
           GH_TOKEN: ${{ github.token }}
@@ -95,6 +147,11 @@ jobs:
               --title "Fleet installer" \
               --notes "Current installer image and the one-file node entry. Replaced when Fleet merges. This release does not expire."
           fi
+          # The wizard downloads: one per platform. Every one passed its self-test in CI.
+          find wizard-artifacts -type f -exec ls -l {} +
+          count=$(find wizard-artifacts -type f | wc -l)
+          test "$count" -ge 5
+          gh release upload fleet-installer wizard-artifacts/* --clobber
 
   cache:
     needs: [changes, check]
@@ -116,17 +173,17 @@ jobs:
             echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. A fleet commit cannot merge until the cache push succeeds.' >&2
             exit 1
           fi
-          for attr in ci web cache netboot; do
+          for attr in ci web cache netboot devbox; do
             nix build --no-link -o "result-${attr}" "path:.#${attr}"
           done
           nix run 'path:.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
-          for attr in ci web cache netboot; do
+          for attr in ci web cache netboot devbox; do
             nix run 'path:.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
           done
 
   gate:
     name: Fleet
-    needs: [changes, check, cache, publish]
+    needs: [changes, check, wizard, cache, publish]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -137,11 +194,12 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           FLEET: ${{ needs.changes.outputs.fleet }}
           CHECK: ${{ needs.check.result }}
+          WIZARD: ${{ needs.wizard.result }}
           CACHE: ${{ needs.cache.result }}
           PUBLISH: ${{ needs.publish.result }}
         run: |
           set -euo pipefail
-          echo "event=${EVENT} changes=${CHANGES} fleet=${FLEET} check=${CHECK} cache=${CACHE} publish=${PUBLISH}"
+          echo "event=${EVENT} changes=${CHANGES} fleet=${FLEET} check=${CHECK} wizard=${WIZARD} cache=${CACHE} publish=${PUBLISH}"
           if [ "${CHANGES}" != "success" ]; then
             echo "changes job ${CHANGES}" >&2
             exit 1
@@ -151,6 +209,10 @@ jobs:
           fi
           if [ "${CHECK}" != "success" ]; then
             echo "fleet check did not succeed: ${CHECK}" >&2
+            exit 1
+          fi
+          if [ "${WIZARD}" != "success" ]; then
+            echo "the installer did not build and pass its self-test on every platform: ${WIZARD}" >&2
             exit 1
           fi
           if [ "${EVENT}" = "merge_group" ] && [ "${CACHE}" != "success" ]; then

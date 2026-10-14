@@ -7,6 +7,15 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
   echo 'ShellCheck unavailable; shell syntax checks still run'
 fi
+# The downloadable file embeds decide.py and the agent runbook. A stale copy
+# would ship old behavior to every new machine.
+rebuilt=$(mktemp)
+cp scripts/fleet-node.sh "$rebuilt"
+bash scripts/bundle-fleet-node.sh
+cmp scripts/fleet-node.sh "$rebuilt" || { echo 'scripts/fleet-node.sh is stale; it was rebuilt, commit it' >&2; rm -f "$rebuilt"; exit 1; }
+rm -f "$rebuilt"
+python3 -m py_compile wizard/*.py
+if command -v node >/dev/null 2>&1; then node --check wizard/ui-e2e.cjs; fi
 cmp workflows/runner-check.yml ../../.github/workflows/runner-check.yml
 cmp workflows/fleet.yml ../../.github/workflows/fleet.yml
 cmp workflows/flake-update.yml ../../.github/workflows/flake-update.yml

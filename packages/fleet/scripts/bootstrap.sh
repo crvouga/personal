@@ -4,18 +4,18 @@
 # This computer does not build Nix and does not read an age key.
 set -euo pipefail
 
-role=${1:?role required: ci, web, cache, or netboot}
+role=${1:?role required: ci, web, cache, netboot, or devbox}
 ip=${2:?IP address required}
 [[ "$ip" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]] || { echo 'Use a DNS name or IPv4 address' >&2; exit 2; }
 
 case "$role" in
-  ci|web|cache|netboot) ;;
+  ci|web|cache|netboot|devbox) ;;
   ci-gpu)
     echo 'ci-gpu is not on the shared installer image.' >&2
     exit 2
     ;;
   *)
-    echo 'role must be ci, web, cache, or netboot' >&2
+    echo 'role must be ci, web, cache, netboot, or devbox' >&2
     exit 2
     ;;
 esac

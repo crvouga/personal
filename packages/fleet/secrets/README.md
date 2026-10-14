@@ -1,12 +1,13 @@
 # Encrypted role secrets only
 
-Do not commit plaintext, PEMs, age private keys, or decrypted example files here. Each role has its own age key and its own sops file. CI and web must never share either. Cache and netboot do not use `secrets/fleet.yaml` or `secrets/web.yaml`.
+Do not commit plaintext, PEMs, age private keys, or decrypted example files here. Each role has its own age key and its own sops file. CI and web must never share either. Cache, netboot and devbox do not use `secrets/fleet.yaml` or `secrets/web.yaml`.
 
 | Role    | Private key                                     | Encrypted file         | Settings      |
 | ------- | ----------------------------------------------- | ---------------------- | ------------- |
 | ci      | `/nix/fleet-state/secrets/age.key` on a ci node | `secrets/fleet.yaml`   | `fleet.nix`   |
 | web     | the same path on a web node                     | `secrets/web.yaml`     | `web.nix`     |
 | cache   | the same path on a cache node                   | `secrets/cache.yaml`   | `cache.nix`   |
+| devbox  | the same path on a devbox node                  | `secrets/devbox.yaml`  | `devbox.nix`  |
 | netboot | the same path on a netboot node                 | `secrets/netboot.yaml` | `netboot.nix` |
 
 `fleet-install` creates that key on the machine. The public half is `age.pub` next to it and is printed on the console. A volume labeled `FLEET-KEY` with `<role>.age` is reused instead of generating a new key, and a new key is copied onto that volume when the file is absent. `secretsFile = null` until that role's file exists, so the flake evaluates before bring-up. The private key is never built into an ISO and never printed. This package does not generate a key into git. `ci-gpu` uses the ci key.

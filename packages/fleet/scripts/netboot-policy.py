@@ -23,7 +23,7 @@ _cattle_spec = importlib.util.spec_from_file_location("cattle", Path(__file__).w
 cattle = importlib.util.module_from_spec(_cattle_spec)
 _cattle_spec.loader.exec_module(cattle)
 
-ROLES = {"ci", "web", "cache", "netboot"}
+ROLES = {"ci", "web", "cache", "netboot", "devbox"}
 
 
 def port():

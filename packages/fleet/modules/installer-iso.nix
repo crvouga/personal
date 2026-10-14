@@ -9,17 +9,17 @@
   # The shell initrd honors findiso= and copytoram. systemd in the initrd
   # mounts the ISO by label only, so a file on the existing disk cannot boot it.
   boot.initrd.systemd.enable = false;
-  # The highlighted entry is ci. The menu waits 5 seconds, then that entry
-  # boots. web, cache, and netboot are the other entries. Each specialisation
-  # appends its own fleet.role=; the installer uses the last one.
+  # Wait for a deliberate selection: booting a forgotten USB must not turn a
+  # computer into a CI runner. UEFI GRUB treats null as an infinite timeout.
+  # Legacy BIOS is refused by fleet-install before any disk is touched.
   # iso-image.nix sets this to 10 at the same priority.
-  boot.loader.timeout = lib.mkForce 5;
+  boot.loader.timeout = lib.mkForce null;
   boot.kernelParams = [ "fleet.role=ci" ];
   isoImage.appendToMenuLabel = lib.mkForce "";
-  isoImage.configurationName = "ci";
-  specialisation = lib.genAttrs [ "web" "cache" "netboot" ] (role: {
+  isoImage.configurationName = "ci - ERASES internal disk";
+  specialisation = lib.genAttrs [ "web" "cache" "netboot" "devbox" ] (role: {
     configuration = {
-      isoImage.configurationName = lib.mkForce role;
+      isoImage.configurationName = lib.mkForce "${role} - ERASES internal disk";
       boot.kernelParams = [ "fleet.role=${role}" ];
     };
   });

@@ -28,10 +28,12 @@
     webSettings = import ./web.nix;
     cacheSettings = import ./cache.nix;
     netbootSettings = import ./netboot.nix;
+    devboxSettings = import ./devbox.nix;
     ci = mkHost ciSettings ./hosts/ci.nix { };
     ciGpu = mkHost (ciSettings // { flakeAttr = "ci-gpu"; }) ./hosts/ci-gpu.nix { };
     web = mkHost webSettings ./hosts/web.nix { };
     cache = mkHost cacheSettings ./hosts/cache.nix { };
+    devbox = mkHost devboxSettings ./hosts/devbox.nix { };
     installerIso = lib.nixosSystem {
       inherit system;
       specialArgs = { settings = installerSettings; };
@@ -47,6 +49,7 @@
             web.config.system.build.toplevel
             cache.config.system.build.toplevel
             netboot.config.system.build.toplevel
+            devbox.config.system.build.toplevel
             installDisk
           ];
           isoImage.contents = [{
@@ -55,6 +58,7 @@
               web ${web.config.system.build.toplevel}
               cache ${cache.config.system.build.toplevel}
               netboot ${netboot.config.system.build.toplevel}
+              devbox ${devbox.config.system.build.toplevel}
               disko ${installDisk}
             '';
             target = "/fleet-install-manifest";
@@ -102,6 +106,7 @@
       web = web;
       cache = cache;
       netboot = netboot;
+      devbox = devbox;
       installer = installerIso;
     };
     packages.${system} = {
@@ -110,6 +115,7 @@
       web = web.config.system.build.toplevel;
       cache = cache.config.system.build.toplevel;
       netboot = netboot.config.system.build.toplevel;
+      devbox = devbox.config.system.build.toplevel;
       installer = installerIso.config.system.build.isoImage;
       default = self.packages.${system}.ci;
       disko = installDisk;
@@ -117,6 +123,7 @@
       disko-web = installDisk;
       disko-cache = installDisk;
       disko-netboot = installDisk;
+      disko-devbox = installDisk;
       attic-client = pkgs.attic-client;
       nixos-anywhere = pkgs.nixos-anywhere;
       bootstrap = bootstrapFor pkgs;
@@ -126,6 +133,8 @@
       web = self.packages.${system}.web;
       cache = self.packages.${system}.cache;
       netboot = self.packages.${system}.netboot;
+      devbox = self.packages.${system}.devbox;
+      devbox-vm = import ./tests/devbox.nix testArgs;
       installer = self.packages.${system}.installer;
       vm = import ./tests/vm.nix (testArgs // { settings = import ./fleet.nix; });
       web-vm = import ./tests/web.nix testArgs;

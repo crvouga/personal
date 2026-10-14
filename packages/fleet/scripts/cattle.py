@@ -15,7 +15,7 @@ from pathlib import Path
 
 DEVICE_RE = re.compile(r"^/dev/[A-Za-z0-9._/:-]+$")
 MAC_RE = re.compile(r"^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$")
-HOST_ROLES = {"ci", "web", "cache", "netboot"}
+HOST_ROLES = {"ci", "web", "cache", "netboot", "devbox"}
 HOST_CAPABILITIES = {"gpu"}
 # Hostname tags, in this order. The runner label for highmem is high-mem.
 TAG_ORDER = ("gpu", "highmem")
@@ -56,7 +56,7 @@ def _mounted(device):
 
 
 def select_disk(disks, links_for):
-    """Pick one internal disk. Prefer NVMe, then SATA, then SCSI, then virtio.
+    """Require one unambiguous internal disk.
 
     Removable, hotplug, USB, and anything with a mounted descendant are skipped.
     The published path is the lowest /dev/disk/by-path link when one exists.
@@ -81,6 +81,8 @@ def select_disk(disks, links_for):
         chosen.append((TRAN_RANK[tran], publish, publish))
     if not chosen:
         raise ValueError("no eligible internal disk (NVMe, then SATA; USB, removable, and mounted disks are skipped)")
+    if len(chosen) != 1:
+        raise ValueError("more than one eligible internal disk; disconnect other internal disks before installing. Nothing was wiped")
     chosen.sort()
     return chosen[0][2]
 
@@ -231,7 +233,7 @@ def capability_tags(cap_dir, ram_mib, high_mem_gib):
 
 def hostname_for(role, tags, ident):
     if role not in HOST_ROLES:
-        raise ValueError("role must be ci, web, cache, or netboot")
+        raise ValueError("role must be ci, web, cache, netboot, or devbox")
     if not re.fullmatch(r"[0-9a-f]{4}", ident or ""):
         raise ValueError("id must be 4 hex digits")
     unknown = set(tags) - set(TAG_ORDER)

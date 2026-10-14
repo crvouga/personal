@@ -1,6 +1,6 @@
 # Fleet
 
-`@pkgs/fleet` is the NixOS flake for physical machines we own and run ourselves. CI runners, web servers, an attic cache, and a netboot installer are separate roles composed from `modules/base.nix`. Cloud resources stay in `@pkgs/infra`. Nodes of one role share one closure.
+`@pkgs/fleet` is the NixOS flake for physical machines we own and run ourselves. CI runners, web servers, an attic cache, a netboot installer, and remote devboxes are separate roles composed from `modules/base.nix`. Cloud resources stay in `@pkgs/infra`. Nodes of one role share one closure.
 
 - `hosts/ci.nix`: trusted-code-only GitHub Actions runners (`fleet.nix`).
 - `hosts/web.nix`: Caddy in front of one declarative app entry per published OCI image (`web.nix`). Domains and image tags are still TODO.
@@ -23,3 +23,5 @@ After bootstrap, every node polls `main` and switches only when its system is al
 `just` and the other system tools are pinned in the repo-root `mise.toml`. Run `mise install` once. Portable checks are `bun run --filter @pkgs/fleet check`. On a Nix-enabled x86_64 Linux builder, `cd packages/fleet && just check` builds every host, the installer ISO, and the NixOS VM tests. The lock file is already included. Update pins deliberately with `nix flake update` and repeat validation.
 
 GitHub only loads reusable workflows from `.github/workflows`, so the callable runner entrypoint is [runner-check.yml](../../.github/workflows/runner-check.yml). The fleet gate is [fleet.yml](../../.github/workflows/fleet.yml), copied from this package. It runs on GitHub-hosted runners. `ci.yml` stays there too. The merge queue fills the binary cache before a fleet commit reaches `main`.
+
+For a graphical install, download a platform app from the `fleet-installer` release and follow [the wizard guide](docs/installer.md). Remote devboxes use the `dev` SSH account and retain project files under `/nix/devbox` across reboots; converting roles erases those files.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The one downloaded file installs or refuses a node. No Nix, no checkout."""
 
+import base64
 import hashlib
 import importlib.util
 import json
@@ -9,7 +10,6 @@ import stat
 import subprocess
 import tempfile
 import textwrap
-import time
 import unittest
 from pathlib import Path
 
@@ -68,6 +68,10 @@ def installer_iso_bytes():
         "LABEL boot-netboot",
         "LINUX /boot/bzImage",
         "APPEND init=/nix/store/fleet/init fleet.role=netboot",
+        "INITRD /boot/initrd",
+        "LABEL boot-devbox",
+        "LINUX /boot/bzImage",
+        "APPEND init=/nix/store/fleet/init fleet.role=devbox",
         "INITRD /boot/initrd",
         "LABEL boot-copytoram",
         "LINUX /boot/bzImage",
@@ -156,6 +160,10 @@ class NodeEntryTests(unittest.TestCase):
         self.nix_log = self.root / "nix"
         self.curl_mode = self.root / "curl-mode"
         self.curl_mode.write_text("ok")
+        self.lookup = self.root / "lookup"
+        self._lookup("ci")
+        self.efi = self.root / "efi"
+        self.efi.mkdir()
         write_executable(self.bin / "curl", f"""\
             #!/bin/bash
             out=""
@@ -167,7 +175,14 @@ class NodeEntryTests(unittest.TestCase):
             url=${{@: -1}}
             printf '%s\\n' "$url" >> {self.curl_log}
             mode=$(cat {self.curl_mode})
-            if [ "$mode" = "fail" ]; then exit 22; fi
+            if [ "$mode" = "fail" ]; then echo 'curl: (22) The requested URL returned error: 404' >&2; exit 22; fi
+            case "$url" in
+              */sys/wrapping/lookup)
+                if [ "$mode" = "bad-token" ]; then echo 'curl: (22) The requested URL returned error: 400' >&2; exit 22; fi
+                cp {self.lookup} "$out"
+                exit 0
+                ;;
+            esac
             if [ "$mode" = "expire" ]; then printf 'Artifact has expired\\n' > "$out"; exit 0; fi
             case "$url" in
               *.sha256)
@@ -244,12 +259,18 @@ class NodeEntryTests(unittest.TestCase):
             "FLEET_INSTALLER_URL": "https://fixture.example/fleet-installer.iso",
             "FLEET_INSTALLER_SHA256_URL": "https://fixture.example/fleet-installer.iso.sha256",
             "FLEET_OS": "Linux",
+            "FLEET_ARCH": "x86_64",
+            "FLEET_EUID": "0",
+            "FLEET_EFI_DIR": str(self.efi),
             "FLEET_CONFIRM_TIMEOUT": "5",
             "FLEET_ISO_FS": "ext4",
         })
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def _lookup(self, role):
+        self.lookup.write_text(json.dumps({"data": {"creation_path": f"secret/data/fleet/{role}", "creation_ttl": 3600}}))
 
     def _linux(self, disks):
         (self.root / "linux.json").write_text(json.dumps({"blockdevices": disks}))
@@ -487,11 +508,236 @@ class NodeEntryTests(unittest.TestCase):
         self.assertNotIn("AGE-SECRET-KEY", text)
         self.assertNotIn("age-secret-key", text.lower())
 
+    # ---- doctor, fail-fast, logs, status, guide -------------------------------
+
+    def logs(self):
+        return sorted((self.state / "logs").glob("fleet-node-*.log"))
+
+    def test_doctor_is_read_only_and_names_the_disk_for_an_agent(self):
+        result = self.run_entry(["doctor", "ci", "--json"])
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        report = json.loads(result.stdout)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["erases"], PLAIN)
+        self.assertEqual(report["confirm"], f"ci: {PLAIN}")
+        self.assertEqual({c["name"] for c in report["checks"]} >= {"privilege", "architecture", "firmware", "boot-tool", "network", "disk"}, True)
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse(self.dd_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+        self.assertFalse((self.state / "fleet-installer.iso").exists())
+
+    def test_doctor_reports_every_problem_at_once_with_one_next_line(self):
+        env = self.env.copy()
+        env.update({"FLEET_EUID": "1000", "FLEET_ARCH": "arm64", "FLEET_EFI_DIR": str(self.root / "nope")})
+        self.curl_mode.write_text("fail")
+        result = self.run_entry(["doctor", "ci"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        for name in ("privilege", "architecture", "firmware", "network"):
+            self.assertRegex(text, rf"FAIL\s+{name}")
+        self.assertIn("returned error: 404", text)
+        self.assertIn("Result: NOT ready, 4 problems", text)
+        self.assert_one_next(text)
+        self.assertIn("Log: ", text)
+        self.assertFalse(self.boot_log.exists())
+
+    def test_install_stops_before_the_prompt_when_a_check_fails_even_with_yes(self):
+        env = self.env.copy()
+        env["FLEET_ARCH"] = "arm64"
+        result = self.run_entry(["ci", "--yes"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertRegex(text, r"FAIL\s+architecture")
+        self.assertNotIn("Type this line exactly", text)
+        self.assertNotIn("FLEET-WIPE", text)
+        self.assert_one_next(text)
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse((self.state / "fleet-installer.iso").exists())
+
+    def test_a_missing_release_fails_before_anyone_is_asked_to_confirm(self):
+        self.curl_mode.write_text("fail")
+        result = self.run_entry(["ci"], confirm_line("ci"))
+        text = self.combined(result)
+        self.assertNotEqual(result.returncode, 0, text)
+        self.assertRegex(text, r"FAIL\s+network")
+        self.assertNotIn("Type this line exactly", text)
+        self.assert_one_next(text)
+
+    def test_a_token_for_another_role_is_refused_before_the_prompt(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        self._lookup("web")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "")
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("secret/data/fleet/web", text)
+        self.assertIn("just enroll ci", text)
+        self.assertFalse(self.boot_log.exists())
+
+    def test_a_spent_token_is_refused_before_the_prompt(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        self.curl_mode.write_text("bad-token")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "")
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 2, text)
+        self.assertIn("spent, expired", text)
+        self.assertFalse(self.boot_log.exists())
+
+    def test_checking_a_token_never_spends_it(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        result = self.run_entry(["doctor", "ci", "--token-file", str(token)])
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        urls = self.curl_log.read_text()
+        self.assertIn("/v1/sys/wrapping/lookup", urls)
+        self.assertNotIn("/unwrap", urls)
+
+    def test_no_token_is_a_loud_warning_not_a_block(self):
+        result = self.run_entry(["doctor", "ci"])
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        self.assertRegex(text, r"WARN\s+enrollment")
+        self.assertIn("just enroll ci", text)
+
+    def test_every_run_leaves_a_timestamped_log_without_secrets(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "")
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        logs = self.logs()
+        self.assertEqual(len(logs), 1)
+        body = logs[0].read_text()
+        self.assertRegex(body, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ INFO ", )
+        self.assertIn("rebooting into the installer", body)
+        self.assertIn("finished with exit code 0", body)
+        self.assertNotIn("hvs.CAESIwrapped", body)
+        self.assertNotIn("hvs.CAESIwrapped", self.combined(result))
+        self.assertEqual(oct(logs[0].stat().st_mode & 0o777), "0o600")
+
+    def test_a_failure_prints_the_log_path_and_the_log_says_why(self):
+        self.curl_mode.write_text("fail")
+        result = self.run_entry(["fetch", str(self.root / "out.iso")])
+        text = self.combined(result)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertRegex(text, r"Why: .*returned error: 404")
+        logs = self.logs()
+        self.assertEqual(len(logs), 1)
+        self.assertIn(f"Log: {logs[0]}", text)
+        self.assertIn("exit 22", logs[0].read_text())
+
+    def test_only_the_newest_logs_are_kept(self):
+        logs = self.state / "logs"
+        logs.mkdir()
+        for index in range(30):
+            (logs / f"fleet-node-20200101T0000{index:02d}Z-1.log").write_text("old\n")
+        self.run_entry(["doctor", "ci"])
+        self.assertLessEqual(len(self.logs()), 20)
+        self.assertTrue(any("doctor" in path.read_text() for path in self.logs()))
+
+    def test_vault_address_override_reaches_the_installer(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        env = self.env.copy()
+        env["FLEET_VAULT_ADDR"] = "https://vault.example"
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertIn("https://vault.example/v1/sys/wrapping/lookup", self.curl_log.read_text())
+        self.assertIn("fleet.vault=https://vault.example", self.boot_log.read_text())
+
+    def _node(self, failed="", timer="active", revision="0123456789abcdef"):
+        conf = self.root / "node.conf"
+        conf.write_text("role=ci\n")
+        rev = self.root / "revision"
+        rev.write_text(revision + "\n")
+        write_executable(self.bin / "systemctl", f"""\
+            #!/bin/bash
+            case "$1" in
+              is-active) echo {timer}; [ {timer} = active ] ;;
+              --failed) printf '{failed}' ;;
+            esac
+            """)
+        env = self.env.copy()
+        env.update({
+            "FLEET_NODE_CONF": str(conf),
+            "FLEET_REVISION": str(rev),
+            "FLEET_SYSTEMCTL": str(self.bin / "systemctl"),
+            "FLEET_HOSTNAME": "ci-a3f9",
+            "FLEET_HEALTH_FAILURE": str(self.root / "no-health-failure"),
+        })
+        return env
+
+    def test_status_of_a_healthy_node(self):
+        result = self.run_entry(["status"], "", self._node())
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        self.assertIn("ci-a3f9", text)
+        self.assertIn("0123456789ab", text)
+        self.assertIn("Result: healthy.", text)
+
+    def test_status_names_the_first_problem(self):
+        env = self._node(failed="fleet-sync.service loaded failed failed Pull\\n", timer="inactive")
+        (self.root / "no-health-failure").write_text("cache unreachable\n")
+        env["FLEET_HEALTH_FAILURE"] = str(self.root / "no-health-failure")
+        result = self.run_entry(["status"], "", env)
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 1, text)
+        self.assertRegex(text, r"FAIL\s+last-sync")
+        self.assertRegex(text, r"FAIL\s+sync-timer")
+        self.assertIn("failed: fleet-sync.service", text)
+        self.assertEqual(len([l for l in text.splitlines() if l.startswith("Next:")]), 1, text)
+
+    def test_status_of_a_machine_that_is_not_a_node(self):
+        env = self.env.copy()
+        env["FLEET_NODE_CONF"] = str(self.root / "missing.conf")
+        result = self.run_entry(["status"], "", env)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not an installed fleet node", self.combined(result))
+
+    def test_the_guide_travels_inside_the_single_file(self):
+        alone = self.root / "alone"
+        alone.mkdir()
+        target = alone / "fleet-node.sh"
+        target.write_bytes(SCRIPT.read_bytes())
+        result = subprocess.run(["bash", str(target), "guide"], capture_output=True, text=True, cwd=alone, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, (ROOT / "docs" / "agent-install.md").read_text())
+        self.assertIn("doctor ROLE --json", result.stdout)
+
+    def test_help_lists_the_commands_and_the_runbook_url(self):
+        result = self.run_entry(["help"])
+        self.assertEqual(result.returncode, 0)
+        for word in ("doctor", "status", "remove", "flash", "guide", "agent-install.md"):
+            self.assertIn(word, result.stdout)
+
+    def test_a_corrupt_state_marker_stops_the_program_instead_of_being_guessed_at(self):
+        for corrupt in ("role=toaster\nstatus=installed\n", "garbage\n", "role=ci\n"):
+            with self.subTest(corrupt=corrupt):
+                (self.state / "installed").write_text(corrupt)
+                self.boot_log.unlink(missing_ok=True)
+                result = self.run_entry(["ci", "--yes"], "")
+                text = self.combined(result)
+                self.assertEqual(result.returncode, 71, text)
+                self.assertIn("FLEET-INVARIANT state marker installed", text)
+                self.assertIn(str(self.state / "installed"), text)
+                self.assertIn("delete that file", text)
+                self.assertIn("Log: ", text)
+                self.assertNotIn("FLEET-WIPE", text)
+                self.assertFalse(self.boot_log.exists())
+
+    def test_an_invariant_never_leaks_a_secret_into_the_output_or_the_log(self):
+        (self.state / "installed").write_text("role=hvs.SECRETTOKEN123\nstatus=installed\n")
+        result = self.run_entry(["ci", "--yes"], "")
+        self.assertEqual(result.returncode, 71, self.combined(result))
+        self.assertNotIn("SECRETTOKEN123", self.combined(result))
+        for log in self.logs():
+            self.assertNotIn("SECRETTOKEN123", log.read_text())
+
     def test_embedded_copy_matches_decide_and_runs_without_a_sibling(self):
         extracted = self.root / "extracted.py"
         subprocess.check_call([
             "bash", "-c",
-            "sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' \"$1\" | sed '1d;$d;s/^# //' > \"$2\"",
+            "sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' \"$1\" | sed '1d;$d;s/^# //;s/^#$//' > \"$2\"",
             "bash", str(SCRIPT), str(extracted),
         ])
         self.assertEqual(extracted.read_bytes(), DECIDE.read_bytes())
@@ -557,12 +803,15 @@ class NodeEntryTests(unittest.TestCase):
         self.assert_one_next(self.combined(bad))
 
     def test_each_role_is_confirmed_and_records_a_marker_without_a_secret(self):
-        for role in ("ci", "web", "cache", "netboot"):
+        for role in ("ci", "web", "cache", "netboot", "devbox"):
             with self.subTest(role=role):
                 self.boot_log.unlink(missing_ok=True)
                 marker = self.state / "installed"
                 marker.unlink(missing_ok=True)
-                result = self.run_entry([role], confirm_line(role))
+                env = dict(self.env)
+                if role == "devbox":
+                    env["FLEET_DEVBOX_SSH_KEY"] = "ssh-ed25519 " + base64.b64encode(b"\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20" + b"x" * 32).decode()
+                result = self.run_entry([role], confirm_line(role), env=env)
                 text = self.combined(result)
                 self.assertEqual(result.returncode, 0, text)
                 self.assertLess(text.index(f"Role: {role}"), text.index("FLEET-WIPE"))
@@ -621,8 +870,11 @@ class NodeEntryTests(unittest.TestCase):
             env=env,
             cwd=self.root,
         )
-        time.sleep(2.5)
-        out, err = proc.communicate(timeout=5)
+        # stdin stays open until the program exits on its own timeout, so a slow
+        # start cannot turn the timeout into an end-of-input answer.
+        proc.wait(timeout=60)
+        out, err = proc.stdout.read(), proc.stderr.read()
+        proc.stdin.close()
         text = out.decode() + err.decode()
         self.assertNotEqual(proc.returncode, 0)
         self.assert_one_next(text)
@@ -646,11 +898,90 @@ class NodeEntryTests(unittest.TestCase):
         self.assertFalse(self.curl_log.exists())
         self.assertFalse(self.boot_log.exists())
 
+    def test_yes_installs_without_typing_and_never_waits_for_input(self):
+        for args in (["ci", "--yes"], ["--yes", "web"], ["install", "cache", "-y"]):
+            with self.subTest(args=args):
+                self.boot_log.unlink(missing_ok=True)
+                (self.state / "installed").unlink(missing_ok=True)
+                result = self.run_entry(args, "", timeout=15)
+                text = self.combined(result)
+                self.assertEqual(result.returncode, 0, text)
+                self.assertIn("FLEET-WIPE", text)
+                self.assertTrue(self.boot_log.exists())
+
+    def test_the_environment_can_say_yes(self):
+        env = self.env.copy()
+        env["FLEET_YES"] = "1"
+        result = self.run_entry(["netboot"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertIn("FLEET-WIPE role=netboot", self.combined(result))
+
+    def test_a_mounted_internal_disk_is_the_running_system_and_installs(self):
+        for os_name in ("Linux", "Darwin", "Windows"):
+            with self.subTest(os_name=os_name):
+                self._write_scenario("mounted")
+                self.boot_log.unlink(missing_ok=True)
+                (self.state / "installed").unlink(missing_ok=True)
+                env = self.env.copy()
+                env["FLEET_OS"] = os_name
+                result = self.run_entry(["ci", "--yes"], "", env)
+                self.assertEqual(result.returncode, 0, self.combined(result))
+                self.assertIn("FLEET-WIPE role=ci", self.combined(result))
+
+    def test_yes_does_not_override_a_disk_refusal(self):
+        for scenario in ("usb-only", "ambiguous", "hotplug", "removable"):
+            with self.subTest(scenario=scenario):
+                self._write_scenario(scenario)
+                self.boot_log.unlink(missing_ok=True)
+                result = self.run_entry(["ci", "--yes"], "")
+                self.assertNotEqual(result.returncode, 0, self.combined(result))
+                self.assertNotIn("FLEET-WIPE", self.combined(result))
+                self.assertFalse(self.boot_log.exists())
+
+    def test_a_token_file_reaches_the_installer_command_line_but_never_the_output(self):
+        token = self.root / "token"
+        token.write_text("hvs.CAESIwrapped\n")
+        result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "")
+        text = self.combined(result)
+        self.assertEqual(result.returncode, 0, text)
+        self.assertNotIn("hvs.CAESIwrapped", text)
+        load_line = next(line for line in self.boot_log.read_text().splitlines() if "--load" in line)
+        self.assertIn("fleet.enroll=hvs.CAESIwrapped", load_line)
+        self.assertTrue(load_line.endswith("fleet.role=ci"))
+
+    def test_the_token_can_come_from_the_environment(self):
+        env = self.env.copy()
+        env["FLEET_ENROLL_TOKEN"] = "hvs.CAESIwrapped"
+        self._lookup("web")
+        result = self.run_entry(["web", "--yes"], "", env)
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertIn("fleet.enroll=hvs.CAESIwrapped", self.boot_log.read_text())
+
+    def test_no_token_means_no_enroll_argument(self):
+        result = self.run_entry(["ci", "--yes"], "")
+        self.assertEqual(result.returncode, 0, self.combined(result))
+        self.assertNotIn("fleet.enroll", self.boot_log.read_text())
+
+    def test_a_token_on_the_command_line_is_refused(self):
+        for args in (["ci", "--yes", "--token", "hvs.CAESIwrapped"], ["ci", "--yes", "--token=hvs.CAESIwrapped"]):
+            with self.subTest(args=args):
+                result = self.run_entry(args, "")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("hvs.CAESIwrapped", self.combined(result))
+                self.assertFalse(self.boot_log.exists())
+
+    def test_a_malformed_token_writes_nothing(self):
+        env = self.env.copy()
+        env["FLEET_ENROLL_TOKEN"] = "has space and ; junk"
+        result = self.run_entry(["ci", "--yes"], "", env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse((self.state / "installed").exists())
+
     def test_disk_refusals_match_on_windows_macos_and_linux(self):
         cases = (
             ("usb-only", ["ci"], "removable"),
             ("ambiguous", ["ci"], "more than one internal disk"),
-            ("mounted", ["ci"], "mounted"),
             ("hotplug", ["ci"], "hotplug"),
             ("removable", ["ci"], "removable"),
             ("internal-only", ["flash"], "internal disk"),
@@ -668,9 +999,6 @@ class NodeEntryTests(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0, text)
                     self.assert_one_next(text)
                     self.assertIn(needle, text)
-                    if scenario == "mounted":
-                        self.assertIn("flash", text)
-                        self.assertNotIn("Unmount", text)
                     if os_name == "Windows":
                         command = (self.root / "powershell-cmd").read_text()
                         self.assertIn("Get-CimAssociatedInstance", command)
@@ -757,19 +1085,18 @@ class NodeEntryTests(unittest.TestCase):
             "Volumes": ["C:"],
             "Mounted": False,
         }])
+        # C: is on this disk because Windows is running from it. That is the
+        # machine being converted, not a reason to refuse.
         mounted = self.run_entry(["ci"], confirm_line("ci"), env)
         mounted_text = self.combined(mounted)
-        self.assertNotEqual(mounted.returncode, 0, mounted_text)
-        self.assertIn("mounted", mounted_text)
-        self.assertIn("flash", mounted_text)
-        self.assertNotIn("Unmount", mounted_text)
-        self.assertNotIn("FLEET-WIPE", mounted_text)
-        self.assertFalse(self.boot_log.exists())
+        self.assertEqual(mounted.returncode, 0, mounted_text)
+        self.assertIn("FLEET-WIPE role=ci", mounted_text)
         command = (self.root / "powershell-cmd").read_text()
         self.assertIn("Win32_LogicalDisk", command)
         self.assertNotIn("Mounted=$false", command)
 
         self.boot_log.unlink(missing_ok=True)
+        (self.state / "installed").unlink(missing_ok=True)
         self._windows([{
             "DeviceID": r"\\.\PHYSICALDRIVE0",
             "Model": "Samsung SSD 980",
@@ -803,8 +1130,11 @@ class NodeEntryTests(unittest.TestCase):
             env=env,
             cwd=self.root,
         )
-        time.sleep(2.5)
-        out, err = proc.communicate(timeout=5)
+        # stdin stays open until the program exits on its own timeout, so a slow
+        # start cannot turn the timeout into an end-of-input answer.
+        proc.wait(timeout=60)
+        out, err = proc.stdout.read(), proc.stderr.read()
+        proc.stdin.close()
         text = out.decode() + err.decode()
         self.assertNotEqual(proc.returncode, 0, text)
         self.assert_one_next(text)
@@ -958,8 +1288,8 @@ class NodeEntryTests(unittest.TestCase):
         broken = self.run_entry(["ci"], confirm_line("ci"))
         broken_text = self.combined(broken)
         self.assertNotEqual(broken.returncode, 0, broken_text)
-        self.assert_one_next(broken_text)
-        self.assertIn("could not be read", broken_text)
+        self.assertIn("not an ISO9660 image", broken_text)
+        self.assertEqual(broken.returncode, 71)
         self.assertNotIn("FLEET-WIPE", broken_text)
         self.assertFalse(self.boot_log.exists())
         self.assertFalse((self.state / "installed").exists())
@@ -1072,6 +1402,29 @@ class RemoveTests(unittest.TestCase):
         self.assertIn("The machine can be powered off.", text)
         self.assertEqual(self.control_log.read_text(), calls)
         self.assertFalse(self.stop_log.exists())
+
+    def test_an_idle_removal_powers_the_node_off_by_itself(self):
+        log = self.root / "poweroff"
+        self.env["FLEET_POWEROFF"] = f"touch {log}"
+        result = self.run_remove()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(log.exists())
+        self.assertTrue((self.state / "withdrawn").is_file())
+
+    def test_a_busy_node_is_not_powered_off(self):
+        (self.busy / "slot-1" / "busy").write_text("running\n")
+        log = self.root / "poweroff"
+        self.env["FLEET_POWEROFF"] = f"touch {log}"
+        result = self.run_remove()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log.exists())
+
+    def test_a_failed_power_off_still_leaves_the_node_withdrawn(self):
+        self.env["FLEET_POWEROFF"] = "false"
+        result = self.run_remove()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Power it off by hand", result.stderr)
+        self.assertTrue((self.state / "withdrawn").is_file())
 
     def test_a_busy_job_is_not_stopped(self):
         (self.busy / "slot-1" / "busy").write_text("running\n")

@@ -142,3 +142,13 @@ resource "vault_kv_secret_v2" "personal" {
     }
   }
 }
+
+# Role age keys for packages/fleet. A new node of a role receives its key from
+# a single-use wrapped read of this document (fleet-node.sh --token-file).
+resource "vault_kv_secret_v2" "fleet" {
+  for_each  = nonsensitive(toset(keys(var.fleet_age_keys)))
+  mount     = vault_mount.secret.path
+  name      = "fleet/${each.key}"
+  data_json = jsonencode({ age_key = var.fleet_age_keys[each.key] })
+  lifecycle { prevent_destroy = true }
+}

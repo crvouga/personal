@@ -175,7 +175,9 @@ in {
     wantedBy = lib.mkForce [ ];
     requires = [ "node-identity.service" ];
     after = [ "node-identity.service" ] ++ lib.optional (settings.secretsFile != null) "sops-install-secrets.service";
-    unitConfig.ConditionPathExists = "!/run/fleet/draining";
+    # fleet-remove writes /nix/fleet-state/withdrawn. It survives reboots, so a
+    # removed node never registers again until it is reinstalled.
+    unitConfig.ConditionPathExists = [ "!/run/fleet/draining" "!/nix/fleet-state/withdrawn" ];
     serviceConfig.ExecStartPre = lib.mkBefore [
       "+${token} register ${lib.escapeShellArgs [ settings.github.scope (scopeFor n) settings.github.appId settings.github.installationId "/run/secrets/github-app-key" "/run/fleet/tokens/${id}" ]}"
     ];

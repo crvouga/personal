@@ -15,7 +15,7 @@ def disk(**changes):
 
 
 class SelectDiskTests(unittest.TestCase):
-    def test_prefers_nvme_and_lowest_by_path(self):
+    def test_multiple_internal_disks_are_refused_instead_of_guessed(self):
         disks = [
             disk(path="/dev/sda", tran="sata"),
             disk(path="/dev/nvme1n1"),
@@ -27,10 +27,10 @@ class SelectDiskTests(unittest.TestCase):
             "/dev/nvme0n1": ["/dev/disk/by-path/pci-0000:01:00.0-nvme-1"],
             "/dev/sda": ["/dev/disk/by-path/pci-0000:00:1f.2-ata-1"],
         }
-        self.assertEqual(
-            cattle.select_disk(disks, lambda path: links.get(path, [])),
-            "/dev/disk/by-path/pci-0000:01:00.0-nvme-1",
-        )
+        with self.assertRaisesRegex(ValueError, "more than one eligible internal disk"):
+            cattle.select_disk(disks, lambda path: links.get(path, []))
+        self.assertEqual(cattle.select_disk([disks[2]], lambda path: links.get(path, [])),
+                         "/dev/disk/by-path/pci-0000:01:00.0-nvme-1")
 
     def test_falls_back_to_sata_then_kernel_name(self):
         chosen = cattle.select_disk([disk(path="/dev/sda", tran="sata")], lambda _path: [])
