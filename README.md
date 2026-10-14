@@ -29,7 +29,7 @@ The single [CI workflow](.github/workflows/ci.yml) validates, builds images, app
 
 The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and fleet hosting. The portfolio publishes it at [www.chrisvouga.dev/llms.txt](https://www.chrisvouga.dev/llms.txt) with an identical `/llm.txt` alias. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
 
-Local setup: `vault login`, then `bun run setup` downloads runtime settings without writing infrastructure. `bun run dev` starts the cache server on port 8787. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
+Local setup: install [mise](https://mise.jdx.dev/), then `mise install` from the repo root. Tool versions live in `mise.toml`, including `just`, `gh`, `age`, `sops`, ShellCheck, actionlint, OpenTofu 1.13.0, Bun 1.3.11, Node 22.22.3, and Atlas. Add `eval "$(mise activate zsh)"` to the shell so those tools are on `PATH`. Then `vault login` and `bun run setup` download runtime settings without writing infrastructure. `bun run dev` starts the cache server on port 8787. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 

@@ -252,7 +252,8 @@ describe("runners", () => {
 
   test("an unconfigured fleet skips", async () => {
     const results = await checkRunners(fakeContext({ readFile: () => `{ github = { appId = "TODO"; }; }` }));
-    expect(results.map((result) => result.status)).toEqual(["skip"]);
+    expect(results.map((result) => result.status)).toEqual(["skip", "skip"]);
+    expect(results[1]).toMatchObject({ name: "fleet revision", status: "skip" });
   });
 
   test("only runners carrying the fleet labels count, and one must be online", async () => {

@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       use_github_hosted:
-        description: Select ubuntu-24.04 while the self-hosted fleet is unavailable
+        description: Select ubuntu-24.04 while the fleet is unavailable
         type: boolean
         required: false
         default: false
