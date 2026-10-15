@@ -60,6 +60,21 @@ describe('DNS preservation', () => {
   test('SERVFAIL is an error even when dig exits zero', async () => {
     await expect(query(ctxForDns(() => dig([], 'SERVFAIL')), '1.1.1.1', DOMAIN, 'NS', true)).rejects.toThrow('SERVFAIL');
   });
+  test('Cloudflare mixed A/AAAA proxy flags use edge answers while API origin parity stays exact', async () => {
+    const ipv6: DnsRecord = { ...ADDRESS, type: 'AAAA', content: '2001:db8::1' };
+    const records = [{ ...ADDRESS, proxied: true }, ipv6];
+    const ctx = ctxForDns((_, name, type) => dig([`${name}. 300 IN ${type} ${type === 'A' ? '104.16.0.1' : '2606:4700::1'}`]));
+    await expect(verifyRecords(ctx, 'ns.example.dev', records, true)).resolves.toBeUndefined();
+    await expect(verifyRecords(ctx, '1.1.1.1', records, true, true)).resolves.toBeUndefined();
+    await expect(verifyRecords(ctx, 'ns.example.dev', [ADDRESS, { ...ipv6, proxied: true }], true)).resolves.toBeUndefined();
+    await expect(verifyRecords(ctx, 'ns.example.dev', [{ ...ADDRESS, proxied: true }, { ...ipv6, name: `other.${DOMAIN}` }], true)).rejects.toThrow('RRset differs');
+    await expect(verifyRecords(ctx, 'ns.example.dev', [ADDRESS, ipv6], true)).rejects.toThrow('RRset differs');
+    await expect(verifyRecords(ctx, 'ns.example.dev', records, false)).rejects.toThrow('RRset differs');
+    await expect(verifyRecords(ctxForDns(() => dig([])), 'ns.example.dev', records, true)).rejects.toThrow('answer missing');
+    await expect(verifyRecords(ctxForDns(() => dig([`${DOMAIN}. 300 IN A 104.16.0.1`], 'NOERROR', 'qr rd ra')), 'ns.example.dev', records, true)).rejects.toThrow('answer missing');
+    expect(parity(records, [records[0], { ...ipv6, content: '2001:db8::2' }])).not.toEqual([]);
+    expect(parity(records, [records[0], { ...ipv6, proxied: true }])).not.toEqual([]);
+  });
   test('record verification refuses a recursive answer masquerading as an authority', async () => {
     const ctx = ctxForDns(() => dig([`${DOMAIN}. 300 IN A 192.0.2.1`], 'NOERROR', 'qr rd ra'));
     await expect(verifyRecords(ctx, 'ns.example.dev', [ADDRESS], false)).rejects.toThrow('not authoritative');

@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { asRecord, type HealthContext } from '../health/context.js';
 import { accountId } from './cloudflare.js';
 import { privateJson } from './files.js';
+import { migrationProgress } from './progress.js';
 
 /** Reuse only the original checkout's non-secret backend identity in a worktree. */
 async function recoverBackend(ctx: HealthContext, root: string, path: string): Promise<void> {
@@ -23,7 +24,8 @@ async function recoverBackend(ctx: HealthContext, root: string, path: string): P
 }
 
 /** Read existing state; never infer that a missing/empty state is safe to adopt. */
-export async function existingState(ctx: HealthContext): Promise<void> {
+export async function existingState(ctx: HealthContext): Promise<HealthContext['env']> {
+  const env = { ...ctx.env };
   for (const root of ['foundation', 'fleet']) {
     const path = join(ctx.repoRoot, 'packages/infra/tofu', root);
     if (!ctx.fileExists(join(path, '.terraform/terraform.tfstate')) && !ctx.fileExists(join(path, 'backend.backend.json'))) await recoverBackend(ctx, root, path);
@@ -35,9 +37,11 @@ export async function existingState(ctx: HealthContext): Promise<void> {
       const inputFile = ['terraform.tfvars', 'terraform.tfvars.json'].some((name) => ctx.fileExists(join(path, name))) ||
         [...new Bun.Glob('*.auto.tfvars{,.json}').scanSync({ cwd: path })].length > 0;
       if (!ctx.env['TF_VAR_state_passphrase'] && !inputFile) throw new Error(`${root}: original TF_VAR_state_passphrase is unavailable; restore the existing encryption input, never generate a replacement`);
+      migrationProgress('state-init', `Initializing the original ${root} backend (timeout: 5 minutes)`);
       const init = await ctx.run('tofu', [`-chdir=${path}`, 'init', '-input=false', '-lockfile=readonly', '-backend-config=backend.backend.json'], { timeoutMs: 300000, env: ctx.env });
       if (init.code) throw new Error(`${root}: existing-backend initialization failed; provider output withheld`);
     }
+    migrationProgress('state-read', `Reading encrypted ${root} state (timeout: 60 seconds)`);
     const state = await ctx.run('tofu', [`-chdir=${path}`, 'show', '-json'], { timeoutMs: 60000, env: ctx.env });
     if (state.code) throw new Error(`${root}: cannot read encrypted existing state; supply its original passphrase/backend credentials`);
     let values: Readonly<Record<string, unknown>>;
@@ -45,5 +49,13 @@ export async function existingState(ctx: HealthContext): Promise<void> {
     catch { throw new Error(`${root}: invalid state response; sensitive output withheld`); }
     const module = asRecord(values.root_module);
     if (!(Array.isArray(module.resources) && module.resources.length) && !(Array.isArray(module.child_modules) && module.child_modules.length)) throw new Error(`${root}: existing state is empty; migration cannot perform initial platform adoption`);
+    if (root === 'foundation') {
+      const tag = asRecord(asRecord(values.outputs).vault_image_tag).value;
+      if (typeof tag === 'string' && tag) env['TF_VAR_vault_image_tag'] ??= tag;
+      const ready = (Array.isArray(module.resources) ? module.resources : []).map(asRecord).find((resource) => resource.address === 'github_actions_variable.migration_ready');
+      const value = asRecord(ready?.values).value;
+      if (value === 'true' || value === 'false') env['TF_VAR_migration_ready'] ??= value;
+    }
   }
+  return env;
 }

@@ -10,6 +10,7 @@ import { baseline, directory, privateJson, readJson } from './files.js';
 import { loadServicesConfig } from '../services.js';
 import { existingState } from './prerequisites.js';
 import { check, migrationExitCode, requireGate } from './runner.js';
+import { migrationProgress } from './progress.js';
 
 export type Progress = {
   readonly domain: string;
@@ -99,19 +100,28 @@ export async function domainStep(initial: HealthContext, domain: string, actions
   return workflowProgress(domain, (await ports.transferStatus(ctx, domain)).state);
 }
 
-/** Serial writes share one foundation state; one blocked domain never hides others. */
-export async function automate(ctx: HealthContext, signal?: AbortSignal): Promise<AutomationReport> {
+const AUTOMATION_PORTS = { existingState, domainStep, reload: (ctx: HealthContext) => loadServicesConfig(inventoryPath(ctx)) };
+
+/** Serial writes share one foundation state; shared drift blocks every domain. */
+export async function automate(ctx: HealthContext, signal?: AbortSignal, ports = AUTOMATION_PORTS): Promise<AutomationReport> {
   const actions: string[] = [];
   const progress: Progress[] = [];
-  try { await existingState(ctx); }
+  try { ctx = { ...ctx, env: await ports.existingState(ctx) }; }
   catch (err) { return { actions, progress: [{ domain: '*', state: 'blocked', detail: `OPENTOFU_STATE_REQUIRED: ${errorMessage(err)}` }] }; }
   for (const domain of Object.keys(ctx.config.domains ?? {})) {
     if (signal?.aborted) break;
+    migrationProgress('domain-execution', 'Checking available migration stages', domain);
     try {
       // A preceding domain may have installed its reviewed canonical candidate.
-      progress.push(await domainStep({ ...ctx, config: loadServicesConfig(inventoryPath(ctx)) }, domain, actions, DOMAIN_PORTS, signal));
+      progress.push(await ports.domainStep({ ...ctx, config: ports.reload(ctx) }, domain, actions, DOMAIN_PORTS, signal));
     } catch (err) {
       progress.push({ domain, state: 'blocked', detail: errorMessage(err) });
+      migrationProgress('stage-blocked', 'Stage blocked; preserving evidence and checking remaining actions', domain);
+      if (/^Unrelated (?:change|forwarding change) blocked:/.test(errorMessage(err))) {
+        migrationProgress('foundation-drift', 'Unrelated foundation changes block migration plans; stopping further domain writes');
+        progress.push({ domain: '*', state: 'blocked', detail: `FOUNDATION_DRIFT_REQUIRED: ${errorMessage(err)}. Shared foundation drift needs its own reviewed OpenTofu plan; no further domain writes attempted` });
+        break;
+      }
       // A partial apply leaves desired configuration intact. Stop further writes
       // to the shared state; remaining domains still get campaign health checks.
       const dir = directory(ctx.repoRoot, domain);

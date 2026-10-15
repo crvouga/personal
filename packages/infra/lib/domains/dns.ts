@@ -54,6 +54,10 @@ export async function verifyRecords(ctx: HealthContext, server: string, records:
     if ((!recursive && !reply.authoritative) || answers(reply, domain, 'SOA').length === 0) throw new Error(`${server}: empty target zone has no authoritative SOA`);
     return;
   }
+  // Cloudflare proxies every A/AAAA at a hostname if any sibling is proxied,
+  // even when that record's own API proxy flag remains false. Origins and
+  // individual proxy flags are still verified by the full API parity check.
+  const proxiedNames = new Set(records.filter((record) => record.proxied && ['A', 'AAAA'].includes(record.type)).map((record) => record.name));
   const groups = new Map<string, DnsRecord[]>();
   for (const record of records) {
     const key = `${record.name} ${record.type}`;
@@ -61,7 +65,7 @@ export async function verifyRecords(ctx: HealthContext, server: string, records:
   }
   for (const group of groups.values()) {
     const first = group[0];
-    const flattened = cloudflare && (first.proxied || first.settings?.flatten_cname || (first.type === 'CNAME' && first.name === domain));
+    const flattened = cloudflare && (first.proxied || (['A', 'AAAA'].includes(first.type) && proxiedNames.has(first.name)) || first.settings?.flatten_cname || (first.type === 'CNAME' && first.name === domain));
     if (flattened) {
       const reply = await query(ctx, server, first.name, 'A', recursive);
       if ((!recursive && !reply.authoritative) || answers(reply, first.name, 'A').length === 0) throw new Error(`${server}: ${first.name} flattened/proxied answer missing`);

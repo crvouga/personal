@@ -5,6 +5,7 @@ import { migrationChecks } from './checks.js';
 import { baseline, digest, directory, evidence, privateJson } from './files.js';
 import { validateSpec, type DomainSpec, type Stage } from './model.js';
 import { observe } from './observations.js';
+import { migrationProgress } from './progress.js';
 
 /** Owner review notes are advisory; every actual required probe must pass. */
 export function migrationExitCode(report: HealthReport, spec: DomainSpec): number {
@@ -16,6 +17,7 @@ export async function check(ctx: HealthContext, domain: string, stage: Stage): P
   const spec = ctx.config.domains?.[domain];
   if (!spec) throw new Error(`${domain}: add this domain to locals.inventory.domains first`);
   validateSpec(domain, spec);
+  migrationProgress('gate', `Checking ${stage} migration prerequisites`, domain);
   const start = ctx.now();
   const snapshot = baseline(ctx.repoRoot, domain);
   if (stage !== 'source') await observe(ctx, domain);

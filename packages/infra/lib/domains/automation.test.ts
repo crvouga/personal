@@ -4,7 +4,7 @@ import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fakeContext } from '../health/fixtures.test-support.js';
 import { fail, pass, skip, type HealthReport } from '../health/report.js';
-import { domainStep, gateProgress, workflowProgress } from './automation.js';
+import { automate, domainStep, gateProgress, workflowProgress } from './automation.js';
 import { migrationChecks } from './checks.js';
 import { candidateFlag, execute, inventoryPath, reviewCandidate } from './execution.js';
 import { baseline, directory, evidence, initialize, privateJson, readJson } from './files.js';
@@ -33,6 +33,25 @@ function fixture() {
 const health = (...results: ReturnType<typeof pass>[]): HealthReport => ({ zone: DOMAIN, startedAt: '', durationMs: 0, groups: [{ id: 'domains', title: '', durationMs: 0, results }] });
 
 describe('unattended domain migration', () => {
+  test('shared foundation drift stops redundant plans while a domain-specific failure allows independent work', async () => {
+    const { ctx, clean } = fixture();
+    try {
+      const context = { ...ctx, config: { ...ctx.config, domains: { [DOMAIN]: SPEC, 'other.dev': SPEC } } };
+      for (const shared of [true, false]) {
+        let calls = 0;
+        const result = await automate(context, undefined, {
+          existingState: async () => ctx.env, reload: () => context.config,
+          domainStep: async (_ctx, domain) => {
+            calls++;
+            if (domain === DOMAIN) throw new Error(shared ? 'Unrelated change blocked: atlas_schema.openbao' : 'Selected domain baseline differs');
+            return { domain, state: 'complete', detail: 'independent domain verified' };
+          },
+        });
+        expect(calls).toBe(shared ? 1 : 2);
+        expect(result.progress.some((row) => row.detail.includes('FOUNDATION_DRIFT_REQUIRED'))).toBe(shared);
+      }
+    } finally { clean(); }
+  });
   test('owner codes load as one private batch, reject symlinks/public permissions, and never leak malformed contents', () => {
     const { ctx, clean } = fixture();
     try {

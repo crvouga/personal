@@ -8,6 +8,7 @@ import { parseRecords, settingsKey } from './records.js';
 import { requireGate } from './runner.js';
 import { effectiveRecords } from './forwarding.js';
 import { acceptedTransfer } from './transfers.js';
+import { migrationProgress } from './progress.js';
 
 const fileHash = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
 const rootArg = (ctx: HealthContext): string => `-chdir=${join(ctx.repoRoot, 'packages/infra/tofu/foundation')}`;
@@ -104,12 +105,15 @@ function planPath(ctx: HealthContext, domain: string, name: string): string {
 }
 
 export async function plan(ctx: HealthContext, domain: string, purpose: 'source' | 'forwarding' | 'transfer' | 'secure', name: string) {
+  migrationProgress('plan-checks', `Checking critical website continuity before the ${purpose} plan`, domain);
   await criticalHealth(ctx);
   await requireGate(ctx, domain, purpose);
   const path = planPath(ctx, domain, name);
   if (existsSync(path) || existsSync(`${path}.json`)) throw new Error('Plan exists; choose a new name');
+  migrationProgress('opentofu-plan', `Planning ${purpose} changes across foundation serially; this can take several minutes (timeout: 10 minutes)`, domain);
   const result = await ctx.run('tofu', [rootArg(ctx), 'plan', '-input=false', '-parallelism=1', `-out=${path}`], { timeoutMs: 600000, env: ctx.env });
   if (result.code !== 0) throw new Error('OpenTofu plan failed. Run bun run infra plan to diagnose securely; provider output withheld');
+  migrationProgress('plan-review', 'Reviewing the encrypted saved plan against the domain scope policy', domain);
   const summary = await inspect(ctx, path, domain, purpose);
   const sha256 = fileHash(path);
   privateJson(`${path}.json`, {
@@ -121,6 +125,7 @@ export async function plan(ctx: HealthContext, domain: string, purpose: 'source'
 }
 
 export async function apply(ctx: HealthContext, domain: string, name: string, reviewedHash: string, beforeApply?: () => void, afterApply?: () => void) {
+  migrationProgress('apply-checks', 'Verifying saved plan identity and critical website continuity before apply', domain);
   const path = planPath(ctx, domain, name);
   const metadata = asRecord(readJson(`${path}.json`));
   if (metadata.domain !== domain || !['source', 'forwarding', 'transfer', 'secure'].includes(String(metadata.purpose))) throw new Error('Plan metadata mismatch');
@@ -135,10 +140,12 @@ export async function apply(ctx: HealthContext, domain: string, name: string, re
   let code = 1;
   let executionError = false;
   try {
+    migrationProgress('opentofu-apply', 'Applying the reviewed saved plan serially (timeout: 10 minutes)', domain);
     code = (await ctx.run('tofu', [rootArg(ctx), 'apply', '-input=false', '-parallelism=1', path], { timeoutMs: 600000, env: ctx.env })).code;
     if (code === 0) afterApply?.();
   } catch { executionError = true; }
   // Even a partial failed apply is followed by health probes; never auto-retry a mutation.
+  migrationProgress('post-apply', 'Verifying critical websites, DNS and the completed stage after apply', domain);
   const health = await Promise.allSettled([
     criticalHealth(ctx),
     requireGate(ctx, domain, metadata.purpose === 'source' ? 'baseline' : ['forwarding', 'transfer'].includes(String(metadata.purpose)) ? 'dns-live' : 'complete'),

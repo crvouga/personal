@@ -4,6 +4,7 @@ import { errorMessage } from '../lib/health/context.js';
 import { campaignLock } from '../lib/domains/lock.js';
 import { migrate, type MigrationUpdate } from '../lib/domains/migration.js';
 import { migrationContext } from '../lib/domains/runtime.js';
+import { migrationProgress, progressLine, withMigrationProgress } from '../lib/domains/progress.js';
 
 const HELP = `Usage: bun migrate-domains-to-cloudflare [--audit | --once] [--json]
   Default: prepare, adopt DNS, review/apply scoped saved OpenTofu plans,
@@ -13,7 +14,8 @@ const HELP = `Usage: bun migrate-domains-to-cloudflare [--audit | --once] [--jso
   --once   advance every available stage once; do not stay polling
   --interval-seconds <60..3600>  default 60
   --deadline-seconds <60+>      optional foreground polling deadline
-  --json   machine-readable progress (JSON lines while polling)
+  --json   machine-readable stage/heartbeat events and reports (JSON lines)
+  Prints stages immediately and a heartbeat every 15 seconds during long work.
 Exits 2 for unresolved prerequisites/owner actions, 0 only for verified completion.
 Squarespace unlock/EPP/delegation need supported authenticated owner access.
 Docs: packages/infra/docs/domain-migration.md`;
@@ -52,8 +54,14 @@ async function main(): Promise<number> {
   process.once('SIGINT', interrupt);
   process.once('SIGTERM', interrupt);
   try {
-    const result = await migrate(await migrationContext(repo), { audit, once, intervalSeconds, deadlineSeconds }, (value) => output(value, json), stop.signal);
-    return result.report.status === 'complete' ? 0 : 2;
+    return await withMigrationProgress((event) => {
+      if (json) console.log(JSON.stringify(event));
+      else console.error(progressLine(event));
+    }, async () => {
+      migrationProgress('credentials', 'Loading existing credentials and private OpenTofu inputs');
+      const result = await migrate(await migrationContext(repo), { audit, once, intervalSeconds, deadlineSeconds }, (value) => output(value, json), stop.signal);
+      return result.report.status === 'complete' ? 0 : 2;
+    });
   } finally {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', interrupt);

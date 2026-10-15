@@ -14,6 +14,7 @@ import { effectiveRecords } from './forwarding.js';
 import { parity } from './records.js';
 import { verifyRecords } from './dns.js';
 import { RESOLVERS } from './model.js';
+import { migrationProgress } from './progress.js';
 
 export type Blocker = { readonly domain: string; readonly code: string; readonly detail: string };
 export type CampaignReport = {
@@ -49,15 +50,18 @@ async function prepareDomain(ctx: HealthContext, domain: string, zones: readonly
   let snapshot;
   if (existsSync(join(dir, 'baseline.json'))) {
     snapshot = baseline(ctx.repoRoot, domain);
+    migrationProgress('dns-observations', 'Checking DNSSEC absence and delegation cache observations', domain);
     await observe(ctx, domain);
   }
   if (!zones.some((zone) => zone.name === domain)) blockers.push({ domain, code: 'DNS_ADOPTION_REQUIRED', detail: spec.dns_migration === 'retire-unused'
     ? 'No Cloudflare zone in the account; reviewed OpenTofu adoption of the canonical empty unused zone must precede delegation'
     : 'No Cloudflare zone in the account; complete source export and reviewed OpenTofu adoption must precede delegation' });
+  migrationProgress('domain-verification', 'Checking registration, authoritative DNS and declared HTTPS endpoints', domain);
   const finalChecks = [...await checkDomains({ ...ctx, config: { ...ctx.config, domains: { [domain]: { ...spec, manage_registration: true } } } })];
   const zone = zones.find((zone) => zone.name === domain);
   if (zone && snapshot) {
     const expected = effectiveRecords(snapshot.records, spec);
+    migrationProgress('baseline', 'Verifying complete DNS baseline and API record parity', domain);
     finalChecks.push(await probe(`${domain}: complete baseline preservation`, async () => {
       const issues = parity(expected, await listRecords(ctx, zone));
       if (issues.length) throw new Error(issues.join('; '));
@@ -79,14 +83,18 @@ export async function campaign(ctx: HealthContext): Promise<{ report: CampaignRe
   mkdirSync(root, { recursive: true, mode: 0o700 });
   // This entry point only reads remote state. Immutable evidence uses exclusive
   // writes and reports use unique filenames; interrupted runs need no lock cleanup.
+    migrationProgress('tools', 'Checking dig and the pinned OpenTofu version');
     const blockers = await toolBlockers(ctx);
     let zones: readonly Zone[] = [];
+    migrationProgress('cloudflare-zones', 'Listing Cloudflare account zones (read-only)');
     try { accountId(ctx); zones = await listZones(ctx); }
     catch (err) { blockers.push({ domain: '*', code: 'CLOUDFLARE_READ_ACCESS_REQUIRED', detail: errorMessage(err) }); }
     const snapshots: { domain: string; records: number; source: string }[] = [];
     const verified: string[] = [];
     if (!blockers.some((blocker) => ['TOOL_REQUIRED', 'CLOUDFLARE_READ_ACCESS_REQUIRED'].includes(blocker.code))) {
-      const prepared = await mapLimit(Object.keys(ctx.config.domains ?? {}), 2, async (domain) => {
+      const domains = Object.keys(ctx.config.domains ?? {});
+      const prepared = await mapLimit(domains, 2, async (domain) => {
+        migrationProgress('domain-check', `Starting domain checks (${domains.indexOf(domain) + 1}/${domains.length})`, domain);
         try { const result = await prepareDomain(ctx, domain, zones, blockers); if (result.verified) verified.push(domain); return result.snapshot; }
         catch (err) { blockers.push({ domain, code: 'PREPARATION_FAILED', detail: errorMessage(err) }); return undefined; }
       });
@@ -101,6 +109,9 @@ export async function campaign(ctx: HealthContext): Promise<{ report: CampaignRe
     const stamp = `${Date.now()}-${crypto.randomUUID()}`;
     const path = join(root, `campaign-${stamp}.json`);
     privateJson(path, report);
-    if (!blockers.some((blocker) => blocker.code === 'TOOL_REQUIRED')) privateJson(join(root, `public-discovery-${stamp}.json`), await discover(ctx));
+    if (!blockers.some((blocker) => blocker.code === 'TOOL_REQUIRED')) {
+      migrationProgress('public-discovery', 'Collecting public DNS, RDAP and HTTPS observations (read-only)');
+      privateJson(join(root, `public-discovery-${stamp}.json`), await discover(ctx));
+    }
     return { report, path };
 }
