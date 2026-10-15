@@ -75,6 +75,7 @@ resource "graphql_mutation" "railway_environment_clearance" {
     query EnvironmentClearance($environmentId: String!) {
       environment(id: $environmentId) {
         id
+        projectId
         clearanceDefault
       }
     }

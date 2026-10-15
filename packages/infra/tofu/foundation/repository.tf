@@ -130,7 +130,8 @@ resource "github_repository" "application" {
   security_and_analysis {
     secret_scanning { status = each.value.secret_scanning }
     secret_scanning_push_protection { status = each.value.secret_scanning_push_protection }
-    secret_scanning_non_provider_patterns { status = "disabled" }
+    # GitHub 6.13.0 exposes non-provider patterns in its schema but omits it
+    # from both API writes and state reads, so declaring it causes endless drift.
   }
   lifecycle {
     prevent_destroy = true
@@ -355,9 +356,6 @@ resource "github_repository" "workspace" {
     }
     secret_scanning_push_protection {
       status = local.merge_gate.repo_settings.security_and_analysis.secret_scanning_push_protection.status
-    }
-    secret_scanning_non_provider_patterns {
-      status = local.merge_gate.repo_settings.security_and_analysis.secret_scanning_non_provider_patterns.status
     }
   }
   lifecycle { prevent_destroy = true }
