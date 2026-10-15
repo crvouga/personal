@@ -1,11 +1,69 @@
 import { expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 
 const workflow = parse(
   readFileSync(join(import.meta.dirname, '../.github/workflows/ci.yml'), 'utf8')
 );
+
+function changeFlags(event: string, serviceId: string, changed: boolean) {
+  const directory = mkdtempSync(join(tmpdir(), 'ci-flags-'));
+  const output = join(directory, 'output');
+  const step = workflow.jobs.changes.steps.find(
+    (candidate: { id?: string }) => candidate.id === 'flags'
+  );
+  try {
+    const result = Bun.spawnSync(['bash', '-c', step.run], {
+      env: {
+        ...process.env,
+        ...Object.fromEntries(Object.keys(step.env).map((key) => [key, ''])),
+        EVENT_NAME: event,
+        INPUT_SERVICE_ID: serviceId,
+        FILTER_CHECK: String(changed),
+        FILTER_RUNNER_FLEET: String(changed),
+        FILTER_FLEET_E2E: String(changed),
+        GITHUB_OUTPUT: output,
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    return Object.fromEntries(
+      readFileSync(output, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => line.split('='))
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+test('sibling publishing cannot schedule workspace fleet checks from caller paths', () => {
+  const outputs = workflow.jobs.changes.outputs;
+  expect(outputs.runner_fleet).toBe('${{ steps.flags.outputs.runner_fleet }}');
+  expect(outputs.fleet_e2e).toBe('${{ steps.flags.outputs.fleet_e2e }}');
+  expect(changeFlags('push', 'mockingbird-docs', true)).toMatchObject({
+    workflow_call: 'true',
+    publish: 'true',
+    check: 'false',
+    runner_fleet: 'false',
+    fleet_e2e: 'false',
+  });
+});
+
+for (const event of ['push', 'pull_request', 'merge_group']) {
+  test(`${event} preserves native fleet path filters`, () => {
+    for (const changed of [true, false]) {
+      expect(changeFlags(event, '', changed)).toMatchObject({
+        workflow_call: 'false',
+        check: String(changed),
+        runner_fleet: String(changed),
+        fleet_e2e: String(changed),
+      });
+    }
+  });
+}
 
 function dependencies(name: string, visited = new Set<string>()): Set<string> {
   for (const needed of workflow.jobs[name].needs ?? []) {
