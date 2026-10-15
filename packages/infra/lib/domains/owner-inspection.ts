@@ -29,7 +29,7 @@ async function snapshot(page: Page) {
 }
 
 /** Existing sign-in is reused in place; no credentials/cookies are exported. */
-export async function inspectOwnerBrowser(repo: string, domains: readonly string[], restartBrowser = false, progress: (detail: string) => void = () => undefined): Promise<OwnerInspection> {
+export async function inspectOwnerBrowser(repo: string, domains: readonly string[], restartBrowser = false, progress: (detail: string) => void = () => undefined, inspectEditor = false): Promise<OwnerInspection> {
   const profile = join(repo, '.domain-migration/owner-chrome');
   const info = lstatSync(profile);
   if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) || (process.getuid && info.uid !== process.getuid())) throw new Error('Owner Chrome profile must be a private directory owned by the current user');
@@ -84,6 +84,14 @@ export async function inspectOwnerBrowser(repo: string, domains: readonly string
         if (label === 'Domain Nameservers') await page.getByRole('button', { name: /edit|custom nameservers|change nameservers/i }).first().waitFor({ timeout: 30000 });
         await page.waitForLoadState('networkidle', { timeout: 20000 });
         observed.push(await snapshot(page));
+        if (label === 'Domain Nameservers' && inspectEditor) {
+          // Open local edit controls only. All mutating network requests remain blocked.
+          const edit = page.getByRole('button', { name: /^(use custom nameservers|edit|edit nameservers)$/i });
+          if (await edit.count() !== 1) throw new Error('Nameserver editor entry point is ambiguous');
+          await edit.click();
+          await page.getByRole('textbox').first().waitFor({ timeout: 15000 });
+          observed.push(await snapshot(page));
+        }
       }
     }
     const evidencePath = join(repo, `.domain-migration/owner-inspection-${Date.now()}-${crypto.randomUUID()}.json`);
