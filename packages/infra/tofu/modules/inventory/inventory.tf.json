@@ -75,7 +75,7 @@
           "dns_migration": "retire-unused"
         },
         "emulates.dev": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -98,8 +98,117 @@
           "dns_migration": "retire-unused"
         },
         "gamezilla.app": {
-          "manage_zone": false,
-          "records": {},
+          "manage_zone": true,
+          "records": {
+            "cname-aa22fd4baba4f989": {
+              "name": "_90814a15cb76e4130179d78a53618242.emqx.gamezilla.app",
+              "type": "CNAME",
+              "ttl": 1,
+              "proxied": false,
+              "content": "_02ebfb8b768d68f8c2ea626ace5fa0d9.wzccmgtwzk.acm-validations.aws",
+              "settings": {
+                "flatten_cname": false
+              },
+              "id": "b25633fe3ca70d8838d10c84ce68da5e"
+            },
+            "cname-c172393c318050dd": {
+              "name": "_bb57350ce78afdc32d49caed83b99d7f.emqx-dev.gamezilla.app",
+              "type": "CNAME",
+              "ttl": 1,
+              "proxied": false,
+              "content": "_a762855eda8952bcc164c6242c7bca48.wzccmgtwzk.acm-validations.aws",
+              "settings": {
+                "flatten_cname": false
+              },
+              "id": "711ae73b23306c591827397d9bf24d86"
+            },
+            "cname-dd97fa1e255b24cb": {
+              "name": "emqx-dev.gamezilla.app",
+              "type": "CNAME",
+              "ttl": 1,
+              "proxied": false,
+              "content": "a3jvd00sa8nzz8-ats.iot.us-east-1.amazonaws.com",
+              "settings": {
+                "flatten_cname": false
+              },
+              "id": "06c8cf5f58ae156d1578caf6d7ef6405"
+            },
+            "cname-8c528b048396effb": {
+              "name": "emqx.gamezilla.app",
+              "type": "CNAME",
+              "ttl": 1,
+              "proxied": false,
+              "content": "a3jvd00sa8nzz8-ats.iot.us-east-1.amazonaws.com",
+              "settings": {
+                "flatten_cname": false
+              },
+              "id": "62894430f6090bf1f72d73e43ba991ef"
+            },
+            "txt-6940d8825fc54cb8": {
+              "name": "_cf-probe.gamezilla.app",
+              "type": "TXT",
+              "ttl": 1,
+              "proxied": false,
+              "content": "probe",
+              "id": "8561b4d9539f885b0609ca70e0556e90"
+            },
+            "aaaa-0e8d2a4492bfff94": {
+              "name": "api-dev.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "888e7fde8f88fb249f7d602f165ba342"
+            },
+            "aaaa-09ad6228becae790": {
+              "name": "api.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "b3221d3ff0f4ed1c97958c6bbb7edb25"
+            },
+            "aaaa-92daf1bf3b7f06fb": {
+              "name": "auth.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "4e16a83bc0b83274801adea0e3950442"
+            },
+            "aaaa-d3dca6627625ab3a": {
+              "name": "dev.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "6a7071e5b2aae89ded30dda5c36e66f3"
+            },
+            "aaaa-8b3ba6648475a571": {
+              "name": "gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "1d07e285162e95b0417bf37ff68bac8b"
+            },
+            "aaaa-54b29a337bd7d3b6": {
+              "name": "www-dev.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "4dcfa2a57c08d3155b8eecfb3c3e2db9"
+            },
+            "aaaa-a403357a37d8e6f2": {
+              "name": "www.gamezilla.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "100::",
+              "id": "75b6877ab322a6f9b33c93e417889fc5"
+            }
+          },
           "dnssec_status": "disabled",
           "manage_registration": false,
           "transfer_enabled": false,
@@ -119,10 +228,11 @@
             }
           ],
           "availability": "critical",
-          "dns_migration": "preserve"
+          "dns_migration": "preserve",
+          "existing_zone_id": "d8dfc0697e9f709bb5fdd9fede051258"
         },
         "imageresizerservice.com": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -152,7 +262,7 @@
           "dns_migration": "retire-unused"
         },
         "linkpage.app": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -186,8 +296,25 @@
           "dns_migration": "retire-unused"
         },
         "moviefinder.app": {
-          "manage_zone": false,
-          "records": {},
+          "manage_zone": true,
+          "records": {
+            "a-f3b832b7b4ffd5ce": {
+              "name": "moviefinder.app",
+              "type": "A",
+              "ttl": 1,
+              "proxied": true,
+              "content": "192.0.2.1",
+              "id": "219760adc16f8dda6d8cdde38f8da0bd"
+            },
+            "aaaa-af6bfaa788cbc384": {
+              "name": "www.moviefinder.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "2a09:8280:1::11c:b7cf:0",
+              "id": "a99538f44b05cf3e3b61c48c5e0eedde"
+            }
+          },
           "dnssec_status": "disabled",
           "manage_registration": false,
           "transfer_enabled": false,
@@ -207,11 +334,45 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "dns_migration": "retire-unused",
+          "existing_zone_id": "dc6fa504265ad50cd7b29a7dc7a002c3"
         },
         "normalizer.app": {
-          "manage_zone": false,
-          "records": {},
+          "manage_zone": true,
+          "records": {
+            "a-2dada112d1e91d08": {
+              "name": "normalizer.app",
+              "type": "A",
+              "ttl": 1,
+              "proxied": true,
+              "content": "192.0.2.1",
+              "id": "65452576d67dcee87ebd10631214e429"
+            },
+            "a-63e5971ea7c2bf4e": {
+              "name": "www.normalizer.app",
+              "type": "A",
+              "ttl": 1,
+              "proxied": true,
+              "content": "192.0.2.1",
+              "id": "984f2a179f9a9b9c4c9768e30a352b82"
+            },
+            "aaaa-9077db665e58134f": {
+              "name": "normalizer.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": true,
+              "content": "2a09:8280:1::123:996:0",
+              "id": "72f32f9e7c5c7946d86311d5715aa9f3"
+            },
+            "aaaa-deb4b9ae559b030d": {
+              "name": "www.normalizer.app",
+              "type": "AAAA",
+              "ttl": 1,
+              "proxied": false,
+              "content": "2a09:8280:1::123:996:0",
+              "id": "f106c62c78073fed36392f5129cd307d"
+            }
+          },
           "dnssec_status": "disabled",
           "manage_registration": false,
           "transfer_enabled": false,
@@ -232,10 +393,11 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "dns_migration": "retire-unused",
+          "existing_zone_id": "60229ba1b1edb917a04a5f3b0d72d1e4"
         },
         "patchdb.dev": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -258,7 +420,7 @@
           "dns_migration": "retire-unused"
         },
         "tabular.chat": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -281,7 +443,7 @@
           "dns_migration": "retire-unused"
         },
         "thehiccups.band": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -304,7 +466,7 @@
           "dns_migration": "retire-unused"
         },
         "tripolar.band": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
@@ -328,7 +490,7 @@
           "dns_migration": "retire-unused"
         },
         "voteonit.app": {
-          "manage_zone": false,
+          "manage_zone": true,
           "records": {},
           "dnssec_status": "disabled",
           "manage_registration": false,
