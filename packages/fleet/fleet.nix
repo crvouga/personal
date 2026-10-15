@@ -7,14 +7,9 @@ in {
   # Set true only in the commit that adds the sops secret age-key-next.
   rotateAgeKey = false;
   reboot = shared.reboot // { drainCommand = "fleet-drain"; };
-  github = {
-    scope = "organization"; # or "repository"
-    organization = "TODO";
-    repositories = [ ]; # [ "owner/private-project" ]; slots are divided round-robin
-    runnerGroup = null; # organization-only; operator configures private-only access
-    appId = "TODO";
-    installationId = "TODO";
-  };
+  # One data file for bootstrap registration. Runtime repository assignments
+  # can override this through the fleet API's Postgres-backed settings.
+  github = builtins.fromJSON (builtins.readFile ./settings/github.json);
   containers = false; # opt into rootless per-slot Podman and its Docker-compatible socket
   secretsFile = null; # set to ./secrets/fleet.yaml AFTER encrypting it
   cache = {

@@ -1,5 +1,5 @@
 /**
- * Self-hosted runner fleet. The fleet is defined by `fleet.nix`, not OpenTofu;
+ * Self-hosted runner fleet. Bootstrap registration data lives in JSON;
  * its GitHub registrations are the only state observable from here.
  */
 import { join } from "node:path";
@@ -7,7 +7,7 @@ import { asRecord, asStrings, errorMessage, type HealthContext } from "./context
 import { githubApi } from "./check-github.js";
 import { fail, pass, skip, type CheckResult } from "./report.js";
 
-const FLEET_FILE = "packages/fleet/fleet.nix";
+const FLEET_FILE = "packages/fleet/settings/github.json";
 /** Routing labels every fleet job must require; see packages/fleet/AGENTS.md. */
 const FLEET_LABELS = ["nixos", "ci"];
 
@@ -18,16 +18,24 @@ export type FleetGithub = {
   readonly repositories: readonly string[];
 };
 
-/** Reads the `github` attribute set; a remaining TODO means the fleet was never set up. */
-export function parseFleetGithub(nix: string): FleetGithub {
-  const block = /\bgithub\s*=\s*\{([\s\S]*?)\};/.exec(nix.replace(/#.*$/gm, ""))?.[1] ?? "";
-  const attribute = (name: string): string => new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`).exec(block)?.[1] ?? "";
-  const repositories = /\brepositories\s*=\s*\[([^\]]*)\]/.exec(block)?.[1] ?? "";
+/** Read the same JSON consumed by Nix and setup; no source-code parsing. */
+export function parseFleetGithub(json: string): FleetGithub {
+  let config: Record<string, unknown>;
+  try {
+    config = asRecord(JSON.parse(json));
+  } catch {
+    config = {};
+  }
+  const text = (key: string): string => typeof config[key] === "string" ? config[key] : "";
+  const scope = text("scope");
+  const organization = text("organization");
+  const repositories = asStrings(config["repositories"]);
   return {
-    configured: block.length > 0 && !block.includes("TODO"),
-    scope: attribute("scope"),
-    organization: attribute("organization"),
-    repositories: [...repositories.matchAll(/"([^"]+)"/g)].map((match) => match[1] as string),
+    configured: /^\d+$/.test(text("appId")) && /^\d+$/.test(text("installationId"))
+      && (scope === "organization" ? organization.length > 0 && organization !== "TODO" : scope === "repository" && repositories.length > 0),
+    scope,
+    organization,
+    repositories,
   };
 }
 
@@ -51,7 +59,7 @@ export async function checkRunners(ctx: HealthContext): Promise<readonly CheckRe
   if (!ctx.fileExists(path)) return [skip(name, `${FLEET_FILE} not found`), revision];
   const fleet = parseFleetGithub(ctx.readFile(path));
   if (!fleet.configured) {
-    return [skip(name, `not deployed: ${FLEET_FILE} still has TODO placeholders for its GitHub registration`), revision];
+    return [skip(name, `not deployed: ${FLEET_FILE} has incomplete or invalid GitHub registration data`), revision];
   }
   const token = ctx.githubToken();
   if (!token) return [skip(name, "no GitHub token: set GH_TOKEN or run `gh auth login`")];

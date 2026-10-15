@@ -230,18 +230,24 @@ describe("github", () => {
 });
 
 describe("runners", () => {
-  const configured = `{
-    github = {
-      scope = "repository"; # or "organization"
-      organization = "";
-      repositories = [ "acme/private" ];
-      appId = "1";
+  test("central JSON registration data is checked without parsing Nix code", () => {
+    const registration = {
+      scope: "repository", organization: "", repositories: ["acme/private"],
+      runnerGroup: null, appId: "123", installationId: "456",
     };
-  }`;
+    expect(parseFleetGithub(JSON.stringify(registration))).toEqual({
+      configured: true, scope: "repository", organization: "", repositories: ["acme/private"],
+    });
+    expect(parseFleetGithub(JSON.stringify({ ...registration, installationId: "TODO" })).configured).toBe(false);
+    expect(parseFleetGithub(JSON.stringify({ ...registration, repositories: [] })).configured).toBe(false);
+  });
+  const configured = JSON.stringify({
+    scope: "repository", organization: "", repositories: ["acme/private"], appId: "1", installationId: "2",
+  });
   const runner = (status: string, labels: string[]) => ({ status, labels: labels.map((name) => ({ name })) });
 
   test("the committed fleet definition is reported as not deployed until its placeholders are filled", () => {
-    expect(parseFleetGithub(`{ github = { scope = "organization"; organization = "TODO"; }; }`).configured).toBe(false);
+    expect(parseFleetGithub(JSON.stringify({ scope: "organization", organization: "TODO" })).configured).toBe(false);
     expect(parseFleetGithub(configured)).toEqual({
       configured: true,
       scope: "repository",
@@ -251,7 +257,7 @@ describe("runners", () => {
   });
 
   test("an unconfigured fleet skips", async () => {
-    const results = await checkRunners(fakeContext({ readFile: () => `{ github = { appId = "TODO"; }; }` }));
+    const results = await checkRunners(fakeContext({ readFile: () => JSON.stringify({ appId: "TODO" }) }));
     expect(results.map((result) => result.status)).toEqual(["skip", "skip"]);
     expect(results[1]).toMatchObject({ name: "fleet revision", status: "skip" });
   });

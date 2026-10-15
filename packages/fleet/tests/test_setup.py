@@ -103,14 +103,7 @@ class FakeGitHub:
 SETTINGS = textwrap.dedent("""\
     in {
       role = "ci";
-      github = {
-        scope = "organization"; # or "repository"
-        organization = "TODO";
-        repositories = [ ]; # [ "owner/private-project" ]; slots are divided round-robin
-        runnerGroup = null;
-        appId = "TODO";
-        installationId = "TODO";
-      };
+      github = builtins.fromJSON (builtins.readFile ./settings/github.json);
       containers = false;
       secretsFile = null; # set to ./secrets/fleet.yaml AFTER encrypting it
     }
@@ -126,6 +119,10 @@ class SetupFlowTest(unittest.TestCase):
         self.package = self.root / "package"
         (self.package / "secrets").mkdir(parents=True)
         (self.package / "fleet.nix").write_text(SETTINGS)
+        (self.package / "settings").mkdir()
+        self.github_config = self.package / "settings/github.json"
+        self.github_config.write_text(json.dumps({"scope": "repository", "organization": "", "repositories": [],
+                                                "runnerGroup": None, "appId": "TODO", "installationId": "TODO"}))
         self.state = self.root / "state.json"
         self.github = FakeGitHub(make_pem())
         self.addCleanup(self.github.close)
@@ -184,10 +181,12 @@ class SetupFlowTest(unittest.TestCase):
     def test_the_whole_setup_fills_every_file_without_leaking_the_key(self):
         self.assertEqual(self.run_setup("--repos", "crvouga/private-app,crvouga/other"), 0)
         nix = (self.package / "fleet.nix").read_text()
-        self.assertIn('scope = "repository";', nix)
-        self.assertIn('repositories = [ "crvouga/private-app" "crvouga/other" ];', nix)
-        self.assertIn(f'appId = "{KEY_ID}";', nix)
-        self.assertIn('installationId = "777";', nix)
+        registration = json.loads(self.github_config.read_text())
+        self.assertEqual(registration["scope"], "repository")
+        self.assertEqual(registration["repositories"], ["crvouga/private-app", "crvouga/other"])
+        self.assertEqual(registration["appId"], KEY_ID)
+        self.assertEqual(registration["installationId"], "777")
+        self.assertNotIn("crvouga/private-app", nix)
         self.assertIn("secretsFile = ./secrets/fleet.yaml;", nix)
         encrypted = (self.package / "secrets" / "fleet.yaml").read_text()
         self.assertIn("github-app-key: ENC[", encrypted)
@@ -214,9 +213,9 @@ class SetupFlowTest(unittest.TestCase):
         self.run_setup()
         self.assertTrue(self.form_action.startswith(self.github.url + "/organizations/crvouga/settings/apps/new?state="))
         self.assertEqual(self.manifest["default_permissions"]["organization_self_hosted_runners"], "write")
-        nix = (self.package / "fleet.nix").read_text()
-        self.assertIn('scope = "organization";', nix)
-        self.assertIn('organization = "crvouga";', nix)
+        registration = json.loads(self.github_config.read_text())
+        self.assertEqual(registration["scope"], "organization")
+        self.assertEqual(registration["organization"], "crvouga")
 
     def test_repositories_are_never_guessed_for_a_personal_account(self):
         with self.assertRaises(SystemExit) as caught:
@@ -225,6 +224,14 @@ class SetupFlowTest(unittest.TestCase):
         self.assertEqual((self.package / "fleet.nix").read_text(), SETTINGS)
         self.assertEqual(self.visited, [])
 
+    def test_the_allowlist_can_come_from_central_json_without_cli_arguments(self):
+        registration = json.loads(self.github_config.read_text())
+        registration["repositories"] = ["crvouga/private-app"]
+        self.github_config.write_text(json.dumps(registration))
+        self.assertEqual(self.run_setup(), 0)
+        self.assertEqual(json.loads(self.github_config.read_text())["repositories"], ["crvouga/private-app"])
+        self.assertNotIn("crvouga/private-app", (self.package / "fleet.nix").read_text())
+
     def test_a_malformed_repository_name_is_refused_before_anything_happens(self):
         with self.assertRaises(SystemExit):
             self.run_setup("--repos", "not a repo")
@@ -232,11 +239,11 @@ class SetupFlowTest(unittest.TestCase):
 
     def test_running_twice_does_nothing_the_second_time(self):
         self.run_setup("--repos", "crvouga/private-app")
-        before = (self.package / "fleet.nix").read_text(), (self.package / "secrets" / "fleet.yaml").read_text()
+        before = (self.package / "fleet.nix").read_text(), (self.package / "secrets" / "fleet.yaml").read_text(), self.github_config.read_text()
         self.visited.clear()
         self.assertEqual(self.run_setup("--repos", "crvouga/private-app"), 0)
         self.assertEqual(self.visited, [])
-        self.assertEqual(before, ((self.package / "fleet.nix").read_text(), (self.package / "secrets" / "fleet.yaml").read_text()))
+        self.assertEqual(before, ((self.package / "fleet.nix").read_text(), (self.package / "secrets" / "fleet.yaml").read_text(), self.github_config.read_text()))
 
     def test_a_lost_secret_never_makes_a_second_app(self):
         self.run_setup("--repos", "crvouga/private-app")
@@ -253,7 +260,7 @@ class SetupFlowTest(unittest.TestCase):
         self.run_setup("--repos", "crvouga/private-app")
         converted = [r for r in self.github.requests if r[1].startswith("/app-manifests/")]
         self.assertEqual(converted, [], "the one-time manifest code must not be used again")
-        self.assertIn('appId = "123456";', (self.package / "fleet.nix").read_text())
+        self.assertEqual(json.loads(self.github_config.read_text())["appId"], KEY_ID)
 
     def test_the_saved_app_is_private_while_setup_is_unfinished(self):
         self.github.installed = False
@@ -280,14 +287,13 @@ class SetupFlowTest(unittest.TestCase):
 class FleetNixTest(unittest.TestCase):
     def test_the_real_settings_file_has_every_line_setup_edits(self):
         text = (ROOT / "fleet.nix").read_text()
-        out = setup.settings_text(text, "1", "2", "User", "o", ["o/r"])
-        self.assertIn('appId = "1";', out)
-        self.assertIn('repositories = [ "o/r" ];', out)
+        out = setup.settings_text(text)
+        self.assertIn("./settings/github.json", out)
         self.assertIn("secretsFile = ./secrets/fleet.yaml;", out)
 
     def test_a_changed_settings_file_stops_with_a_clear_message(self):
         with self.assertRaises(SystemExit) as caught:
-            setup.settings_text("{ }", "1", "2", "User", "o", ["o/r"])
+            setup.settings_text("{ }")
         self.assertIn("fleet.nix no longer has the line", str(caught.exception))
 
 

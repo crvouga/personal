@@ -10,7 +10,7 @@ Creates what a new node cannot make for itself, and nothing a node can:
   2. the GitHub App that registers runners, from a manifest, so the only click is
      "Create GitHub App" and then "Install"
   3. secrets/fleet.yaml, the App's private key encrypted to the ci role's key
-  4. fleet.nix: the App id, the installation id, the repositories, the secrets file
+  4. settings/github.json: App ids, scope and bootstrap repositories; fleet.nix enables the secret
 
 Every later node needs none of this: it downloads the installer and runs it.
 Safe to run twice; a finished step is skipped. Secrets are never printed and
@@ -209,22 +209,22 @@ def encrypt_app_key(pem, recipient, destination):
     destination.write_text(done.stdout)
 
 
-def settings_text(text, app_id, installation_id, kind, owner, repositories):
-    """fleet.nix with the runner settings filled in."""
-    def sub(pattern, value, source):
-        updated, count = re.subn(pattern, lambda m: m.group(1) + value, source, count=1, flags=re.M)
-        if count != 1:
-            raise SystemExit(f"Next: fleet.nix no longer has the line this setup edits ({pattern}). Edit it by hand.")
-        return updated
+def settings_text(text):
+    """Enable the encrypted CI secret after it exists; registration data is JSON."""
+    if "secretsFile = ./secrets/fleet.yaml;" in text:
+        return text
+    updated, count = re.subn(r'(\n  secretsFile = )null;', r'\g<1>./secrets/fleet.yaml;', text, count=1)
+    if count != 1:
+        raise SystemExit("Next: fleet.nix no longer has the line this setup edits (secretsFile). Restore the settings file before retrying.")
+    return updated
+
+
+def github_settings(current, app_id, installation_id, kind, owner, repositories):
+    """Registration defaults live in one data file, never inserted into Nix code."""
     scope = "organization" if kind == "Organization" else "repository"
-    text = sub(r'(\n    scope = )"[a-z]+";', f'"{scope}";', text)
-    text = sub(r'(\n    organization = )"[^"]*";', f'"{owner if scope == "organization" else "TODO"}";', text)
-    listing = " ".join(f'"{name}"' for name in repositories) if scope == "repository" else ""
-    text = sub(r'(\n    repositories = )\[[^\]]*\];', f"[ {listing} ];" if listing else "[ ];", text)
-    text = sub(r'(\n    appId = )"[^"]*";', f'"{app_id}";', text)
-    text = sub(r'(\n    installationId = )"[^"]*";', f'"{installation_id}";', text)
-    text = sub(r'(\n  secretsFile = )null;', "./secrets/fleet.yaml;", text) if "secretsFile = null" in text else text
-    return text
+    return {**current, "scope": scope, "organization": owner if scope == "organization" else "",
+            "repositories": list(repositories) if scope == "repository" else [],
+            "appId": str(app_id), "installationId": str(installation_id)}
 
 
 def parse(argv):
@@ -247,8 +247,10 @@ def main(argv):
     poll = float(os.environ.get("FLEET_SETUP_POLL") or 3)
     settings = package / "fleet.nix"
     current = settings.read_text()
-    configured = re.search(r'appId = "(\d+)";', current) and re.search(r'installationId = "(\d+)";', current)
-    repositories = parse(argv)
+    registration = package / "settings" / "github.json"
+    github = json.loads(registration.read_text())
+    configured = all(re.fullmatch(r"[0-9]+", str(github.get(key, ""))) for key in ("appId", "installationId"))
+    repositories = parse(argv) or list(github.get("repositories") or [])
     kind = owner_kind(OWNER)
     if kind != "Organization" and not repositories and not configured:
         raise SystemExit("Next: say which private repositories may use the fleet: setup.py --repos owner/private-repo[,owner/other]. "
@@ -265,12 +267,12 @@ def main(argv):
     say("    " + keys.stderr.strip().splitlines()[0])
 
     if configured and not (package / "secrets" / "fleet.yaml").is_file():
-        raise SystemExit("Next: fleet.nix already names a GitHub App but secrets/fleet.yaml is missing. Restore the file from git. "
-                         "If the App's key is lost, delete the App on GitHub and set appId and installationId back to \"TODO\" before running setup again.")
+        raise SystemExit("Next: settings/github.json already names a GitHub App but secrets/fleet.yaml is missing. Restore the file from git. "
+                         "If the App's key is lost, delete the App on GitHub and set appId and installationId in settings/github.json back to \"TODO\" before running setup again.")
     if configured:
-        say("2/4 GitHub App: already set up (appId and installationId are in fleet.nix).")
+        say("2/4 GitHub App: already set up (appId and installationId are in settings/github.json).")
         say("3/4 secrets/fleet.yaml: already encrypted.")
-        say("4/4 fleet.nix: already filled in.")
+        say("4/4 settings/github.json: already filled in.")
     else:
         say("2/4 GitHub App")
         if state.is_file():
@@ -285,12 +287,14 @@ def main(argv):
         installation = wait_for_installation(app, OWNER, wait, poll)
         say("3/4 secrets/fleet.yaml")
         encrypt_app_key(app["pem"], recipient_for((package / ".sops.yaml").read_text(), "fleet"), package / "secrets" / "fleet.yaml")
-        say("4/4 fleet.nix")
-        settings.write_text(settings_text(current, app["id"], installation, kind, OWNER, repositories))
+        say("4/4 settings/github.json")
+        updated = github_settings(github, app["id"], installation, kind, OWNER, repositories)
+        registration.write_text(json.dumps(updated, indent=2) + "\n")
+        settings.write_text(settings_text(current))
         state.unlink(missing_ok=True)
     say("")
     say("Setup is done on this computer. Two reviewed steps remain, once, and no node ever repeats them:")
-    say("  1. Commit packages/fleet (fleet.nix, secrets/fleet.yaml, .sops.yaml) in a pull request and merge it.")
+    say("  1. Commit packages/fleet (settings/github.json, fleet.nix, secrets/fleet.yaml, .sops.yaml) in a pull request and merge it.")
     say("  2. Apply the vault OpenTofu root so Vault holds the role keys and the fleet-enroll role:")
     say("       bun run infra:vault plan -out=fleet.plan   # review it")
     say("       bun run infra:vault apply fleet.plan")
