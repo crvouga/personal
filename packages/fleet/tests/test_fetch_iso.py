@@ -30,7 +30,7 @@ class FetchIsoTests(unittest.TestCase):
         write_executable(self.bin / "gh", f"""\
             #!/bin/bash
             printf '%s\\n' "$*" >> {self.log}
-            if [ "$1" = "run" ] && [ "$2" = "list" ]; then
+            if [ "$1" = "api" ]; then
               echo 4242
               exit 0
             fi
@@ -62,7 +62,9 @@ class FetchIsoTests(unittest.TestCase):
         self.assertEqual(dest.read_bytes(), b"iso-bytes")
         log = self.log.read_text()
         lines = [line for line in log.splitlines() if line]
-        self.assertEqual(lines[0].split()[0:2], ["run", "list"], log)
+        self.assertEqual(lines[0].split()[0], "api", log)
+        self.assertIn('head_branch == "main"', lines[0])
+        self.assertIn('head_repository_id == .workflow_run.repository_id', lines[0])
         self.assertEqual(lines[1].split()[0:2], ["run", "download"], log)
         self.assertIn("fleet-installer", log)
         # The temp dir under nix develop contains "nix-shell". That is not a build.
