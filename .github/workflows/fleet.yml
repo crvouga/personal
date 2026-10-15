@@ -6,9 +6,14 @@ name: Fleet
 # There is no post-merge cache job. The ruleset merge queue uses MERGE, so the
 # merge_group head is the commit that lands on main and the cache key matches
 # system.configurationRevision. Squash or rebase would not.
+# push to main publishes the installer release even when the merge queue is not
+# enabled for the repository. With the queue, the merge_group run publishes first
+# and this run replaces it with the same bytes.
 on:
   pull_request:
   merge_group:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: dorny/paths-filter@v4
         id: filter
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
         with:
           base: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
           ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
@@ -34,6 +39,7 @@ jobs:
               - 'packages/fleet/**'
               - '.github/workflows/fleet.yml'
               - '.github/workflows/flake-update.yml'
+              - '.github/workflows/fleet-enroll.yml'
               - 'packages/fleet/workflows/fleet.yml'
 
   check:
@@ -114,8 +120,8 @@ jobs:
           retention-days: 14
 
   # Actions artifacts expire. The release asset is the copy a new machine
-  # downloads. pull_request skips this job; merge_group and workflow_dispatch
-  # publish it. The gate requires that publish when a fleet change merges.
+  # downloads. pull_request skips this job; merge_group, push to main and
+  # workflow_dispatch publish it. The gate requires that publish when a fleet change merges.
   publish:
     needs: [changes, check, wizard]
     if: always() && needs.check.result == 'success' && needs.wizard.result == 'success' && github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true')
@@ -226,7 +232,7 @@ jobs:
             echo "binary cache push did not succeed: ${CACHE}" >&2
             exit 1
           fi
-          if [ "${EVENT}" = "merge_group" ] || [ "${EVENT}" = "workflow_dispatch" ]; then
+          if [ "${EVENT}" = "merge_group" ] || [ "${EVENT}" = "push" ] || [ "${EVENT}" = "workflow_dispatch" ]; then
             if [ "${PUBLISH}" != "success" ]; then
               echo "durable installer was not published: ${PUBLISH}" >&2
               exit 1

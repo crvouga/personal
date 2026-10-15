@@ -1,8 +1,8 @@
 run "fleet_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 19
-    error_message = "The migration must retain all 18 Railway services and the 9router tunnel."
+    condition     = length(output.config.services) == 20
+    error_message = "The migration must retain all 19 Railway services and the 9router tunnel."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)

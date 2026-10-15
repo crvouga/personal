@@ -340,7 +340,8 @@ describe("drift", () => {
       expect(call.args.some((arg) => arg === "apply" || arg.startsWith("-out"))).toBe(false);
     }
     expect(plans[0]!.env["TF_VAR_vault_image_tag"]).toBe("v1");
-    expect(plans[3]!.env["TF_VAR_image_tags"]).toBe('{"web":"abc"}');
+    // turborepo is in the inventory but not yet deployed: it takes the default tag.
+    expect(JSON.parse(plans[3]!.env["TF_VAR_image_tags"]!)).toEqual({ web: "abc", turborepo: "latest" });
   });
 });
 

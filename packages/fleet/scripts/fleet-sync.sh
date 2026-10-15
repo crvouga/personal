@@ -30,6 +30,33 @@ if [ "$BRANCH" != "main" ]; then
   exit 1
 fi
 
+# Dynamic settings from the fleet API (scripts/fleetconf.py). The fleet works
+# without them: a missing or unreadable setting gives the value built into this
+# image, and a failing reader never stops a sync.
+conf() {
+  local value
+  if [ -n "${FLEETCONF:-}" ] && value=$("$FLEETCONF" get "$1" "$2" 2>/dev/null); then
+    printf '%s\n' "$value"
+  else
+    printf '%s\n' "$2"
+  fi
+}
+
+if [ "$(conf sync.paused false)" = true ]; then
+  echo 'sync: paused by the fleet configuration (sync.paused); the running system is unchanged' >&2
+  exit 0
+fi
+
+reboot_disabled=0
+if [ "$(conf reboot.enabled true)" = false ]; then
+  reboot_disabled=1
+fi
+delay_max=$(conf reboot.delayMaxSeconds "$DELAY_MAX")
+case "$delay_max" in
+  ""|*[!0-9]*) delay_max=$DELAY_MAX ;;
+esac
+DELAY_MAX=$delay_max
+
 nix=${FLEET_NIX:-nix}
 nix_env=${FLEET_NIX_ENV:-nix-env}
 systemctl=${FLEET_SYSTEMCTL:-systemctl}
@@ -142,6 +169,7 @@ health_check() {
 }
 
 report_path=${FLEET_REPORT:-/run/fleet/health-failure}
+pending_path=${FLEET_REBOOT_PENDING:-/run/fleet/reboot-pending}
 
 report_failure() {
   local mode=$1
@@ -188,7 +216,15 @@ guard() {
   clear_failure
 }
 
-if [ "$need_reboot" -eq 1 ]; then
+if [ "$need_reboot" -eq 1 ] && [ "$reboot_disabled" -eq 1 ]; then
+  # reboot.enabled is false. The new system is switched to and nothing is
+  # drained or rebooted. The kernel change waits, and the agent reports it.
+  apply switch
+  guard switch
+  install -d -m 0755 "$(dirname "$pending_path")"
+  printf 'toplevel=%s\n' "$toplevel" > "$pending_path"
+  echo 'sync: switched; a reboot is pending because reboot.enabled is false' >&2
+elif [ "$need_reboot" -eq 1 ]; then
   delay=0
   if [ "$DELAY_MAX" -gt 0 ]; then
     # Resolve the id before draining. A missing id must not stop runners
@@ -213,4 +249,5 @@ if [ "$need_reboot" -eq 1 ]; then
 else
   apply switch
   guard switch
+  rm -f "$pending_path"
 fi

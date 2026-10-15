@@ -146,6 +146,20 @@
         mkdir -p "$out"
       '';
       cattle-vm = import ./tests/cattle.nix testArgs;
+      # Every role reports to the fleet API. Pure evaluation: a role that loses
+      # the unit, its boot target or its address fails here, not at a boot.
+      agent-units = let
+        roles = { inherit ci web cache netboot devbox; };
+        url = (import ./settings/shared.nix).fleetApi.url;
+        working = system: let unit = system.config.systemd.services.fleet-agent or null; in
+          unit != null
+          && builtins.elem "multi-user.target" unit.wantedBy
+          && unit.environment.FLEET_API_URL == url
+          && lib.hasInfix "fleet-agent run" unit.serviceConfig.ExecStart;
+        broken = lib.attrNames (lib.filterAttrs (_: system: !(working system)) roles);
+      in pkgs.runCommand "fleet-agent-units" { } (
+        if broken == [ ] then "mkdir -p $out"
+        else "echo 'roles without a working fleet-agent: ${lib.concatStringsSep ", " broken}' >&2; exit 1");
     };
     apps.${system}.bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
     apps.aarch64-darwin.bootstrap = {

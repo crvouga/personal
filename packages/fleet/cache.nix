@@ -3,7 +3,7 @@ let shared = import ./settings/shared.nix;
 in {
   role = "cache";
   flakeAttr = "cache";
-  inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache reboot capacity drift disk monitoring reinstall;
+  inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache reboot capacity drift disk monitoring reinstall fleetApi;
   rotateAgeKey = false;
   # TODO: encrypt secrets/cache.yaml for this role's age key, then set this.
   # The file needs attic-env (the server env file) and, when repo.auth is set,

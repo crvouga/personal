@@ -28,6 +28,18 @@ import imaging  # noqa: E402
 import server  # noqa: E402
 
 
+def readable_streams():
+    """A Windows console or a redirected pipe may use a code page that cannot print every
+    character; a message with an unusual one must never stop the program."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def fake_iso(size=96 * 1024):
     blob = bytearray(size)
     blob[decide.ISO_MAGIC_OFFSET:decide.ISO_MAGIC_OFFSET + 5] = b"CD001"
@@ -128,6 +140,7 @@ def selftest():
 
 
 def main(argv):
+    readable_streams()
     if argv[:1] == ["--helper"]:
         return helper.run(argv[1])
     if "--selftest" in argv:

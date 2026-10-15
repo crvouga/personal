@@ -65,6 +65,13 @@ def applescript_command(argv):
     return f'do shell script "{escaped}" with administrator privileges'
 
 
+def shell_execute_parameters(argv):
+    """(program, parameters) for ShellExecuteEx. The program path goes in its own field, so a
+    path with spaces needs no quotes; everything after it is one command line, quoted by the
+    same rules CommandLineToArgvW (and so Python and PyInstaller) read back."""
+    return argv[0], subprocess.list2cmdline(argv[1:])
+
+
 class _Waitable:
     def __init__(self, process):
         self.process = process
@@ -111,10 +118,9 @@ class _WindowsProcess:
         self.kernel = kernel
         info = Info()
         info.cbSize = ctypes.sizeof(Info)
-        info.fMask = 0x00000040  # SEE_MASK_NOCLOSEPROCESS
+        info.fMask = 0x00000040 | 0x00000100  # SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC
         info.lpVerb = "runas"
-        info.lpFile = argv[0]
-        info.lpParameters = subprocess.list2cmdline(argv[1:])
+        info.lpFile, info.lpParameters = shell_execute_parameters(argv)
         info.nShow = 0
         if not shell.ShellExecuteExW(ctypes.byref(info)):
             raise ElevationUnavailable("Windows did not start the administrator prompt, or it was refused. Run the installer again and choose Yes on the prompt.")

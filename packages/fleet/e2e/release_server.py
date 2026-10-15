@@ -6,7 +6,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-ROOT = "/srv/release"
+ROOT = os.environ.get("FLEET_E2E_ROOT", "/srv/release")
 MODE = {"value": "ok"}
 CORRUPT_AT = 100000
 
@@ -58,4 +58,4 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body[offset:offset + step])
 
 
-ThreadingHTTPServer(("127.0.0.1", 9000), Handler).serve_forever()
+ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("FLEET_E2E_PORT", "9000"))), Handler).serve_forever()

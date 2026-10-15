@@ -264,9 +264,9 @@
           esc(state.sshKey) +
           '">';
         h +=
-          '<h2>Enrollment token (optional)</h2><p>Lets this node decrypt the secrets the other nodes of its kind share. ' +
-          'Get one by running <code>just enroll &lt;kind&gt;</code> on a computer that can reach Vault. Leave blank if you have none.</p>' +
-          '<input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="hvs.…" value="' +
+          '<h2>Enrollment</h2><p>After you press <b>Erase and install</b>, a GitHub page opens. Press <b>Submit new issue</b> on it, signed in as the repository owner; that approves this computer and gives it the secrets the other nodes of its kind share. ' +
+          'Nothing is erased until it is approved. Already have a token from <code>just enroll &lt;kind&gt;</code>? Paste it here to skip the approval.</p>' +
+          '<input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="hvs.… (optional)" value="' +
           esc(state.token) +
           '">';
         h +=

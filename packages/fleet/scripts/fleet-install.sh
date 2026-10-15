@@ -199,7 +199,20 @@ data = data.get("data") if isinstance(data.get("data"), dict) else data
 key = str(data.get("age_key") or "").strip()
 print(key if key.startswith("AGE-SECRET-KEY-") and key.isprintable() and " " not in key else "")
 ' "$reply" 2>/dev/null || true)
+    # Optional: the role token that lets this node register with the fleet API
+    # without a person. A document without it is fine. Never printed or logged.
+    api_token=$(python3 -I -c '
+import json, re, sys
+data = json.load(open(sys.argv[1])).get("data") or {}
+data = data.get("data") if isinstance(data.get("data"), dict) else data
+token = data.get("api_token")
+print(token if isinstance(token, str) and re.fullmatch(r"[A-Za-z0-9._-]{8,512}", token) else "")
+' "$reply" 2>/dev/null || true)
     rm -f "$reply"
+    if [ -n "$api_token" ]; then
+      ( umask 077; printf '%s\n' "$api_token" > "$enroll_dir/$role.api" )
+    fi
+    unset api_token
     if [ -z "$key" ]; then
       note "enrollment token held no age key for $role; nothing wiped"
       echo "Next: the enrollment token did not hold an age key for $role. Nothing was wiped." >&2
@@ -211,6 +224,9 @@ print(key if key.startswith("AGE-SECRET-KEY-") and key.isprintable() and " " not
   fi
   unset token
 fi
+
+# Kept next to the unwrapped key, so a retry in the same boot reuses it.
+api_token_file=${FLEET_ENROLLED_DIR:-/run/fleet-enrolled}/$role.api
 
 manifest=${FLEET_MANIFEST:-/iso/fleet-install-manifest}
 if [ ! -f "$manifest" ]; then
@@ -328,6 +344,25 @@ fi
 pub=$("$age_keygen" -y "$dest")
 printf '%s\n' "$pub" > "$secret/age.pub"
 chmod 0644 "$secret/age.pub"
+
+if [ -s "$api_token_file" ]; then
+  api_token=""
+  read -r api_token < "$api_token_file" || true
+  api_token_pattern='^[A-Za-z0-9._-]+$'
+  if [[ "$api_token" =~ $api_token_pattern ]] && [ "${#api_token}" -ge 8 ] && [ "${#api_token}" -le 512 ]; then
+    install -d -m 0700 "$mnt/nix/fleet-state/agent"
+    ( umask 077; printf '%s\n' "$api_token" > "$mnt/nix/fleet-state/agent/role-token.new" )
+    mv "$mnt/nix/fleet-state/agent/role-token.new" "$mnt/nix/fleet-state/agent/role-token"
+    cmp -s "$api_token_file" "$mnt/nix/fleet-state/agent/role-token" || {
+      echo 'FLEET-FAIL: the installed fleet API role token did not read back correctly.' >&2
+      exit 1
+    }
+    note 'fleet API role token: installed'
+  else
+    note 'fleet API role token: ignored (not a valid token)'
+  fi
+  unset api_token
+fi
 
 ssh_dir=$mnt/nix/fleet-state/ssh
 install -d -m 0700 "$ssh_dir"

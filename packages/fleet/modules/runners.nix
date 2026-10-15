@@ -9,18 +9,30 @@
   runnerPackage = pkgs.callPackage ({ nodeRuntimes ? [ "node24" ] }: pkgs.writeShellScriptBin "Runner.Listener" ''
     set -euo pipefail
     real=${pkgs.github-runner.override { inherit nodeRuntimes; }}/bin/Runner.Listener
-    if [ "''${1:-}" != configure ] || [ ! -s /run/fleet/runner-labels ]; then
+    if [ "''${1:-}" != configure ]; then
       exec "$real" "$@"
     fi
     extra=""
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in
-        "") continue ;;
-        *,*) echo "runner label contains a comma" >&2; exit 1 ;;
-      esac
-      if [ -z "$extra" ]; then extra=$line; else extra="$extra,$line"; fi
-    done < /run/fleet/runner-labels
-    if [ -z "$extra" ]; then
+    if [ -s /run/fleet/runner-labels ]; then
+      while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+          "") continue ;;
+          *,*) echo "runner label contains a comma" >&2; exit 1 ;;
+        esac
+        if [ -z "$extra" ]; then extra=$line; else extra="$extra,$line"; fi
+      done < /run/fleet/runner-labels
+    fi
+    # The repository the fleet API assigned to this slot. The registration step
+    # records the one it used in /run/fleet/assign-used/<slot>, so the token and
+    # the URL always name the same repository. No record: the settings.github scope.
+    repo=""
+    used=/run/fleet/assign-used/''${FLEET_SLOT:-none}
+    if [ -s "$used" ]; then
+      read -r repo < "$used" || true
+      repo_pattern='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+      if ! [[ "$repo" =~ $repo_pattern ]]; then repo=""; fi
+    fi
+    if [ -z "$extra" ] && [ -z "$repo" ]; then
       exec "$real" "$@"
     fi
     args=()
@@ -28,11 +40,28 @@
       case "$1" in
         --labels)
           shift
-          args+=(--labels "$1,$extra")
+          args+=(--labels "$1''${extra:+,$extra}")
           shift
           ;;
         --labels=*)
-          args+=("--labels=''${1#--labels=},$extra")
+          args+=("--labels=''${1#--labels=}''${extra:+,$extra}")
+          shift
+          ;;
+        --url)
+          if [ -n "$repo" ]; then args+=(--url "https://github.com/$repo"); else args+=("$1" "$2"); fi
+          shift 2
+          ;;
+        --url=*)
+          if [ -n "$repo" ]; then args+=("--url=https://github.com/$repo"); else args+=("$1"); fi
+          shift
+          ;;
+        # A runner group exists for an organization only; a repository has none.
+        --runnergroup)
+          if [ -z "$repo" ]; then args+=("$1" "$2"); fi
+          shift 2
+          ;;
+        --runnergroup=*)
+          if [ -z "$repo" ]; then args+=("$1"); fi
           shift
           ;;
         *)
@@ -51,6 +80,33 @@ ${builtins.readFile ../scripts/token.py}
   control = if drainProvider != null then drainProvider else pkgs.writeScriptBin "runner-control" ''#!${pkgs.python3.withPackages (p: [ p.pyjwt p.cryptography ])}/bin/python3
 ${builtins.readFile ../scripts/token.py}
 '';
+  # Registration pre-start for one slot. The fleet API may assign the slot a
+  # repository (runners.repositories -> /run/fleet/assign/<slot>); the
+  # registration token is then requested for that repository, and the choice
+  # is recorded in /run/fleet/assign-used/<slot> for the Runner.Listener
+  # wrapper and for fleet-drain. The GitHub App installation decides which
+  # repositories can ever register: a name it cannot reach fails to get a token.
+  # No assignment: the static settings.github scope, as before.
+  register = id: target: pkgs.writeShellScript "fleet-register-${id}" ''
+    set -euo pipefail
+    scope=${lib.escapeShellArg settings.github.scope}
+    target=${lib.escapeShellArg target}
+    used=/run/fleet/assign-used
+    ${pkgs.coreutils}/bin/install -d -m 0755 "$used"
+    ${pkgs.coreutils}/bin/rm -f "$used/${id}"
+    repo=""
+    if [ -s "/run/fleet/assign/${id}" ]; then
+      read -r repo < "/run/fleet/assign/${id}" || true
+    fi
+    repo_pattern='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+    if [[ "$repo" =~ $repo_pattern ]]; then
+      scope=repository
+      target=$repo
+      printf '%s\n' "$repo" > "$used/${id}"
+      ${pkgs.coreutils}/bin/chmod 0644 "$used/${id}"
+    fi
+    exec ${token} register "$scope" "$target" ${lib.escapeShellArgs [ settings.github.appId settings.github.installationId "/run/secrets/github-app-key" "/run/fleet/tokens/${id}" ]}
+  '';
   targets = if settings.github.scope == "organization" then [ settings.github.organization ] else settings.github.repositories;
   drain = pkgs.writeShellApplication {
     name = "fleet-drain";
@@ -149,6 +205,7 @@ in {
     extraPackages = lib.optionals settings.containers [ pkgs.podman ];
     extraEnvironment = {
       ACTIONS_RUNNER_INPUT_NAME = "%H-${id}";
+      FLEET_SLOT = id;
       CI_CACHE_DIR = "/nix/ci-cache/${id}";
       CI_BUSY_FILE = "/run/fleet/${id}/busy";
       ACTIONS_RUNNER_HOOK_JOB_STARTED = "${hooks "started"}";
@@ -179,7 +236,7 @@ in {
     # removed node never registers again until it is reinstalled.
     unitConfig.ConditionPathExists = [ "!/run/fleet/draining" "!/nix/fleet-state/withdrawn" ];
     serviceConfig.ExecStartPre = lib.mkBefore [
-      "+${token} register ${lib.escapeShellArgs [ settings.github.scope (scopeFor n) settings.github.appId settings.github.installationId "/run/secrets/github-app-key" "/run/fleet/tokens/${id}" ]}"
+      "+${register id (scopeFor n)}"
     ];
   }) ids);
 }

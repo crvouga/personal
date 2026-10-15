@@ -20,8 +20,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+# Enrollment asks GitHub for approval. Tests that are not about it opt out.
+os.environ.setdefault("FLEET_NO_ENROLL", "1")
+
 WIZARD = Path(__file__).resolve().parents[1] / "wizard"
 sys.path.insert(0, str(WIZARD))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import bootstrap  # noqa: E402,F401
 import decide  # noqa: E402
@@ -520,8 +524,8 @@ class ServerTests(WizardCase):
         self.assertEqual(self.call("POST", "/api/plan", {"mode": "here", "role": "toaster"})[0], 409)
         self.assertEqual(self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "token": "has space and junk"})[0], 409)
 
-    def test_this_computer_cannot_install_itself_on_windows_macos_or_arm(self):
-        for os_name in ("Windows", "Darwin"):
+    def test_this_computer_cannot_install_itself_on_macos_or_arm(self):
+        for os_name in ("Darwin",):
             self.httpd.shutdown()
             self.start_server(os_name)
             status, body = self.call("POST", "/api/plan", {"mode": "here", "role": "ci"})
@@ -764,6 +768,50 @@ class RunnerConversionTests(unittest.TestCase):
         (state / "withdrawn").write_text("status=withdrawn\nrole=ci\n")
         self.assertFalse(decide.installed_for("ci", state))
 
+class WindowsHereTests(unittest.TestCase):
+    """Windows converts itself in place; macOS cannot restart into the installer."""
+
+    def test_only_macos_is_told_to_make_a_usb(self):
+        import server
+        internal = {"ok": True}
+        with mock.patch.object(decide, "machine_arch", return_value="x86_64"):
+            self.assertEqual(server.Wizard("Windows").here_blockers([], internal), [])
+            reasons = server.Wizard("Darwin").here_blockers([], internal)
+        self.assertTrue(reasons and "install USB" in reasons[0], reasons)
+
+    def test_the_helper_hands_windows_the_verified_image_without_copying_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            iso = root / "fleet-installer.iso"
+            iso.write_bytes(make_iso(fill=3))
+            sha = imaging.sha256_of(iso)
+            disk = {"path": "\\\\.\\PHYSICALDRIVE0", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
+                    "mounted": True, "whole": True, "size": 10**12, "model": "SSD", "serial": "S1"}
+            calls = []
+
+            def perform(os_name, role, image, token, vault, directory, chosen, on_progress=None):
+                calls.append((os_name, role, image))
+                on_progress(1, 2)
+                return 0
+
+            env = {"FLEET_STATE": str(root / "state"), "FLEET_NO_ENROLL": "1"}
+            with mock.patch.dict(os.environ, env), \
+                    mock.patch.object(decide, "current_os", return_value="Windows"), \
+                    mock.patch.object(decide, "collect", return_value=[disk]), \
+                    mock.patch.object(decide, "preflight", return_value=[]), \
+                    mock.patch.object(decide, "perform_install", perform), \
+                    mock.patch.dict(decide.NET, {"probe": lambda: (None, 1), "lookup": lambda t, r: decide.finding("enrollment", "ok", "x")}):
+                request = {"role": "ci", "iso": str(iso), "sha256": sha, "disk_id": decide.disk_id(disk)}
+                progress = helper.Progress(root)
+                (root / "state").mkdir()
+                message = helper.install_here(request, progress)
+            self.assertEqual(calls, [("Windows", "ci", str(iso))], "Windows writes the image where it was verified; no second copy")
+            self.assertFalse((root / "state" / "fleet-installer.iso").exists())
+            self.assertIn("Installing ci", message)
+            rows = [json.loads(line) for line in (root / "progress.jsonl").read_text().splitlines()]
+            self.assertTrue(any(r["step"] == "write" and r["percent"] == 50 for r in rows), rows)
+
+
 class QuitServerTests(WizardCase):
     def test_quit_stops_the_server(self):
         self.assertEqual(self.call("POST", "/api/quit", {})[0], 200)
@@ -797,7 +845,7 @@ class InstallHereTests(WizardCase):
         patch.start()
         self.addCleanup(patch.stop)
 
-        def record(os_name, role, iso, token, vault, directory, chosen):
+        def record(os_name, role, iso, token, vault, directory, chosen, on_progress=None):
             self.calls.append({"role": role, "token": token, "vault": vault, "iso": iso, "disk": chosen["path"], "sha": imaging.sha256_of(iso)})
             return 0
 
@@ -823,6 +871,81 @@ class InstallHereTests(WizardCase):
         self.assertEqual(call["sha"], self.sha)
         log = Path(decide.LOG["path"]).read_text()
         self.assertNotIn("hvs.CAESIwrapped", log)
+
+    def _enrolling_wizard(self, wait="20"):
+        from enroll_fakes import FakeGitHub
+        github = FakeGitHub()
+        self.addCleanup(github.close)
+        patch = mock.patch.dict(os.environ, {"FLEET_GITHUB_API": github.url, "FLEET_NO_BROWSER": "1", "FLEET_ENROLL_POLL": "1", "FLEET_ENROLL_WAIT": wait})
+        patch.start()
+        self.addCleanup(patch.stop)
+        os.environ.pop("FLEET_NO_ENROLL", None)
+        self.addCleanup(os.environ.__setitem__, "FLEET_NO_ENROLL", "1")
+        return github
+
+    def _approve_when_asked(self, github, answer=None):
+        """The owner's click, once the wizard has shown the link in its job log."""
+        from urllib.parse import parse_qs, urlparse
+        for _ in range(100):
+            link = next((line[line.index("https://"):] for line in self.call("GET", "/api/job")[1]["log"] if "issues/new?" in line), None)
+            if link:
+                break
+            time.sleep(0.2)
+        self.assertTrue(link, "the wizard never showed the approval link")
+        query = parse_qs(urlparse(link.strip()).query)
+        _, public = decide.parse_enroll_request(query["title"][0], query["body"][0])
+        number = github.open_issue(query["title"][0], query["body"][0])
+        github.comment(number, answer or "fleet-sealed: " + decide.seal(json.dumps({"role": "web", "token": "hvs.CAESIapproved"}).encode(), public))
+
+    def test_converting_without_a_token_waits_for_the_owner_on_github(self):
+        github = self._enrolling_wizard()
+        _status, scan = self.call("GET", "/api/scan")
+        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        self.assertEqual(status, 200, plan)
+        self.assertTrue(plan["ready"], plan["findings"])
+        self.assertTrue(any(f["name"] == "enrollment" and "approve" in f["detail"] for f in plan["findings"]), plan["findings"])
+        self.assertEqual(self.run_plan(plan)[0], 200)
+        self._approve_when_asked(github)
+        job = self.wait_job()
+        self.assertEqual(job["state"], "done", job)
+        self.assertEqual(self.calls[0]["token"], "hvs.CAESIapproved")
+        self.assertNotIn("hvs.CAESIapproved", json.dumps(job))
+        self.assertNotIn("hvs.CAESIapproved", Path(decide.LOG["path"]).read_text())
+
+    def test_a_refused_approval_ends_the_job_before_anything_is_erased(self):
+        github = self._enrolling_wizard()
+        _status, scan = self.call("GET", "/api/scan")
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        self.run_plan(plan)
+        self._approve_when_asked(github, answer="fleet-error: Vault has no age key for the web role. Run `just setup`.")
+        job = self.wait_job()
+        self.assertEqual(job["state"], "failed", job)
+        self.assertIn("just setup", job["result"]["message"])
+        self.assertEqual(self.calls, [])
+
+    def test_no_approval_in_time_ends_the_job_before_anything_is_erased(self):
+        self._enrolling_wizard(wait="2")
+        _status, scan = self.call("GET", "/api/scan")
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        self.run_plan(plan)
+        job = self.wait_job()
+        self.assertEqual(job["state"], "failed", job)
+        self.assertIn("nobody approved", job["result"]["message"])
+        self.assertEqual(self.calls, [])
+
+    def test_cancel_stops_the_wait_for_approval(self):
+        self._enrolling_wizard()
+        _status, scan = self.call("GET", "/api/scan")
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        self.run_plan(plan)
+        for _ in range(100):
+            if any("issues/new?" in line for line in self.call("GET", "/api/job")[1]["log"]):
+                break
+            time.sleep(0.2)
+        self.assertEqual(self.call("POST", "/api/cancel", {})[0], 200)
+        job = self.wait_job()
+        self.assertEqual(job["state"], "cancelled", job)
+        self.assertEqual(self.calls, [])
 
     def test_another_helper_cannot_replace_the_image_during_a_boot_handoff(self):
         state = Path(os.environ["FLEET_STATE"])

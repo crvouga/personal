@@ -74,6 +74,8 @@ EOF
     fi
   '';
   testSettings = settings // {
+    # The VM has no route to the fleet API. Leave the agent out so the test stays offline.
+    fleetApi = { url = ""; };
     secretsFile = null;
     fleetNix = "${mockNix}/bin/nix";
     fleetSystemctl = "${mockSystemctl}/bin/systemctl";

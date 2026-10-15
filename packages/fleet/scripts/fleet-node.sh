@@ -10,12 +10,20 @@ if [ "${1:-}" = guide ]; then
   if [ -f "$here/../docs/agent-install.md" ]; then
     cat "$here/../docs/agent-install.md"
   else
-    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//'
+    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //'
   fi
   exit 0
 fi
 
-py=$(command -v python3 || command -v python || true)
+# A name that is on PATH may still not run: Windows ships python3.exe and python.exe stubs that only
+# open the Microsoft Store. Take the first one that really starts Python 3.8 or newer.
+py=""
+for candidate in python3 python py; do
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+    py=$candidate
+    break
+  fi
+done
 if [ -z "$py" ]; then
   echo 'Next: Python 3 is not installed, so nothing was written. Install Python 3 and run this program again.' >&2
   exit 1
@@ -28,7 +36,7 @@ trap cleanup EXIT
 if [ -f "$here/decide.py" ]; then
   cp "$here/decide.py" "$payload"
 else
-  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//' > "$payload"
+  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload"
 fi
 
 exec "$py" "$payload" "$@"
@@ -43,17 +51,26 @@ exec "$py" "$payload" "$@"
 # import base64
 # import datetime
 # import hashlib
+# import hmac
 # import json
 # import os
 # import platform
 # import re
 # import select
 # import shutil
+# import stat
+# import struct
 # import subprocess
 # import sys
 # import tempfile
 # import threading
+# import time
 # import traceback
+# import urllib.error
+# import urllib.parse
+# import urllib.request
+# import uuid
+# import webbrowser
 # from pathlib import Path
 #
 # ROLES = ("ci", "web", "cache", "netboot", "devbox")
@@ -412,7 +429,7 @@ exec "$py" "$payload" "$@"
 #
 #
 # def _run(command):
-#     completed = subprocess.run(command, check=False, capture_output=True, text=True)
+#     completed = subprocess.run(command, check=False, capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
 #     if completed.returncode != 0:
 #         detail = (completed.stderr or completed.stdout or "").strip()
 #         raise RuntimeError(detail or f"{command[0]} failed")
@@ -447,23 +464,8 @@ exec "$py" "$payload" "$@"
 #             disks.append(parsed)
 #         return disks
 #     if os_name == "Windows":
-#         tool = os.environ.get("FLEET_POWERSHELL") or shutil.which("powershell.exe") or "powershell"
-#         script = (
-#             "$ErrorActionPreference = 'Stop'; "
-#             "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); "
-#             "$rows = Get-CimInstance Win32_DiskDrive | ForEach-Object { "
-#             "$parts = @($_ | Get-CimAssociatedInstance -ResultClassName Win32_DiskPartition); "
-#             "$letters = @(); "
-#             "foreach ($part in $parts) { "
-#             "$vols = @($part | Get-CimAssociatedInstance -ResultClassName Win32_LogicalDisk); "
-#             "foreach ($vol in $vols) { if ($vol.DeviceID) { $letters += [string]$vol.DeviceID } } "
-#             "}; "
-#             "[PSCustomObject]@{ DeviceID=$_.DeviceID; Model=$_.Model; Size=[int64]$_.Size; "
-#             "InterfaceType=[string]$_.InterfaceType; BusType=[string]$_.BusType; "
-#             "MediaType=[string]$_.MediaType; PNPDeviceID=$_.PNPDeviceID; "
-#             "SerialNumber=$_.SerialNumber; Volumes=$letters } }; "
-#             "$rows | ConvertTo-Json -Compress -Depth 4"
-#         )
+#         tool = powershell_tool()
+#         script = ps_disks_script()
 #         raw = _run([tool, "-NoProfile", "-Command", script])
 #         return parse_windows(raw)
 #     raise RuntimeError(f"unsupported operating system {os_name}")
@@ -759,17 +761,21 @@ exec "$py" "$payload" "$@"
 #     return iso, checksum
 #
 #
-# def curl_to(url, dest):
+# def curl_to(url, dest, keep=True):
+#     """Download url to dest. With keep=False only the download happens (an installer is
+#     gigabytes; nothing here may hold it in memory)."""
 #     tool = os.environ.get("FLEET_CURL", "curl")
 #     completed = run_logged(
 #         [tool, "-fsSL", "--retry", "3", "-o", str(dest), url],
 #         capture_output=True,
 #         text=True,
+#         errors="replace",
+#         stdin=subprocess.DEVNULL,
 #     )
 #     if completed.returncode != 0:
 #         reason = (completed.stderr or "").strip().splitlines()
 #         raise RuntimeError(reason[-1] if reason else f"curl exited {completed.returncode}")
-#     return Path(dest).read_bytes()
+#     return Path(dest).read_bytes() if keep else None
 #
 #
 # def file_sha256(path):
@@ -788,19 +794,24 @@ exec "$py" "$payload" "$@"
 #
 #
 # def fetch_installer(dest):
-#     """Copy the durable installer to dest. Leave dest untouched on failure."""
+#     """Copy the durable installer to dest. Leave dest untouched on failure. The image is
+#     downloaded straight into dest's own folder (one copy on disk, not two) and is only
+#     streamed, never read into memory."""
 #     dest = Path(dest)
 #     iso_url, sum_url = installer_urls()
-#     temporary = Path(tempfile.mkdtemp(prefix="fleet-fetch-"))
+#     dest.parent.mkdir(parents=True, exist_ok=True)
+#     scratch = Path(tempfile.mkdtemp(prefix="fleet-fetch-"))
+#     staged = dest.with_suffix(dest.suffix + ".partial")
 #     try:
-#         body_path = temporary / "body"
-#         sum_path = temporary / "sum"
+#         sum_path = scratch / "sum"
 #         try:
-#             body = curl_to(iso_url, body_path)
+#             curl_to(iso_url, staged, keep=False)
 #         except (OSError, RuntimeError) as exc:
 #             say(f"Why: {exc}")
 #             return fail("Next: the installer could not be downloaded. Check the network and run this program again. Nothing was written.")
-#         if not body or b"artifact has expired" in body.lower():
+#         with open(staged, "rb") as handle:
+#             head = handle.read(ISO_MAGIC_OFFSET + 5)
+#         if not head or b"artifact has expired" in head.lower():
 #             return fail("Next: the installer download is missing or expired. Nothing was written. Run this program again after the durable installer is published.")
 #         try:
 #             checksum_body = curl_to(sum_url, sum_path)
@@ -810,24 +821,24 @@ exec "$py" "$payload" "$@"
 #         expected = checksum_body.decode("utf-8", "replace").split()
 #         if not expected or not re.fullmatch(r"[0-9a-fA-F]{64}", expected[0]):
 #             return fail("Next: the installer checksum was not valid. Nothing was written. Run this program again.")
-#         actual = file_sha256(body_path)
+#         actual = file_sha256(staged)
 #         if actual.lower() != expected[0].lower():
 #             return fail("Next: the installer download did not match its checksum. Nothing was written. Run this program again.")
-#         invariant(looks_like_iso(body), "the installer download matches its checksum but is not an ISO9660 image",
+#         invariant(looks_like_iso(head), "the installer download matches its checksum but is not an ISO9660 image",
 #                   "The release asset is wrong. Re-run the Fleet workflow so it publishes a real fleet-installer.iso.",
-#                   size=len(body), head=body[:16])
-#         dest.parent.mkdir(parents=True, exist_ok=True)
-#         if dest.is_file() and dest.read_bytes() == body:
+#                   size=staged.stat().st_size, head=head[:16])
+#         if dest.is_file() and dest.stat().st_size == staged.stat().st_size and file_sha256(dest) == actual:
 #             return 0
-#         staged = dest.with_suffix(dest.suffix + ".partial")
-#         staged.write_bytes(body)
-#         invariant(staged.stat().st_size == len(body), "the staged installer is the wrong size", staged=str(staged), want=len(body))
-#         os.replace(staged, dest)
-#         invariant(file_sha256(dest) == actual, "the installer on disk is not the bytes that were verified",
-#                   "The disk may be failing. Free space or use another drive, then run this program again.", file=str(dest))
+#         size = staged.stat().st_size
+#         os.replace(staged, dest)  # the bytes were hashed on disk above; a rename cannot change them
+#         invariant(dest.stat().st_size == size, "the installer on disk is the wrong size", "Free space or use another drive, then run this program again.", file=str(dest), want=size)
 #         return 0
 #     finally:
-#         shutil.rmtree(temporary, ignore_errors=True)
+#         shutil.rmtree(scratch, ignore_errors=True)
+#         try:
+#             staged.unlink()
+#         except OSError:
+#             pass
 #
 #
 # def os_boot_tool(os_name):
@@ -1035,18 +1046,20 @@ exec "$py" "$payload" "$@"
 #     return str(kernel_path), str(initrd_path), block.get("append", "")
 #
 #
-# def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None):
+# def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True):
 #     tokens = append.split()
 #     if any(any(char.isspace() for char in token) for token in tokens):
 #         raise ValueError("boot command is not one line")
-#     iso_abs = str(Path(iso_path).resolve())
-#     if iso_abs == "" or any(char.isspace() for char in iso_abs):
-#         raise ValueError("installer path is not a single word")
-#     extras = ["copytoram", f"findiso={iso_abs}"]
+#     extras = ["copytoram"]
+#     if findiso:
+#         iso_abs = str(Path(iso_path).resolve())
+#         if iso_abs == "" or any(char.isspace() for char in iso_abs):
+#             raise ValueError("installer path is not a single word")
+#         extras.append(f"findiso={iso_abs}")
 #     role_token = f"fleet.role={role}"
 #     if vault and any(char.isspace() for char in vault):
 #         raise ValueError("vault address is not a single word")
-#     kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh="))]
+#     kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "findiso="))]
 #     enroll = [f"fleet.enroll={token}"] if token else []
 #     where = [f"fleet.vault={vault}"] if token and vault else []
 #     invariant(role in ROLES, "refusing to build a boot command for an unknown role", role=role)
@@ -1087,6 +1100,938 @@ exec "$py" "$payload" "$@"
 #     if execute.returncode != 0:
 #         say(flash)
 #         return execute.returncode or 1
+#     return 0
+#
+#
+# # ---- Windows: convert this computer in place -------------------------------------
+# # Windows cannot kexec. Instead the installer image is written raw into a new
+# # partition carved out of C:, GRUB (taken from that same image) is placed on the
+# # EFI system partition with a config that boots the image's own kernel for the
+# # chosen role, and the firmware is told to boot it once. On reboot the installer
+# # erases the whole disk (Windows, the new partition and all) and installs NixOS.
+# # Everything before the reboot can be undone, and is, if a step fails.
+#
+# LINUX_DATA_GUID = "{0fc63daf-8483-4772-8e79-3d69d8477de4}"
+# ESP_GUID = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}"
+# # Windows dynamic disks keep their layout in an LDM database; Get-Partition and
+# # Resize-Partition do not work on them.
+# LDM_GUIDS = ("{5808c8aa-7e8f-42e0-85d2-e1e90434cfb3}", "{af9b60a0-1431-4f62-bc68-3311714a69ad}")
+# MIB = 1024 * 1024
+# WINDOWS_MARGIN = 64 * MIB
+# ESTIMATED_ISO = 8 * 1024 ** 3  # used for the early check when the release size is not known yet
+# ISO_SYSTEM_AREA = 16 * 2048  # the hybrid MBR; blank here so the partition holds one signature only
+# WRITE_CHUNK = 4 * MIB
+# WRITE_SECTOR = 4096
+# # The initrd copies the whole image into RAM (copytoram) and the installer then
+# # needs working memory of its own.
+# RAM_HEADROOM = 2 * 1024 ** 3
+# LOADER_SLACK = MIB  # free space the EFI system partition must keep after the boot files
+# GUID_RE = re.compile(r"\{[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\}")
+# BOOT_LOADER_PARTS = ("EFI", "fleet", "grubx64.efi")
+# BOOT_LOADER_FIRMWARE_PATH = "\\" + "\\".join(BOOT_LOADER_PARTS)
+# BOOT_DESCRIPTION = "Fleet installer"
+# # What windows_findings last learned, so the plan printed by doctor and --plan
+# # does not need a second (slow) storage query.
+# WINDOWS = {"facts": None, "iso_size": None}
+#
+#
+# # ---- PowerShell text ------------------------------------------------------------
+# # Every script this program sends to Windows PowerShell is built by a small pure
+# # function below, so a test can hand the exact text to the real PowerShell
+# # parser (tests/test_powershell.py). Rules that keep them correct under
+# # `powershell -Command`: one line, single-quoted strings only (no double quote
+# # ever reaches the Windows command line), values come through ps_literal /
+# # ps_number, and nothing depends on the language of the Windows installation
+# # (only property names and JSON are read back).
+#
+# PS_LITERAL_RE = re.compile(r"^[A-Za-z0-9 ._:\\{}/-]*$")
+#
+#
+# def ps_literal(value):
+#     """A PowerShell single-quoted string. Nothing inside it is interpreted."""
+#     text = str(value)
+#     invariant(PS_LITERAL_RE.match(text) is not None, "refusing to put an unexpected character into a PowerShell script", value=text[:60])
+#     return "'" + text + "'"
+#
+#
+# def ps_number(value):
+#     invariant(isinstance(value, int) and not isinstance(value, bool) and value >= 0, "a PowerShell script was given something that is not a count", value=value)
+#     return str(value)
+#
+#
+# def ps_letter(value):
+#     invariant(isinstance(value, str) and re.fullmatch(r"[A-Za-z]", value) is not None, "a drive letter must be one letter", value=value)
+#     return value.upper()
+#
+#
+# def ps_facts_script():
+#     """One read-only query. Nothing here changes the machine."""
+#     esp, ldm_a, ldm_b = ps_literal(ESP_GUID), ps_literal(LDM_GUIDS[0]), ps_literal(LDM_GUIDS[1])
+#     return (
+#         "$letter = $env:SystemDrive.Substring(0, 1); "
+#         "$c = Get-Partition -DriveLetter $letter; "
+#         "$limit = Get-PartitionSupportedSize -DriveLetter $letter; "
+#         "$disk = Get-Disk -Number $c.DiskNumber; "
+#         "$parts = @(Get-Partition -DiskNumber $c.DiskNumber); "
+#         f"$esps = @($parts | Where-Object {{ $_.GptType -eq {esp} }} | ForEach-Object {{ [PSCustomObject]@{{ Number = [int]$_.PartitionNumber; Size = [int64]$_.Size }} }}); "
+#         f"$dynamic = (@($parts | Where-Object {{ $_.GptType -eq {ldm_a} -or $_.GptType -eq {ldm_b} }}).Count -gt 0); "
+#         "$secure = $null; try { $secure = [bool](Confirm-SecureBootUEFI) } catch { }; "
+#         "$fw = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control').PEFirmwareType; "
+#         "$memory = $null; try { $memory = [int64](Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory } catch { }; "
+#         "$battery = $false; try { $b = @(Get-CimInstance Win32_Battery); $battery = ($b.Count -gt 0 -and $b[0].BatteryStatus -eq 1) } catch { }; "
+#         "$bitlocker = $null; try { $bitlocker = [string](Get-BitLockerVolume -MountPoint ($letter + ':')).ProtectionStatus } catch { }; "
+#         "[PSCustomObject]@{ Letter = $letter; DiskNumber = [int]$c.DiskNumber; PartitionNumber = [int]$c.PartitionNumber; "
+#         "Size = [int64]$c.Size; SizeMin = [int64]$limit.SizeMin; SizeMax = [int64]$limit.SizeMax; "
+#         "Style = [string]$disk.PartitionStyle; BusType = [string]$disk.BusType; LogicalSectorSize = [int]$disk.LogicalSectorSize; "
+#         "Esps = $esps; Dynamic = $dynamic; SecureBoot = $secure; Firmware = [int]$fw; Memory = $memory; OnBattery = $battery; "
+#         "BitLocker = $bitlocker } | ConvertTo-Json -Compress -Depth 4"
+#     )
+#
+#
+# def ps_shrink_script(letter, size):
+#     return f"Resize-Partition -DriveLetter {ps_letter(letter)} -Size {ps_number(size)}"
+#
+#
+# def ps_restore_script(letter, size):
+#     """Give the volume back its original size. Safe to run when nothing was shrunk."""
+#     drive, wanted = ps_letter(letter), ps_number(size)
+#     return (
+#         f"$c = Get-Partition -DriveLetter {drive}; "
+#         f"if ([uint64]$c.Size -lt [uint64]{wanted}) {{ "
+#         f"$m = Get-PartitionSupportedSize -DriveLetter {drive}; "
+#         f"$s = [uint64]{wanted}; if ($s -gt [uint64]$m.SizeMax) {{ $s = [uint64]$m.SizeMax }}; "
+#         f"Resize-Partition -DriveLetter {drive} -Size $s }}"
+#     )
+#
+#
+# def ps_new_partition_script(disk, size):
+#     number = ps_number(disk)
+#     return (
+#         f"try {{ Update-Disk -Number {number} }} catch {{ }}; "
+#         f"$p = New-Partition -DiskNumber {number} -Size {ps_number(size)} -GptType {ps_literal(LINUX_DATA_GUID)}; "
+#         f"$p = Get-Partition -DiskNumber {number} -PartitionNumber $p.PartitionNumber; "
+#         "[PSCustomObject]@{ Number = [int]$p.PartitionNumber; Offset = [int64]$p.Offset; Size = [int64]$p.Size; Guid = [string]$p.Guid } | ConvertTo-Json -Compress"
+#     )
+#
+#
+# def ps_remove_partition_script(disk, number):
+#     return f"Remove-Partition -DiskNumber {ps_number(disk)} -PartitionNumber {ps_number(number)} -Confirm:$false"
+#
+#
+# def ps_mount_esp_script():
+#     """Mount the EFI system partition Windows booted from on a free drive letter; print its root and letter."""
+#     return (
+#         "$letter = $null; "
+#         "foreach ($candidate in 'Z','Y','X','W','V','U','T','S','R','Q','P') { if (-not (Test-Path ($candidate + ':\\'))) { $letter = $candidate; break } }; "
+#         "if (-not $letter) { throw 'no free drive letter for the EFI system partition' }; "
+#         "& mountvol ($letter + ':') /S | Out-Null; "
+#         "if ($LASTEXITCODE -ne 0) { throw 'mountvol could not mount the EFI system partition' }; "
+#         "[PSCustomObject]@{ Root = ($letter + ':\\'); Letter = [string]$letter } | ConvertTo-Json -Compress"
+#     )
+#
+#
+# def ps_unmount_script(letter):
+#     return f"& mountvol {ps_literal(ps_letter(letter) + ':')} /D | Out-Null; if ($LASTEXITCODE -ne 0) {{ throw 'mountvol could not unmount the EFI system partition' }}"
+#
+#
+# def ps_partition_by_letter_script(letter):
+#     """Where the mounted EFI system partition really is: the firmware needs its GUID, start and size."""
+#     return (
+#         f"$p = Get-Partition -DriveLetter {ps_letter(letter)}; $d = Get-Disk -Number $p.DiskNumber; "
+#         "[PSCustomObject]@{ DiskNumber = [int]$p.DiskNumber; Number = [int]$p.PartitionNumber; Offset = [int64]$p.Offset; Size = [int64]$p.Size; "
+#         "Guid = [string]$p.Guid; GptType = [string]$p.GptType; LogicalSectorSize = [int]$d.LogicalSectorSize } | ConvertTo-Json -Compress"
+#     )
+#
+#
+# def ps_memory_script():
+#     return "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"
+#
+#
+# def ps_disks_script():
+#     """The disk listing the planner chooses from (see collect)."""
+#     return (
+#         "$ErrorActionPreference = 'Stop'; "
+#         "try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }; "
+#         "$rows = Get-CimInstance Win32_DiskDrive | ForEach-Object { "
+#         "$parts = @($_ | Get-CimAssociatedInstance -ResultClassName Win32_DiskPartition); "
+#         "$letters = @(); "
+#         "foreach ($part in $parts) { "
+#         "$vols = @($part | Get-CimAssociatedInstance -ResultClassName Win32_LogicalDisk); "
+#         "foreach ($vol in $vols) { if ($vol.DeviceID) { $letters += [string]$vol.DeviceID } } "
+#         "}; "
+#         "[PSCustomObject]@{ DeviceID=$_.DeviceID; Model=$_.Model; Size=[int64]$_.Size; "
+#         "InterfaceType=[string]$_.InterfaceType; BusType=[string]$_.BusType; "
+#         "MediaType=[string]$_.MediaType; PNPDeviceID=$_.PNPDeviceID; "
+#         "SerialNumber=$_.SerialNumber; Volumes=$letters } }; "
+#         "$rows | ConvertTo-Json -Compress -Depth 4"
+#     )
+#
+#
+# def all_powershell_scripts():
+#     """Every script this program can send, for the parser test."""
+#     return {
+#         "facts": ps_facts_script(),
+#         "shrink": ps_shrink_script("C", 123456789),
+#         "restore": ps_restore_script("C", 123456789),
+#         "new-partition": ps_new_partition_script(0, 987654321),
+#         "remove-partition": ps_remove_partition_script(0, 5),
+#         "mount-esp": ps_mount_esp_script(),
+#         "unmount-esp": ps_unmount_script("Z"),
+#         "partition-by-letter": ps_partition_by_letter_script("Z"),
+#         "memory": ps_memory_script(),
+#         "disks": ps_disks_script(),
+#     }
+#
+#
+# PS_PREAMBLE = "$ErrorActionPreference = 'Stop'; "
+#
+#
+# def powershell_tool():
+#     return os.environ.get("FLEET_POWERSHELL") or shutil.which("powershell.exe") or "powershell"
+#
+#
+# def powershell_environment():
+#     """A copy of the environment for Windows PowerShell. PSModulePath is dropped:
+#     when this program was started from PowerShell 7 it points 5.1 at modules it
+#     cannot load, and the Storage cmdlets disappear."""
+#     return {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
+#
+#
+# def windows_ps(script, timeout=900):
+#     invariant('"' not in script and "\n" not in script, "a PowerShell script would not survive the Windows command line", script=script[:80])
+#     try:
+#         done = run_logged([powershell_tool(), "-NoProfile", "-NonInteractive", "-Command", PS_PREAMBLE + script],
+#                           capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
+#                           timeout=timeout, env=powershell_environment())
+#     except subprocess.TimeoutExpired:
+#         invariant(False, "a Windows disk command did not finish", "Nothing that cannot be undone was changed. Close other programs, restart Windows, and run this program again.",
+#                   command=script.strip()[:120], seconds=timeout)
+#     invariant(done.returncode == 0, "a Windows disk command failed",
+#               "Nothing that cannot be undone was changed. Read the log, fix what it names, and run this program again.",
+#               command=script.strip().splitlines()[0][:120], code=done.returncode, error=(done.stderr or done.stdout or "").strip()[-300:])
+#     return done.stdout
+#
+#
+# def json_from_output(raw):
+#     """The JSON object a script printed. Windows may add warning lines around it."""
+#     for line in reversed(str(raw).strip().splitlines()):
+#         line = line.strip()
+#         if line.startswith("{") and line.endswith("}"):
+#             try:
+#                 return json.loads(line)
+#             except ValueError:
+#                 continue
+#     invariant(False, "Windows printed something other than the expected answer", "Nothing that cannot be undone was changed. Read the log and run this program again.", output=str(raw).strip()[-200:])
+#
+#
+# def parse_windows_facts(raw):
+#     facts = json_from_output(raw)
+#     invariant(isinstance(facts, dict) and "DiskNumber" in facts, "Windows described its system disk in an unexpected way", output=str(raw)[-200:])
+#     esps = facts.get("Esps")
+#     if isinstance(esps, dict):
+#         esps = [esps]
+#     facts["Esps"] = [item for item in (esps or []) if isinstance(item, dict)]
+#     if "EspNumber" not in facts:
+#         facts["EspNumber"] = facts["Esps"][0]["Number"] if facts["Esps"] else None
+#     return facts
+#
+#
+# def windows_facts(fresh=False):
+#     """One read-only query: the system disk, how far C: can shrink, the EFI system partitions."""
+#     if WINDOWS["facts"] is not None and not fresh:
+#         return dict(WINDOWS["facts"])
+#     facts = parse_windows_facts(windows_ps(ps_facts_script()))
+#     WINDOWS["facts"] = facts
+#     return dict(facts)
+#
+#
+# def windows_admin():
+#     """True or False when Windows can say whether this process is elevated, None when it cannot."""
+#     try:
+#         import ctypes
+#         return bool(ctypes.windll.shell32.IsUserAnAdmin())
+#     except (AttributeError, OSError, ImportError):
+#         return None
+#
+#
+# def padded_size(size):
+#     return (size + WRITE_SECTOR - 1) // WRITE_SECTOR * WRITE_SECTOR
+#
+#
+# def windows_need(iso_size):
+#     return (padded_size(iso_size) + WINDOWS_MARGIN + MIB - 1) // MIB * MIB
+#
+#
+# def installer_on_drive(path, letter):
+#     """Does the downloaded installer sit on this drive? Unknown counts as yes: the safe answer."""
+#     drive = os.path.splitdrive(os.path.abspath(str(path)))[0]
+#     return not drive or drive[:1].upper() == str(letter).upper()
+#
+#
+# def memory_finding(memory, size):
+#     """The installer image is copied whole into RAM, and the installer needs room besides. Below that it cannot start."""
+#     if memory is None or not size:
+#         return None
+#     need = size + RAM_HEADROOM
+#     have = memory / 1024 ** 3
+#     if memory < need:
+#         return finding("memory", "fail", f"{have:.1f} GiB RAM; the installer is copied into RAM and needs {need / 1024 ** 3:.1f} GiB ({size / 1024 ** 3:.1f} GiB image + 2 GiB)",
+#                        f"Add RAM until the computer has at least {need // 1024 ** 3 + 1} GiB. An install USB cannot help: it boots the same image into RAM too. Or choose a computer with more memory.")
+#     return finding("memory", "ok", f"{have:.1f} GiB RAM, the installer needs {need / 1024 ** 3:.1f} GiB")
+#
+#
+# def windows_findings(iso_size, disk_path=None, strict=True, iso_path=None):
+#     """Everything about this Windows installation that decides whether it can convert itself.
+#     strict=False is the wizard's review, which is not elevated: Windows may refuse its
+#     storage queries there, and the elevated helper repeats this check with strict=True.
+#     iso_path is where the installer is (or will be) downloaded: a copy that is not there yet
+#     will sit on C: and take space away from the shrink."""
+#     found = []
+#     bcdedit = os.environ.get("FLEET_BCDEDIT", "bcdedit")
+#     if shutil.which(bcdedit) or os.path.isfile(bcdedit):
+#         found.append(finding("boot-tool", "ok", "bcdedit"))
+#     else:
+#         found.append(finding("boot-tool", "fail", "bcdedit is not available", "Run this program from an administrator account on Windows, or make an install USB with the word flash."))
+#         return found
+#     try:
+#         facts = windows_facts()
+#     except (Invariant, OSError, ValueError) as exc:
+#         if not strict:
+#             found.append(finding("windows", "info", "the disk, firmware and Secure Boot checks run once you accept the administrator prompt"))
+#             return found
+#         found.append(finding("windows", "fail", f"Windows could not describe its system disk ({getattr(exc, 'what', exc)})",
+#                              "Run this program as administrator. If it repeats, make an install USB with the word flash."))
+#         return found
+#     WINDOWS["iso_size"] = iso_size
+#     if facts.get("Firmware") == 2:
+#         found.append(finding("firmware", "ok", "booted in UEFI mode"))
+#     else:
+#         found.append(finding("firmware", "fail", "Windows is booted in legacy BIOS mode",
+#                              "Convert the disk to GPT and enable UEFI in the firmware settings, or make an install USB with the word flash."))
+#     secure = facts.get("SecureBoot")
+#     if secure is True:
+#         found.append(finding("secure-boot", "fail", "Secure Boot is on and the installer is not signed",
+#                              "Turn Secure Boot off once: run `shutdown /r /fw`, open the Boot or Security page, set Secure Boot to Disabled, save, start Windows, and run this program again."))
+#     elif secure is None:
+#         found.append(finding("secure-boot", "warn", "Secure Boot state could not be read", "If the installer does not start, turn Secure Boot off in the firmware settings."))
+#     else:
+#         found.append(finding("secure-boot", "ok", "off"))
+#     if facts.get("Style") == "GPT":
+#         found.append(finding("partition-style", "ok", "GPT"))
+#     else:
+#         found.append(finding("partition-style", "fail", f"the system disk uses {facts.get('Style')} partitions", "Only GPT/UEFI disks convert in place. Make an install USB with the word flash."))
+#     if facts.get("Dynamic"):
+#         found.append(finding("dynamic-disk", "fail", "the system disk is a Windows dynamic disk", "Dynamic disks cannot be resized in place. Make an install USB with the word flash."))
+#     sector = facts.get("LogicalSectorSize")
+#     if sector is not None and sector not in (512, 4096):
+#         found.append(finding("sector-size", "fail", f"the system disk uses {sector}-byte sectors", "Only 512-byte and 4096-byte sectors are supported. Make an install USB with the word flash."))
+#     if str(facts.get("BusType") or "").upper() == "RAID":
+#         found.append(finding("disk-controller", "warn", "the system disk is behind a RAID or Intel RST/VMD controller",
+#                              "Linux cannot see disks in that mode. In the firmware settings set the storage mode to AHCI (this can stop Windows from starting), or make an install USB with the word flash."))
+#     if disk_path is not None:
+#         wanted = f"\\\\.\\PHYSICALDRIVE{facts.get('DiskNumber')}"
+#         if disk_path.upper() == wanted.upper():
+#             found.append(finding("system-disk", "ok", "the disk that would be erased holds Windows"))
+#         else:
+#             found.append(finding("system-disk", "fail", f"Windows runs from disk {facts.get('DiskNumber')}, not {disk_path}",
+#                                  "Disconnect the other internal disks, or make an install USB with the word flash."))
+#     if facts.get("EspNumber") is None:
+#         found.append(finding("efi-partition", "fail", "no EFI system partition on the system disk", "Make an install USB with the word flash."))
+#     else:
+#         found.append(finding("efi-partition", "ok", f"partition {facts['EspNumber']}"))
+#     size = iso_size or ESTIMATED_ISO
+#     need = windows_need(size)
+#     # The download lands on C: unless it goes elsewhere, and a file that is there counts as used space:
+#     # Windows cannot shrink below it. Ask for the room the copy will take as well, before it is downloaded.
+#     copy = padded_size(size) if iso_path is not None and not os.path.isfile(iso_path) and installer_on_drive(iso_path, facts["Letter"]) else 0
+#     shrinkable = int(facts.get("Size") or 0) - int(facts.get("SizeMin") or 0)
+#     letter = facts["Letter"]
+#     if shrinkable >= need + copy:
+#         found.append(finding("shrink", "ok", f"{letter}: can give up {shrinkable // 1024 ** 3} GiB, the installer needs {(need + copy) // MIB} MiB"))
+#     else:
+#         extra = f" (including {copy // MIB} MiB for the download, which sits on {letter}: until it is written)" if copy else ""
+#         found.append(finding("shrink", "fail", f"{letter}: can only shrink by {max(shrinkable, 0) // MIB} MiB, the installer needs {(need + copy) // MIB} MiB{extra}",
+#                              f"Free space on {letter}: (empty the Recycle Bin, remove large files, turn off hibernation with `powercfg /h off`), then run this program again. "
+#                              "If it still cannot shrink, Windows has files it cannot move near the end of the drive; docs/windows.md explains what to do."))
+#     if str(facts.get("BitLocker") or "").lower() in ("on", "1"):
+#         found.append(finding("bitlocker", "warn", f"BitLocker is on for {letter}:",
+#                              "Save the BitLocker recovery key somewhere that is not this computer before going on (account.microsoft.com/devices/recoverykey). If anything stops half way, Windows may ask for it."))
+#     if facts.get("OnBattery"):
+#         found.append(finding("power", "warn", "this computer is running on battery", "Plug it in before going on: a power cut while the partitions change would need the recovery steps in docs/windows.md."))
+#     return found
+#
+#
+# def windows_plan_lines(facts, iso_size, role):
+#     """What conversion would do on this machine, in order, with the sizes. Changes nothing."""
+#     size = iso_size or ESTIMATED_ISO
+#     need, part = windows_need(size), padded_size(size)
+#     letter, disk = facts["Letter"], facts["DiskNumber"]
+#     total = int(facts["Size"])
+#     esp = facts.get("EspNumber")
+#     return [
+#         f"1. Shrink {letter}: from {total / 1024 ** 3:.1f} GiB to {(total - need) / 1024 ** 3:.1f} GiB (gives up {need / MIB:.0f} MiB: the {size / 1024 ** 3:.2f} GiB installer plus {WINDOWS_MARGIN // MIB} MiB spare). Files on {letter}: are not touched.",
+#         f"2. Create a {part / MIB:.0f} MiB partition of type Linux data on disk {disk} and write the installer image into it, then read it back and compare it byte for byte.",
+#         f"3. Mount the EFI system partition (partition {esp if esp is not None else '?'} of disk {disk}) on a spare drive letter and copy GRUB to {BOOT_LOADER_FIRMWARE_PATH} and a config to \\EFI\\BOOT\\grub.cfg ({role} installer).",
+#         f"4. Add the boot entry \"{BOOT_DESCRIPTION}\" with bcdedit and a firmware boot option (Boot####) for it, and set both to run once, on the next restart only. Windows stays first in the normal boot order.",
+#         "5. Restart 15 seconds later. The installer then ERASES the whole of disk " + f"{disk} (Windows, the new partition and every file) and installs {role}.",
+#         "Undo: if any step fails, everything above is taken back newest first and Windows boots as before. docs/windows.md lists the commands to do it by hand.",
+#     ]
+#
+#
+# def windows_disk_target(disk):
+#     """The device the installer image is written to. FLEET_WINDOWS_TARGET redirects
+#     the write to a plain file for tests; a device or a symlink is refused, so the
+#     redirect can never reach a real disk."""
+#     redirect = os.environ.get("FLEET_WINDOWS_TARGET")
+#     if redirect:
+#         try:
+#             mode = os.lstat(redirect).st_mode
+#         except OSError:
+#             mode = 0
+#         invariant(stat.S_ISREG(mode), "the test write target must be an existing regular file, never a device or symlink", path=redirect)
+#         return redirect
+#     return f"\\\\.\\PHYSICALDRIVE{disk}"
+#
+#
+# def windows_partition_target(disk, number):
+#     """The partition's own device. Windows lets a program write inside a partition that has no
+#     volume through either handle; when the whole-disk handle is refused this one often is not."""
+#     if os.environ.get("FLEET_WINDOWS_TARGET"):
+#         return None
+#     return f"\\\\?\\GLOBALROOT\\Device\\Harddisk{ps_number(disk)}\\Partition{ps_number(number)}"
+#
+#
+# def _write_and_verify(iso, device, offset, zero_head, on_progress):
+#     size = os.path.getsize(iso)
+#     binary = getattr(os, "O_BINARY", 0)
+#     fd = os.open(device, os.O_RDWR | binary)
+#     written = 0
+#     expected = hashlib.sha256()
+#     try:
+#         landed = os.lseek(fd, offset, os.SEEK_SET)
+#         invariant(landed == offset, "the device did not seek to the requested byte", device=device, wanted=offset, got=landed)
+#         with open(iso, "rb") as source:
+#             while written < size:
+#                 block = source.read(WRITE_CHUNK)
+#                 invariant(block != b"", "the image ended early while writing", wrote=written, want=size)
+#                 if written < zero_head:
+#                     cut = min(zero_head - written, len(block))
+#                     block = bytes(cut) + block[cut:]
+#                 expected.update(block)
+#                 if len(block) % WRITE_SECTOR:
+#                     block = block + b"\0" * (padded_size(len(block)) - len(block))
+#                 count = os.write(fd, block)
+#                 invariant(count == len(block), "the disk accepted a short write", wrote=count, asked=len(block), at=written)
+#                 written += min(len(block), size - written)
+#                 if on_progress:
+#                     on_progress(written, size)
+#         os.fsync(fd)
+#     finally:
+#         os.close(fd)
+#     # Read it back through a fresh handle, so nothing that was only buffered can pass for what the disk holds.
+#     fd = os.open(device, os.O_RDONLY | binary)
+#     try:
+#         landed = os.lseek(fd, offset, os.SEEK_SET)
+#         invariant(landed == offset, "the device did not seek to the requested byte", device=device, wanted=offset, got=landed)
+#         seen, remaining = hashlib.sha256(), size
+#         while remaining:
+#             block = os.read(fd, min(WRITE_CHUNK, padded_size(remaining)))
+#             invariant(len(block) > 0, "the disk returned nothing while reading back", missing=remaining)
+#             take = min(len(block), remaining)
+#             seen.update(block[:take])
+#             remaining -= take
+#     finally:
+#         os.close(fd)
+#     invariant(seen.digest() == expected.digest(), "the partition does not hold the installer after writing",
+#               "The disk may be failing. Nothing that cannot be undone was changed; run this program again or make an install USB.", device=device)
+#     return size
+#
+#
+# def write_region(iso, target, offset, zero_head=0, on_progress=None, fallback=None):
+#     """Write the image at a byte offset of a disk (or any file in tests), sync,
+#     read it back, and prove the bytes match. The first zero_head bytes are
+#     written as zeros: an ISO's hybrid MBR would otherwise make the partition
+#     look like both a filesystem and a partition table. fallback is (device,
+#     offset), tried once from the start if the first device refuses with an OS
+#     error (access denied, sharing violation): the partition's own device
+#     takes offset 0."""
+#     invariant(offset % WRITE_SECTOR == 0, "the write offset is not sector aligned", offset=offset)
+#     attempts = [(target, offset)] + ([fallback] if fallback else [])
+#     refused = []
+#     for index, (device, start) in enumerate(attempts):
+#         invariant(start % WRITE_SECTOR == 0, "the write offset is not sector aligned", offset=start, device=device)
+#         try:
+#             return _write_and_verify(iso, device, start, zero_head, on_progress)
+#         except OSError as exc:
+#             reason = f"{type(exc).__name__}: {exc}"
+#             log(f"writing through {device} failed: {reason}", "ERROR")
+#             refused.append(f"{device} ({reason})")
+#             if index + 1 < len(attempts):
+#                 say(f"Windows refused the write through {device}. Trying the partition's own device {attempts[index + 1][0]}.")
+#     invariant(False, "Windows would not let this program write the installer into the new partition",
+#               "Nothing that cannot be undone was changed. Close disk tools, antivirus or backup programs that watch the disk (they can lock it), "
+#               "check that this is an administrator window, restart Windows and run this program again; or make an install USB with the word flash.",
+#               devices="; ".join(refused))
+#
+#
+# def grub_config(role, linux_path, initrd_path, cmdline):
+#     invariant(role in ROLES, "refusing to write a boot config for an unknown role", role=role)
+#     for word in (linux_path, initrd_path, cmdline):
+#         invariant("\n" not in word and "\r" not in word and "'" not in word, "the boot config would span lines or quote badly", value=word[:80])
+#     return (
+#         "set timeout=3\n"
+#         "set default=0\n"
+#         "search --no-floppy --set=root --file /EFI/nixos-installer-image\n"
+#         f"menuentry 'Fleet installer: ERASES the internal disk and installs {role}' {{\n"
+#         f"    linux {linux_path} {cmdline}\n"
+#         f"    initrd {initrd_path}\n"
+#         "}\n"
+#     )
+#
+#
+# def iso_boot_material(iso_path, role):
+#     """The role's boot entry and GRUB program, read out of the installer image."""
+#     with Path(iso_path).open("rb") as handle:
+#         files = _iso_index(handle)
+#         config = _iso_bytes(handle, files, "isolinux/isolinux.cfg").decode("utf-8", "replace")
+#         block = _choose_block(_boot_blocks(config), role)
+#         grub = _iso_bytes(handle, files, "EFI/BOOT/BOOTX64.EFI")
+#     return block["linux"], block["initrd"], block.get("append", ""), grub
+#
+#
+# class WindowsUndo:
+#     """Steps to take back if a later step fails. Run newest first."""
+#
+#     def __init__(self):
+#         self.steps = []
+#
+#     def add(self, what, action):
+#         self.steps.append((what, action))
+#
+#     def extend(self, other):
+#         self.steps.extend(other.steps)
+#         other.steps = []
+#
+#     def run(self):
+#         for what, action in reversed(self.steps):
+#             try:
+#                 action()
+#                 log(f"undo ok: {what}")
+#             except Exception as exc:  # best effort: report every step, stop on none
+#                 log(f"undo FAILED: {what}: {exc}", "ERROR")
+#                 say(f"Could not undo: {what}. See the log; Windows disk tools can finish it.")
+#         self.steps = []
+#
+#
+# def bcd(*args):
+#     tool = os.environ.get("FLEET_BCDEDIT", "bcdedit")
+#     done = run_logged([tool, *args], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
+#     invariant(done.returncode == 0, "bcdedit refused a firmware boot entry change", "Windows was not changed beyond what was undone. Make an install USB with the word flash.",
+#               args=" ".join(args), code=done.returncode, error=(done.stdout or done.stderr or "").strip()[-200:])
+#     return done.stdout
+#
+#
+# def bcd_one_time_boot(undo):
+#     """Mechanism one: a Windows boot manager entry for the loader, run once. Returns its id."""
+#     copied = GUID_RE.search(bcd("/copy", "{bootmgr}", "/d", BOOT_DESCRIPTION))
+#     invariant(copied is not None, "bcdedit gave no id for the new boot entry")
+#     entry = copied.group(0)
+#     undo.add("delete the firmware boot entry", lambda: bcd("/delete", entry))
+#     bcd("/set", entry, "path", BOOT_LOADER_FIRMWARE_PATH)
+#     undo.add("take the entry out of the firmware boot menu", lambda: bcd("/set", "{fwbootmgr}", "displayorder", entry, "/remove"))
+#     # Last in the normal order, so a firmware that ignores the one-time choice starts Windows, not the installer.
+#     bcd("/set", "{fwbootmgr}", "displayorder", entry, "/addlast")
+#     undo.add("clear the one-time boot choice", lambda: bcd("/deletevalue", "{fwbootmgr}", "bootsequence"))
+#     bcd("/set", "{fwbootmgr}", "bootsequence", entry)
+#     shown = bcd("/enum", "{fwbootmgr}")
+#     invariant(re.search(r"bootsequence\s+" + re.escape(entry), shown, re.I) is not None,
+#               "the firmware did not accept the one-time boot entry", "Windows was left as it was. Make an install USB with the word flash.", entry=entry)
+#     return entry
+#
+#
+# # ---- UEFI variables, written directly ----------------------------------------------
+# # The second one-time boot mechanism, the way efibootmgr does it, independent of
+# # bcdedit. Layouts (UEFI specification 2.10, sections 3.1.3 and 10):
+# #
+# #   EFI_LOAD_OPTION (the value of the variable Boot####, #### = four hex digits)
+# #     UINT32  Attributes            bit 0 = LOAD_OPTION_ACTIVE
+# #     UINT16  FilePathListLength    bytes in FilePathList
+# #     CHAR16  Description[]         UTF-16LE, ends with a 16-bit zero
+# #     EFI_DEVICE_PATH_PROTOCOL FilePathList[]   nodes, ending with an End node
+# #     UINT8   OptionalData[]        none here
+# #
+# #   Every device path node starts with: UINT8 Type, UINT8 SubType, UINT16 Length (the whole node)
+# #   Hard Drive media node: Type 4, SubType 1, Length 42
+# #     UINT32 PartitionNumber, UINT64 PartitionStart (LBA), UINT64 PartitionSize (sectors),
+# #     UINT8[16] Signature (the partition GUID), UINT8 MBRType (2 = GPT), UINT8 SignatureType (2 = GUID)
+# #   File Path media node: Type 4, SubType 4, Length 4 + bytes, then CHAR16 path ending with a 16-bit zero
+# #   End of entire path node: Type 0x7F, SubType 0xFF, Length 4
+# #
+# # A GUID is stored mixed-endian: the first three fields little-endian, the last
+# # eight bytes as written (Python: uuid.UUID(text).bytes_le).
+# # BootNext is a UINT16 option number; a variable's attributes are NV|BS|RT = 7.
+#
+# EFI_GLOBAL_GUID = "{8BE4DF61-93CA-11D2-AA0D-00E098032B8C}"
+# EFI_ATTR_NV_BS_RT = 0x07
+# LOAD_OPTION_ACTIVE = 0x00000001
+# EFI_END_NODE = b"\x7f\xff\x04\x00"
+# ERROR_ENVVAR_NOT_FOUND = 203
+# ERROR_NOT_ALL_ASSIGNED = 1300
+# VARIABLE_READ_MAX = 4096
+#
+#
+# def efi_guid_bytes(text):
+#     return uuid.UUID(str(text).strip("{}")).bytes_le
+#
+#
+# def efi_hard_drive_node(partition_number, start_lba, size_lba, signature_guid):
+#     invariant(partition_number >= 1 and start_lba >= 1 and size_lba >= 1, "a hard drive device path node needs a real partition", number=partition_number, start=start_lba, size=size_lba)
+#     return struct.pack("<BBHIQQ16sBB", 0x04, 0x01, 42, partition_number, start_lba, size_lba, efi_guid_bytes(signature_guid), 0x02, 0x02)
+#
+#
+# def efi_file_node(path):
+#     raw = path.encode("utf-16-le") + b"\x00\x00"
+#     return struct.pack("<BBH", 0x04, 0x04, 4 + len(raw)) + raw
+#
+#
+# def efi_load_option(description, node_list, attributes=LOAD_OPTION_ACTIVE):
+#     listing = b"".join(node_list) + EFI_END_NODE
+#     return struct.pack("<IH", attributes, len(listing)) + description.encode("utf-16-le") + b"\x00\x00" + listing
+#
+#
+# def loader_load_option(part, sector):
+#     """Boot#### for the loader on the EFI system partition described by part (Get-Partition facts)."""
+#     offset, size = int(part["Offset"]), int(part["Size"])
+#     invariant(sector in (512, 4096) and offset % sector == 0 and size % sector == 0 and offset > 0,
+#               "the EFI system partition does not line up with the disk's sectors", sector=sector, offset=offset, size=size)
+#     node = efi_hard_drive_node(int(part["Number"]), offset // sector, size // sector, part["Guid"])
+#     return efi_load_option(BOOT_DESCRIPTION, [node, efi_file_node(BOOT_LOADER_FIRMWARE_PATH)])
+#
+#
+# def boot_variable_name(number):
+#     invariant(0 <= number <= 0xFFFF, "a boot option number is 16 bits", number=number)
+#     return f"Boot{number:04X}"
+#
+#
+# def parse_boot_order(data):
+#     return list(struct.unpack(f"<{len(data) // 2}H", data[:len(data) // 2 * 2]))
+#
+#
+# class WindowsFirmware:
+#     """UEFI variables through kernel32, the way efibootmgr uses the kernel. Only an
+#     elevated Windows process can use it. kernel and advapi are the loaded DLLs; tests
+#     hand in stand-ins so nothing here ever reaches real firmware off Windows."""
+#
+#     def __init__(self, kernel=None, advapi=None):
+#         import ctypes
+#         from ctypes import wintypes
+#         self.ctypes, self.wintypes = ctypes, wintypes
+#         if kernel is None:
+#             kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+#             advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+#         self.kernel, self.advapi = kernel, advapi
+#         kernel.GetFirmwareEnvironmentVariableExW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+#         kernel.GetFirmwareEnvironmentVariableExW.restype = wintypes.DWORD
+#         kernel.SetFirmwareEnvironmentVariableExW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD]
+#         kernel.SetFirmwareEnvironmentVariableExW.restype = wintypes.BOOL
+#         kernel.GetCurrentProcess.restype = wintypes.HANDLE
+#         kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+#         kernel.CloseHandle.restype = wintypes.BOOL
+#         advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+#         advapi.OpenProcessToken.restype = wintypes.BOOL
+#         advapi.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p]
+#         advapi.LookupPrivilegeValueW.restype = wintypes.BOOL
+#         advapi.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+#         advapi.AdjustTokenPrivileges.restype = wintypes.BOOL
+#
+#     def last_error(self):
+#         getter = getattr(self.ctypes, "get_last_error", None)
+#         return getter() if getter else 0
+#
+#     def clear_error(self):
+#         setter = getattr(self.ctypes, "set_last_error", None)
+#         if setter:
+#             setter(0)
+#
+#     def fail(self, what, code=None):
+#         code = self.last_error() if code is None else code
+#         return OSError(code, f"{what} failed with Windows error {code}")
+#
+#     def enable_privilege(self):
+#         """SeSystemEnvironmentPrivilege is in an elevated token but switched off until asked for."""
+#         ctypes, wintypes = self.ctypes, self.wintypes
+#
+#         class LUID(ctypes.Structure):
+#             _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
+#
+#         class LuidAndAttributes(ctypes.Structure):
+#             _fields_ = [("Luid", LUID), ("Attributes", wintypes.DWORD)]
+#
+#         class TokenPrivileges(ctypes.Structure):
+#             _fields_ = [("PrivilegeCount", wintypes.DWORD), ("Privileges", LuidAndAttributes * 1)]
+#
+#         token = wintypes.HANDLE()
+#         self.clear_error()
+#         if not self.advapi.OpenProcessToken(self.kernel.GetCurrentProcess(), 0x0020 | 0x0008, ctypes.byref(token)):  # TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY
+#             raise self.fail("OpenProcessToken")
+#         try:
+#             luid = LUID()
+#             if not self.advapi.LookupPrivilegeValueW(None, "SeSystemEnvironmentPrivilege", ctypes.byref(luid)):
+#                 raise self.fail("LookupPrivilegeValueW")
+#             request = TokenPrivileges(1, (LuidAndAttributes * 1)(LuidAndAttributes(luid, 0x00000002)))  # SE_PRIVILEGE_ENABLED
+#             self.clear_error()
+#             if not self.advapi.AdjustTokenPrivileges(token, False, ctypes.byref(request), 0, None, None):
+#                 raise self.fail("AdjustTokenPrivileges")
+#             # The call succeeds even when the privilege is not in the token; only the last error says so.
+#             if self.last_error() == ERROR_NOT_ALL_ASSIGNED:
+#                 raise self.fail("AdjustTokenPrivileges", ERROR_NOT_ALL_ASSIGNED)
+#         finally:
+#             self.kernel.CloseHandle(token)
+#
+#     def read(self, name):
+#         """(value bytes, attributes), or None when the variable does not exist."""
+#         ctypes, wintypes = self.ctypes, self.wintypes
+#         buffer = ctypes.create_string_buffer(VARIABLE_READ_MAX)
+#         attributes = wintypes.DWORD(0)
+#         self.clear_error()
+#         count = self.kernel.GetFirmwareEnvironmentVariableExW(name, EFI_GLOBAL_GUID, buffer, VARIABLE_READ_MAX, ctypes.byref(attributes))
+#         if count == 0:
+#             code = self.last_error()
+#             if code == ERROR_ENVVAR_NOT_FOUND:
+#                 return None
+#             if code != 0:
+#                 raise self.fail(f"reading {name}", code)
+#         return buffer.raw[:count], int(attributes.value)
+#
+#     def write(self, name, data, attributes=EFI_ATTR_NV_BS_RT):
+#         ctypes = self.ctypes
+#         buffer = ctypes.create_string_buffer(bytes(data), len(data))
+#         self.clear_error()
+#         if not self.kernel.SetFirmwareEnvironmentVariableExW(name, EFI_GLOBAL_GUID, buffer, len(data), attributes):
+#             raise self.fail(f"writing {name}")
+#
+#     def delete(self, name):
+#         self.clear_error()
+#         if not self.kernel.SetFirmwareEnvironmentVariableExW(name, EFI_GLOBAL_GUID, None, 0, EFI_ATTR_NV_BS_RT):
+#             code = self.last_error()
+#             if code != ERROR_ENVVAR_NOT_FOUND:
+#                 raise self.fail(f"deleting {name}", code)
+#
+#
+# class FileFirmware:
+#     """UEFI variables kept as files in a directory: a stand-in for tests. It is chosen only
+#     through FLEET_FIRMWARE_STANDIN and replaces the real implementation; it cannot reach firmware."""
+#
+#     def __init__(self, directory):
+#         self.directory = Path(directory)
+#         invariant(self.directory.is_dir(), "the firmware stand-in must be an existing directory", path=str(directory))
+#
+#     def read(self, name):
+#         path = self.directory / name
+#         if not path.is_file():
+#             return None
+#         raw = path.read_bytes()
+#         return raw[4:], int.from_bytes(raw[:4], "little")
+#
+#     def write(self, name, data, attributes=EFI_ATTR_NV_BS_RT):
+#         (self.directory / name).write_bytes(int(attributes).to_bytes(4, "little") + bytes(data))
+#
+#     def delete(self, name):
+#         (self.directory / name).unlink(missing_ok=True)
+#
+#
+# def open_firmware():
+#     """The object that reads and writes UEFI variables, or None when this process cannot.
+#     Any test redirect (FLEET_WINDOWS_TARGET) without a stand-in means no firmware at all:
+#     a test must never be able to reach the real variables."""
+#     standin = os.environ.get("FLEET_FIRMWARE_STANDIN")
+#     if standin:
+#         return FileFirmware(standin)
+#     if os.environ.get("FLEET_WINDOWS_TARGET") or os.name != "nt":
+#         return None
+#     try:
+#         firmware = WindowsFirmware()
+#         firmware.enable_privilege()
+#         return firmware
+#     except (AttributeError, OSError, ImportError) as exc:
+#         log(f"UEFI variables are not available: {exc}", "WARN")
+#         return None
+#
+#
+# def free_boot_number(firmware, in_order):
+#     taken = set(in_order)
+#     for number in range(0x10000):
+#         if number not in taken and firmware.read(boot_variable_name(number)) is None:
+#             return number
+#     invariant(False, "the firmware has no free boot option number")
+#
+#
+# def nvram_one_time_boot(firmware, part, sector, undo):
+#     """Mechanism two: a Boot#### load option for the loader, appended to BootOrder (so
+#     firmware that discards options it does not list keeps it, and never first), and
+#     BootNext pointed at it. Every write registers its undo first. Returns the number."""
+#     order = firmware.read("BootOrder")
+#     current = parse_boot_order(order[0]) if order else []
+#     number = free_boot_number(firmware, current)
+#     name, option = boot_variable_name(number), loader_load_option(part, sector)
+#     undo.add(f"delete the firmware boot option {name}", lambda: firmware.delete(name))
+#     firmware.write(name, option)
+#     if order is not None:
+#         original, attributes = order
+#         undo.add("restore the firmware boot order", lambda: firmware.write("BootOrder", original, attributes))
+#         firmware.write("BootOrder", original + struct.pack("<H", number), attributes)
+#     previous = firmware.read("BootNext")
+#     if previous is None:
+#         undo.add("clear the firmware one-time boot choice", lambda: firmware.delete("BootNext"))
+#     else:
+#         undo.add("restore the firmware one-time boot choice", lambda: firmware.write("BootNext", previous[0], previous[1]))
+#     firmware.write("BootNext", struct.pack("<H", number))
+#     return number, option
+#
+#
+# def verify_nvram(firmware, number, option):
+#     """Read everything back. Returns a list of what is wrong; empty means the firmware holds it."""
+#     problems = []
+#     name = boot_variable_name(number)
+#     stored = firmware.read(name)
+#     if stored is None or stored[0] != option:
+#         problems.append(f"{name} does not hold the loader entry")
+#     chosen = firmware.read("BootNext")
+#     if chosen is None or chosen[0] != struct.pack("<H", number):
+#         problems.append("BootNext does not point at it")
+#     return problems
+#
+#
+# def discard_installer_copy(iso):
+#     """Delete the downloaded installer, but only the installer's own cache file (it has been
+#     written to the new partition and read back; the copy only takes space on C:)."""
+#     path = Path(iso)
+#     try:
+#         folder = path.resolve().parent
+#         cache = os.environ.get("FLEET_CACHE") or os.path.join(os.environ.get("LOCALAPPDATA") or "", "fleet-installer")
+#         ours = path.name == "fleet-installer.iso" and (
+#             folder == state_dir().resolve() or folder == Path(cache).resolve()
+#             or (folder.name == "fleet-installer" and "appdata" in [part.lower() for part in folder.parts]))
+#         if ours and path.is_file():
+#             path.unlink()
+#             log(f"removed the downloaded installer {path}")
+#             return True
+#     except OSError as exc:
+#         log(f"could not remove the downloaded installer {path}: {exc}", "WARN")
+#     return False
+#
+#
+# def write_durably(path, data):
+#     with open(path, "wb") as handle:
+#         handle.write(data)
+#         handle.flush()
+#         os.fsync(handle.fileno())
+#
+#
+# def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None, firmware="auto"):
+#     """Carve a partition out of C:, put the installer in it, and arrange one boot
+#     into it. Returns 0 once the restart is scheduled; anything else changed nothing.
+#     firmware is the UEFI variable access (tests hand in a stand-in); "auto" asks open_firmware()."""
+#     writer = writer or write_region
+#     invariant(role in ROLES, "refusing to stage an unknown role", role=role)
+#     iso_size = os.path.getsize(iso)
+#     WINDOWS["facts"] = None  # the download changed what C: can give up; ask again
+#     findings = windows_findings(iso_size, chosen["path"] if chosen else None, iso_path=iso)
+#     problems = [item for item in findings if item["status"] == "fail"]
+#     if problems:
+#         say("Next: " + problems[0]["fix"] + " Nothing was written.")
+#         return 2
+#     facts = windows_facts()
+#     ram = memory_finding(facts.get("Memory"), iso_size)
+#     if ram is not None and ram["status"] == "fail":
+#         say("Next: " + ram["fix"] + " Nothing was written.")
+#         return 2
+#     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
+#     cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False)
+#     config = grub_config(role, linux_path, initrd_path, cmdline)
+#     disk, need, letter = int(facts["DiskNumber"]), windows_need(iso_size), facts["Letter"]
+#     sector = int(facts.get("LogicalSectorSize") or 512)
+#     invariant(WRITE_SECTOR % sector == 0, "the disk's sector size does not divide the write alignment", sector=sector)
+#     original_size = int(facts["Size"])
+#     if firmware == "auto":
+#         firmware = open_firmware()
+#     undo = WindowsUndo()
+#     restart_scheduled = False
+#     try:
+#         say(f"Making room: shrinking {letter}: by {need // MIB} MiB.")
+#         undo.add(f"give {letter}: its space back", lambda: windows_ps(ps_restore_script(letter, original_size), timeout=7200))
+#         windows_ps(ps_shrink_script(letter, original_size - need), timeout=7200)
+#         created = json_from_output(windows_ps(ps_new_partition_script(disk, padded_size(iso_size))))
+#         undo.add("remove the installer partition", lambda: windows_ps(ps_remove_partition_script(disk, created["Number"])))
+#         invariant(created["Size"] >= padded_size(iso_size) and created["Offset"] % WRITE_SECTOR == 0 and created["Offset"] % sector == 0,
+#                   "Windows made a partition that cannot hold the installer", created=created)
+#         say("Writing the installer into the new partition and reading it back.")
+#         alternate = windows_partition_target(disk, created["Number"])
+#         writer(iso, windows_disk_target(disk), int(created["Offset"]), ISO_SYSTEM_AREA, on_progress, (alternate, 0) if alternate else None)
+#         say("Placing the boot loader on the EFI system partition.")
+#         mount = json_from_output(windows_ps(ps_mount_esp_script()))
+#         esp, mounted = Path(mount["Root"]), mount["Letter"]
+#         undo.add("unmount the EFI system partition", lambda: windows_ps(ps_unmount_script(mounted)))
+#         loader = esp.joinpath(*BOOT_LOADER_PARTS)
+#         free = shutil.disk_usage(esp).free + (loader.stat().st_size if loader.is_file() else 0)
+#         invariant(free >= len(grub) + len(config) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
+#                   "Windows keeps some EFI system partitions nearly full. Free space there (docs/windows.md shows how), or make an install USB with the word flash.",
+#                   free=free, need=len(grub) + len(config) + LOADER_SLACK)
+#         undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent, ignore_errors=True))
+#         loader.parent.mkdir(parents=True, exist_ok=True)
+#         write_durably(loader, grub)
+#         cfg = esp / "EFI" / "BOOT" / "grub.cfg"
+#         cfg.parent.mkdir(parents=True, exist_ok=True)
+#         saved = cfg.read_bytes() if cfg.is_file() else None
+#         undo.add("restore the boot config", (lambda: cfg.write_bytes(saved)) if saved is not None else (lambda: cfg.unlink()))
+#         write_durably(cfg, config.encode("utf-8"))
+#         invariant(cfg.read_text(encoding="utf-8") == config and loader.read_bytes() == grub, "the EFI system partition did not keep the boot loader")
+#         say("Telling the firmware to start the installer once.")
+#         verified, problems = [], []
+#         entry = None
+#         attempt = WindowsUndo()
+#         try:
+#             entry = bcd_one_time_boot(attempt)
+#             verified.append(f"bcdedit entry {entry}")
+#             undo.extend(attempt)
+#         except (Invariant, OSError) as exc:
+#             problems.append(f"bcdedit: {getattr(exc, 'what', exc)}")
+#             log(f"bcdedit one-time boot failed: {exc} {getattr(exc, 'context', '')}", "ERROR")
+#             attempt.run()
+#         if firmware is not None:
+#             attempt = WindowsUndo()
+#             try:
+#                 part = json_from_output(windows_ps(ps_partition_by_letter_script(mounted)))
+#                 invariant(int(part["DiskNumber"]) == disk and part.get("GptType", "").lower() == ESP_GUID,
+#                           "the mounted EFI system partition is not on the disk being converted", part=part)
+#                 number, option = nvram_one_time_boot(firmware, part, int(part.get("LogicalSectorSize") or sector), attempt)
+#                 wrong = verify_nvram(firmware, number, option)
+#                 invariant(not wrong, "the firmware did not keep the boot option", problems=wrong)
+#                 verified.append(f"firmware option {boot_variable_name(number)}")
+#                 undo.extend(attempt)
+#             except (Invariant, OSError, KeyError, ValueError) as exc:
+#                 problems.append(f"firmware variables: {getattr(exc, 'what', exc)}")
+#                 log(f"firmware one-time boot failed: {exc} {getattr(exc, 'context', '')}", "ERROR")
+#                 attempt.run()
+#         else:
+#             problems.append("firmware variables: not available in this session")
+#         log("one-time boot installed: " + (", ".join(verified) or "none"))
+#         invariant(bool(verified), "no one-time boot entry could be installed and verified",
+#                   "Windows was left as it was. Make an install USB with the word flash.", problems="; ".join(problems))
+#         shutdown = os.environ.get("FLEET_SHUTDOWN", "shutdown")
+#         restart = run_logged([shutdown, "/r", "/t", "15", "/c", "Fleet installer: this computer will erase its disk and become a " + role + " node."],
+#                              capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
+#         invariant(restart.returncode == 0, "Windows would not schedule the restart", "Restart the computer by hand now; it will boot the installer once.", code=restart.returncode)
+#         restart_scheduled = True
+#         log("the restart is scheduled for 15 seconds from now")
+#         say("This computer restarts in 15 seconds into the installer, which then erases its disk. "
+#             "`shutdown /a` stops the restart but leaves the one-time boot armed: remove it as docs/windows.md says, or the next restart starts the installer.")
+#     except BaseException:
+#         if restart_scheduled:
+#             run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
+#         undo.run()
+#         raise
+#     discard_installer_copy(iso)
 #     return 0
 #
 #
@@ -1176,6 +2121,11 @@ exec "$py" "$payload" "$@"
 #             return int(_run(["sysctl", "-n", "hw.memsize"]).strip())
 #         except (OSError, RuntimeError, ValueError):
 #             return None
+#     if os_name == "Windows":
+#         try:
+#             return int(_run([powershell_tool(), "-NoProfile", "-Command", ps_memory_script()]).strip())
+#         except (OSError, RuntimeError, ValueError):
+#             return None
 #     return None
 #
 #
@@ -1262,7 +2212,7 @@ exec "$py" "$payload" "$@"
 # NET = {}
 #
 #
-# def preflight(os_name, role, action, token, directory, need_root=True, ssh_key=None):
+# def preflight(os_name, role, action, token, directory, need_root=True, ssh_key=None, auto_enroll=False, disk_path=None, iso_path=None):
 #     """Everything that can be known before anything is erased. All problems are
 #     reported together so one fix pass is enough."""
 #     found = []
@@ -1271,6 +2221,9 @@ exec "$py" "$payload" "$@"
 #         found.append(finding("privilege", "info", "the OS asks for permission when the install starts"))
 #     elif os_name in ("Linux", "Darwin") and uid is not None and uid != 0:
 #         found.append(finding("privilege", "fail", f"running as user id {uid}, not root", "Run this program again with sudo."))
+#     elif os_name == "Windows" and windows_admin() is False:
+#         found.append(finding("privilege", "fail", "this program is not running as administrator",
+#                              "Close this window, open Git Bash with Run as administrator (the wizard asks by itself), and run this program again."))
 #     else:
 #         found.append(finding("privilege", "ok", "root" if uid == 0 else "administrator rights are checked by the OS"))
 #     if action == "install":
@@ -1296,19 +2249,22 @@ exec "$py" "$payload" "$@"
 #             else:
 #                 found.append(finding("firmware", "fail", "booted in legacy BIOS mode",
 #                                      "Turn on UEFI boot (and turn off CSM or legacy boot) in the firmware settings, then run this program again."))
-#         tool = os_boot_tool(os_name)
-#         if shutil.which(tool) or os.path.isfile(tool):
-#             found.append(finding("boot-tool", "ok", tool))
-#         else:
-#             found.append(finding("boot-tool", "fail", f"{tool} is not installed",
-#                                  "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
-#         stage = iso_filesystem(directory)
-#         if stage in SAFE_ISO_FS:
-#             found.append(finding("staging", "ok", f"the installer is staged on {stage}"))
-#         else:
-#             found.append(finding("staging", "fail", f"the installer would be staged on {stage or 'an unknown filesystem'}",
-#                                  "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
+#         if os_name != "Windows":
+#             tool = os_boot_tool(os_name)
+#             if shutil.which(tool) or os.path.isfile(tool):
+#                 found.append(finding("boot-tool", "ok", tool))
+#             else:
+#                 found.append(finding("boot-tool", "fail", f"{tool} is not installed",
+#                                      "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
+#             stage = iso_filesystem(directory)
+#             if stage in SAFE_ISO_FS:
+#                 found.append(finding("staging", "ok", f"the installer is staged on {stage}"))
+#             else:
+#                 found.append(finding("staging", "fail", f"the installer would be staged on {stage or 'an unknown filesystem'}",
+#                                      "This computer cannot reboot into the installer. Plug in one USB disk and run this program again with the word flash."))
 #     error, size = NET.get("probe", probe_installer)()
+#     if action == "install" and os_name == "Windows":
+#         found.extend(NET.get("windows", windows_findings)(size, disk_path, need_root, iso_path=iso_path))
 #     if error:
 #         found.append(finding("network", "fail", f"the installer cannot be downloaded ({error})",
 #                              "Check the network. If the release is missing, wait for the Fleet workflow to publish it on merge, then run this program again."))
@@ -1321,13 +2277,14 @@ exec "$py" "$payload" "$@"
 #                                      f"Free disk space in {directory}, then run this program again."))
 #             else:
 #                 found.append(finding("space", "ok", f"installer is {size // (1024 ** 2)} MiB"))
-#             memory = mem_total(os_name) if action == "install" else None
-#             if memory is not None and memory < size * 1.5:
-#                 found.append(finding("memory", "warn", f"{memory // GIB} GiB RAM; the installer is copied into RAM",
-#                                      "Add RAM if the install fails to boot."))
+#             ram = memory_finding(mem_total(os_name), size) if action == "install" else None
+#             if ram is not None:
+#                 found.append(ram)
 #     if action == "install":
 #         if token:
 #             found.append(NET.get("lookup", lookup_token)(token, role))
+#         elif auto_enroll:
+#             found.append(finding("enrollment", "info", "the repository owner will be asked to approve this node on GitHub before anything is erased"))
 #         else:
 #             found.append(finding("enrollment", "warn", "no enrollment token; this node would generate a key no other node shares",
 #                                  f"Mint one with `just enroll {role or '<role>'}` and rerun with its line, unless this role has no encrypted secrets yet."))
@@ -1347,6 +2304,24 @@ exec "$py" "$payload" "$@"
 #     return f"Next: {fix}" if "Nothing was written" in fix else f"Next: {fix} Nothing was written."
 #
 #
+# def plan_lines(os_name, role, chosen, directory):
+#     """What installing would do, step by step, with sizes. Read-only: it only describes."""
+#     erases = chosen["plain"] if chosen.get("ok") else "the internal disk"
+#     if os_name == "Windows":
+#         facts = WINDOWS["facts"]
+#         if not facts:
+#             return ["Windows: the exact sizes and steps appear once this runs as administrator (nothing was queried)."]
+#         size = WINDOWS["iso_size"]
+#         label = f"{size / 1024 ** 3:.2f} GiB" if size else "about 8 GiB"
+#         return [f"0. Download the installer ({label}) to {Path(directory) / 'fleet-installer.iso'}; it is deleted again once it has been written to the new partition.",
+#                 *windows_plan_lines(facts, size, role)]
+#     if os_name == "Linux":
+#         return [f"1. Download the installer to {Path(directory) / 'fleet-installer.iso'}.",
+#                 "2. Load the installer's kernel and initrd with kexec.",
+#                 f"3. Restart into it. The installer ERASES {erases} and installs {role}."]
+#     return [f"The installer cannot restart this computer into itself; make an install USB with the word flash. A USB install ERASES {erases}."]
+#
+#
 # def cmd_doctor(argv):
 #     """Read-only. Says exactly what would be erased and whether anything stands in the way."""
 #     as_json = "--json" in argv
@@ -1364,7 +2339,8 @@ exec "$py" "$payload" "$@"
 #             return fail(error, 2)
 #     directory = state_dir()
 #     chosen = choose_disk(os_name, "install")
-#     found = preflight(os_name, role, "install", token, directory)
+#     found = preflight(os_name, role, "install", token, directory, auto_enroll=enroll_enabled() and role is not None,
+#                       disk_path=chosen["path"] if chosen["ok"] else None, iso_path=directory / "fleet-installer.iso")
 #     if chosen["ok"]:
 #         found.append(finding("disk", "ok", chosen["plain"]))
 #     else:
@@ -1372,11 +2348,13 @@ exec "$py" "$payload" "$@"
 #     if role and installed_for(role, directory):
 #         found.append(finding("state", "info", f"already installed as {role}; running the program again does not wipe it"))
 #     problems = [item for item in found if item["status"] == "fail"]
+#     steps = plan_lines(os_name, role or "<role>", chosen, directory) if chosen["ok"] and os_name == "Windows" else []
 #     if as_json:
 #         print(json.dumps({
 #             "ok": not problems,
 #             "role": role,
 #             "erases": chosen.get("plain") if chosen["ok"] else None,
+#             "plan": steps,
 #             "confirm": f"{role}: {chosen['plain']}" if role and chosen["ok"] else None,
 #             "checks": found,
 #             "log": LOG["path"],
@@ -1385,6 +2363,10 @@ exec "$py" "$payload" "$@"
 #         show_findings(found)
 #         if chosen["ok"]:
 #             say(f"Would erase: {chosen['plain']}")
+#         if steps:
+#             say("What installing would do (nothing has been changed):")
+#             for line in steps:
+#                 say("  " + line)
 #     if problems:
 #         say(f"Result: NOT ready, {len(problems)} problem{'s' if len(problems) != 1 else ''}.")
 #         return fail(next_for(problems[0]), 2)
@@ -1444,6 +2426,232 @@ exec "$py" "$payload" "$@"
 #
 #
 # ENROLL_RE = re.compile(r"^[A-Za-z0-9._-]{8,512}$")
+#
+# # ---- Self-service enrollment ---------------------------------------------------
+# # A new node has no credential for Vault, and the installer release is public, so
+# # a node cannot simply ask for its role key. The person who owns the repository
+# # approves the node instead: the node shows a prefilled GitHub issue, the owner
+# # submits it, and the `Fleet enroll` workflow (which logs in to Vault with its
+# # GitHub OIDC identity, never a stored secret) asks Vault for a single-use
+# # response-wrapped token and posts it as a comment sealed to the node's one-time
+# # public key. Only the node holds the matching private key, and the node alone
+# # can unwrap the token. Anyone else reading the comment sees ciphertext.
+#
+# REPO = "crvouga/workspace"
+# ENROLL_WAIT = 15 * 60
+# ENROLL_POLL = 15
+# FIELD_ROLE = "fleet-enroll-role: "
+# FIELD_KEY = "fleet-enroll-key: "
+# P25519 = 2 ** 255 - 19
+# BASE_POINT = (9).to_bytes(32, "little")
+#
+#
+# def x25519(scalar, point):
+#     """RFC 7748 X25519, in plain Python so the one downloaded file needs no
+#     package. Checked against the RFC's test vectors in tests/test_enroll.py."""
+#     invariant(len(scalar) == 32 and len(point) == 32, "x25519 needs 32-byte inputs", scalar=len(scalar), point=len(point))
+#     k = bytearray(scalar)
+#     k[0] &= 248
+#     k[31] &= 127
+#     k[31] |= 64
+#     k = int.from_bytes(k, "little")
+#     x1 = int.from_bytes(point, "little") & ((1 << 255) - 1)
+#     x2, z2, x3, z3, swap = 1, 0, x1, 1, 0
+#     for t in reversed(range(255)):
+#         bit = (k >> t) & 1
+#         swap ^= bit
+#         if swap:
+#             x2, x3, z2, z3 = x3, x2, z3, z2
+#         swap = bit
+#         a, b = (x2 + z2) % P25519, (x2 - z2) % P25519
+#         aa, bb = a * a % P25519, b * b % P25519
+#         e = (aa - bb) % P25519
+#         c, d = (x3 + z3) % P25519, (x3 - z3) % P25519
+#         da, cb = d * a % P25519, c * b % P25519
+#         x3 = (da + cb) ** 2 % P25519
+#         z3 = x1 * (da - cb) ** 2 % P25519
+#         x2 = aa * bb % P25519
+#         z2 = e * (aa + 121665 * e) % P25519
+#     if swap:
+#         x2, x3, z2, z3 = x3, x2, z3, z2
+#     return (x2 * pow(z2, P25519 - 2, P25519) % P25519).to_bytes(32, "little")
+#
+#
+# def _hkdf(secret, salt, info, length):
+#     prk = hmac.new(salt, secret, hashlib.sha256).digest()
+#     out, block, counter = b"", b"", 1
+#     while len(out) < length:
+#         block = hmac.new(prk, block + info + bytes([counter]), hashlib.sha256).digest()
+#         out += block
+#         counter += 1
+#     return out[:length]
+#
+#
+# def _stream(key, length):
+#     out = bytearray()
+#     counter = 0
+#     while len(out) < length:
+#         out += hmac.new(key, counter.to_bytes(8, "big"), hashlib.sha256).digest()
+#         counter += 1
+#     return bytes(out[:length])
+#
+#
+# def _b64(raw):
+#     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+#
+#
+# def _unb64(text):
+#     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+#
+#
+# def new_keypair():
+#     private = os.urandom(32)
+#     return private, x25519(private, BASE_POINT)
+#
+#
+# def seal(plaintext, recipient_public):
+#     """Encrypt to one public key: ephemeral X25519, HKDF-SHA256, an HMAC-SHA256
+#     keystream, and an HMAC-SHA256 tag over the ciphertext (encrypt-then-MAC)."""
+#     ephemeral = os.urandom(32)
+#     ephemeral_public = x25519(ephemeral, BASE_POINT)
+#     shared = x25519(ephemeral, recipient_public)
+#     invariant(shared != bytes(32), "the recipient public key is a low-order point")
+#     keys = _hkdf(shared, ephemeral_public + recipient_public, b"fleet-seal-v1", 64)
+#     cipher = bytes(a ^ b for a, b in zip(plaintext, _stream(keys[:32], len(plaintext))))
+#     tag = hmac.new(keys[32:], ephemeral_public + cipher, hashlib.sha256).digest()
+#     return _b64(ephemeral_public + cipher + tag)
+#
+#
+# def open_sealed(blob, private):
+#     """Returns the plaintext, or None when the blob is not for this key or was altered."""
+#     try:
+#         raw = _unb64(blob.strip())
+#     except ValueError:
+#         return None
+#     if len(raw) < 64:
+#         return None
+#     ephemeral_public, cipher, tag = raw[:32], raw[32:-32], raw[-32:]
+#     shared = x25519(private, ephemeral_public)
+#     if shared == bytes(32):
+#         return None
+#     public = x25519(private, BASE_POINT)
+#     keys = _hkdf(shared, ephemeral_public + public, b"fleet-seal-v1", 64)
+#     want = hmac.new(keys[32:], ephemeral_public + cipher, hashlib.sha256).digest()
+#     if not hmac.compare_digest(tag, want):
+#         return None
+#     return bytes(a ^ b for a, b in zip(cipher, _stream(keys[:32], len(cipher))))
+#
+#
+# def enroll_issue_url(role, public):
+#     body = (
+#         f"Approve a new fleet {role} node. Submit this issue as it is.\n\n"
+#         f"{FIELD_ROLE}{role}\n{FIELD_KEY}{_b64(public)}\n"
+#     )
+#     query = urllib.parse.urlencode({"title": f"fleet-enroll {role}", "body": body}, quote_via=urllib.parse.quote)
+#     return f"https://github.com/{REPO}/issues/new?{query}"
+#
+#
+# def parse_enroll_request(title, body):
+#     """(role, public key bytes) from an enrollment issue, or raises Invariant."""
+#     fields = {}
+#     for line in str(body or "").splitlines():
+#         for name in (FIELD_ROLE, FIELD_KEY):
+#             if line.startswith(name):
+#                 fields[name] = line[len(name):].strip()
+#     role = fields.get(FIELD_ROLE, "")
+#     invariant(role in ROLES, "the enrollment request names an unknown role", "Run the installer again.", role=role)
+#     invariant(str(title or "").strip() == f"fleet-enroll {role}", "the issue title does not match its role", title=title, role=role)
+#     try:
+#         public = _unb64(fields.get(FIELD_KEY, ""))
+#     except ValueError:
+#         public = b""
+#     invariant(len(public) == 32, "the enrollment request holds no valid public key", "Run the installer again.")
+#     return role, public
+#
+#
+# def _github(path, etag=None):
+#     base = os.environ.get("FLEET_GITHUB_API", "https://api.github.com").rstrip("/")
+#     headers = {"Accept": "application/vnd.github+json", "User-Agent": "fleet-node", "X-GitHub-Api-Version": "2022-11-28"}
+#     token = os.environ.get("FLEET_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+#     if token:
+#         headers["Authorization"] = "Bearer " + token
+#     if etag:
+#         headers["If-None-Match"] = etag
+#     try:
+#         with urllib.request.urlopen(urllib.request.Request(base + path, headers=headers), timeout=20) as reply:
+#             return reply.status, json.loads(reply.read().decode("utf-8", "replace")), reply.headers.get("ETag")
+#     except urllib.error.HTTPError as exc:
+#         return exc.code, None, etag
+#     except (urllib.error.URLError, OSError, ValueError):
+#         return 0, None, etag
+#
+#
+# def await_approval(role, private, public, wait=ENROLL_WAIT, interval=ENROLL_POLL, sleep=time.sleep, notify=None, cancel=None):
+#     """Poll the public issue until the workflow answers. Returns (token, error)."""
+#     marker = FIELD_KEY + _b64(public)
+#     issue, etags = None, {}
+#     deadline = time.monotonic() + wait
+#     while True:
+#         if issue is None:
+#             path = f"/repos/{REPO}/issues?state=all&sort=created&direction=desc&per_page=30"
+#             code, data, etags["issues"] = _github(path, etags.get("issues"))
+#             if code == 200:
+#                 for item in data:
+#                     if "pull_request" not in item and marker in str(item.get("body") or ""):
+#                         issue = item["number"]
+#                         if notify:
+#                             notify("The request was received. Waiting for the approval workflow.")
+#                         break
+#         if issue is not None:
+#             code, data, etags["comments"] = _github(f"/repos/{REPO}/issues/{issue}/comments?per_page=50", etags.get("comments"))
+#             for comment in (data or []) if code == 200 else []:
+#                 if (comment.get("user") or {}).get("login") != "github-actions[bot]":
+#                     continue
+#                 for line in str(comment.get("body") or "").splitlines():
+#                     if line.startswith("fleet-error: "):
+#                         return None, line[len("fleet-error: "):].strip()
+#                     if line.startswith("fleet-sealed: "):
+#                         plain = open_sealed(line[len("fleet-sealed: "):], private)
+#                         if plain is None:
+#                             continue
+#                         try:
+#                             answer = json.loads(plain.decode("utf-8"))
+#                         except ValueError:
+#                             continue
+#                         if answer.get("role") == role and ENROLL_RE.fullmatch(str(answer.get("token") or "")):
+#                             return answer["token"], None
+#         if cancel and cancel():
+#             return None, "cancelled"
+#         if time.monotonic() >= deadline:
+#             return None, "nobody approved this node in time"
+#         sleep(interval)
+#
+#
+# def self_enroll(role, notify=None, wait=None, cancel=None):
+#     """Ask the owner to approve this node. Returns (token, error). Nothing is
+#     erased here; a refusal or a timeout leaves every disk as it was."""
+#     say_it = notify or say
+#     private, public = new_keypair()
+#     url = enroll_issue_url(role, public)
+#     say_it("Approve this node: press 'Submit new issue' on the GitHub page that opens, signed in as the repository owner.")
+#     say_it("If no page opened, open this address on any computer: " + url)
+#     if not os.environ.get("FLEET_NO_BROWSER"):
+#         try:
+#             webbrowser.open(url)
+#         except webbrowser.Error:
+#             pass
+#     seconds = wait if wait is not None else int(os.environ.get("FLEET_ENROLL_WAIT") or ENROLL_WAIT)
+#     interval = int(os.environ.get("FLEET_ENROLL_POLL") or ENROLL_POLL)
+#     token, error = await_approval(role, private, public, seconds, interval, notify=notify, cancel=cancel)
+#     if token:
+#         say_it("Approved. The enrollment token arrived sealed and was opened on this machine.")
+#     return token, error
+#
+#
+# def enroll_enabled():
+#     return not flag(os.environ.get("FLEET_NO_ENROLL"))
+#
+#
 #
 #
 # def validate_ssh_key(value):
@@ -1508,7 +2716,8 @@ exec "$py" "$payload" "$@"
 #
 # def cmd_install(argv, action):
 #     assume_yes = flag(os.environ.get("FLEET_YES")) or any(a in ("--yes", "-y") for a in argv)
-#     argv = [a for a in argv if a not in ("--yes", "-y")]
+#     plan_only = "--plan" in argv
+#     argv = [a for a in argv if a not in ("--yes", "-y", "--plan")]
 #     argv, token, token_error = enroll_token(argv)
 #     if token_error:
 #         return fail(token_error, 2)
@@ -1535,12 +2744,27 @@ exec "$py" "$payload" "$@"
 #         return fail(chosen["next"], chosen.get("code", 2))
 #     # Every check that does not need a person runs before anyone is asked to
 #     # confirm, so a doomed install never gets as far as the prompt.
-#     found = preflight(os_name, role, action, token, directory)
+#     found = preflight(os_name, role, action, token, directory, auto_enroll=action == "install" and enroll_enabled(), disk_path=chosen["path"],
+#                       iso_path=directory / "fleet-installer.iso")
 #     show_findings(found)
 #     problems = [item for item in found if item["status"] == "fail"]
 #     if problems:
 #         say(f"Result: NOT ready, {len(problems)} problem{'s' if len(problems) != 1 else ''}.")
 #         return fail(next_for(problems[0]), 2)
+#     if plan_only:
+#         # Nothing below runs: no approval is requested, nothing is downloaded, nothing is changed.
+#         say("What this would do on this computer:")
+#         for line in (plan_lines(os_name, role, chosen, directory) if action == "install" else [f"Write the installer to the USB disk {chosen['plain']} (erases it)."]):
+#             say("  " + line)
+#         say("Result: ready. This was only the plan: nothing was written or changed. Run the same command without --plan to do it.")
+#         return 0
+#     if action == "install" and not token and enroll_enabled() and not installed_for(role, directory):
+#         token, error = self_enroll(role)
+#         if error:
+#             return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
+#         verdict = NET.get("lookup", lookup_token)(token, role)
+#         if verdict["status"] == "fail":
+#             return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
 #     if action == "install":
 #         say(f"Role: {role}")
 #         say(f"Disk: {chosen['plain']}")
@@ -1584,14 +2808,17 @@ exec "$py" "$payload" "$@"
 #     return 0
 #
 #
-# def perform_install(os_name, role, iso, token, vault, directory, chosen):
+# def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None):
 #     """The point of no return, shared by the command line and the wizard. On a
 #     real machine kexec does not come back; the marker is for the test seam."""
 #     invariant(role in ROLES, "perform_install was given an unknown role", role=role)
 #     invariant(chosen.get("ok") and chosen.get("disk_id"), "perform_install needs a chosen disk", chosen=chosen)
 #     invariant(os.path.isfile(iso) and os.path.getsize(iso) > 0, "perform_install needs the verified installer image", iso=str(iso))
 #     retire_runner_for_install(directory)
-#     staged = stage_reboot(os_name, role, str(iso), token, vault)
+#     if os_name == "Windows":
+#         staged = stage_windows(role, str(iso), token, vault, chosen, on_progress)
+#     else:
+#         staged = stage_reboot(os_name, role, str(iso), token, vault)
 #     if staged != 0:
 #         return staged
 #     say(f"FLEET-WIPE role={role}")
@@ -1705,8 +2932,24 @@ exec "$py" "$payload" "$@"
 #         if not withdrawn:
 #             write_text(directory / "withdrawn", f"status=withdrawn\nrole={role or 'unknown'}\n")
 #         say("The machine can be powered off.")
+#         retire_from_fleet_api()
 #         return power_off(role)
 #     return plan["code"]
+#
+#
+# def retire_from_fleet_api():
+#     """Tell the fleet API this node is leaving. Best effort: ten seconds at most, and no failure here
+#     ever blocks or fails the removal. FLEET_AGENT names the command (tests); a test state directory
+#     without it skips the call."""
+#     command = os.environ.get("FLEET_AGENT")
+#     if command is None and not os.environ.get("FLEET_STATE"):
+#         command = shutil.which("fleet-agent")
+#     if not command:
+#         return
+#     try:
+#         subprocess.run([*command.split(), "retire"], check=False, timeout=10, capture_output=True)
+#     except (OSError, subprocess.SubprocessError, ValueError):
+#         pass
 #
 #
 # def power_off(role):
@@ -1732,7 +2975,8 @@ exec "$py" "$payload" "$@"
 #   flash             write the installer to a USB disk
 #   guide             print the runbook an agent follows
 #
-# Flags: --yes (take the confirmation as typed), --token-file PATH, --json (doctor).
+# Flags: --yes (take the confirmation as typed), --token-file PATH, --no-enroll (skip the GitHub approval
+# and let the node make its own key), --json (doctor), --plan (print the exact steps and sizes, change nothing).
 # Every run writes a log; its path is printed when something fails.
 # Agent runbook: """ + GUIDE_URL
 #
@@ -1764,10 +3008,22 @@ exec "$py" "$payload" "$@"
 #
 #
 # def main(argv=None):
+#     # Windows error text arrives in the language of the installation. A console or pipe in another
+#     # code page must never turn a message into a crash.
+#     for stream in (sys.stdout, sys.stderr):
+#         reconfigure = getattr(stream, "reconfigure", None)
+#         if reconfigure is not None:
+#             try:
+#                 reconfigure(errors="replace")
+#             except (OSError, ValueError):
+#                 pass
 #     argv = list(sys.argv[1:] if argv is None else argv)
 #     if any(a in ("--yes", "-y") for a in argv):
 #         os.environ["FLEET_YES"] = "1"
 #         argv = [a for a in argv if a not in ("--yes", "-y")]
+#     if "--no-enroll" in argv:
+#         os.environ["FLEET_NO_ENROLL"] = "1"
+#         argv = [a for a in argv if a != "--no-enroll"]
 #     if argv and argv[0] not in ("help", "-h", "--help"):
 #         start_log(argv)
 #     try:
@@ -1827,7 +3083,7 @@ exec "$py" "$payload" "$@"
 #
 #    It writes nothing. In the JSON, `ok` is true only when nothing stands in the way. For every check with `status` `fail`, `fix` says what to do. Do the fixes you can do yourself (install a package, rerun with `sudo`), then run `doctor` again. A fix that needs the person (a firmware setting, more RAM, a different computer) goes to them as one sentence. `warn` entries do not block; tell the person about them.
 #
-# 4. Enrollment. A node of a role that has encrypted secrets needs that role's key, delivered by a single-use token. If the person pasted a line containing `FLEET_ENROLL_TOKEN=...` or gave you a token, write the token alone into a file readable only by root (for example `install -m 600 /dev/null tok && printf %s "$TOKEN" > tok`), pass `--token-file tok` from here on, and delete the file afterward. `doctor` checks the token without spending it and refuses one made for a different role. With no token, `doctor` shows an `enrollment` warning: tell the person they can run `just enroll ROLE` on a computer with Vault access and give you the line it prints. If the role has no encrypted secrets yet, the warning can be accepted.
+# 4. Enrollment. A node of a role that has encrypted secrets needs that role's key. By default the install asks the repository owner to approve the node: it prints a link (and tries to open it) to a prefilled GitHub issue, and waits up to 15 minutes before anything is erased. You cannot press that button; show the person the link, say "press Submit new issue while signed in as the repository owner", and keep the command running. If the person pasted a line containing `FLEET_ENROLL_TOKEN=...` or gave you a token instead, write the token alone into a file readable only by root (for example `install -m 600 /dev/null tok && printf %s "$TOKEN" > tok`), pass `--token-file tok` from here on, and delete the file afterward; `doctor` checks it without spending it and refuses one made for a different role. If the approval workflow answers with `fleet-error:`, show the person that sentence. Only if the person says the node does not need the role's shared secrets, add `--no-enroll`.
 #
 # 5. Ask. Tell the person, in plain words: the role, `erases` from the JSON (the exact disk, which loses everything on it including Windows or any other OS), that the machine will reboot into the installer and this session will end, and any `warn` entries. Get an explicit yes.
 #
@@ -1837,7 +3093,7 @@ exec "$py" "$payload" "$@"
 #    sudo bash fleet-node.sh ROLE --yes --token-file tok
 #    ```
 #
-#    It repeats every check and refuses on its own if the disk changed or anything is wrong; nothing is erased in that case. When it prints `FLEET-WIPE role=ROLE` the machine is rebooting into the installer. The installer erases that disk, installs the role, and reboots into the node. This takes several minutes with no further input. The hostname is `<role>-<4 hex>` and is set from the hardware.
+#    It repeats every check and refuses on its own if the disk changed or anything is wrong; nothing is erased in that case. When it prints `FLEET-WIPE role=ROLE` the machine is rebooting into the installer. On Windows the install first shrinks `C:` and writes the installer into the freed space (`doctor` and `bash fleet-node.sh ROLE --plan` print the exact steps and sizes and change nothing; docs/windows.md has the recovery steps); it needs an elevated shell, UEFI/GPT, and Secure Boot off (`doctor` says so and what to run), and it restores everything if a step fails. The installer erases that disk, installs the role, and reboots into the node. This takes several minutes with no further input. The hostname is `<role>-<4 hex>` and is set from the hardware.
 #
 # 7. After the reboot, on the node (a person or a new session): `fleet-node status`. `Result: healthy.` means the node pulled its configuration and is polling `main`. The first sync can take a few minutes. The install record is `/nix/fleet-state/logs/install.log`.
 #
