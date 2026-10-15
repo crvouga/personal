@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { serve } from './runtime.mjs';
 
-function fixture({ locked = true, restoreError } = {}) {
+function fixture({ locked = true, restoreError, flushError } = {}) {
   const events = [];
   const client = new EventEmitter();
   Object.assign(client, {
@@ -15,11 +15,12 @@ function fixture({ locked = true, restoreError } = {}) {
   let finish;
   const run = (args) => {
     events.push(args.includes('-once') ? 'flush' : args[0]);
+    const error = args.includes('-once') ? flushError : restoreError;
     return {
       done:
         args[0] === 'restore' || args.includes('-once')
-          ? restoreError
-            ? Promise.reject(restoreError)
+          ? error
+            ? Promise.reject(error)
             : Promise.resolve()
           : new Promise((done) => {
               finish = done;
@@ -83,4 +84,13 @@ test('an app exit releases the lock so its replacement can restore', async () =>
   f.finish();
   await serving;
   assert.equal(f.events.at(-1), 'unlock');
+});
+
+test('a final replication failure is reported even during graceful shutdown', async () => {
+  const f = fixture({ flushError: new Error('upload failed') });
+  const serving = serve(f.options);
+  await tick();
+  f.signals.emit('SIGTERM');
+  await assert.rejects(serving, /upload failed/);
+  assert.deepEqual(f.events.slice(-3), ['SIGTERM', 'flush', 'unlock']);
 });

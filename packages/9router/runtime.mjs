@@ -87,8 +87,6 @@ export async function serve({
     // before Litestream's first polling cycle. Finish this before unlocking.
     active = run(['replicate', '-once']);
     await active.done;
-  } catch (error) {
-    if (!stopped || failure) throw error;
   } finally {
     clearInterval(heartbeat);
     signals.removeListener('SIGTERM', stop);
