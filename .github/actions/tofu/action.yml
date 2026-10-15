@@ -90,6 +90,24 @@ runs:
             /tmp/tofu-image-tags.json > /tmp/tofu-next-tags.json
           echo "TF_VAR_image_tags=$(cat /tmp/tofu-next-tags.json)" >> "$GITHUB_ENV"
         fi
+    # Atlas inspects search_path during planning, before depends_on is applied.
+    # Bootstrap only the empty schema, then let the normal full plan own tables.
+    - name: Ensure fleet schema exists before Atlas planning
+      if: inputs.mode == 'apply' && inputs.root == 'foundation'
+      shell: bash
+      run: |
+        set -euo pipefail
+        ROOT="packages/infra/tofu/foundation"
+        tofu -chdir="${ROOT}" plan -input=false -parallelism=1 -target=postgresql_schema.fleet -out=fleet-schema.tfplan
+        tofu -chdir="${ROOT}" show -json fleet-schema.tfplan | jq -e '
+          all(.resource_changes[];
+            .mode == "data" or .change.actions == ["no-op"] or
+            (.address == "postgresql_schema.fleet" and .change.actions == ["create"]))
+        ' > /dev/null || {
+          echo "::error::Schema bootstrap may only create postgresql_schema.fleet; review dependency changes separately."
+          exit 1
+        }
+        tofu -chdir="${ROOT}" apply -input=false -parallelism=1 fleet-schema.tfplan
     - name: Plan
       if: inputs.mode == 'apply'
       shell: bash
