@@ -1,4 +1,6 @@
-{ lib, pkgs, settings, ... }: {
+{ lib, pkgs, settings, ... }: let
+  fleetTools = import ./fleet-tools.nix { inherit lib pkgs; };
+in {
   imports = [
     ./disks/internal.nix
     ./hardware/generic.nix
@@ -7,6 +9,7 @@
     ./sync.nix
     ./revision.nix
     ./drift.nix
+    ./agent.nix
   ];
   # The module system ignores `revision ? null` and throws if the argument is
   # absent. Tests omit it. The flake passes the real commit via specialArgs,
@@ -80,8 +83,8 @@
   # softdog is not a substitute. Boot counting covers a generation that never
   # reaches userspace.
   systemd.settings.Manager = { RuntimeWatchdogSec = "30s"; RebootWatchdogSec = "5min"; };
-  # The root is tmpfs, so the journal lives in RAM. Cap it. TODO: ship it
-  # off-node once monitoring.pushUrl has a real collector. Do not invent one.
+  # The root is tmpfs, so the journal lives in RAM. Cap it. Logs stay on the
+  # node; the heartbeat to the fleet API carries failed units and rollbacks.
   services.journald.storage = "volatile";
   services.journald.extraConfig = ''
     RuntimeMaxUse=256M
@@ -95,8 +98,8 @@
     "d /nix/fleet-state/secrets 0700 root root -"
     "d /run/fleet 0755 root root -"
   ];
-  # Local signal only. A failed unit is the alert. TODO: nothing scrapes
-  # 127.0.0.1:9101, and monitoring.pushUrl is not read.
+  # Local signal. A failed unit is the alert, and fleet-agent reports failed
+  # units to the fleet API. Nothing scrapes 127.0.0.1:9101.
   # Public material only. The private age key stays in fleet-state.
   systemd.services.fleet-console-info = {
     description = "Print the age public key and host fingerprint on the console";
@@ -127,6 +130,12 @@
       set -eu
       install -d -m 0755 /run/fleet
       : > /run/fleet/disk-alert
+      # The fleet API may change the threshold (disk.alertPercent). A missing or
+      # unusable setting leaves the value built into this image.
+      threshold=$(${fleetTools.fleetconf}/bin/fleetconf get disk.alertPercent ${toString settings.disk.alertPercent} 2>/dev/null) || threshold=${toString settings.disk.alertPercent}
+      case "$threshold" in
+        ""|*[!0-9]*) threshold=${toString settings.disk.alertPercent} ;;
+      esac
       fail=0
       for mount in /nix /boot; do
         if [ ! -d "$mount" ]; then
@@ -134,7 +143,7 @@
         fi
         used=$(df -P "$mount" | awk 'NR==2 { gsub("%","",$5); print $5 }')
         printf '%s %s\n' "$mount" "$used" >> /run/fleet/disk-alert
-        if [ "$used" -ge ${toString settings.disk.alertPercent} ]; then
+        if [ "$used" -ge "$threshold" ]; then
           echo "fleet-disk: $mount is ''${used}% full" >&2
           fail=1
         fi

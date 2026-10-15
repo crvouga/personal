@@ -8,6 +8,7 @@ terraform {
     github      = { source = "integrations/github", version = "= 6.13.0" }
     planetscale = { source = "planetscale/planetscale", version = "= 1.12.0" }
     atlas       = { source = "ariga/atlas", version = "= 0.10.3" }
+    postgresql  = { source = "cyrilgdn/postgresql", version = "= 1.26.0" }
     time        = { source = "hashicorp/time", version = "= 0.13.1" }
     random      = { source = "hashicorp/random", version = "= 3.8.1" }
     restapi     = { source = "Mastercard/restapi", version = "= 3.0.0" }

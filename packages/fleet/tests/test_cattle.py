@@ -128,6 +128,119 @@ class IdentityTests(unittest.TestCase):
             self.assertIn("hostname=web-gpu-ab12\n", (root / "run/fleet/node").read_text())
 
 
+class MachineIdTests(unittest.TestCase):
+    def test_the_hostname_id_is_the_front_of_the_full_digest(self):
+        mac = "aa:bb:cc:dd:ee:ff"
+        for uuid, mac_arg in (("abc-def", None), (None, mac), ("ABC-DEF", mac)):
+            digest = cattle.machine_digest(uuid, mac_arg)
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertEqual(cattle.stable_id(uuid, mac_arg), digest[:4])
+        self.assertEqual(cattle.machine_digest("abc-def", None), __import__("hashlib").sha256(b"dmi:abc-def").hexdigest())
+        with self.assertRaises(ValueError):
+            cattle.machine_digest("none", None)
+
+    def test_the_node_file_carries_the_machine_id_when_it_is_known(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            digest = cattle.machine_digest("abc-def", None)
+            conf = {"role": "web", "high_mem_gib": "60"}
+            cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None, machine_id=digest)
+            node = (root / "run/fleet/node").read_text()
+            self.assertIn(f"id={digest[:4]}\nmachine_id={digest}\ncapabilities=", node)
+            cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None)
+            self.assertNotIn("machine_id", (root / "run/fleet/node").read_text())
+            for wrong in ("a" * 64, digest[:63], digest.upper(), "zz" + digest[2:]):
+                with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                    cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None, machine_id=wrong)
+
+
+class DynamicSettingsTests(unittest.TestCase):
+    CONF = {
+        "role": "ci",
+        "high_mem_gib": "60",
+        "reserve_gib": "4",
+        "per_runner_gib": "6",
+        "per_runner_cores": "2",
+        "slot_max": "8",
+    }
+
+    def identity(self, root, dynamic_text=None, ram=32 * 1024, cores=16, conf=None):
+        if dynamic_text is not None:
+            path = Path(root) / "nix/fleet-state/config.json"
+            path.parent.mkdir(parents=True)
+            path.write_text(dynamic_text)
+        names = []
+        cattle.apply_identity(root, conf or self.CONF, "ab12", ram, "x86_64", names.append, cores=cores)
+        return names[0]
+
+    def test_without_settings_the_image_values_apply(self):
+        with tempfile.TemporaryDirectory() as temp:
+            self.identity(temp)
+            run = Path(temp) / "run/fleet"
+            self.assertEqual((run / "slot-count").read_text(), "4\n")
+            self.assertEqual((run / "runner-labels").read_text(), "x64\n")
+            self.assertFalse((run / "assign").exists())
+
+    def test_cached_settings_apply_at_boot_before_the_agent_has_spoken(self):
+        document = {
+            "capacity": {"reserveGiB": 0, "perRunnerGiB": 1, "perRunnerCores": 1, "slotMax": 3},
+            "runners": {"extraLabels": ["fast", "team"], "repositories": ["o/a", "o/b"]},
+        }
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            self.identity(temp, json.dumps(document))
+            run = Path(temp) / "run/fleet"
+            self.assertEqual((run / "slot-count").read_text(), "3\n")
+            self.assertEqual((run / "runner-labels").read_text(), "x64\nfast\nteam\n")
+            self.assertEqual(
+                {path.name: path.read_text() for path in (run / "assign").iterdir()},
+                {f"slot-{n}": ("o/a\n" if n % 2 else "o/b\n") for n in range(1, 9)},
+            )
+
+    def test_a_threshold_setting_changes_the_high_mem_tag(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            self.assertEqual(self.identity(temp, json.dumps({"capacity": {"highMemGiB": 16}})), "ci-highmem-ab12")
+            self.assertEqual((Path(temp) / "run/fleet/runner-labels").read_text(), "x64\nhigh-mem\n")
+
+    def test_corrupt_or_invalid_settings_are_ignored(self):
+        for text in ("{nope", "[]", "null", '{"capacity": {"slotMax": "3"}}', '{"capacity": {"slotMax": 999}}', '{"runners": {"repositories": ["a b"]}}', '{"runners": {"extraLabels": ["x64"]}}'):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as temp:
+                self.identity(temp, text)
+                run = Path(temp) / "run/fleet"
+                self.assertEqual((run / "slot-count").read_text(), "4\n")
+                self.assertFalse((run / "assign").exists())
+
+    def test_the_slot_limit_can_only_go_down(self):
+        conf = dict(self.CONF)
+        self.assertEqual(cattle.effective_capacity(conf, {"capacity.slotMax": 64})["slot_max"], 8)
+        self.assertEqual(cattle.effective_capacity(conf, {"capacity.slotMax": 2})["slot_max"], 2)
+        self.assertEqual(cattle.effective_capacity(conf, {"capacity.slotMax": True})["slot_max"], 8)
+
+    def test_assignments_are_round_robin_and_follow_the_list(self):
+        self.assertEqual(cattle.slot_assignments([], 4), {})
+        self.assertEqual(cattle.slot_assignments(["o/a", "o/b", "o/c"], 5),
+                         {"slot-1": "o/a", "slot-2": "o/b", "slot-3": "o/c", "slot-4": "o/a", "slot-5": "o/b"})
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp) / "assign"
+            self.assertEqual(cattle.sync_assignments(directory, {"slot-1": "o/a", "slot-2": "o/b"}), {"slot-1", "slot-2"})
+            self.assertEqual(cattle.sync_assignments(directory, {"slot-1": "o/a", "slot-2": "o/c"}), {"slot-2"})
+            self.assertEqual(cattle.sync_assignments(directory, {"slot-1": "o/a"}), {"slot-2"})
+            self.assertEqual(sorted(path.name for path in directory.iterdir()), ["slot-1"])
+            self.assertEqual(cattle.sync_assignments(directory, {}), {"slot-1"})
+            self.assertEqual(list(directory.iterdir()), [])
+
+    def test_runtime_files_are_replaced_whole_never_truncated_in_place(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "labels"
+            path.write_text("old\n")
+            inode = path.stat().st_ino
+            self.assertTrue(cattle._write(path, "new\n", 0o644))
+            self.assertNotEqual(path.stat().st_ino, inode)
+            self.assertFalse(cattle._write(path, "new\n", 0o644))
+            self.assertEqual(sorted(entry.name for entry in Path(temp).iterdir()), ["labels"])
+
+
 class CheckerTests(unittest.TestCase):
     def test_package_tree_is_cattle(self):
         self.assertEqual(cattle.check_tree(Path(__file__).parents[1]), [])

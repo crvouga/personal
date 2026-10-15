@@ -6,7 +6,7 @@
   '';
 in pkgs.testers.runNixOSTest {
   name = "fleet-devbox";
-  node.specialArgs = { settings = settings // { repo = settings.repo // { timer = false; }; }; };
+  node.specialArgs = { settings = settings // { repo = settings.repo // { timer = false; }; fleetApi = { url = ""; }; }; };
   nodes.machine = {
     imports = [ sopsModule diskoModule ../hosts/devbox.nix ];
     disko.enableConfig = lib.mkForce false;

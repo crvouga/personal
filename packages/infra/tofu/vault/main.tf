@@ -4,6 +4,14 @@ locals {
   vault         = local.config.vault
   vault_addr    = "https://${local.vault.hostname}"
   router_values = { for key, password in random_password.router : key => lookup(var.secrets["prd"], key, password.result) }
+  # Roles that may enroll without a person approving them in the fleet dashboard.
+  fleet_roles = ["ci", "web", "cache", "netboot", "devbox"]
+  # The fleet API holds only the SHA-256 of each role token; nodes hold the raw token.
+  fleet_values = {
+    FLEET_ADMIN_TOKEN       = random_password.fleet_admin.result
+    FLEET_SESSION_SECRET    = random_password.fleet_session.result
+    FLEET_ROLE_TOKEN_HASHES = jsonencode({ for role, token in random_password.fleet_role_token : role => sha256(token.result) })
+  }
 }
 
 data "terraform_remote_state" "foundation" {
@@ -50,7 +58,8 @@ resource "vault_jwt_auth_backend_role" "github" {
   bound_audiences   = [local.vault_addr]
   bound_claims_type = "glob"
   bound_claims = merge({ repository = "${local.config.github.org}/*" },
-  try(each.value.bound_ref, null) == null ? {} : { ref = each.value.bound_ref })
+    try(each.value.bound_ref, null) == null ? {} : { ref = each.value.bound_ref },
+  try(each.value.bound_claims, {}))
   token_policies          = [each.value.policy]
   token_ttl               = parseint(trimsuffix(each.value.ttl, "m"), 10) * 60
   token_max_ttl           = parseint(trimsuffix(each.value.max_ttl, "m"), 10) * 60
@@ -94,6 +103,19 @@ resource "random_password" "turbo" {
   length  = 48
   special = false
 }
+resource "random_password" "fleet_admin" {
+  length  = 48
+  special = false
+}
+resource "random_password" "fleet_session" {
+  length  = 48
+  special = false
+}
+resource "random_password" "fleet_role_token" {
+  for_each = toset(local.fleet_roles)
+  length   = 48
+  special  = false
+}
 resource "random_password" "router" {
   for_each = toset(one(local.config.tunnels).secrets)
   length   = 48
@@ -108,6 +130,7 @@ resource "vault_kv_secret_v2" "personal" {
     { TURBO_TOKEN = random_password.turbo.result },
     var.secrets[each.key],
     each.key == "prd" ? local.router_values : {},
+    each.key == "prd" ? local.fleet_values : {},
     each.key == "prd" ? {
       INITIAL_PASSWORD = local.router_values["9ROUTER_PASSWORD"]
       JWT_SECRET       = local.router_values["9ROUTER_JWT_SECRET"]
@@ -143,12 +166,16 @@ resource "vault_kv_secret_v2" "personal" {
   }
 }
 
-# Role age keys for packages/fleet. A new node of a role receives its key from
-# a single-use wrapped read of this document (fleet-node.sh --token-file).
+# Per-role secrets for packages/fleet. A new node of a role receives its age key
+# and its fleet API token (the raw value whose SHA-256 is in FLEET_ROLE_TOKEN_HASHES)
+# from a single-use wrapped read of this document (fleet-node.sh --token-file).
 resource "vault_kv_secret_v2" "fleet" {
-  for_each  = nonsensitive(toset(keys(var.fleet_age_keys)))
-  mount     = vault_mount.secret.path
-  name      = "fleet/${each.key}"
-  data_json = jsonencode({ age_key = var.fleet_age_keys[each.key] })
+  for_each = nonsensitive(toset(keys(var.fleet_age_keys)))
+  mount    = vault_mount.secret.path
+  name     = "fleet/${each.key}"
+  data_json = jsonencode({
+    age_key   = var.fleet_age_keys[each.key]
+    api_token = random_password.fleet_role_token[each.key].result
+  })
   lifecycle { prevent_destroy = true }
 }

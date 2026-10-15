@@ -1,0 +1,32 @@
+{
+  "name": "@pkgs/fleet-api",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx",
+      "./src/*/index.ts"
+    ]
+  },
+  "scripts": {
+    "build": "bun run build:css && test -f Dockerfile && test -f schema.hcl",
+    "build:css": "bunx @tailwindcss/cli -i src/ui/app.css -o dist/app.css --minify",
+    "dev": "bun run build:css && bun --watch src/server.ts",
+    "lint": "eslint src test --max-warnings 0",
+    "tc": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test",
+    "demo": "bun run scripts/demo.ts"
+  },
+  "dependencies": {
+    "@pkgs/assert": "workspace:*",
+    "@pkgs/logger": "workspace:*",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "catalog:",
+    "@types/bun": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

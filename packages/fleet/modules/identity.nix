@@ -2,6 +2,8 @@
   cap = settings.capacity;
   token = value: let text = toString value; in
     assert builtins.match "[A-Za-z0-9._-]+" text != null; text;
+  # cattle.py reads the API's cached capacity settings through fleetconf.py.
+  tools = import ./fleet-tools.nix { inherit lib pkgs; };
 in {
   assertions = [
     {
@@ -44,7 +46,7 @@ in {
     path = [ pkgs.python3 pkgs.coreutils pkgs.systemd ];
     serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
     script = ''
-      python3 ${../scripts/cattle.py} identity
+      python3 ${tools.scripts}/cattle.py identity
     '';
   };
 }

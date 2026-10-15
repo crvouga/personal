@@ -2,7 +2,8 @@
   settings = import ../web.nix;
 in pkgs.testers.runNixOSTest {
   name = "fleet-web";
-  node.specialArgs = { inherit settings; };
+  # No route to the fleet API in the VM: leave the agent out.
+  node.specialArgs = { settings = settings // { fleetApi = { url = ""; }; }; };
   nodes.web = { config, pkgs, ... }: {
     imports = [ sopsModule diskoModule ../hosts/web.nix ];
     disko.enableConfig = lib.mkForce false;

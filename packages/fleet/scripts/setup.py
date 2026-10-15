@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""One-time fleet setup, run by the repository owner on their own computer.
+
+  python3 scripts/setup.py --repos owner/private-repo[,owner/other]
+
+Creates what a new node cannot make for itself, and nothing a node can:
+
+  1. one age key per role (private halves go to the vault OpenTofu root's
+     ignored tfvars file, public halves to .sops.yaml)
+  2. the GitHub App that registers runners, from a manifest, so the only click is
+     "Create GitHub App" and then "Install"
+  3. secrets/fleet.yaml, the App's private key encrypted to the ci role's key
+  4. fleet.nix: the App id, the installation id, the repositories, the secrets file
+
+Every later node needs none of this: it downloads the installer and runs it.
+Safe to run twice; a finished step is skipped. Secrets are never printed and
+never written under a tracked path in plain text.
+"""
+import base64
+import html
+import json
+import os
+import re
+import secrets
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PACKAGE = HERE.parent
+REPO = "crvouga/workspace"
+OWNER = REPO.split("/")[0]
+
+
+def api():
+    return os.environ.get("FLEET_GITHUB_API", "https://api.github.com").rstrip("/")
+
+
+def web():
+    return os.environ.get("FLEET_GITHUB_WEB", "https://github.com").rstrip("/")
+
+
+def say(message):
+    print(message, file=sys.stderr)
+
+
+def manifest(redirect_url, organization):
+    permissions = {"administration": "write", "metadata": "read"}
+    if organization:
+        permissions["organization_self_hosted_runners"] = "write"
+    return {
+        "name": f"{OWNER} fleet runners",
+        "url": f"https://github.com/{REPO}",
+        "redirect_url": redirect_url,
+        "public": False,
+        "default_permissions": permissions,
+    }
+
+
+def form_page(owner_kind, owner, state, document):
+    base = f"{web()}/organizations/{owner}/settings/apps/new" if owner_kind == "Organization" else f"{web()}/settings/apps/new"
+    action = html.escape(f"{base}?state={state}", quote=True)
+    value = html.escape(json.dumps(document), quote=True)
+    return (
+        "<!doctype html><meta charset=utf-8><title>Fleet setup</title>"
+        "<p>Sending the runner app definition to GitHub. Press <b>Create GitHub App</b> on the next page.</p>"
+        f'<form id=f method=post action="{action}"><input type=hidden name=manifest value="{value}"></form>'
+        "<script>document.getElementById('f').submit()</script>"
+    ).encode()
+
+
+class Flow(BaseHTTPRequestHandler):
+    def log_message(self, *_args):
+        return
+
+    def reply(self, code, body, kind="text/html; charset=utf-8"):
+        self.send_response(code)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        flow = self.server.flow
+        parsed = urllib.parse.urlparse(self.path)
+        if self.headers.get("Host", "") != f"127.0.0.1:{self.server.server_address[1]}":
+            return self.reply(403, b"bad host")
+        if parsed.path == "/":
+            return self.reply(200, flow["page"])
+        if parsed.path == "/created":
+            query = urllib.parse.parse_qs(parsed.query)
+            if query.get("state", [""])[0] != flow["state"] or not query.get("code", [""])[0]:
+                return self.reply(400, b"This is not the page GitHub should send you to. Run setup again.")
+            flow["code"] = query["code"][0]
+            flow["done"].set()
+            return self.reply(200, b"<p>The runner app was created. Now press <b>Install</b> on the GitHub page that opens next, choosing the repositories to run on.</p>")
+        return self.reply(404, b"not found")
+
+
+def request(method, path, headers=None, body=None):
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(api() + path, data=data, method=method,
+                                 headers={"Accept": "application/vnd.github+json", "User-Agent": "fleet-setup", **(headers or {})})
+    with urllib.request.urlopen(req, timeout=30) as reply:
+        return json.loads(reply.read().decode("utf-8") or "{}")
+
+
+def owner_kind(owner):
+    return request("GET", f"/users/{owner}").get("type", "User")
+
+
+def create_app(owner, kind, wait):
+    """Run the manifest flow. Returns the converted app: id, slug, pem."""
+    state = secrets.token_urlsafe(16)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Flow)
+    port = server.server_address[1]
+    document = manifest(f"http://127.0.0.1:{port}/created", kind == "Organization")
+    server.flow = {"state": state, "code": None, "done": threading.Event(), "page": form_page(kind, owner, state, document)}
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{port}/"
+    say("Create the runner GitHub App: press 'Create GitHub App' on the GitHub page that opens.")
+    say(f"If no page opened, open this address in a browser on this computer: {url}")
+    if not os.environ.get("FLEET_NO_BROWSER"):
+        webbrowser.open(url)
+    try:
+        if not server.flow["done"].wait(wait):
+            raise SystemExit("Next: the GitHub App was not created in time. Nothing was changed. Run setup again.")
+        app = request("POST", f"/app-manifests/{server.flow['code']}/conversions")
+    finally:
+        server.shutdown()
+        server.server_close()
+    for field in ("id", "slug", "pem"):
+        if not app.get(field):
+            raise SystemExit(f"Next: GitHub's answer had no {field}. Run setup again.")
+    return {"id": str(app["id"]), "slug": app["slug"], "pem": app["pem"]}
+
+
+def app_jwt(app_id, pem):
+    """RS256 with the openssl on this computer, so no Python package is needed."""
+    def part(value):
+        return base64.urlsafe_b64encode(json.dumps(value, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    now = int(time.time())
+    signing = part({"alg": "RS256", "typ": "JWT"}) + "." + part({"iat": now - 60, "exp": now + 540, "iss": str(app_id)})
+    with tempfile.TemporaryDirectory() as scratch:
+        key = Path(scratch) / "key.pem"
+        fd = os.open(key, os.O_WRONLY | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(pem)
+        signature = subprocess.run([os.environ.get("FLEET_OPENSSL", "openssl"), "dgst", "-sha256", "-sign", str(key)],
+                                   input=signing.encode(), capture_output=True, check=True).stdout
+    return signing + "." + base64.urlsafe_b64encode(signature).rstrip(b"=").decode()
+
+
+def wait_for_installation(app, owner, wait, poll):
+    url = f"{web()}/apps/{app['slug']}/installations/new"
+    say("Install the runner app: choose ONLY the private repositories that may run on the fleet, then press Install.")
+    say(f"If no page opened, open this address: {url}")
+    if not os.environ.get("FLEET_NO_BROWSER"):
+        webbrowser.open(url)
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        try:
+            found = request("GET", "/app/installations", {"Authorization": "Bearer " + app_jwt(app["id"], app["pem"])})
+        except urllib.error.URLError:
+            found = []
+        for item in found:
+            if (item.get("account") or {}).get("login", "").lower() == owner.lower():
+                return str(item["id"])
+        time.sleep(poll)
+    raise SystemExit("Next: the app was not installed in time. Run setup again; the app is kept and will not be created twice.")
+
+
+# ---- files -----------------------------------------------------------------------
+
+def recipient_for(sops_text, name):
+    """The age recipient .sops.yaml assigns to secrets/<name>.yaml."""
+    match = re.search(rf"path_regex:\s*secrets/{re.escape(name)}\\\.[^\n]*\n\s*age:\s*(age1[0-9a-z]+)", sops_text)
+    if not match:
+        raise SystemExit(f"Next: .sops.yaml has no age recipient for secrets/{name}.yaml. Run `just fleet-keys` first.")
+    return match.group(1)
+
+
+def encrypt_app_key(pem, recipient, destination):
+    body = "github-app-key: |\n" + "".join(f"  {line}\n" for line in pem.strip().splitlines())
+    with tempfile.TemporaryDirectory() as scratch:
+        plain = Path(scratch) / "plain.yaml"
+        fd = os.open(plain, os.O_WRONLY | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(body)
+        # sops reads the nearest .sops.yaml, which knows nothing about a temp file.
+        config = Path(scratch) / "sops.yaml"
+        config.write_text(f"creation_rules:\n  - path_regex: .*\n    age: {recipient}\n")
+        done = subprocess.run([os.environ.get("FLEET_SOPS_BIN", "sops"), "--config", str(config), "--encrypt", "--age", recipient,
+                               "--input-type", "yaml", "--output-type", "yaml", str(plain)], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit("Next: sops could not encrypt the app key (" + done.stderr.strip()[-200:] + "). Install sops and run setup again.")
+    if "PRIVATE KEY-----" in done.stdout:
+        raise SystemExit("Next: sops output still holds the private key. Nothing was written.")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(done.stdout)
+
+
+def settings_text(text, app_id, installation_id, kind, owner, repositories):
+    """fleet.nix with the runner settings filled in."""
+    def sub(pattern, value, source):
+        updated, count = re.subn(pattern, lambda m: m.group(1) + value, source, count=1, flags=re.M)
+        if count != 1:
+            raise SystemExit(f"Next: fleet.nix no longer has the line this setup edits ({pattern}). Edit it by hand.")
+        return updated
+    scope = "organization" if kind == "Organization" else "repository"
+    text = sub(r'(\n    scope = )"[a-z]+";', f'"{scope}";', text)
+    text = sub(r'(\n    organization = )"[^"]*";', f'"{owner if scope == "organization" else "TODO"}";', text)
+    listing = " ".join(f'"{name}"' for name in repositories) if scope == "repository" else ""
+    text = sub(r'(\n    repositories = )\[[^\]]*\];', f"[ {listing} ];" if listing else "[ ];", text)
+    text = sub(r'(\n    appId = )"[^"]*";', f'"{app_id}";', text)
+    text = sub(r'(\n    installationId = )"[^"]*";', f'"{installation_id}";', text)
+    text = sub(r'(\n  secretsFile = )null;', "./secrets/fleet.yaml;", text) if "secretsFile = null" in text else text
+    return text
+
+
+def parse(argv):
+    repos, rest = [], list(argv)
+    while rest:
+        item = rest.pop(0)
+        if item == "--repos":
+            repos = [r for r in (rest.pop(0) if rest else "").split(",") if r]
+        elif item.startswith("--repos="):
+            repos = [r for r in item.split("=", 1)[1].split(",") if r]
+        else:
+            raise SystemExit(f"Next: unknown argument {item}. Usage: setup.py --repos owner/private-repo[,owner/other]")
+    return repos
+
+
+def main(argv):
+    package = Path(os.environ.get("FLEET_PACKAGE") or PACKAGE)
+    state = Path(os.environ.get("FLEET_SETUP_STATE") or Path.home() / ".fleet" / "setup-github-app.json")
+    wait = int(os.environ.get("FLEET_SETUP_WAIT") or 900)
+    poll = float(os.environ.get("FLEET_SETUP_POLL") or 3)
+    settings = package / "fleet.nix"
+    current = settings.read_text()
+    configured = re.search(r'appId = "(\d+)";', current) and re.search(r'installationId = "(\d+)";', current)
+    repositories = parse(argv)
+    kind = owner_kind(OWNER)
+    if kind != "Organization" and not repositories and not configured:
+        raise SystemExit("Next: say which private repositories may use the fleet: setup.py --repos owner/private-repo[,owner/other]. "
+                         "Repositories are never guessed; a public one would let strangers' pull requests run on your machines.")
+    for name in repositories:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", name):
+            raise SystemExit(f"Next: {name} is not owner/name.")
+
+    say("1/4 Role age keys")
+    keys = subprocess.run([sys.executable, str(HERE / "fleet-keys.py")], capture_output=True, text=True,
+                          env={**os.environ, "FLEET_SOPS": str(package / ".sops.yaml")})
+    if keys.returncode != 0:
+        raise SystemExit("Next: creating the role keys failed: " + keys.stderr.strip()[-300:])
+    say("    " + keys.stderr.strip().splitlines()[0])
+
+    if configured and not (package / "secrets" / "fleet.yaml").is_file():
+        raise SystemExit("Next: fleet.nix already names a GitHub App but secrets/fleet.yaml is missing. Restore the file from git. "
+                         "If the App's key is lost, delete the App on GitHub and set appId and installationId back to \"TODO\" before running setup again.")
+    if configured:
+        say("2/4 GitHub App: already set up (appId and installationId are in fleet.nix).")
+        say("3/4 secrets/fleet.yaml: already encrypted.")
+        say("4/4 fleet.nix: already filled in.")
+    else:
+        say("2/4 GitHub App")
+        if state.is_file():
+            app = json.loads(state.read_text())
+            say("    resuming with the app created earlier")
+        else:
+            app = create_app(OWNER, kind, wait)
+            state.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(state, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as handle:
+                json.dump(app, handle)
+        installation = wait_for_installation(app, OWNER, wait, poll)
+        say("3/4 secrets/fleet.yaml")
+        encrypt_app_key(app["pem"], recipient_for((package / ".sops.yaml").read_text(), "fleet"), package / "secrets" / "fleet.yaml")
+        say("4/4 fleet.nix")
+        settings.write_text(settings_text(current, app["id"], installation, kind, OWNER, repositories))
+        state.unlink(missing_ok=True)
+    say("")
+    say("Setup is done on this computer. Two reviewed steps remain, once, and no node ever repeats them:")
+    say("  1. Commit packages/fleet (fleet.nix, secrets/fleet.yaml, .sops.yaml) in a pull request and merge it.")
+    say("  2. Apply the vault OpenTofu root so Vault holds the role keys and the fleet-enroll role:")
+    say("       bun run infra:vault plan -out=fleet.plan   # review it")
+    say("       bun run infra:vault apply fleet.plan")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

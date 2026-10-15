@@ -172,6 +172,7 @@ jobs:
     outputs:
       check: ${{ steps.flags.outputs.check }}
       runner_fleet: ${{ steps.filter.outputs.runner_fleet }}
+      fleet_e2e: ${{ steps.filter.outputs.fleet_e2e }}
       vault: ${{ steps.flags.outputs.vault }}
       publish: ${{ steps.flags.outputs.publish }}
       deploy: ${{ steps.flags.outputs.deploy }}
@@ -207,6 +208,13 @@ jobs:
               - '.github/workflows/runner-check.yml'
               - '.github/workflows/flake-update.yml'
               - '.github/workflows/ci.yml'
+            fleet_e2e:
+              - 'packages/fleet/**'
+              - 'packages/fleet-api/**'
+              - 'packages/assert/**'
+              - 'packages/logger/**'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
             vault:
               - 'packages/vault-service/**'
             portfolio:
@@ -214,6 +222,7 @@ jobs:
             publish:
               - 'packages/turborepo-remote-cache/**'
               - 'packages/portfolio/**'
+              - 'packages/fleet-api/**'
               - 'packages/assert/**'
               - 'packages/logger/**'
               - 'packages/object-store/**'
@@ -365,6 +374,10 @@ jobs:
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
+      # The fleet-api tests apply packages/fleet-api/schema.hcl to a throwaway
+      # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
+      # under /usr/lib/postgresql/16/bin).
+      - uses: ariga/setup-atlas@v0
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check
         env:
@@ -515,11 +528,43 @@ jobs:
         working-directory: packages/fleet
         run: nix develop --command bash scripts/check.sh
 
+  # The whole fleet with the real programs at every step: the installer scripts,
+  # the approval workflow script, the node agent, the fleet API on a throwaway
+  # Postgres whose schema Atlas builds, and the dashboard. Run once against the
+  # API as a process and once against the Docker image Railway will run.
+  fleet-e2e:
+    needs: [changes]
+    if: needs.changes.outputs.fleet_e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - uses: ariga/setup-atlas@v0
+      - name: Build the stylesheet
+        run: bun run --filter @pkgs/fleet-api build:css
+      - name: Full chain, API as a process
+        env:
+          FLEET_E2E_REQUIRED: '1'
+        run: python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
+      - name: Build the API image
+        run: docker build -f packages/fleet-api/Dockerfile -t fleet-api:ci .
+      - name: Full chain, API as the Docker image
+        env:
+          FLEET_E2E_REQUIRED: '1'
+          FLEET_E2E_IMAGE: fleet-api:ci
+        run: python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
+
   # Required status check for the `main` ruleset (scripts/pr-ready).
   # Path-filtered jobs may be skipped; anything else must succeed.
   # The merge queue re-runs this job. commitlint and pr-title stay on the PR.
   Required:
-    needs: [changes, check, portfolio-health-check, commitlint, pr-title, runner-fleet]
+    needs: [changes, check, portfolio-health-check, commitlint, pr-title, runner-fleet, fleet-e2e]
     if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     timeout-minutes: 5

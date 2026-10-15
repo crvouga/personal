@@ -18,12 +18,20 @@ if [ "${1:-}" = guide ]; then
   if [ -f "$here/../docs/agent-install.md" ]; then
     cat "$here/../docs/agent-install.md"
   else
-    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//'
+    sed -n '/^# __GUIDE_MD__$/,/^# __GUIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //'
   fi
   exit 0
 fi
 
-py=$(command -v python3 || command -v python || true)
+# A name that is on PATH may still not run: Windows ships python3.exe and python.exe stubs that only
+# open the Microsoft Store. Take the first one that really starts Python 3.8 or newer.
+py=""
+for candidate in python3 python py; do
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+    py=$candidate
+    break
+  fi
+done
 if [ -z "$py" ]; then
   echo 'Next: Python 3 is not installed, so nothing was written. Install Python 3 and run this program again.' >&2
   exit 1
@@ -36,7 +44,7 @@ trap cleanup EXIT
 if [ -f "$here/decide.py" ]; then
   cp "$here/decide.py" "$payload"
 else
-  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^# //;s/^#$//' > "$payload"
+  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload"
 fi
 
 exec "$py" "$payload" "$@"

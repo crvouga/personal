@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """fleet-sync pulls main and switches only when the system is already cached."""
 
+import json
 import os
+import shlex
 import stat
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "fleet-sync.sh"
+FLEETCONF = Path(__file__).parents[1] / "scripts" / "fleetconf.py"
 
 
 def write_executable(path: Path, body: str) -> None:
@@ -138,8 +142,16 @@ class SyncTests(unittest.TestCase):
             "CATTLE_PY": str(self.bin / "cattle"),
             "FLEET_HEALTH": str(self.bin / "health"),
             "FLEET_REPORT": str(self.root / "health-failure"),
+            "FLEET_REBOOT_PENDING": str(self.root / "reboot-pending"),
+            # The real reader, pointed at a file the test writes (absent by default).
+            "FLEETCONF": str(self.bin / "fleetconf"),
+            "FLEET_CONFIG": str(self.root / "applied-config.json"),
             "FAIL_ID": "",
         })
+        write_executable(self.bin / "fleetconf", f"""\
+            #!/bin/bash
+            exec {shlex.quote(sys.executable)} -I {shlex.quote(str(FLEETCONF))} "$@"
+            """)
         self.write_env(cache="https://cache.invalid/fleet", delay="0")
 
     def tearDown(self):
@@ -370,6 +382,104 @@ class SyncTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("not rebooting", result.stderr)
         self.assertEqual(self.actions(), [])
+
+    def configure(self, document):
+        text = document if isinstance(document, str) else json.dumps(document)
+        (self.root / "applied-config.json").write_text(text)
+
+    def kernel_change(self, delay="30"):
+        self.commit("marker")
+        self.seed_booted()
+        (self.flake / "KERNEL_CHANGE").write_text("1")
+        self._git(["-C", str(self.origin), "add", "packages"])
+        self._git(["-C", str(self.origin), "commit", "-m", "kernel"])
+        self.write_env(cache="https://cache.invalid/fleet", delay=delay)
+
+    def test_a_paused_fleet_does_not_fetch_build_or_switch(self):
+        self.commit("marker")
+        self.configure({"sync": {"paused": True}})
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("paused by the fleet configuration", result.stderr)
+        self.assertFalse(self.profile.exists())
+        self.assertFalse(self.nix_log.exists())
+        self.assertFalse((self.state / "repo").exists())
+        self.assertEqual(self.actions(), [])
+        self.configure({"sync": {"paused": False}})
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertEqual(self.actions(), ["switch"])
+
+    def test_missing_corrupt_or_failing_settings_leave_sync_working(self):
+        self.commit("marker")
+        for content in ("{not json", "[]", '{"sync": {"paused": "yes"}}', '{"sync": 5}'):
+            with self.subTest(content=content):
+                self.configure(content)
+                result = self.run_sync()
+                self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions(), ["switch"] * 4)
+        write_executable(self.bin / "broken-fleetconf", """\
+            #!/bin/bash
+            echo 'boom' >&2
+            exit 3
+            """)
+        self.env["FLEETCONF"] = str(self.bin / "broken-fleetconf")
+        self.env.pop("FLEET_CONFIG")
+        self.log.write_text("")
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertEqual(self.actions(), ["switch"])
+        del self.env["FLEETCONF"]
+        self.assertEqual(self.run_sync().returncode, 0)
+
+    def test_disabled_reboots_switch_without_draining_or_rebooting_and_record_it(self):
+        self.kernel_change()
+        self.configure({"reboot": {"enabled": False}})
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions(), ["switch"])
+        self.assertIn("reboot is pending", result.stderr)
+        pending = (self.root / "reboot-pending").read_text()
+        self.assertTrue(pending.startswith("toplevel="), pending)
+        self.assertEqual(os.path.realpath(pending.strip().split("=", 1)[1]), os.path.realpath(self.profile))
+        # Enabling reboots again drains, waits and reboots on the next poll.
+        self.configure({"reboot": {"enabled": True}})
+        self.log.write_text("")
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
+
+    def test_a_sync_with_no_kernel_change_clears_the_pending_marker(self):
+        self.commit("marker")
+        (self.root / "reboot-pending").write_text("toplevel=/old\n")
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertFalse((self.root / "reboot-pending").exists())
+
+    def test_a_failed_health_check_still_rolls_back_when_reboots_are_disabled(self):
+        self.commit("good")
+        self.assertEqual(self.run_sync().returncode, 0)
+        kept = self.profile.resolve()
+        self.booted.mkdir()
+        for name in ("kernel", "initrd", "kernel-modules"):
+            (self.booted / name).symlink_to(kept / name)
+        (self.flake / "KERNEL_CHANGE").write_text("1")
+        self._git(["-C", str(self.origin), "add", "packages"])
+        self._git(["-C", str(self.origin), "commit", "-m", "kernel"])
+        (self.root / "fail-health").write_text("1")
+        self.configure({"reboot": {"enabled": False}})
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rolling back", result.stderr)
+        self.assertEqual(self.profile.resolve(), kept)
+        self.assertFalse((self.root / "reboot-pending").exists())
+
+    def test_the_reboot_delay_can_be_changed_or_removed(self):
+        self.kernel_change(delay="30")
+        self.configure({"reboot": {"delayMaxSeconds": 0}})
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertEqual(self.actions(), ["drain", "boot", "reboot"])
+        self.log.write_text("")
+        self.write_env(cache="https://cache.invalid/fleet", delay="0")
+        self.configure({"reboot": {"delayMaxSeconds": 45}})
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
 
     def seed_booted(self):
         kernel = self.root / "old-kernel"

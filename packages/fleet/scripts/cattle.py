@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -118,8 +119,12 @@ def normalize_uuid(text):
     return value
 
 
-def stable_id(uuid_text, mac):
-    """First 4 hex digits of sha256. 65536 values can collide; the UUID makes that unlikely."""
+def machine_digest(uuid_text, mac):
+    """The full sha256 hex of the machine's stable hardware material (64 digits).
+
+    Its first 4 digits are the hostname suffix. The whole digest is the node id
+    the fleet API knows this machine by; it is derived from hardware and is not a secret.
+    """
     uuid = normalize_uuid(uuid_text)
     if uuid:
         material = "dmi:" + uuid
@@ -127,7 +132,12 @@ def stable_id(uuid_text, mac):
         if mac is None or not MAC_RE.fullmatch(str(mac).strip().lower()):
             raise ValueError("no DMI system UUID or permanent MAC")
         material = "mac:" + str(mac).strip().lower().replace(":", "")
-    return hashlib.sha256(material.encode()).hexdigest()[:4]
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def stable_id(uuid_text, mac):
+    """First 4 hex digits of sha256. 65536 values can collide; the UUID makes that unlikely."""
+    return machine_digest(uuid_text, mac)[:4]
 
 
 def primary_mac(net_root="/sys/class/net"):
@@ -157,17 +167,21 @@ def read_dmi_uuid(path="/sys/class/dmi/id/product_uuid"):
         return None
 
 
-def read_stable_id(attempts=10, delay=0.2, uuid_path="/sys/class/dmi/id/product_uuid", net_root="/sys/class/net"):
+def read_machine_digest(attempts=10, delay=0.2, uuid_path="/sys/class/dmi/id/product_uuid", net_root="/sys/class/net"):
     uuid = normalize_uuid(read_dmi_uuid(uuid_path))
     if uuid:
-        return stable_id(uuid, None)
+        return machine_digest(uuid, None)
     for attempt in range(attempts):
         mac = primary_mac(net_root)
         if mac:
-            return stable_id(None, mac)
+            return machine_digest(None, mac)
         if attempt + 1 < attempts:
             time.sleep(delay)
     raise ValueError("no DMI system UUID or permanent MAC")
+
+
+def read_stable_id(attempts=10, delay=0.2, uuid_path="/sys/class/dmi/id/product_uuid", net_root="/sys/class/net"):
+    return read_machine_digest(attempts, delay, uuid_path, net_root)[:4]
 
 
 def is_high_mem(ram_mib, high_mem_gib):
@@ -267,52 +281,161 @@ def load_conf(path):
 
 
 def _write(path, text, mode):
+    """Atomic write. A reader sees the old file or the new one, never half of it. Returns True when it changed."""
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(path.parent, 0o755)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    try:
+        if path.read_text(encoding="utf-8") == text and (path.stat().st_mode & 0o777) == mode:
+            return False
+    except (OSError, UnicodeDecodeError):
+        pass
+    fd, temp = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
     try:
         os.write(fd, text.encode())
-    finally:
         os.close(fd)
-    os.chmod(path, mode)
+        fd = -1
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    except BaseException:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(temp)
+        except OSError:
+            pass
+        raise
+    return True
 
 
-def apply_identity(root, conf, ident, ram_mib, arch, set_hostname, cores=None):
-    role = conf["role"]
-    tags = capability_tags(
-        Path(root) / "etc/fleet/capabilities.d",
+def dynamic_settings(root="/"):
+    """Settings the fleet API last sent, already validated. Any problem gives {} (built-in values)."""
+    try:
+        fleetconf = _fleetconf()
+        return fleetconf.load(str(Path(root) / "nix/fleet-state/config.json"))
+    except (ImportError, OSError, ValueError):
+        return {}
+
+
+def _fleetconf():
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import fleetconf
+    return fleetconf
+
+
+CAPACITY_NAMES = {
+    "reserveGiB": "reserve_gib",
+    "perRunnerGiB": "per_runner_gib",
+    "perRunnerCores": "per_runner_cores",
+    "slotMax": "slot_max",
+    "highMemGiB": "high_mem_gib",
+}
+
+
+def effective_capacity(conf, dynamic):
+    """The image's capacity constants, overridden by the API's capacity.* keys.
+
+    slot_max can only go down: the closure holds units slot-1..slot_max and no more.
+    """
+    capacity = {name: int(conf[name]) for name in CAPACITY_NAMES.values() if name in conf}
+    for key, name in CAPACITY_NAMES.items():
+        value = dynamic.get(f"capacity.{key}")
+        if name in capacity and isinstance(value, int) and not isinstance(value, bool):
+            capacity[name] = value
+    if "slot_max" in capacity:
+        capacity["slot_max"] = min(capacity["slot_max"], int(conf["slot_max"]))
+    return capacity
+
+
+def merged_labels(arch, tags, dynamic):
+    """Labels the image sets, then the API's runners.extraLabels, without repeats."""
+    labels = runner_labels(arch, tags)
+    for extra in dynamic.get("runners.extraLabels") or []:
+        if extra not in labels:
+            labels.append(extra)
+    return labels
+
+
+def slot_assignments(repositories, slot_max):
+    """Slot n works for repositories[(n - 1) % len]. No repositories, no assignments."""
+    if not repositories:
+        return {}
+    return {f"slot-{n}": repositories[(n - 1) % len(repositories)] for n in range(1, int(slot_max) + 1)}
+
+
+def sync_assignments(directory, assignments):
+    """Write /run/fleet/assign/<slot>. Returns the slots whose assignment changed (set, added or removed)."""
+    directory = Path(directory)
+    changed = set()
+    if assignments:
+        for slot, repo in assignments.items():
+            if _write(directory / slot, repo + "\n", 0o644):
+                changed.add(slot)
+    if directory.is_dir():
+        for stale in directory.iterdir():
+            if stale.name not in assignments and stale.is_file():
+                stale.unlink()
+                changed.add(stale.name)
+    return changed
+
+
+def apply_dynamic(fleet, conf, dynamic, ram_mib, cores, arch, tags):
+    """Write the runtime files in the /run/fleet directory `fleet` that the API's settings change: runner labels, slot count, slot assignments.
+
+    Used at boot (from the cached settings, so a node behaves the same before the
+    agent has spoken to the API) and by the agent when new settings arrive.
+    """
+    fleet = Path(fleet)
+    labels = merged_labels(arch, tags, dynamic)
+    result = {"labels": labels, "labels_changed": False, "slots": None, "slots_changed": False, "assignments": {}, "assignments_changed": set()}
+    result["labels_changed"] = _write(fleet / "runner-labels", "".join(f"{label}\n" for label in labels), 0o644)
+    if conf["role"] != "ci":
+        return result
+    capacity = effective_capacity(conf, dynamic)
+    slots = slot_count(
+        cores,
         ram_mib,
-        int(conf["high_mem_gib"]),
+        capacity["reserve_gib"],
+        capacity["per_runner_gib"],
+        capacity["per_runner_cores"],
+        capacity["slot_max"],
     )
+    result["slots"] = slots
+    result["slots_changed"] = _write(fleet / "slot-count", f"{slots}\n", 0o644)
+    assignments = slot_assignments(dynamic.get("runners.repositories") or [], int(conf["slot_max"]))
+    result["assignments"] = assignments
+    result["assignments_changed"] = sync_assignments(fleet / "assign", assignments)
+    return result
+
+
+def apply_identity(root, conf, ident, ram_mib, arch, set_hostname, cores=None, machine_id=None, dynamic=None):
+    role = conf["role"]
+    if dynamic is None:
+        dynamic = dynamic_settings(root)
+    if machine_id is not None and not (re.fullmatch(r"[0-9a-f]{64}", machine_id) and machine_id.startswith(ident)):
+        raise ValueError("machine id must be the 64 hex digit digest that starts with the 4 digit id")
+    high_mem = effective_capacity(conf, dynamic)["high_mem_gib"]
+    tags = capability_tags(Path(root) / "etc/fleet/capabilities.d", ram_mib, high_mem)
     hostname = hostname_for(role, tags, ident)
     set_hostname(hostname)
     node = "\n".join([
         f"hostname={hostname}",
         f"role={role}",
         f"id={ident}",
+        *([f"machine_id={machine_id}"] if machine_id else []),
         f"capabilities={','.join(tags)}",
         f"arch={arch}",
         "",
     ])
     _write(Path(root) / "run/fleet/node", node, 0o644)
-    _write(
-        Path(root) / "run/fleet/runner-labels",
-        "".join(f"{label}\n" for label in runner_labels(arch, tags)),
-        0o644,
-    )
+    counted = None
     if role == "ci":
         counted = physical_cores(str(Path(root) / "sys/devices/system/cpu")) if cores is None else cores
-        slots = slot_count(
-            counted,
-            ram_mib,
-            conf["reserve_gib"],
-            conf["per_runner_gib"],
-            conf["per_runner_cores"],
-            conf["slot_max"],
-        )
-        fleet = Path(root) / "run/fleet"
-        _write(fleet / "slot-count", f"{slots}\n", 0o644)
-        _write(fleet / "identity", f"ACTIONS_RUNNER_INPUT_NAME={hostname}\n", 0o644)
+    apply_dynamic(Path(root) / "run/fleet", conf, dynamic, ram_mib, counted, arch, tags)
+    if role == "ci":
+        _write(Path(root) / "run/fleet/identity", f"ACTIONS_RUNNER_INPUT_NAME={hostname}\n", 0o644)
     else:
         for name in ("identity", "slot-count"):
             stale = Path(root) / "run/fleet" / name
@@ -372,10 +495,18 @@ def cmd_print_id():
         die(f"print-id: {exc}")
 
 
+def cmd_print_machine_id():
+    try:
+        print(read_machine_digest())
+    except ValueError as exc:
+        die(f"print-machine-id: {exc}")
+
+
 def cmd_identity():
     try:
         conf = load_conf("/etc/fleet/node.conf")
-        ident = read_stable_id()
+        digest = read_machine_digest()
+        ident = digest[:4]
         ram = mem_total_mib(Path("/proc/meminfo").read_text(encoding="utf-8"))
         arch = os.uname().machine
 
@@ -385,7 +516,7 @@ def cmd_identity():
                 check=True,
             )
 
-        apply_identity("/", conf, ident, ram, arch, set_hostname, cores=physical_cores())
+        apply_identity("/", conf, ident, ram, arch, set_hostname, cores=physical_cores(), machine_id=digest)
     except (OSError, subprocess.CalledProcessError, ValueError, KeyError) as exc:
         die(f"identity: {exc}")
 
@@ -401,7 +532,7 @@ def cmd_check(root):
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
-        die("usage: cattle.py select-disk|identity|print-id|check ROOT", 2)
+        die("usage: cattle.py select-disk|identity|print-id|print-machine-id|check ROOT", 2)
     command, rest = argv[0], argv[1:]
     if command == "select-disk":
         cmd_select_disk()
@@ -409,6 +540,8 @@ def main(argv=None):
         cmd_identity()
     elif command == "print-id":
         cmd_print_id()
+    elif command == "print-machine-id":
+        cmd_print_machine_id()
     elif command == "check":
         cmd_check(rest[0] if rest else ".")
     else:

@@ -1061,6 +1061,10 @@
           {
             "name": "dev-read",
             "file": "packages/vault-service/config/policies/dev-read.hcl"
+          },
+          {
+            "name": "fleet-enroll",
+            "file": "packages/vault-service/config/policies/fleet-enroll.hcl"
           }
         ],
         "auth": {
@@ -1075,6 +1079,18 @@
                 "user_claim": "actor",
                 "max_ttl": "30m",
                 "no_default_policy": true
+              },
+              {
+                "name": "fleet-enroll",
+                "policy": "fleet-enroll",
+                "ttl": "5m",
+                "audience": "from_vault_addr",
+                "user_claim": "actor",
+                "max_ttl": "10m",
+                "no_default_policy": true,
+                "bound_claims": {
+                  "job_workflow_ref": "crvouga/workspace/.github/workflows/fleet-enroll.yml@refs/heads/main"
+                }
               }
             ]
           },
@@ -1184,7 +1200,7 @@
           {
             "name": "DATABASE_URL",
             "configs": ["dev", "prd"],
-            "used_by": ["moviefinder", "llm-proxy", "ci"]
+            "used_by": ["moviefinder", "llm-proxy", "fleet-api", "ci"]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
@@ -1280,6 +1296,24 @@
             "name": "9ROUTER_TUNNEL_TOKEN",
             "configs": ["prd"],
             "used_by": ["9router"]
+          },
+          {
+            "name": "FLEET_ADMIN_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["fleet-api", "infra"],
+            "required": true
+          },
+          {
+            "name": "FLEET_SESSION_SECRET",
+            "configs": ["prd"],
+            "used_by": ["fleet-api"],
+            "required": true
+          },
+          {
+            "name": "FLEET_ROLE_TOKEN_HASHES",
+            "configs": ["prd"],
+            "used_by": ["fleet-api"],
+            "required": true
           }
         ]
       },
@@ -1651,6 +1685,29 @@
               "name": "VAULT_TOKEN",
               "source": "vault"
             }
+          ]
+        },
+        {
+          "id": "fleet-api",
+          "kind": "railway",
+          "hostname": "fleet.chrisvouga.dev",
+          "github_repo": "crvouga/workspace",
+          "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/fleet-api",
+          "dockerfile": "packages/fleet-api/Dockerfile",
+          "build_context": ".",
+          "port": 8080,
+          "health_check": true,
+          "health_path": "/health",
+          "env": {
+            "PORT": "8080",
+            "VAULT_ADDR": "from_vault_addr",
+            "FLEET_GITHUB_REPO": "crvouga/workspace"
+          },
+          "secrets": [
+            { "name": "DATABASE_URL", "source": "vault" },
+            { "name": "FLEET_ADMIN_TOKEN", "source": "vault" },
+            { "name": "FLEET_SESSION_SECRET", "source": "vault" },
+            { "name": "FLEET_ROLE_TOKEN_HASHES", "source": "vault" }
           ]
         },
         {
