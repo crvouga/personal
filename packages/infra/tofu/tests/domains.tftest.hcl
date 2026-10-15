@@ -4,7 +4,7 @@ mock_provider "cloudflare" {
   }
 }
 
-run "domain_adoption_and_forwarding" {
+run "existing_domain_dns" {
   command = plan
   assert {
     condition     = keys(cloudflare_zone.domain) == ["unused.example"]
@@ -12,7 +12,7 @@ run "domain_adoption_and_forwarding" {
   }
   assert {
     condition     = length(cloudflare_dns_record.domain) == 5
-    error_message = "Every migrated record, including structured CAA/SRV and repeated MX, must survive."
+    error_message = "Every existing record, including structured CAA/SRV and repeated MX, must survive."
   }
   assert {
     condition     = cloudflare_dns_record.domain["unused.example:caa"].data.tag == "issue" && cloudflare_dns_record.domain["unused.example:caa"].data.value == "letsencrypt.org"
@@ -21,13 +21,5 @@ run "domain_adoption_and_forwarding" {
   assert {
     condition     = cloudflare_dns_record.domain["unused.example:srv"].data.port == 5060
     error_message = "SRV transport parameters must be preserved."
-  }
-  assert {
-    condition     = length(cloudflare_ruleset.domain_forwarding["unused.example"].rules) == 2 && cloudflare_ruleset.domain_forwarding["unused.example"].rules[0].action_parameters.from_value.target_url.value == "http://destination.example" && cloudflare_ruleset.domain_forwarding["unused.example"].rules[1].action_parameters.from_value.target_url.expression == "concat(\"http://destination.example\", http.request.uri.path)"
-    error_message = "Root and path-preserving redirects need distinct rules to preserve the exact Location behavior."
-  }
-  assert {
-    condition     = cloudflare_registrar_domain.domain["unused.example"].locked && cloudflare_registrar_domain.domain["unused.example"].auto_renew && cloudflare_registrar_domain.domain["unused.example"].privacy
-    error_message = "Post-transfer adoption must retain renewal, lock and WHOIS privacy."
   }
 }

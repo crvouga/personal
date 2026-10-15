@@ -59,11 +59,3 @@ export async function listRecords(ctx: HealthContext, zone: Zone) {
 export async function dnssec(ctx: HealthContext, zone: Zone) {
   return asRecord((await cfGet(ctx, `/zones/${zone.id}/dnssec`)).result);
 }
-
-export async function registration(ctx: HealthContext, domain: string) {
-  return asRecord((await cfGet(ctx, `/accounts/${accountId(ctx)}/registrar/registrations/${domain}`)).result);
-}
-
-export async function transferStatus(ctx: HealthContext, domain: string) {
-  return asRecord((await cfGet(ctx, `/accounts/${accountId(ctx)}/registrar/registrations/${domain}/transfer-in-status`)).result);
-}
