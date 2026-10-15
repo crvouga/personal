@@ -1,5 +1,33 @@
 # Squarespace → Cloudflare domains
 
+For owner authentication on macOS, run `bun domains browser`. This opens the
+Squarespace domains dashboard in regular Google Chrome with a dedicated persistent
+profile under ignored `.domain-migration/owner-chrome` (owner-only directory).
+Google OAuth excludes embedded user agents, so use this window for **Continue with
+Google**, rather than the IDE browser. Re-running the command reuses the same
+profile. The launcher does not enable remote debugging, export cookies, inherit
+infrastructure credentials, or change domain settings. It prepares access; the
+Squarespace owner mutation adapter is still unavailable. Protect this profile as
+account access and exclude it from shared artifacts.
+
+`bun domains browser-inspect --json` uses pinned Playwright and the same dedicated
+profile. It blocks non-read HTTP methods, WebSockets, foreign navigation and
+untrusted subresources, disables service workers that could evade request routing,
+and performs no clicks or typing. Successful observations are saved to ignored
+owner-only evidence files, not printed to the terminal. The native macOS keychain
+remains enabled so the existing Chrome sign-in can be reused without exporting or
+copying cookies. Playwright uses a debugging pipe, not a network debugging port.
+
+If the profile is already open, inspection exits 2 without stopping it. After
+explicit approval of a controlled restart, `--restart-browser` sends SIGTERM only
+to the fingerprinted dedicated Chrome process, waits for graceful exit, and
+launches the scripted inspection. It never uses SIGKILL or closes another profile.
+The inspection closes only the browser process it launched; sign-in persists in
+the private profile. Domain-setting writes still require an OpenTofu owner adapter.
+
+References: [Google OAuth browser policy](https://developers.google.com/identity/protocols/oauth2/policies#browsers),
+[Squarespace domains dashboard](https://support.squarespace.com/hc/en-us/articles/24115750615309-Access-your-domains-dashboard).
+
 Start from the repository root:
 
 ```bash

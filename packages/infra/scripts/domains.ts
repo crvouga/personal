@@ -15,9 +15,14 @@ import { check, migrationExitCode } from '../lib/domains/runner.js';
 import { discover } from '../lib/domains/discover.js';
 import { freeze, observe } from '../lib/domains/observations.js';
 import { migrationContext } from '../lib/domains/runtime.js';
+import { openOwnerBrowser } from '../lib/domains/owner-browser.js';
+import { inspectOwnerBrowser } from '../lib/domains/owner-inspection.js';
 
 const HELP = `Usage: bun run domains <command> [domain] [options]
 
+  browser                          open regular Chrome with a private persistent owner profile (macOS)
+  browser-inspect                  inspect that Chrome profile with scripts; block write requests
+    --restart-browser              explicitly permit a graceful restart of only this dedicated Chrome
   inventory                        list inventory and all Cloudflare zones; compare Squarespace dashboard
   discover                         public delegation, DNS, RDAP and HTTPS observations for every domain
   init <domain>                    create ignored, private evidence templates (never overwrite)
@@ -37,15 +42,16 @@ Options: --json; watch --interval-seconds <60..3600> --deadline-seconds <180..12
 Docs: packages/infra/docs/domain-migration.md
 Registrar transfer plans are billable OpenTofu operations. Squarespace writes and email approvals require a supported owner access path.`;
 
-type Args = { command: string; domain?: string; stage?: Stage; json: boolean; name: string; reviewed: string; interval: number; deadline: number };
+type Args = { command: string; domain?: string; stage?: Stage; json: boolean; restartBrowser: boolean; name: string; reviewed: string; interval: number; deadline: number };
 
 function parse(argv: string[]): Args {
   const command = argv.shift() ?? 'help';
   const domain = argv[0] && !argv[0].startsWith('--') ? domainName(argv.shift()!) : undefined;
-  const args: Args = { command, domain, json: false, name: '', reviewed: '', interval: 60, deadline: 3600 };
+  const args: Args = { command, domain, json: false, restartBrowser: false, name: '', reviewed: '', interval: 60, deadline: 3600 };
   while (argv.length) {
     const flag = argv.shift();
     if (flag === '--json') { args.json = true; continue; }
+    if (flag === '--restart-browser' && command === 'browser-inspect') { args.restartBrowser = true; continue; }
     const value = argv.shift();
     if (!value || value.startsWith('--')) throw new Error(`${flag}: value required`);
     if (flag === '--stage' && STAGES.includes(value as Stage)) args.stage = value as Stage;
@@ -70,6 +76,17 @@ async function main(): Promise<number> {
   if (['help', '--help', '-h'].includes(args.command)) { console.log(HELP); return 0; }
   const config = loadServicesConfig();
   const repoRoot = join(import.meta.dirname, '..', '..', '..');
+  if (args.command === 'browser') {
+    const profile = openOwnerBrowser(repoRoot);
+    console.log(`Opened the Squarespace domains dashboard in regular Chrome.\nPrivate persistent profile: ${profile}\nComplete sign-in in Chrome. This only opens the browser; no domain settings or infrastructure are changed.`);
+    return 0;
+  }
+  if (args.command === 'browser-inspect') {
+    const result = await inspectOwnerBrowser(repoRoot, args.domain ? [args.domain] : Object.keys(config.domains ?? {}), args.restartBrowser,
+      (detail) => console.error(`[owner-browser] ${detail}`));
+    console.log(args.json ? JSON.stringify(result) : `${result.status.toUpperCase()}: ${result.detail}${result.evidencePath ? `\nPrivate evidence: ${result.evidencePath}` : ''}`);
+    return result.status === 'observed' ? 0 : 2;
+  }
   const ctx = await migrationContext(repoRoot);
   if (args.command === 'discover') { console.log(JSON.stringify(await discover(ctx), null, 2)); return 0; }
   if (args.command === 'inventory') {
