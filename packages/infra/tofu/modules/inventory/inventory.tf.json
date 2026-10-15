@@ -621,14 +621,8 @@
             "secret_scanning": "disabled",
             "secret_scanning_push_protection": "disabled",
             "workflow_permissions": "write",
-            "environments": [
-              "Production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["Production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "connect-four": {
             "description": "An implementation of the classic Connect Four. Play against a computer or play against your friends with online multiplayer",
@@ -659,10 +653,7 @@
               "projects / production",
               "vouga-connect-four"
             ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "headless-combobox": {
             "description": "⚡️Zero dependencies 🔌 Framework agnostic 💪 TypeScript 🧠 Headless Combobox",
@@ -692,10 +683,7 @@
               "Production – headless-combobox-example-svelte",
               "projects / production"
             ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "image-service": {
             "description": null,
@@ -706,14 +694,8 @@
             "dependabot_security_updates": false,
             "secret_scanning": "enabled",
             "secret_scanning_push_protection": "enabled",
-            "environments": [
-              "production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "llm-server": {
             "description": null,
@@ -725,9 +707,7 @@
             "secret_scanning": "enabled",
             "secret_scanning_push_protection": "enabled",
             "environments": [],
-            "actions_secrets": [
-              "DOPPLER_SERVICE_TOKEN"
-            ]
+            "actions_secrets": ["DOPPLER_SERVICE_TOKEN"]
           },
           "match-three": {
             "description": "Implementation of a Match Three type game. Swipe around items to match three in a row.",
@@ -758,10 +738,7 @@
               "branch": "gh-pages",
               "path": "/"
             },
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "mockingbird": {
             "description": "https://mockingbird.chrisvouga.dev/",
@@ -796,14 +773,8 @@
             "dependabot_security_updates": false,
             "secret_scanning": "enabled",
             "secret_scanning_push_protection": "enabled",
-            "environments": [
-              "production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "moviefinder.app-react": {
             "description": null,
@@ -821,19 +792,13 @@
               "Production – moviefinder.app",
               "projects / production"
             ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "moviefinder.app-rust": {
             "description": null,
             "homepage": "https://www.moviefinder.app/",
             "default_branch": "main",
-            "topics": [
-              "datastar",
-              "rust"
-            ],
+            "topics": ["datastar", "rust"],
             "vulnerability_alerts": false,
             "dependabot_security_updates": false,
             "secret_scanning": "enabled",
@@ -843,10 +808,7 @@
               "projects / production",
               "rust.moviefinder.app (projects / production)"
             ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "simon-says": {
             "description": "Implementation of the game Simon Says. Test your memory by seeing how long of a button press sequence your can remember.",
@@ -867,15 +829,8 @@
             "secret_scanning": "disabled",
             "secret_scanning_push_protection": "disabled",
             "workflow_permissions": "write",
-            "environments": [
-              "Preview",
-              "Production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["Preview", "Production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "snake": {
             "description": null,
@@ -887,14 +842,8 @@
             "secret_scanning": "disabled",
             "secret_scanning_push_protection": "disabled",
             "workflow_permissions": "write",
-            "environments": [
-              "Production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["Production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "todo-v1": {
             "description": null,
@@ -906,14 +855,8 @@
             "secret_scanning": "disabled",
             "secret_scanning_push_protection": "disabled",
             "workflow_permissions": "write",
-            "environments": [
-              "Production",
-              "projects / production"
-            ],
-            "actions_secrets": [
-              "DOCKER_USERNAME",
-              "DOCKER_PASSWORD"
-            ]
+            "environments": ["Production", "projects / production"],
+            "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "violets-garden": {
             "description": null,
@@ -924,10 +867,7 @@
             "dependabot_security_updates": false,
             "secret_scanning": "enabled",
             "secret_scanning_push_protection": "enabled",
-            "environments": [
-              "Preview",
-              "Production"
-            ]
+            "environments": ["Preview", "Production"]
           }
         },
         "pr_ready": {
@@ -936,11 +876,7 @@
             "homepage": "https://chrisvouga.dev",
             "visibility": "public",
             "archived": false,
-            "topics": [
-              "infrastructure-as-code",
-              "opentofu",
-              "turborepo"
-            ],
+            "topics": ["infrastructure-as-code", "opentofu", "turborepo"],
             "default_branch": "main",
             "allow_merge_commit": true,
             "allow_squash_merge": false,
@@ -1037,9 +973,7 @@
             "bypass_actors": [],
             "conditions": {
               "ref_name": {
-                "include": [
-                  "refs/heads/main"
-                ],
+                "include": ["refs/heads/main"],
                 "exclude": []
               }
             },
@@ -1047,9 +981,7 @@
               {
                 "type": "pull_request",
                 "parameters": {
-                  "allowed_merge_methods": [
-                    "merge"
-                  ],
+                  "allowed_merge_methods": ["merge"],
                   "dismiss_stale_reviews_on_push": true,
                   "require_code_owner_review": false,
                   "require_last_push_approval": false,
@@ -1093,9 +1025,7 @@
               }
             ]
           },
-          "legacy_ruleset_names": [
-            "Protect main"
-          ]
+          "legacy_ruleset_names": ["Protect main"]
         }
       },
       "vault": {
@@ -1103,10 +1033,7 @@
         "kv": {
           "mount": "secret",
           "project": "personal",
-          "configs": [
-            "dev",
-            "prd"
-          ]
+          "configs": ["dev", "prd"]
         },
         "init": {
           "key_shares": 3,
@@ -1175,357 +1102,182 @@
         "kv_keys": [
           {
             "name": "TURBO_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "TURBO_API",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "TURBO_TEAM",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "TURBO_CACHE",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"]
           },
           {
             "name": "TURBO_LOG_ORDER",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo"]
           },
           {
             "name": "TURBO_TELEMETRY_DISABLED",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo"]
           },
           {
             "name": "S3_ENDPOINT",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "S3_REGION",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "S3_BUCKET",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "ci"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "ci"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci"]
           },
           {
             "name": "S3_SECRET_KEY",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci"]
           },
           {
             "name": "VAULT_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "turborepo",
-              "railway"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["turborepo", "railway"],
             "required": true
           },
           {
             "name": "DATABASE_URL",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "moviefinder",
-              "llm-proxy",
-              "ci"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder", "llm-proxy", "ci"]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "moviefinder"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder"]
           },
           {
             "name": "TWILIO_ACCOUNT_SID",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "moviefinder"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder"]
           },
           {
             "name": "TWILIO_AUTH_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "moviefinder"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder"]
           },
           {
             "name": "TWILIO_SERVICE_SID",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "moviefinder"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder"]
           },
           {
             "name": "CLOUDFLARE_API_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci",
-              "infra"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci", "infra"]
           },
           {
             "name": "CLOUDFLARE_ACCOUNT_ID",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci",
-              "infra"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci", "infra"]
           },
           {
             "name": "RAILWAY_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci",
-              "infra"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci", "infra"]
           },
           {
             "name": "PORTFOLIO_GITHUB_TOKEN",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci",
-              "portfolio"
-            ],
+            "configs": ["dev", "prd"],
+            "used_by": ["ci", "portfolio"],
             "required": true
           },
           {
             "name": "DOCKER_USERNAME",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "github-actions"
-            ],
+            "configs": ["prd"],
+            "used_by": ["github-actions"],
             "required": true
           },
           {
             "name": "DOCKER_PASSWORD",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "github-actions"
-            ],
+            "configs": ["prd"],
+            "used_by": ["github-actions"],
             "required": true
           },
           {
             "name": "MOCKINGBIRD_JUNCTION_API_KEY",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "github-actions",
-              "mockingbird"
-            ],
+            "configs": ["prd"],
+            "used_by": ["github-actions", "mockingbird"],
             "required": true
           },
           {
             "name": "MOCKINGBIRD_STRIPE_SECRET_KEY",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "github-actions",
-              "mockingbird"
-            ],
+            "configs": ["prd"],
+            "used_by": ["github-actions", "mockingbird"],
             "required": true
           },
           {
             "name": "OPENAI_API_KEY",
-            "configs": [
-              "dev",
-              "prd"
-            ],
-            "used_by": [
-              "ci",
-              "opencode"
-            ]
+            "configs": ["dev", "prd"],
+            "used_by": ["ci", "opencode"]
           },
           {
             "name": "9ROUTER_PASSWORD",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "9router"
-            ]
+            "configs": ["prd"],
+            "used_by": ["9router"]
           },
           {
             "name": "9ROUTER_JWT_SECRET",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "9router"
-            ]
+            "configs": ["prd"],
+            "used_by": ["9router"]
           },
           {
             "name": "9ROUTER_API_KEY_SECRET",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "9router"
-            ]
+            "configs": ["prd"],
+            "used_by": ["9router"]
           },
           {
             "name": "9ROUTER_MACHINE_ID_SALT",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "9router"
-            ]
+            "configs": ["prd"],
+            "used_by": ["9router"]
           },
           {
             "name": "9ROUTER_TUNNEL_TOKEN",
-            "configs": [
-              "prd"
-            ],
-            "used_by": [
-              "9router"
-            ]
+            "configs": ["prd"],
+            "used_by": ["9router"]
           }
         ]
       },
@@ -1544,9 +1296,7 @@
             "major_version": "18",
             "replicas": 0,
             "role_name": "owner",
-            "inherited_roles": [
-              "postgres"
-            ]
+            "inherited_roles": ["postgres"]
           }
         ]
       },
@@ -1560,9 +1310,7 @@
           "region_secret": "S3_REGION",
           "access_key_secret": "S3_ACCESS_KEY_ID",
           "secret_key_secret": "S3_SECRET_ACCESS_KEY",
-          "namespaces": [
-            "dev"
-          ]
+          "namespaces": ["dev"]
         },
         {
           "id": "production",
@@ -1573,9 +1321,7 @@
           "region_secret": "S3_REGION",
           "access_key_secret": "S3_ACCESS_KEY_ID",
           "secret_key_secret": "S3_SECRET_ACCESS_KEY",
-          "namespaces": [
-            "prd"
-          ]
+          "namespaces": ["prd"]
         }
       ],
       "tunnels": [
