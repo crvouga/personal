@@ -171,8 +171,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       check: ${{ steps.flags.outputs.check }}
-      runner_fleet: ${{ steps.filter.outputs.runner_fleet }}
-      fleet_e2e: ${{ steps.filter.outputs.fleet_e2e }}
+      runner_fleet: ${{ steps.flags.outputs.runner_fleet }}
+      fleet_e2e: ${{ steps.flags.outputs.fleet_e2e }}
       vault: ${{ steps.flags.outputs.vault }}
       publish: ${{ steps.flags.outputs.publish }}
       deploy: ${{ steps.flags.outputs.deploy }}
@@ -245,6 +245,8 @@ jobs:
           INPUT_UNSEAL: ${{ inputs.unseal_only }}
           INPUT_SERVICE_ID: ${{ inputs.service_id }}
           FILTER_CHECK: ${{ steps.filter.outputs.check }}
+          FILTER_RUNNER_FLEET: ${{ steps.filter.outputs.runner_fleet }}
+          FILTER_FLEET_E2E: ${{ steps.filter.outputs.fleet_e2e }}
           FILTER_VAULT: ${{ steps.filter.outputs.vault }}
           FILTER_PUBLISH: ${{ steps.filter.outputs.publish }}
           FILTER_DEPLOY: ${{ steps.filter.outputs.deploy }}
@@ -252,6 +254,8 @@ jobs:
         run: |
           set -euo pipefail
           CHECK=false
+          RUNNER_FLEET=false
+          FLEET_E2E=false
           VAULT=false
           PUBLISH=false
           DEPLOY=false
@@ -296,10 +300,14 @@ jobs:
           elif [ "${EVENT_NAME}" = "pull_request" ] || [ "${EVENT_NAME}" = "merge_group" ]; then
             # The queue re-runs the same path filter. It must not publish or deploy.
             CHECK="${FILTER_CHECK:-false}"
+            RUNNER_FLEET="${FILTER_RUNNER_FLEET:-false}"
+            FLEET_E2E="${FILTER_FLEET_E2E:-false}"
             PORTFOLIO="${FILTER_PORTFOLIO:-false}"
           else
             # push to main
             CHECK="${FILTER_CHECK:-false}"
+            RUNNER_FLEET="${FILTER_RUNNER_FLEET:-false}"
+            FLEET_E2E="${FILTER_FLEET_E2E:-false}"
             VAULT="${FILTER_VAULT:-false}"
             PUBLISH="${FILTER_PUBLISH:-false}"
             PORTFOLIO="${FILTER_PORTFOLIO:-false}"
@@ -311,6 +319,8 @@ jobs:
 
           {
             echo "check=${CHECK}"
+            echo "runner_fleet=${RUNNER_FLEET}"
+            echo "fleet_e2e=${FLEET_E2E}"
             echo "vault=${VAULT}"
             echo "publish=${PUBLISH}"
             echo "deploy=${DEPLOY}"
