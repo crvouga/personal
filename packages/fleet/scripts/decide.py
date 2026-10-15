@@ -743,6 +743,67 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
+def installer_parts(url):
+    """Read the bounded multipart manifest; asset names cannot leave this release."""
+    with urllib.request.urlopen(url + ".parts.json", timeout=30) as reply:
+        raw = reply.read(65537)
+    invariant(len(raw) <= 65536, "the installer parts manifest is too large")
+    try:
+        document = json.loads(raw)
+    except (ValueError, UnicodeError) as exc:
+        raise RuntimeError("the installer parts manifest is not JSON") from exc
+    invariant(isinstance(document, dict) and document.get("version") == 1,
+              "the installer parts manifest has an unsupported format")
+    parts = document.get("parts")
+    invariant(isinstance(parts, list) and 0 < len(parts) <= 128,
+              "the installer parts manifest has an invalid part count")
+    for index, part in enumerate(parts):
+        invariant(isinstance(part, dict), "an installer part is not an object")
+        invariant(part.get("name") == f"fleet-installer.iso.part-{index:03d}",
+                  "an installer part has an unexpected name", part=index)
+        invariant(type(part.get("size")) is int and 0 < part["size"] < 2 * 1024 ** 3,
+                  "an installer part has an invalid size", part=index)
+        invariant(isinstance(part.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", part["sha256"]),
+                  "an installer part has an invalid checksum", part=index)
+    invariant(type(document.get("size")) is int and document["size"] == sum(p["size"] for p in parts),
+              "the installer parts do not add up to the image size")
+    invariant(isinstance(document.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", document["sha256"]),
+              "the installer parts manifest has an invalid image checksum")
+    return document
+
+
+def stream_installer_parts(url, out, progress=None, check_cancel=None):
+    """Assemble into the caller's partial file, keeping just one block in memory."""
+    document = installer_parts(url)
+    digest = hashlib.sha256()
+    written = 0
+    for part in document["parts"]:
+        if check_cancel:
+            check_cancel()
+        part_digest = hashlib.sha256()
+        size = 0
+        asset = urllib.parse.urljoin(url, part["name"])
+        with urllib.request.urlopen(asset, timeout=30) as reply:
+            while True:
+                if check_cancel:
+                    check_cancel()
+                block = reply.read(4 * 1024 ** 2)
+                if not block:
+                    break
+                size += len(block)
+                invariant(size <= part["size"], "an installer part is larger than declared", part=part["name"])
+                out.write(block)
+                part_digest.update(block)
+                digest.update(block)
+                written += len(block)
+                if progress:
+                    progress(written, document["size"])
+        invariant(size == part["size"] and part_digest.hexdigest() == part["sha256"],
+                  "an installer part does not match its checksum or size", part=part["name"])
+    invariant(digest.hexdigest() == document["sha256"], "the assembled installer does not match its checksum")
+    return written, digest.hexdigest()
+
+
 ISO_MAGIC_OFFSET = 32769  # "CD001" at sector 16 of an ISO9660 volume
 
 
@@ -762,7 +823,14 @@ def fetch_installer(dest):
     try:
         sum_path = scratch / "sum"
         try:
-            curl_to(iso_url, staged, keep=False)
+            try:
+                curl_to(iso_url, staged, keep=False)
+            except (OSError, RuntimeError) as direct_error:
+                try:
+                    with open(staged, "wb") as out:
+                        stream_installer_parts(iso_url, out)
+                except (OSError, RuntimeError) as multipart_error:
+                    raise RuntimeError(f"{direct_error}; multipart release: {multipart_error}") from multipart_error
         except (OSError, RuntimeError) as exc:
             say(f"Why: {exc}")
             return fail("Next: the installer could not be downloaded. Check the network and run this program again. Nothing was written.")
@@ -2106,7 +2174,10 @@ def probe_installer():
         except OSError as exc:
             return f"curl could not run ({exc})", None
         if done.returncode != 0:
-            return _curl_reason(done), None
+            try:
+                return None, installer_parts(iso_url)["size"]
+            except (OSError, RuntimeError, ValueError) as exc:
+                return f"{_curl_reason(done)}; multipart release: {exc}", None
         size = None
         if headers.is_file():
             for line in headers.read_text(errors="replace").splitlines():

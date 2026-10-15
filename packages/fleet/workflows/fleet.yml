@@ -146,16 +146,19 @@ jobs:
           set -euo pipefail
           iso=$(find installer-artifact -type f -name 'fleet-installer.iso' -print -quit)
           test -n "$iso"
-          cp "$iso" fleet-installer.iso
-          sha256sum fleet-installer.iso > fleet-installer.iso.sha256
+          # The offline image contains every role and exceeds the 2 GiB asset
+          # limit. Clients assemble verified 1 GiB parts into one local ISO.
+          python3 packages/fleet/scripts/release-image.py "$iso" image-assets
           cp packages/fleet/scripts/fleet-node.sh fleet-node.sh
           if gh release view fleet-installer >/dev/null 2>&1; then
-            gh release upload fleet-installer fleet-installer.iso fleet-installer.iso.sha256 fleet-node.sh --clobber
+            gh release upload fleet-installer image-assets/*.part-* --clobber
           else
-            gh release create fleet-installer fleet-installer.iso fleet-installer.iso.sha256 fleet-node.sh \
+            gh release create fleet-installer image-assets/*.part-* \
               --title "Fleet installer" \
               --notes "Current installer image and the one-file node entry. Replaced when Fleet merges. This release does not expire."
           fi
+          # Publish the manifest after its parts; partial releases fail verification.
+          gh release upload fleet-installer image-assets/*.json image-assets/*.sha256 fleet-node.sh --clobber
           # The wizard downloads: one per platform. Every one passed its self-test in CI.
           find wizard-artifacts -type f -exec ls -l {} +
           count=$(find wizard-artifacts -type f | wc -l)

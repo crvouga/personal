@@ -6,13 +6,18 @@
 set -euo pipefail
 
 out=${1:-fleet-installer.iso}
+case "$out" in /*) ;; *) out="$(pwd)/$out" ;; esac
 gh=${FLEET_GH:-gh}
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
-run=$("$gh" run list --workflow Fleet --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+# A green Fleet gate can have skipped every build; a failed publication can
+# still have a tested ISO. Select the newest unexpired artifact built on main
+# in this repository, never an arbitrary PR's image.
+run=$("$gh" api 'repos/{owner}/{repo}/actions/artifacts?name=fleet-installer&per_page=100' \
+  --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main" and .workflow_run.head_repository_id == .workflow_run.repository_id)] | first | .workflow_run.id')
 if [ -z "$run" ] || [ "$run" = null ]; then
-  echo 'No successful Fleet run. The installer artifact is uploaded by that workflow.' >&2
+  echo 'No unexpired fleet-installer artifact from main. Run the Fleet workflow on main to build one.' >&2
   exit 1
 fi
 

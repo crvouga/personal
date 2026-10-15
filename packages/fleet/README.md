@@ -2,6 +2,9 @@
 
 `@pkgs/fleet` is the NixOS flake for the physical machines we own and run ourselves. Every machine has one **role**, and any machine can be replaced by any other of the same role. Cloud resources stay in `@pkgs/infra`.
 
+Before the first rollout, read the [bring-up readiness record](docs/readiness.md)
+for the verified builds, outstanding production prerequisites and installation order.
+
 | Role      | What the machine does                                                      |
 | --------- | -------------------------------------------------------------------------- |
 | `ci`      | GitHub Actions runners for trusted private repositories                    |
@@ -74,7 +77,7 @@ A new machine needs none of this. It exists so a new machine can need nothing.
 
 ```sh
 mise install                       # just, age, sops, opentofu, gh (repo root)
-just setup --repos crvouga/private-app,crvouga/another   # in packages/fleet
+just setup                       # in packages/fleet; reads settings/github.json
 ```
 
 `just setup` does four things and is safe to run twice:
@@ -82,11 +85,11 @@ just setup --repos crvouga/private-app,crvouga/another   # in packages/fleet
 1. creates one age key per role (private keys to the vault OpenTofu root's git-ignored `fleet-age-keys.auto.tfvars.json`, public recipients to `.sops.yaml`),
 2. creates the **GitHub App** that registers runners, from a manifest: you press **Create GitHub App** and then **Install**, choosing the private repositories. Repositories are never guessed,
 3. encrypts the App's private key into `secrets/fleet.yaml` for the `ci` role only,
-4. fills `fleet.nix`: the App id, the installation id, the repositories, the secrets file.
+4. fills `settings/github.json` with the App and installation IDs, scope and bootstrap repository allowlist, then enables the encrypted secret in `fleet.nix`. Use `--repos owner/private-repo` only to override the JSON allowlist for setup.
 
 Then two reviewed steps, because infrastructure changes through a reviewed plan:
 
-1. Merge the pull request with `fleet.nix`, `secrets/fleet.yaml` and `.sops.yaml`. The `Fleet` workflow builds every role and publishes the installer release.
+1. Merge the pull request with `settings/github.json`, `fleet.nix`, `secrets/fleet.yaml` and `.sops.yaml`. The `Fleet` workflow builds every role and publishes the installer release.
 2. Apply the vault root so Vault holds the role keys and the `fleet-enroll` login:
 
    ```sh
@@ -96,7 +99,7 @@ Then two reviewed steps, because infrastructure changes through a reviewed plan:
 
 3. Apply the `foundation` root (it creates the `fleet` Postgres schema and its tables) and the `fleet` root (it deploys the fleet API at https://fleet.chrisvouga.dev). CI does both in order on a merge once `TOFU_MIGRATION_READY` is true; the exact order and what to check is in [the infra README](../infra/tofu/README.md#fleet-api-fleet-api).
 
-After that, `bun run health` reports the Vault role and policy as healthy. Which repositories may use the fleet is a decision in `fleet.nix`, not something the installer guesses. Do not list public repositories: pull requests from strangers would run on your machines.
+After that, `bun run health` reports the Vault role and policy as healthy. The bootstrap repository allowlist and GitHub App metadata live only in `settings/github.json`. The dashboard stores runtime repository assignments in Postgres (`runners.repositories`); the App installation bounds which repositories can register. Credentials stay in the existing encrypted secret/Vault flow, never in the JSON file. Do not list public repositories: pull requests from strangers would run on your machines.
 
 ## How approval works
 

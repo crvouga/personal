@@ -62,10 +62,11 @@ def probe(url):
             elif reply.headers.get("Content-Length") and getattr(reply, "status", None) in (None, 200):
                 total = int(reply.headers["Content-Length"])
             return None, total
-    except urllib.error.HTTPError as exc:
-        return f"HTTP {exc.code} {exc.reason}", None
     except (urllib.error.URLError, OSError) as exc:
-        return str(getattr(exc, "reason", exc)), None
+        try:
+            return None, decide.installer_parts(url)["size"]
+        except (urllib.error.URLError, OSError, RuntimeError) as multipart_error:
+            return f"{getattr(exc, 'reason', exc)}; multipart release: {multipart_error}", None
 
 
 def sha256_of(path, progress=_noop, cancel=None):
@@ -103,18 +104,30 @@ def download(url, dest, expected_sha256, progress=_noop, cancel=None):
     digest = hashlib.sha256()
     written = 0
     try:
-        with open_url(url) as reply, open(staged, "wb") as out:
-            total = int(reply.headers.get("Content-Length") or 0)
-            while True:
-                block = reply.read(CHUNK)
-                if not block:
-                    break
-                if cancel and cancel():
-                    raise Cancelled()
-                out.write(block)
-                digest.update(block)
-                written += len(block)
-                progress(written, total)
+        try:
+            reply = open_url(url)
+        except (urllib.error.URLError, OSError):
+            reply = None
+        with open(staged, "wb") as out:
+            if reply is None:
+                def check_cancel():
+                    if cancel and cancel():
+                        raise Cancelled()
+                written, assembled_sha = decide.stream_installer_parts(url, out, progress, check_cancel)
+            else:
+                with reply:
+                    total = int(reply.headers.get("Content-Length") or 0)
+                    while True:
+                        block = reply.read(CHUNK)
+                        if not block:
+                            break
+                        if cancel and cancel():
+                            raise Cancelled()
+                        out.write(block)
+                        digest.update(block)
+                        written += len(block)
+                        progress(written, total)
+                assembled_sha = digest.hexdigest()
             out.flush()
             os.fsync(out.fileno())
     except (urllib.error.URLError, OSError) as exc:
@@ -123,10 +136,13 @@ def download(url, dest, expected_sha256, progress=_noop, cancel=None):
     except Cancelled:
         staged.unlink(missing_ok=True)
         raise
+    except (decide.Invariant, RuntimeError):
+        staged.unlink(missing_ok=True)
+        raise
     try:
-        decide.invariant(digest.hexdigest() == expected, "the downloaded installer does not match its checksum",
+        decide.invariant(assembled_sha == expected, "the downloaded installer does not match its checksum",
                          "Run the wizard again. If it repeats, the release asset and its .sha256 disagree: re-run the Fleet workflow.",
-                         want=expected, got=digest.hexdigest(), bytes=written)
+                         want=expected, got=assembled_sha, bytes=written)
         with open(staged, "rb") as check:
             head = check.read(decide.ISO_MAGIC_OFFSET + 5)
         decide.invariant(decide.looks_like_iso(head), "the downloaded file matches its checksum but is not an ISO9660 image",

@@ -16,6 +16,11 @@ Open the [`fleet-installer` release](https://github.com/crvouga/workspace/releas
 
 The computer you run it on does not have to be the computer that becomes the node. To set up a new or blank machine, run the wizard on any other computer and make an install USB.
 
+The wizard downloads the image as verified parts and assembles one ISO locally.
+The parts keep the offline image within GitHub's release asset size limit. Do
+not write a `.part-*` file to a USB disk; let the wizard finish the download and
+verification first.
+
 ## 2. Open it
 
 The builds are not signed, so the system warns once:

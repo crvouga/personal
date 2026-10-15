@@ -1,7 +1,7 @@
 # Onboard any trusted private project
 
 1. Commit a project `flake.nix` and `flake.lock` with a `devShell` containing its language toolchain and test dependencies. Check locally with `nix develop --command bash -euo pipefail -c 'YOUR_CHECK'`. The host only supplies git, Nix, nix-ld and operational tools; NixOS runner internals also provide their required Node runtime, not a project SDK.
-2. With approval, include the repository in the organization runner group's selected private repositories, or add its `owner/name` to `fleet.nix.github.repositories` and deploy. Personal-account repositories cannot share an organization-level group. Repository mode distributes the configured total slot count round-robin; if repositories outnumber slots, some have no runner and need hosted fallback or more slots/nodes.
+2. With approval, include the repository in the organization runner group's selected private repositories, or add its `owner/name` to `settings/github.json`'s `repositories` list and deploy. Personal-account repositories cannot share an organization-level group. Repository mode distributes the configured total slot count round-robin; if repositories outnumber slots, some have no runner and need hosted fallback or more slots/nodes.
 3. Call `.github/workflows/runner-check.yml` at a reviewed commit SHA in this workspace (replace `OWNER/REPO` below), or copy [the example](../workflows/project-example.yml). Change `runs-on` in existing jobs to `[self-hosted, nixos, ci]` and run commands inside the project's devShell. Protect workflow changes. The reusable entrypoint permits private same-repository PRs on self-hosted execution; forks must explicitly select hosted fallback, and `pull_request_target` is never sent to the fleet.
 
    ```yaml

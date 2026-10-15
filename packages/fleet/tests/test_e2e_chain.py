@@ -109,8 +109,9 @@ class FullChainTest(unittest.TestCase):
         directory = cls.root / "release"
         directory.mkdir()
         iso = iso_fixture.build(iso_fixture.installer_tree())
-        (directory / "fleet-installer.iso").write_bytes(iso)
-        (directory / "fleet-installer.iso.sha256").write_text(f"{hashlib.sha256(iso).hexdigest()}  fleet-installer.iso\n")
+        source = cls.root / "source.iso"
+        source.write_bytes(iso)
+        subprocess.run([sys.executable, str(SCRIPTS / "release-image.py"), str(source), str(directory)], check=True)
         cls.release_port = free_port()
         server = subprocess.Popen(
             [sys.executable, str(ROOT / "e2e" / "release_server.py")],

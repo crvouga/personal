@@ -73,7 +73,7 @@ The wrapped enrollment document that holds a role's age key (`secret/data/fleet/
 Everything that decides what the machine is or can reach, because it must go through review, the merge queue, the binary cache and the health-checked rollback:
 
 - Roles, capabilities and their closures (`hosts/`, `modules/`), the NixOS version and the flake lock.
-- The GitHub App identity and scope: `settings.github` (`appId`, `installationId`, `organization`, `scope`, `runnerGroup`).
+- The GitHub App identity and scope: `settings/github.json`, imported as `settings.github` (`appId`, `installationId`, `organization`, `scope`, `runnerGroup`).
 - Web apps (`apps` in `web.nix`), domains, images and their secrets.
 - Secrets and age keys, `repo.url`, `repo.auth`, `binaryCache`, the sync poll interval, `drift.maxMinutes`, the boot generation limit and tries, SSH keys, the reinstall flags, `reboot.drainCommand` and the drain timeout, `fleetApi.url` itself.
 
