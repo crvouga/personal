@@ -100,7 +100,7 @@ runs:
         ROOT="packages/infra/tofu/foundation"
         tofu -chdir="${ROOT}" plan -input=false -parallelism=1 -target=postgresql_schema.fleet -out=fleet-schema.tfplan
         tofu -chdir="${ROOT}" show -json fleet-schema.tfplan | jq -e '
-          all(.resource_changes[];
+          all((.resource_changes // [])[];
             .mode == "data" or .change.actions == ["no-op"] or
             (.address == "postgresql_schema.fleet" and .change.actions == ["create"]))
         ' > /dev/null || {
