@@ -33,7 +33,6 @@ mock_provider "neon" {}
 mock_provider "atlas" {}
 mock_provider "time" {}
 mock_provider "random" {}
-mock_provider "restapi" { alias = "registrar" }
 
 # The service module has its own tests. The Railway mock cannot synthesize
 # the computed ID inside the configured default_environment object.

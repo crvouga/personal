@@ -1,4 +1,4 @@
-"""Exercise multi-zone/structured-record/redirect plans with the pinned real schema.
+"""Exercise existing multi-zone/structured-record plans with the pinned real schema.
 
 No provider network or resource mutation: all resource responses are mocked.
 """
@@ -13,11 +13,7 @@ import tempfile
 tofu_root = Path(__file__).resolve().parents[1]
 policy = {
     "availability": "best-effort", "manage_zone": True, "records": {},
-    "dnssec_status": "disabled", "manage_registration": True,
-    "settle_seconds": 172800, "web_usage": "none", "https": [],
-    "forwarding_enabled": True,
-    "forwarding": [{"hostname": "unused.example", "target": "http://destination.example",
-                    "status": 301, "preserve_path": True, "preserve_query": False}],
+    "dnssec_status": "disabled", "web_usage": "none", "https": [],
 }
 base = {"name": "unused.example", "ttl": 3600, "proxied": False}
 policy["records"] = {

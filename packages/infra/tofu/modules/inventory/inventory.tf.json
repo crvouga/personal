@@ -7,12 +7,7 @@
           "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://chrisvouga.dev/",
@@ -25,19 +20,16 @@
             }
           ],
           "availability": "critical",
-          "dns_migration": "preserve",
-          "existing_zone_id": "83db052d18159889dd290724ac7d52d9"
+          "existing_zone_id": "83db052d18159889dd290724ac7d52d9",
+          "nameservers": ["carioca.ns.cloudflare.com", "dan.ns.cloudflare.com"],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "colddrive.app": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://colddrive.app/",
@@ -49,18 +41,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-b1.googledomains.com",
+            "ns-cloud-b2.googledomains.com",
+            "ns-cloud-b3.googledomains.com",
+            "ns-cloud-b4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "datoms.app": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://datoms.app/",
@@ -72,18 +66,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-e1.googledomains.com",
+            "ns-cloud-e2.googledomains.com",
+            "ns-cloud-e3.googledomains.com",
+            "ns-cloud-e4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "emulates.dev": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://emulates.dev/",
@@ -95,7 +91,14 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "nsc1.squarespacedns.com",
+            "nsc2.squarespacedns.com",
+            "nsc3.squarespacedns.com",
+            "nsc4.squarespacedns.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "gamezilla.app": {
           "manage_zone": true,
@@ -210,12 +213,7 @@
             }
           },
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://gamezilla.app/",
@@ -228,49 +226,38 @@
             }
           ],
           "availability": "critical",
-          "dns_migration": "preserve",
-          "existing_zone_id": "d8dfc0697e9f709bb5fdd9fede051258"
+          "existing_zone_id": "d8dfc0697e9f709bb5fdd9fede051258",
+          "nameservers": ["carioca.ns.cloudflare.com", "dan.ns.cloudflare.com"],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "imageresizerservice.com": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://imageresizerservice.com/",
               "status": 301,
               "location": "http://www.imageresizerserver.com"
-            },
-            {
-              "url": "https://imageresizerservice.com/domain-migration-probe",
-              "status": 301,
-              "location": "http://www.imageresizerserver.com/domain-migration-probe"
-            },
-            {
-              "url": "https://imageresizerservice.com/domain-migration-probe?migration_probe=1",
-              "status": 301,
-              "location": "http://www.imageresizerserver.com/domain-migration-probe"
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-b1.googledomains.com",
+            "ns-cloud-b2.googledomains.com",
+            "ns-cloud-b3.googledomains.com",
+            "ns-cloud-b4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "3827"
         },
         "linkpage.app": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://linkpage.app/",
@@ -280,20 +267,17 @@
             {
               "url": "https://www.linkpage.app/",
               "status": 200
-            },
-            {
-              "url": "https://linkpage.app/domain-migration-probe",
-              "status": 301,
-              "location": "http://www.linkpage.app"
-            },
-            {
-              "url": "https://linkpage.app/domain-migration-probe?migration_probe=1",
-              "status": 301,
-              "location": "http://www.linkpage.app"
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-e1.googledomains.com",
+            "ns-cloud-e2.googledomains.com",
+            "ns-cloud-e3.googledomains.com",
+            "ns-cloud-e4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "moviefinder.app": {
           "manage_zone": true,
@@ -316,12 +300,7 @@
             }
           },
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://moviefinder.app/",
@@ -334,8 +313,10 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused",
-          "existing_zone_id": "dc6fa504265ad50cd7b29a7dc7a002c3"
+          "existing_zone_id": "dc6fa504265ad50cd7b29a7dc7a002c3",
+          "nameservers": ["carioca.ns.cloudflare.com", "dan.ns.cloudflare.com"],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "normalizer.app": {
           "manage_zone": true,
@@ -374,12 +355,7 @@
             }
           },
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://normalizer.app/",
@@ -393,19 +369,16 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused",
-          "existing_zone_id": "60229ba1b1edb917a04a5f3b0d72d1e4"
+          "existing_zone_id": "60229ba1b1edb917a04a5f3b0d72d1e4",
+          "nameservers": ["carioca.ns.cloudflare.com", "dan.ns.cloudflare.com"],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "patchdb.dev": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://patchdb.dev/",
@@ -417,18 +390,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-1206.awsdns-22.org",
+            "ns-143.awsdns-17.com",
+            "ns-1932.awsdns-49.co.uk",
+            "ns-628.awsdns-14.net"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "tabular.chat": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://tabular.chat/",
@@ -440,18 +415,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-e1.googledomains.com",
+            "ns-cloud-e2.googledomains.com",
+            "ns-cloud-e3.googledomains.com",
+            "ns-cloud-e4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "thehiccups.band": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://thehiccups.band/",
@@ -463,18 +440,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-b1.googledomains.com",
+            "ns-cloud-b2.googledomains.com",
+            "ns-cloud-b3.googledomains.com",
+            "ns-cloud-b4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "895"
         },
         "tripolar.band": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://tripolar.band/",
@@ -487,18 +466,20 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "ns-cloud-a1.googledomains.com",
+            "ns-cloud-a2.googledomains.com",
+            "ns-cloud-a3.googledomains.com",
+            "ns-cloud-a4.googledomains.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "3827"
         },
         "voteonit.app": {
-          "manage_zone": true,
+          "manage_zone": false,
           "records": {},
           "dnssec_status": "disabled",
-          "manage_registration": false,
-          "transfer_enabled": false,
-          "settle_seconds": 172800,
           "web_usage": "required",
-          "forwarding_enabled": false,
-          "forwarding": [],
           "https": [
             {
               "url": "https://voteonit.app/",
@@ -510,7 +491,18 @@
             }
           ],
           "availability": "best-effort",
-          "dns_migration": "retire-unused"
+          "nameservers": [
+            "dns1.p08.nsone.net",
+            "dns2.p08.nsone.net",
+            "dns3.p08.nsone.net",
+            "dns4.p08.nsone.net",
+            "ns01.squarespacedns.com",
+            "ns02.squarespacedns.com",
+            "ns03.squarespacedns.com",
+            "ns04.squarespacedns.com"
+          ],
+          "domain_manager": "squarespace",
+          "registrar_iana_id": "69"
         }
       },
       "image_owner": "crvouga",
@@ -818,7 +810,7 @@
             "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
           },
           "headless-combobox": {
-            "description": "⚡️Zero dependencies 🔌 Framework agnostic 💪 TypeScript 🧠 Headless Combobox",
+            "description": "\u26a1\ufe0fZero dependencies \ud83d\udd0c Framework agnostic \ud83d\udcaa TypeScript \ud83e\udde0 Headless Combobox",
             "homepage": "https://headlesscombobox.chrisvouga.dev",
             "default_branch": "main",
             "topics": [
@@ -837,12 +829,12 @@
             "secret_scanning_push_protection": "disabled",
             "environments": [
               "Production",
-              "Production – headless-autocomplete",
-              "Production – headless-autocomplete-example",
-              "Production – headless-combobox",
-              "Production – headless-combobox-demo-svelte",
-              "Production – headless-combobox-example-react",
-              "Production – headless-combobox-example-svelte",
+              "Production \u2013 headless-autocomplete",
+              "Production \u2013 headless-autocomplete-example",
+              "Production \u2013 headless-combobox",
+              "Production \u2013 headless-combobox-demo-svelte",
+              "Production \u2013 headless-combobox-example-react",
+              "Production \u2013 headless-combobox-example-svelte",
               "projects / production"
             ],
             "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
@@ -949,9 +941,9 @@
             "secret_scanning_push_protection": "enabled",
             "environments": [
               "production",
-              "Production – moviefinder-app-react",
-              "Production – moviefinder-app-react-rc4s",
-              "Production – moviefinder.app",
+              "Production \u2013 moviefinder-app-react",
+              "Production \u2013 moviefinder-app-react-rc4s",
+              "Production \u2013 moviefinder.app",
               "projects / production"
             ],
             "actions_secrets": ["DOCKER_USERNAME", "DOCKER_PASSWORD"]

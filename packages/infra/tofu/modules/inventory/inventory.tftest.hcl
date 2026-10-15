@@ -50,26 +50,26 @@ run "fleet_contract" {
   }
 }
 
-run "domain_migration_contract" {
+run "squarespace_domain_contract" {
   command = plan
   assert {
-    condition     = length(output.config.domains) == 14
-    error_message = "Preserve all 14 domains supplied from the Squarespace account."
+    condition     = length(output.config.domains) == 14 && alltrue([for spec in values(output.config.domains) : spec.domain_manager == "squarespace" && contains(["69", "895", "3827"], spec.registrar_iana_id)])
+    error_message = "All 14 registrations must remain at Squarespace."
   }
   assert {
-    condition     = toset([for domain, spec in output.config.domains : domain if spec.availability == "critical"]) == toset(["chrisvouga.dev", "gamezilla.app"])
-    error_message = "chrisvouga.dev and gamezilla.app must retain mandatory availability gates."
+    condition     = toset([for domain, spec in output.config.domains : domain if spec.manage_zone || domain == output.config.zone]) == toset(["chrisvouga.dev", "gamezilla.app", "moviefinder.app", "normalizer.app"])
+    error_message = "Only the four original Cloudflare DNS zones may remain managed."
   }
   assert {
-    condition     = alltrue([for domain, spec in output.config.domains : spec.availability != "critical" || spec.dns_migration == "preserve"])
-    error_message = "Never retire either critical domain's DNS records."
+    condition     = alltrue([for spec in values(output.config.domains) : !contains(keys(spec), "transfer_enabled") && !contains(keys(spec), "manage_registration") && length(spec.nameservers) >= 2])
+    error_message = "Keep original delegations and remove all registrar transfer controls."
   }
   assert {
-    condition     = alltrue([for domain, spec in output.config.domains : spec.settle_seconds >= 172800 && (spec.availability != "critical" || (spec.web_usage == "required" && length(spec.https) >= 2))])
-    error_message = "Keep the cache safety window and both critical apex/www probes."
+    condition     = toset([for domain, spec in output.config.domains : domain if spec.availability == "critical"]) == toset(["chrisvouga.dev", "gamezilla.app"]) && alltrue([for spec in values(output.config.domains) : spec.availability != "critical" || (spec.web_usage == "required" && length(spec.https) >= 2)])
+    error_message = "Both critical sites must retain apex/www availability probes."
   }
   assert {
-    condition     = output.config.domains[output.config.zone].dnssec_status == output.config.cloudflare.dnssec_status
-    error_message = "Primary DNSSEC policy must agree with the existing primary resource."
+    condition     = output.config.domains[output.config.zone].dnssec_status == output.config.cloudflare.dnssec_status && output.config.domains["emulates.dev"].dnssec_status == "disabled"
+    error_message = "Keep primary DNSSEC policy and retain the accepted disabled DNSSEC policy for unused emulates.dev."
   }
 }

@@ -1,12 +1,10 @@
 import { mapLimit, type HealthContext } from '../health/context.js';
 import { delegation, query, answers } from './dns.js';
 import { rdap } from './checks.js';
-import { migrationProgress } from './progress.js';
 
 /** Public observations are not a zone backup or an account inventory. */
 export async function discover(ctx: HealthContext) {
   return mapLimit(Object.entries(ctx.config.domains ?? {}), 3, async ([domain, spec]) => {
-    migrationProgress('public-discovery', 'Collecting public delegation, RDAP and HTTPS observations', domain);
     const observe = async (task: () => Promise<unknown>) => {
       try { return await task(); } catch (err) { return { error: err instanceof Error ? err.message : 'Probe failed' }; }
     };
