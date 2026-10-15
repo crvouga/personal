@@ -30,7 +30,6 @@ function output(value: MigrationUpdate, json: boolean): void {
     for (const finding of row.findings ?? []) console.log(`  ${finding}`);
   }
   for (const blocker of report.blockers) console.log(`${blocker.domain}: ${blocker.code} — ${blocker.detail}`);
-  if (automation.progress.some((row) => row.state === 'waiting')) console.log('Monitoring verified waits; this foreground process must remain running.');
 }
 
 async function main(): Promise<number> {

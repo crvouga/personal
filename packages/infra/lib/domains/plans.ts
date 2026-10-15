@@ -148,7 +148,7 @@ export async function apply(ctx: HealthContext, domain: string, name: string, re
   migrationProgress('post-apply', 'Verifying critical websites, DNS and the completed stage after apply', domain);
   const health = await Promise.allSettled([
     criticalHealth(ctx),
-    requireGate(ctx, domain, metadata.purpose === 'source' ? 'baseline' : ['forwarding', 'transfer'].includes(String(metadata.purpose)) ? 'dns-live' : 'complete'),
+    requireGate(ctx, domain, metadata.purpose === 'source' ? 'baseline' : ['forwarding', 'transfer'].includes(String(metadata.purpose)) ? 'dns-live' : 'complete', metadata.purpose === 'source' && code === 0),
     ...(metadata.purpose === 'transfer' ? [acceptedTransfer(ctx, domain)] : []),
   ]);
   if (executionError || code !== 0) throw new Error('Apply failed, was interrupted or its receipt could not be persisted; post-checks attempted. Preserve state, inspect a fresh plan; never blindly retry');

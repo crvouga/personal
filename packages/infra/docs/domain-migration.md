@@ -106,6 +106,8 @@ A rejected plan restores only the runner's exact inventory bytes, preserving con
 
 Unrelated foundation changes block every domain's scoped plan. The runner reports `FOUNDATION_DRIFT_REQUIRED` and stops redundant domain plans rather than widening the migration scope. Reconcile those changes only through their own reviewed saved OpenTofu plan. Domain-specific prerequisite failures still allow independent domains to advance.
 
+After a successful source apply, a newly created empty unused zone may briefly return `REFUSED` from its assigned Cloudflare nameservers. If its API status is pending and every other mandatory baseline check passes, the runner retries only read-only baseline verification, at most 12 checks with 5 seconds between them. It never replays the apply or treats a refused answer as success. Other failures, existing zones and critical domains do not use this retry. A later run can resume verification from the successful apply receipt.
+
 ## Complete source inventory and preparation
 
 For the four domains already delegated to the same Cloudflare account, the runner enumerates **all pages of DNS records** through authenticated GETs. Before and after checks use full RRsets, including repeated MX/TXT values. TXT case, spaces and chunked content are significant. Proxy and flattening hide origins from public DNS, so origin comparison uses the API rather than comparing public edge IPs.

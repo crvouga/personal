@@ -52,7 +52,7 @@ export async function domainStep(initial: HealthContext, domain: string, actions
     }
   }
   if (!existsSync(join(dir, 'source-adopted.json'))) {
-    if (existsSync(join(dir, 'source-attempt.json.succeeded')) || existsSync(join(dir, 'source-attempt.json.applied'))) await ports.requireGate(ctx, domain, 'baseline');
+    if (existsSync(join(dir, 'source-attempt.json.succeeded')) || existsSync(join(dir, 'source-attempt.json.applied'))) await ports.requireGate(ctx, domain, 'baseline', true);
     else {
       const path = await ports.draft(ctx, domain, ctx.config.domains![domain], baseline(ctx.repoRoot, domain));
       ctx = await ports.execute(ctx, domain, 'source', readJson(path), undefined, signal);
