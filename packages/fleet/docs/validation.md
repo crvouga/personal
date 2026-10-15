@@ -1,5 +1,84 @@
 # Validation record
 
+## Windows CI configuration follow-up
+
+The planned role/path is now CI by converting an existing Windows installation.
+The chosen repository was verified private through GitHub's read-only API.
+Its bootstrap registration data is confined to `settings/github.json`; Nix,
+setup and the runner health check consume that file. Runtime routing continues
+to use the existing fleet API/Postgres settings. No repository-specific value
+was added to Python, Nix modules or workflow code.
+
+Generated distinct role age keys with `just fleet-keys`. Private values remain
+only in the ignored vault input (verified mode `0600`); `.sops.yaml` contains
+only matching public recipients. Nothing was seeded into live Vault. The same
+complete key map must be supplied to the managed CI vault inputs before a CI
+apply; merging public recipients alone cannot deploy private keys.
+
+Validation after the JSON configuration change:
+
+- Setup tests: **14 pass**, including the real encryption round trip, manifest
+  resume, idempotence and reading the allowlist from JSON without CLI arguments.
+  Key-generation tests: **3 pass**. Fleet lint and generated bundle checks pass.
+- Infra: **62 tests pass**, typecheck passes; health checks now read JSON rather
+  than parsing Nix source. Formatting, generated guide/agent checks and
+  `git diff --check` pass.
+- Nix in the ARM64 Docker image evaluated the CI configuration and printed its
+  system derivation successfully. The full `--no-build --all-systems` flake
+  check did not finish: it stalled evaluating the combined installer, Docker
+  stopped responding to status requests, and a stop was requested for that
+  test container. This is partial evaluation evidence, not a full flake check,
+  Linux build or VM test.
+
+The project's existing jobs still select hosted Ubuntu; there is no root
+project flake, and Chrome setup assumes Ubuntu's native libraries. Registering
+a fleet node alone will not migrate those jobs. No project workflow or GitHub
+App/settings was changed. The readiness record lists these remaining gates.
+
+## 2026-10-14 pre-install readiness audit
+
+The [readiness record](readiness.md) contains the live blockers and bring-up
+order. This audit found that the ISO had built successfully on GitHub, but its
+release upload failed because the image exceeded GitHub's per-asset limit.
+Publication now packages verified 1 GiB parts; the CLI and wizard assemble and
+verify the complete ISO. The legacy artifact fetcher selects a real, unexpired
+main-branch artifact rather than the latest possibly skipped workflow run.
+
+Validated locally on macOS ARM64:
+
+- `bun run --filter @pkgs/fleet check`: **passed (566 tests, one skipped)**
+  (the existing large Windows staging test needs 12 GiB free in the temporary
+  filesystem). This includes ShellCheck, pinned actionlint, bundled entry
+  freshness, workflow copies and cattle checks. PowerShell parser tests used
+  the official native macOS ARM64 PowerShell 7.4.6 archive in a temporary
+  directory; the default amd64 Docker image crashed under emulation and that
+  initial run was stopped, then rerun with native PowerShell.
+- The nine full-chain tests passed with the actual release packager and a
+  multipart HTTP release: shipped shell entry, enrollment, installer, real API,
+  throwaway PostgreSQL and dashboard. Process mode, not Docker image mode.
+- Packaged and reassembled **2,147,549,184 bytes** with default part sizes
+  **1,073,741,824 + 1,073,741,824 + 65,536**, checking each part and the full
+  image. Regular temporary files on the workspace volume; no physical disks.
+- Eight new multipart regression tests cover both probes/download clients,
+  progress, missing/corrupt/truncated/oversized parts, cancellation, manifest
+  path restrictions and destination preservation.
+- Prettier for changed Markdown/workflows, `git diff --check`,
+  `bun run check:llms` and `bun run check:agents`: **pass**.
+
+Read-only GitHub evidence: [main run 38659022284](https://github.com/crvouga/workspace/actions/runs/38659022284)
+passed the Linux flake check, VM tests, five role builds and ISO build, and all
+five wizard builds/self-tests/browser tests. Its **publish failed** with HTTP
+422 on the oversized ISO. The later green Fleet status skipped the builds;
+it does not prove publication. These are prior-build results, not CI results
+for this fix. No Nix or VM build was run locally for this change.
+
+`bun run health`: **220 pass, 14 warn, 8 fail, 9 skip**. Fleet API DNS/TLS/health,
+its image, Vault enrollment policy/JWT role/API settings and the CI deployment
+are not healthy. Runner settings and the binary cache remain unconfigured.
+The live main ruleset lacks the declared Fleet check and merge queue. No
+production plan/apply, GitHub settings/secret change, release publication,
+hardware test or installation was performed in this audit.
+
 Validated on 2026-10-10 in the current worktree (macOS ARM64):
 
 - `bun run --filter @pkgs/fleet check`: **pass**, ShellCheck, workflow lint, lock checks and 8 Python tests. Tests reject USB/removable/mounted/missing/duplicate/unstable disk targets, verify root-only atomic short-lived registration-token files, exercise both scopes, custom-label drain, pagination, and busy-job timeout.

@@ -4,6 +4,10 @@ After a node has booted into its role, the only manual tasks are physical: repla
 
 These bring-up steps happen once, before the node is polling `main`. They are not how a running node is changed.
 
+Complete the [readiness gates](readiness.md) before using this checklist. A
+successful install alone does not prove runner registration, enrollment,
+monitoring or cached updates work.
+
 1. Rack the machine and cable power and a wired Ethernet port. Do not record a name or a MAC into git. Another machine of the same role is another install, not a host file.
 2. Firmware, once: disable Secure Boot. lanzaboote is not wired up; it is a later option if Secure Boot has to stay on. On a machine that runs Windows, `shutdown /r /fw` opens the firmware screen; the installer's check names this when Secure Boot is on. Enable UEFI USB boot and network boot. Set the boot order to network, then the internal disk. Enable power-on after AC loss when the firmware offers it. Do not change this order per machine later. A reinstall flag in git does not install a node: the netboot host does not serve an image that can finish an install.
 3. On the machine itself, download one file and run it. Nix, a git checkout, `just`, and a second computer are not required.
@@ -13,7 +17,7 @@ These bring-up steps happen once, before the node is polling `main`. They are no
    bash fleet-node.sh
    ```
 
-   For no prompts at all: `bash fleet-node.sh ci --yes` (or `web`, `cache`, `netboot`, `devbox`). `--yes` skips only the typed confirmation; a USB, removable, hotplug, or ambiguous disk is still refused. Save the file first; piping it into `bash` is not supported. Otherwise type `ci`, `web`, `cache`, `netboot`, or `devbox` when asked. The program names that role and the internal disk. Nothing is erased until you type the line it shows. An empty answer, a wrong line, a timeout, or a USB, removable, hotplug, mounted, or ambiguous disk leaves every disk unchanged and prints one next step. Run the same command again after a failure or after a finished install. A finished install is not wiped a second time. The age private key is not printed. Do not add a host file, a MAC, a disk path, or a hostname.
+   For no prompts at all: `bash fleet-node.sh ci --yes` (or `web`, `cache`, `netboot`, `devbox`). `--yes` skips only the typed confirmation; a USB, removable, hotplug, or ambiguous disk is still refused. Save the file first; piping it into `bash` is not supported. Otherwise type `ci`, `web`, `cache`, `netboot`, or `devbox` when asked. The program names that role and the internal disk. Nothing is erased until you type the line it shows. An empty answer, a wrong line, a timeout, or a USB, removable, hotplug, or ambiguous disk leaves every disk unchanged and prints one next step. A mounted internal disk is allowed when converting the running OS; the RAM installer rechecks the disk before wiping. Run the same command again after a failure or after a finished install. A finished install is not wiped a second time. The age private key is not printed. Do not add a host file, a MAC, a disk path, or a hostname.
 
    An agent can do this step: `Set this machine up as a fleet <role> node by following https://raw.githubusercontent.com/crvouga/workspace/main/packages/fleet/docs/agent-install.md`. `sudo bash fleet-node.sh doctor <role>` shows the disk and any blocker first and writes nothing.
 
@@ -22,4 +26,7 @@ These bring-up steps happen once, before the node is polling `main`. They are no
 6. If the firmware would boot the stick again, pull it when the console says the install finished. The lasting boot order stays network, then the internal disk. The console prints the age public key and `ssh-keygen -lf` of `/nix/fleet-state/ssh/ssh_host_ed25519_key.pub`. Encrypt secrets to that public key from any computer. `sshKeys` in `settings/shared.nix` stays empty until remote read-only access is wanted. The hostname is `<role>[-gpu][-highmem]-<4 hex>` from the hardware id.
 7. Apply the reviewed OpenTofu plan that adds the merge queue and the `Fleet` required check to `main`. Until that plan is applied, GitHub is still on the previous ruleset. Do not push `main` directly.
 
-The attic host, attic public key, attic token, and the git read credential are still `TODO` in git. Fill them in a commit. Do not invent a cache hostname.
+The Attic URL/public key and workflow cache credentials still need configuration
+before automatic updates work. Use the actual cache address; do not invent one.
+The current repository is public, so `repo.auth = "none"` is valid. A private
+repository requires a read credential encrypted separately for each role.
