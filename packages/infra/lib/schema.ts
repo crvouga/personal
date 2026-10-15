@@ -61,6 +61,7 @@ export type RailwayServiceConfig = {
   readonly health_check?: boolean;
   readonly start_command?: string;
   readonly replicas?: number;
+  readonly registry?: { readonly username: string; readonly vault_key: string };
 };
 
 export type RailwayPlatformConfig = {
