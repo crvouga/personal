@@ -117,7 +117,7 @@ resource "random_password" "fleet_role_token" {
   special  = false
 }
 resource "random_password" "router" {
-  for_each = toset(one(local.config.tunnels).secrets)
+  for_each = toset([for key in local.config.vault.kv_keys : key.name if startswith(key.name, "9ROUTER_") && key.name != "9ROUTER_TUNNEL_TOKEN"])
   length   = 48
   special  = false
 }

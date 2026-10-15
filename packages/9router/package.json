@@ -2,22 +2,10 @@
   "name": "@pkgs/9router",
   "private": true,
   "type": "module",
-  "bin": {
-    "9router": "./cli/bin.mjs"
-  },
   "scripts": {
-    "start": "tsx cli/index.ts",
-    "cli": "tsx cli/index.ts"
+    "test": "node --test runtime.test.mjs"
   },
   "dependencies": {
-    "@pkgs/assert": "workspace:*",
-    "@inquirer/prompts": "^8.5.2",
-    "chalk": "^6.0.0",
-    "yaml": "catalog:"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "tsx": "catalog:",
-    "typescript": "catalog:"
+    "pg": "8.16.3"
   }
 }

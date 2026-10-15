@@ -1,0 +1,13 @@
+# SQLite is disposable local working state; the shared production bucket owns recovery.
+dbs:
+  - path: ${DATA_DIR}/db/data.sqlite
+    replica:
+      type: s3
+      bucket: ${S3_BUCKET}
+      path: 9router/sqlite
+      endpoint: ${S3_ENDPOINT}
+      region: ${S3_REGION}
+      access-key-id: ${S3_ACCESS_KEY_ID}
+      secret-access-key: ${S3_SECRET_ACCESS_KEY}
+      force-path-style: true
+      sync-interval: 1s

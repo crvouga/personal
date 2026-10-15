@@ -339,6 +339,10 @@
     {
       "to": "module.service[\"simon-says\"].railway_variable_collection.this",
       "id": "05f6ef20-95e8-47e6-9ac8-6b16b7f01dea:production:PORT"
+    },
+    {
+      "to": "module.service[\"9router\"].cloudflare_dns_record.traffic",
+      "id": "83db052d18159889dd290724ac7d52d9/cad870dd5db0fd3fdc9a0a5af5deb8ca"
     }
   ]
 }

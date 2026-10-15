@@ -2,7 +2,7 @@ run "fleet_contract" {
   command = plan
   assert {
     condition     = length(output.config.services) == 20
-    error_message = "The migration must retain all 19 Railway services and the 9router tunnel."
+    error_message = "The migration must retain all 20 Railway services."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
@@ -71,5 +71,20 @@ run "squarespace_domain_contract" {
   assert {
     condition     = output.config.domains[output.config.zone].dnssec_status == output.config.cloudflare.dnssec_status && output.config.domains["emulates.dev"].dnssec_status == "disabled"
     error_message = "Keep primary DNSSEC policy and retain the accepted disabled DNSSEC policy for unused emulates.dev."
+  }
+}
+
+run "router_stateless_contract" {
+  command = plan
+  assert {
+    condition = alltrue([for service in output.config.services :
+      service.kind == "railway" && service.railway.replicas == 1 && !service.railway.sleep && !service.railway.health_check && service.env.DATA_DIR == "/tmp/9router"
+      if service.id == "9router"
+    ])
+    error_message = "9router must restore ephemeral SQLite under a single-writer lock, without a deployment healthcheck that deadlocks handoff."
+  }
+  assert {
+    condition     = length(output.config.tunnels) == 0
+    error_message = "9router public ingress belongs to Railway, not a local tunnel."
   }
 }

@@ -61,7 +61,7 @@ resource "graphql_mutation" "settings" {
   mutation_variables = {
     serviceId        = railway_service.this.id
     environmentId    = var.environment_id
-    healthcheckPath  = try(var.service.railway.health_path, var.service.health_path, "/")
+    healthcheckPath  = try(var.service.railway.health_check, true) ? try(var.service.railway.health_path, var.service.health_path, "/") : "null"
     sleepApplication = jsonencode(try(var.service.railway.sleep, true))
     startCommand     = try(var.service.railway.start_command, "null")
   }

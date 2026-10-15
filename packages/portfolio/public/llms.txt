@@ -81,15 +81,15 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `TURBO_CACHE` | dev, prd | turborepo, ci |  |
 | `TURBO_LOG_ORDER` | dev, prd | turborepo |  |
 | `TURBO_TELEMETRY_DISABLED` | dev, prd | turborepo |  |
-| `S3_ENDPOINT` | dev, prd | turborepo, ci | yes |
-| `S3_REGION` | dev, prd | turborepo, ci | yes |
-| `S3_ACCESS_KEY_ID` | dev, prd | turborepo, ci | yes |
-| `S3_SECRET_ACCESS_KEY` | dev, prd | turborepo, ci | yes |
-| `S3_BUCKET` | dev, prd | turborepo, ci | yes |
+| `S3_ENDPOINT` | dev, prd | turborepo, ci, 9router | yes |
+| `S3_REGION` | dev, prd | turborepo, ci, 9router | yes |
+| `S3_ACCESS_KEY_ID` | dev, prd | turborepo, ci, 9router | yes |
+| `S3_SECRET_ACCESS_KEY` | dev, prd | turborepo, ci, 9router | yes |
+| `S3_BUCKET` | dev, prd | turborepo, ci, 9router | yes |
 | `S3_ACCESS_KEY` | dev, prd | ci |  |
 | `S3_SECRET_KEY` | dev, prd | ci |  |
 | `VAULT_TOKEN` | dev, prd | turborepo, railway | yes |
-| `DATABASE_URL` | dev, prd | moviefinder, llm-proxy, fleet-api, ci |  |
+| `DATABASE_URL` | dev, prd | moviefinder, llm-proxy, fleet-api, ci, 9router |  |
 | `TMDB_API_READ_ACCESS_TOKEN` | dev, prd | moviefinder |  |
 | `TWILIO_ACCOUNT_SID` | dev, prd | moviefinder |  |
 | `TWILIO_AUTH_TOKEN` | dev, prd | moviefinder |  |
@@ -103,14 +103,18 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `MOCKINGBIRD_JUNCTION_API_KEY` | prd | github-actions, mockingbird | yes |
 | `MOCKINGBIRD_STRIPE_SECRET_KEY` | prd | github-actions, mockingbird | yes |
 | `OPENAI_API_KEY` | dev, prd | ci, opencode |  |
-| `9ROUTER_PASSWORD` | prd | 9router |  |
-| `9ROUTER_JWT_SECRET` | prd | 9router |  |
-| `9ROUTER_API_KEY_SECRET` | prd | 9router |  |
-| `9ROUTER_MACHINE_ID_SALT` | prd | 9router |  |
-| `9ROUTER_TUNNEL_TOKEN` | prd | 9router |  |
+| `9ROUTER_PASSWORD` | prd | 9router | yes |
+| `9ROUTER_JWT_SECRET` | prd | 9router | yes |
+| `9ROUTER_API_KEY_SECRET` | prd | 9router | yes |
+| `9ROUTER_MACHINE_ID_SALT` | prd | 9router | yes |
+| `9ROUTER_TUNNEL_TOKEN` | prd |  |  |
 | `FLEET_ADMIN_TOKEN` | prd | fleet-api, infra | yes |
 | `FLEET_SESSION_SECRET` | prd | fleet-api | yes |
 | `FLEET_ROLE_TOKEN_HASHES` | prd | fleet-api | yes |
+| `INITIAL_PASSWORD` | prd | 9router | yes |
+| `JWT_SECRET` | prd | 9router | yes |
+| `API_KEY_SECRET` | prd | 9router | yes |
+| `MACHINE_ID_SALT` | prd | 9router | yes |
 
 ### Local dev — `vault run`
 
@@ -639,6 +643,7 @@ Working examples to copy from — each links to its source repo:
 | `turborepo` | https://turborepo.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/turborepo-remote-cache) | `packages/turborepo-remote-cache/Dockerfile` (`.`) | 8080 | `/health` |
 | `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/fleet-api) | `packages/fleet-api/Dockerfile` (`.`) | 8080 | `/health` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
+| `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 
 ---
 

@@ -192,7 +192,7 @@ resource "random_password" "router_tunnel" {
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared" "router" {
   account_id    = var.cloudflare_account_id
-  name          = one(local.config.tunnels).name
+  name          = "9router" # Retain the adopted tunnel identity; Railway now owns public ingress.
   tunnel_secret = base64encode(random_password.router_tunnel.result)
   lifecycle { prevent_destroy = true }
 }
@@ -202,19 +202,16 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "router" {
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.router.id
   config = {
     ingress = [
-      { hostname = one(local.config.tunnels).hostname, service = "http://${one(local.config.tunnels).local.host}:${one(local.config.tunnels).local.port}" },
       { service = "http_status:404" }
     ]
   }
 }
 
-resource "cloudflare_dns_record" "router" {
-  zone_id = cloudflare_zone.primary.id
-  name    = one(local.config.tunnels).hostname
-  type    = "CNAME"
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.router.id}.cfargotunnel.com"
-  ttl     = 1
-  proxied = true
+# Transfer the existing DNS record to the fleet root without deleting it.
+# The fleet import adopts the same record before changing its Railway target.
+removed {
+  from = cloudflare_dns_record.router
+  lifecycle { destroy = false }
 }
 
 data "cloudflare_zero_trust_tunnel_cloudflared_token" "router" {

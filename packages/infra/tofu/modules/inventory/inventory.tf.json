@@ -1306,31 +1306,31 @@
           {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
+            "used_by": ["turborepo", "ci", "9router"],
             "required": true
           },
           {
             "name": "S3_REGION",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
+            "used_by": ["turborepo", "ci", "9router"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
+            "used_by": ["turborepo", "ci", "9router"],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
+            "used_by": ["turborepo", "ci", "9router"],
             "required": true
           },
           {
             "name": "S3_BUCKET",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
+            "used_by": ["turborepo", "ci", "9router"],
             "required": true
           },
           {
@@ -1352,7 +1352,13 @@
           {
             "name": "DATABASE_URL",
             "configs": ["dev", "prd"],
-            "used_by": ["moviefinder", "llm-proxy", "fleet-api", "ci"]
+            "used_by": [
+              "moviefinder",
+              "llm-proxy",
+              "fleet-api",
+              "ci",
+              "9router"
+            ]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
@@ -1427,27 +1433,31 @@
           {
             "name": "9ROUTER_PASSWORD",
             "configs": ["prd"],
-            "used_by": ["9router"]
+            "used_by": ["9router"],
+            "required": true
           },
           {
             "name": "9ROUTER_JWT_SECRET",
             "configs": ["prd"],
-            "used_by": ["9router"]
+            "used_by": ["9router"],
+            "required": true
           },
           {
             "name": "9ROUTER_API_KEY_SECRET",
             "configs": ["prd"],
-            "used_by": ["9router"]
+            "used_by": ["9router"],
+            "required": true
           },
           {
             "name": "9ROUTER_MACHINE_ID_SALT",
             "configs": ["prd"],
-            "used_by": ["9router"]
+            "used_by": ["9router"],
+            "required": true
           },
           {
             "name": "9ROUTER_TUNNEL_TOKEN",
             "configs": ["prd"],
-            "used_by": ["9router"]
+            "used_by": []
           },
           {
             "name": "FLEET_ADMIN_TOKEN",
@@ -1465,6 +1475,30 @@
             "name": "FLEET_ROLE_TOKEN_HASHES",
             "configs": ["prd"],
             "used_by": ["fleet-api"],
+            "required": true
+          },
+          {
+            "name": "INITIAL_PASSWORD",
+            "configs": ["prd"],
+            "used_by": ["9router"],
+            "required": true
+          },
+          {
+            "name": "JWT_SECRET",
+            "configs": ["prd"],
+            "used_by": ["9router"],
+            "required": true
+          },
+          {
+            "name": "API_KEY_SECRET",
+            "configs": ["prd"],
+            "used_by": ["9router"],
+            "required": true
+          },
+          {
+            "name": "MACHINE_ID_SALT",
+            "configs": ["prd"],
+            "used_by": ["9router"],
             "required": true
           }
         ]
@@ -1512,24 +1546,7 @@
           "namespaces": ["prd"]
         }
       ],
-      "tunnels": [
-        {
-          "id": "9router",
-          "provider": "cloudflare",
-          "name": "9router",
-          "hostname": "9router.chrisvouga.dev",
-          "local": {
-            "host": "127.0.0.1",
-            "port": 20128
-          },
-          "secrets": [
-            "9ROUTER_PASSWORD",
-            "9ROUTER_JWT_SECRET",
-            "9ROUTER_API_KEY_SECRET",
-            "9ROUTER_MACHINE_ID_SALT"
-          ]
-        }
-      ],
+      "tunnels": [],
       "aliases": [],
       "services": [
         {
@@ -1856,10 +1873,22 @@
             "FLEET_GITHUB_REPO": "crvouga/workspace"
           },
           "secrets": [
-            { "name": "DATABASE_URL", "source": "vault" },
-            { "name": "FLEET_ADMIN_TOKEN", "source": "vault" },
-            { "name": "FLEET_SESSION_SECRET", "source": "vault" },
-            { "name": "FLEET_ROLE_TOKEN_HASHES", "source": "vault" }
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "FLEET_ADMIN_TOKEN",
+              "source": "vault"
+            },
+            {
+              "name": "FLEET_SESSION_SECRET",
+              "source": "vault"
+            },
+            {
+              "name": "FLEET_ROLE_TOKEN_HASHES",
+              "source": "vault"
+            }
           ]
         },
         {
@@ -1912,8 +1941,69 @@
         },
         {
           "id": "9router",
-          "kind": "tunnel",
-          "hostname": "9router.chrisvouga.dev"
+          "kind": "railway",
+          "hostname": "9router.chrisvouga.dev",
+          "github_repo": "crvouga/workspace",
+          "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/9router",
+          "dockerfile": "packages/9router/Dockerfile",
+          "build_context": "packages/9router",
+          "port": 20128,
+          "health_check": true,
+          "health_path": "/api/health",
+          "railway": {
+            "sleep": false,
+            "replicas": 1,
+            "health_check": false
+          },
+          "env": {
+            "PORT": "20128",
+            "HOSTNAME": "0.0.0.0",
+            "DATA_DIR": "/tmp/9router",
+            "RAILWAY_DEPLOYMENT_OVERLAP_SECONDS": "0",
+            "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": "60"
+          },
+          "secrets": [
+            {
+              "name": "INITIAL_PASSWORD",
+              "source": "vault"
+            },
+            {
+              "name": "JWT_SECRET",
+              "source": "vault"
+            },
+            {
+              "name": "API_KEY_SECRET",
+              "source": "vault"
+            },
+            {
+              "name": "MACHINE_ID_SALT",
+              "source": "vault"
+            },
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "S3_BUCKET",
+              "source": "vault"
+            },
+            {
+              "name": "S3_ENDPOINT",
+              "source": "vault"
+            },
+            {
+              "name": "S3_REGION",
+              "source": "vault"
+            },
+            {
+              "name": "S3_ACCESS_KEY_ID",
+              "source": "vault"
+            },
+            {
+              "name": "S3_SECRET_ACCESS_KEY",
+              "source": "vault"
+            }
+          ]
         }
       ]
     }

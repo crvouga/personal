@@ -58,3 +58,20 @@ run "image_and_environment" {
     error_message = "Mutable Railway build and deploy settings must remain owned by OpenTofu."
   }
 }
+
+run "locked_writer_handoff" {
+  command = plan
+  variables {
+    service = {
+      id          = "9router"
+      hostname    = "9router.example.com"
+      port        = 20128
+      health_path = "/api/health"
+      railway     = { sleep = false, health_check = false }
+    }
+  }
+  assert {
+    condition     = graphql_mutation.settings.mutation_variables.healthcheckPath == "null"
+    error_message = "Disable only the Railway deploy probe so the old writer can stop before the new writer restores. Public health probes remain enabled."
+  }
+}
