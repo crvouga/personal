@@ -46,6 +46,11 @@ export async function check(ctx: HealthContext, domain: string, stage: Stage): P
 
 const GATE_PORTS = { check, findZone, sleep: (ms: number) => Bun.sleep(ms) };
 
+export function requiredFindings(report: HealthReport, ctx: HealthContext, domain: string): string[] {
+  return report.groups.filter((group) => group.id !== 'owner-review' && (ctx.config.domains![domain].availability !== 'best-effort' || group.id !== 'availability'))
+    .flatMap((group) => group.results.filter((result) => result.status !== 'pass').map((result) => `${result.name}: ${result.detail}`));
+}
+
 /** A newly created empty zone can briefly refuse DNS while its API already exists. */
 async function pendingSourceDns(ctx: HealthContext, domain: string, report: HealthReport, ports: typeof GATE_PORTS): Promise<boolean> {
   const spec = ctx.config.domains![domain];

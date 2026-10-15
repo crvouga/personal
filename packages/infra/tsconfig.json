@@ -1,4 +1,4 @@
 {
   "extends": "../../tsconfig.json",
-  "include": ["scripts/**/*.ts", "lib/**/*.ts"]
+  "include": ["scripts/**/*.ts", "lib/**/*.ts", "tofu/owner/**/*.ts"]
 }

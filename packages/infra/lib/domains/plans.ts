@@ -13,7 +13,7 @@ import { migrationProgress } from './progress.js';
 const fileHash = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
 const rootArg = (ctx: HealthContext): string => `-chdir=${join(ctx.repoRoot, 'packages/infra/tofu/foundation')}`;
 
-async function criticalHealth(ctx: HealthContext): Promise<void> {
+export async function criticalHealth(ctx: HealthContext): Promise<void> {
   const blocked: string[] = [];
   for (const [domain, spec] of Object.entries(ctx.config.domains ?? {})) {
     if (spec.availability !== 'critical') continue;

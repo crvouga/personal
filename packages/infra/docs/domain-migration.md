@@ -6,8 +6,7 @@ profile under ignored `.domain-migration/owner-chrome` (owner-only directory).
 Google OAuth excludes embedded user agents, so use this window for **Continue with
 Google**, rather than the IDE browser. Re-running the command reuses the same
 profile. The launcher does not enable remote debugging, export cookies, inherit
-infrastructure credentials, or change domain settings. It prepares access; the
-Squarespace owner mutation adapter is still unavailable. Protect this profile as
+infrastructure credentials, or change domain settings. It prepares authenticated access for the OpenTofu owner transport. Protect this profile as
 account access and exclude it from shared artifacts.
 
 `bun domains browser-inspect --json` uses pinned Playwright and the same dedicated
@@ -23,7 +22,7 @@ explicit approval of a controlled restart, `--restart-browser` sends SIGTERM onl
 to the fingerprinted dedicated Chrome process, waits for graceful exit, and
 launches the scripted inspection. It never uses SIGKILL or closes another profile.
 The inspection closes only the browser process it launched; sign-in persists in
-the private profile. Domain-setting writes still require an OpenTofu owner adapter.
+the private profile. Domain-setting writes run only through the `owner` OpenTofu root.
 
 References: [Google OAuth browser policy](https://developers.google.com/identity/protocols/oauth2/policies#browsers),
 [Squarespace domains dashboard](https://support.squarespace.com/hc/en-us/articles/24115750615309-Access-your-domains-dashboard).
@@ -36,13 +35,15 @@ bun migrate-domains-to-cloudflare
 
 This entry point prepares and advances all 14 domains without prompts. It discovers account zones, captures complete Cloudflare baselines or explicit unused-source retirement observations, starts verified DNSSEC/delegation timers, and probes services. When prerequisites are available, it generates and checks the canonical inventory change, reviews an encrypted saved OpenTofu plan against the domain scope policy, applies those exact bytes, checks both critical domains before and after every apply, submits eligible transfers once, and secures completed registrations. It polls verified cache waits and pending transfer workflows automatically; owner actions and unavailable access produce explicit blockers. Exit **2 means blocked**, not migrated. Exit **0 requires every domain to be verified with Cloudflare registration, delegation, DNSSEC and applicable service checks**. Reports and baselines live under ignored `.domain-migration/` with private permissions; reruns preserve originals.
 
-**The requested unattended, zero-manual migration is currently blocked by Squarespace owner access.** The pinned Cloudflare provider cannot initiate transfer-in, so `foundation/domain-transfers.tf` implements that documented operation with the published, pinned OpenTofu REST provider. This stays inside OpenTofu and is disabled by default. No configured adapter manages this owner's Squarespace unlocks, authorization codes, parent DS or nameservers. Those operations require authenticated owner access and possibly reauthentication/email verification. The runner cannot manufacture that access or evidence, and it never substitutes an undocumented endpoint. The root infrastructure rule prevents substituting a dashboard writer outside OpenTofu. A supported Squarespace owner adapter/access path is still needed for a fully unattended executor; a Cloudflare token alone cannot supply it. The implementation has been validated with local provider doubles; no live registrar transfer has been attempted during development.
+The `owner` OpenTofu root supplies scoped Squarespace browser operations through the published pinned REST provider. Each operation receives its own encrypted local state and saved plan. The policy review verifies the exact domain, action, payload, methods and loopback transport identity; only application of those reviewed bytes grants the browser a temporary write lease. The native browser never receives infrastructure credentials. A durable native intent is recorded before a setting request, and persisted UI readback is required for acceptance. Uncertain writes are preserved and never blindly replayed. DNSSEC disable and nameserver changes are limited to canonical best-effort unused retirement; the four existing Cloudflare delegations are preserved. Unlock and code-request operations require the full DNS-live gate. Authentication challenges remain genuine blockers; scripts cannot manufacture a signed-in account or bypass MFA.
+
+The Cloudflare transfer-in operation remains in `foundation/domain-transfers.tf`, using the same published REST provider. It is disabled until the complete transfer gate passes. Native owner acceptance, Cloudflare workflow acceptance and completed registrar ownership are separate facts; no accepted operation alone proves migration completion.
 
 The default command executes supported available stages; the commands below also provide individual diagnostics and recovery for the provider-owned steps. They do **not** represent completion of the zero-manual acceptance criterion. Under the owner's later instruction, unused domains have `dns_migration: retire-unused`: historical DNS and forwarding may be retired without a manual export. The two critical domains always use `preserve`.
 
 ## Scope and availability policy
 
-Canonical configuration: [`locals.inventory.domains`](../tofu/modules/inventory/inventory.tf.json). Infrastructure remains in the existing `foundation` root. State addresses for the primary zone, existing records, redirects, tunnels and services are preserved. Merely adding a domain to inventory does not create its zone or transfer registration.
+Canonical configuration: [`locals.inventory.domains`](../tofu/modules/inventory/inventory.tf.json). Cloudflare infrastructure remains in the existing `foundation` root; native Squarespace operations are declared in `owner`. State addresses for the primary zone, existing records, redirects, tunnels and services are preserved. Merely adding a domain to inventory does not create its zone or transfer registration.
 
 | Domain                  | Policy       | Expiration reported by owner | Initial observation, 2026-10-14                     |
 | ----------------------- | ------------ | ---------------------------- | --------------------------------------------------- |
@@ -65,7 +66,7 @@ Expiration dates above are owner-supplied observations, not renewal instructions
 
 Only `gamezilla.app` and `chrisvouga.dev` have mandatory website continuity. Their **entire** DNS record sets, proxy flags, origins, www/apex redirects and HTTPS must remain healthy. They already use Cloudflare, so keep the same account, zone IDs and assigned nameservers. Transfer registration separately; do not recreate a zone or change hosting. A green local check cannot guarantee that every Internet client will avoid an interruption.
 
-For the other 12 domains, the owner explicitly accepts interruption and unused DNS/redirects may retire. Existing Cloudflare records are still backed up and preserved when available. Other unused domains can start with the canonical empty target zone, so source DNS export is not a prerequisite. Their observation explicitly says old records were not enumerated/backed up. Existing HTTPS/source-server failures are advisory. Credential, DNSSEC, target DNS and registration failures still block progression. No general “ignore errors” flag exists. Do not downgrade the two critical domains; the OpenTofu inventory tests enforce that policy.
+For the other 12 domains, the owner explicitly accepts interruption and unused DNS/redirects may retire. The supported Squarespace DNSSEC toggle may retire signing while the old DS expires for these explicitly unused domains. This exception never applies to preserved or critical domains, and the actual parent/resolver DS absence and cache wait must still pass before delegation changes. Existing Cloudflare records are still backed up and preserved when available. Other unused domains can start with the canonical empty target zone, so source DNS export is not a prerequisite. Their observation explicitly says old records were not enumerated/backed up. Existing HTTPS/source-server failures are advisory. Credential, DNSSEC, target DNS and registration failures still block progression. No general “ignore errors” flag exists. Do not downgrade the two critical domains; the OpenTofu inventory tests enforce that policy.
 
 Domain registration, authoritative DNS, web hosting and email subscriptions are different services. Moving registration and DNS does not move website files or mailbox contents. Keep hosting used by either critical domain. No workflow cancels Squarespace, Google Workspace, other subscriptions or the owner's account.
 
