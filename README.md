@@ -21,7 +21,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `turborepo-remote-cache`                                                                   | Bun cache server, R2 artifacts and Vault runtime configuration            |
 | `infra`                                                                                    | OpenTofu infrastructure and read-only build/health adapters               |
 | `vault-service`                                                                            | OpenBao runtime image and local Vault auth/read CLI                       |
-| `9router`                                                                                  | Local routing app and connector for the OpenTofu-managed tunnel           |
+| `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
 | `workstation`                                                                              | Portable local machine configuration; `ws` dashboard                      |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 

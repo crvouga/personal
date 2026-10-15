@@ -220,6 +220,7 @@ jobs:
             portfolio:
               - 'packages/portfolio/**'
             publish:
+              - 'packages/9router/**'
               - 'packages/turborepo-remote-cache/**'
               - 'packages/portfolio/**'
               - 'packages/fleet-api/**'

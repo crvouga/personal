@@ -9,10 +9,6 @@
       "id": "83db052d18159889dd290724ac7d52d9/caae6067f09672b8c4c23dd1acc9ba97"
     },
     {
-      "to": "cloudflare_dns_record.router",
-      "id": "83db052d18159889dd290724ac7d52d9/cad870dd5db0fd3fdc9a0a5af5deb8ca"
-    },
-    {
       "to": "cloudflare_r2_bucket.shared[\"development\"]",
       "id": "2698e76355a8c8d1ee21e15fa9fd44f7/crvouga-development/default"
     },

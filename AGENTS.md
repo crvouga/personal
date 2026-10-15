@@ -9,7 +9,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
 - `packages/fleet`: NixOS configurations for physical machines we own (CI runners, web servers, an attic cache, and a netboot installer). Role and capability combinations only; no per-machine host files. See its `AGENTS.md`. Do not provision cloud resources there.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
-- `packages/9router`: local CLI and tunnel connector. It consumes OpenTofu-managed secrets and remote tunnel configuration.
+- `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
 
 ## Hard infrastructure rule
