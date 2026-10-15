@@ -1,4 +1,12 @@
-# Replace with the shared fleet age public recipient before encrypting secrets.
+# One age recipient per role. CI and web never share a key.
 creation_rules:
-  - path_regex: secrets/.*\.(yaml|yml|json)$
-    age: age1TODO_REPLACE_WITH_FLEET_PUBLIC_RECIPIENT
+  - path_regex: secrets/fleet\.(yaml|yml|json)$
+    age: age1j8gpklvaldjhyy7hk5us8zf6ftc2fhg4wshgne5uvfqlwjghc5fs04n5qq
+  - path_regex: secrets/web\.(yaml|yml|json)$
+    age: age1l2yrazvrruefde5qz4d8ve7jfs02jvcgz33a3k3gseejhc42jcvqc22w0v
+  - path_regex: secrets/cache\.(yaml|yml|json)$
+    age: age1qg65hl4ra4qk42k95npcz70cgjurmalw8yyrvqp4fz4hc0q38c5qhyld7h
+  - path_regex: secrets/netboot\.(yaml|yml|json)$
+    age: age1gwgacsaljs447yz94wa4ulef8n6fhyswmwnq5s7xgemxyh0n8sfq2af9sx
+  - path_regex: secrets/devbox\.(yaml|yml|json)$
+    age: age19c6jvkp3lwtew6pc6al8v6chn2eygkdwul2xs5hvvkp87zc4ae3spuvslt
