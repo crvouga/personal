@@ -1,5 +1,12 @@
 # Bring-up readiness — 2026-10-14
 
+Update on 2026-10-16: installer publication, role enrollment keys, managed CI
+key inputs and owner GitHub App creation/install have been completed. The live
+Gherkin scenarios verify downloads and App registration permission. See the
+[latest validation record](validation.md#2026-10-16-installer-recovery-and-browser-acceptance).
+The observations below preserve the earlier audit; remaining service, cache
+and physical Windows qualification gates must be assessed separately.
+
 **Not ready for an unattended production rollout.** The installer builds, but
 the production settings and supporting services below still need completion.
 The planned rollout is **CI runners converted from existing Windows installations**. The repository allowlist is in [the central GitHub config](../settings/github.json). The other role notes below are dependency context; no target hardware was contacted or erased.
