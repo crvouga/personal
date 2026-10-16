@@ -688,6 +688,20 @@
               "ttl": 3600,
               "proxied": false,
               "priority": 10
+            },
+            "resend._domainkey.resend.chrisvouga.dev_TXT": {
+              "name": "resend._domainkey.resend.chrisvouga.dev",
+              "type": "TXT",
+              "content": "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDZlJ7uklz8STIgZ2xv1hHwD5/vrqg4k7TksA8COZutRpBjjvwoXrpu0esugsSHX2o8/7N/vzGybUnesJaVAC1p7y31mVkDPnLbGJW8bjeUd0+ru0zkvOsf6GXFj8i+Wxrr3sfdcj6iNUjUNmvG4YQZ7JyhBxqGG0+iTYtziZq3XwIDAQAB",
+              "ttl": 1,
+              "proxied": false
+            },
+            "send.resend.chrisvouga.dev_TXT": {
+              "name": "send.resend.chrisvouga.dev",
+              "type": "TXT",
+              "content": "v=spf1 include:amazonses.com ~all",
+              "ttl": 1,
+              "proxied": false
             }
           }
         },
@@ -1022,6 +1036,43 @@
             "secret_scanning": "enabled",
             "secret_scanning_push_protection": "enabled",
             "environments": ["Preview", "Production"]
+          },
+          "pickflix-v1": {
+            "description": "Explore movies, watch trailers, write reviews, and make collaborative lists with other users.",
+            "homepage": "https://pickflix.chrisvouga.dev",
+            "default_branch": "master",
+            "topics": [
+              "clean-architecture",
+              "typescript",
+              "react",
+              "domain-driven-design",
+              "redux-saga",
+              "jest",
+              "postgres",
+              "heroku",
+              "tmdb",
+              "redis",
+              "material-ui",
+              "express",
+              "watch"
+            ],
+            "vulnerability_alerts": true,
+            "dependabot_security_updates": true,
+            "secret_scanning": "enabled",
+            "secret_scanning_push_protection": "enabled",
+            "environments": [
+              "crvouga-pickflix",
+              "pickflix-backend",
+              "production",
+              "projects / production",
+              "vouga-pickflix"
+            ],
+            "actions_secrets": [
+              "DEPLOY_DISPATCH_TOKEN",
+              "DOCKER_USERNAME",
+              "DOCKER_PASSWORD"
+            ],
+            "publisher_file": ".github/workflows/publish-image.yml"
           }
         },
         "pr_ready": {
@@ -1357,13 +1408,14 @@
               "llm-proxy",
               "fleet-api",
               "ci",
-              "9router"
+              "9router",
+              "pickflix"
             ]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
             "configs": ["dev", "prd"],
-            "used_by": ["moviefinder"]
+            "used_by": ["moviefinder", "pickflix"]
           },
           {
             "name": "TWILIO_ACCOUNT_SID",
@@ -1499,6 +1551,30 @@
             "name": "MACHINE_ID_SALT",
             "configs": ["prd"],
             "used_by": ["9router"],
+            "required": true
+          },
+          {
+            "name": "YOUTUBE_API_KEY",
+            "configs": ["prd"],
+            "used_by": ["pickflix"],
+            "required": true
+          },
+          {
+            "name": "PICKFLIX_SECRET",
+            "configs": ["prd"],
+            "used_by": ["pickflix"],
+            "required": true
+          },
+          {
+            "name": "PICKFLIX_SESSION_SECRET",
+            "configs": ["prd"],
+            "used_by": ["pickflix"],
+            "required": true
+          },
+          {
+            "name": "RESEND_API_KEY",
+            "configs": ["prd"],
+            "used_by": ["pickflix"],
             "required": true
           }
         ]
@@ -2011,6 +2087,50 @@
             },
             {
               "name": "S3_SECRET_ACCESS_KEY",
+              "source": "vault"
+            }
+          ]
+        },
+        {
+          "id": "pickflix",
+          "kind": "railway",
+          "hostname": "pickflix.chrisvouga.dev",
+          "github_repo": "crvouga/pickflix-v1",
+          "source_code_url": "https://github.com/crvouga/pickflix-v1",
+          "dockerfile": "./Dockerfile",
+          "build_context": ".",
+          "port": 9000,
+          "health_check": true,
+          "health_path": "/health",
+          "env": {
+            "PORT": "9000",
+            "NODE_ENV": "production",
+            "REPOSITORY_IMPLEMENTATION": "postgres",
+            "EMAIL_FROM": "Pickflix <noreply@resend.chrisvouga.dev>"
+          },
+          "secrets": [
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "TMDB_API_READ_ACCESS_TOKEN",
+              "source": "vault"
+            },
+            {
+              "name": "YOUTUBE_API_KEY",
+              "source": "vault"
+            },
+            {
+              "name": "PICKFLIX_SECRET",
+              "source": "vault"
+            },
+            {
+              "name": "PICKFLIX_SESSION_SECRET",
+              "source": "vault"
+            },
+            {
+              "name": "RESEND_API_KEY",
               "source": "vault"
             }
           ]

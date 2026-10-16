@@ -116,6 +116,11 @@ resource "random_password" "fleet_role_token" {
   length   = 48
   special  = false
 }
+resource "random_password" "pickflix" {
+  for_each = toset(["PICKFLIX_SECRET", "PICKFLIX_SESSION_SECRET"])
+  length   = 48
+  special  = false
+}
 resource "random_password" "router" {
   for_each = toset([for key in local.config.vault.kv_keys : key.name if startswith(key.name, "9ROUTER_") && key.name != "9ROUTER_TUNNEL_TOKEN"])
   length   = 48
@@ -131,6 +136,7 @@ resource "vault_kv_secret_v2" "personal" {
     var.secrets[each.key],
     each.key == "prd" ? local.router_values : {},
     each.key == "prd" ? local.fleet_values : {},
+    each.key == "prd" ? { for name, password in random_password.pickflix : name => password.result } : {},
     each.key == "prd" ? {
       INITIAL_PASSWORD = local.router_values["9ROUTER_PASSWORD"]
       JWT_SECRET       = local.router_values["9ROUTER_JWT_SECRET"]

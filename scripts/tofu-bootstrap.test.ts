@@ -18,10 +18,10 @@ const action = parse(
 );
 const step = action.runs.steps.find(
   (candidate: { name?: string }) =>
-    candidate.name === 'Ensure fleet schema exists before Atlas planning'
+    candidate.name === 'Ensure application schemas exist before Atlas planning'
 );
 
-test('schema bootstrap applies only creation of the empty fleet schema', () => {
+test('schema bootstrap applies only creation of the empty application schemas', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-bootstrap-'));
   const plan = join(directory, 'plan.json');
   const applied = join(directory, 'applied');
@@ -31,6 +31,28 @@ test('schema bootstrap applies only creation of the empty fleet schema', () => {
     { mode: 0o755 }
   );
   const cases = [
+    [
+      [
+        {
+          address: 'postgresql_schema.pickflix',
+          change: { actions: ['create'] },
+        },
+      ],
+      true,
+    ],
+    [
+      [
+        {
+          address: 'postgresql_schema.pickflix',
+          change: { actions: ['delete', 'create'] },
+        },
+      ],
+      false,
+    ],
+    [
+      [{ address: 'atlas_schema.pickflix', change: { actions: ['create'] } }],
+      false,
+    ],
     [undefined, true],
     [[], true],
     [[{ mode: 'data', change: { actions: ['read'] } }], true],

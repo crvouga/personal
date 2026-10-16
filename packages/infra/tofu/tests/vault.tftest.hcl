@@ -74,3 +74,15 @@ run "fleet_api_credentials" {
     error_message = "Each fleet role document carries its age key and the raw API token whose hash the service holds."
   }
 }
+
+run "pickflix_credentials" {
+  command = plan
+  assert {
+    condition     = toset(keys(random_password.pickflix)) == toset(["PICKFLIX_SECRET", "PICKFLIX_SESSION_SECRET"]) && alltrue([for password in values(random_password.pickflix) : password.length == 48 && !password.special])
+    error_message = "Pickflix needs separate generated application and session secrets."
+  }
+  assert {
+    condition     = contains(keys(jsondecode(vault_kv_secret_v2.personal["prd"].data_json)), "PICKFLIX_SESSION_SECRET") && !contains(keys(jsondecode(vault_kv_secret_v2.personal["dev"].data_json)), "PICKFLIX_SESSION_SECRET")
+    error_message = "Pickflix generated credentials belong in production only."
+  }
+}

@@ -172,6 +172,7 @@ export type VaultConfig = {
 };
 
 export type GithubRepositorySpec = {
+  readonly publisher_file?: string;
   readonly default_branch: string;
   readonly actions_secrets?: readonly string[];
 };

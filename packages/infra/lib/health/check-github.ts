@@ -41,6 +41,7 @@ async function guarded(name: string, probe: () => Promise<CheckResult>): Promise
 type ManagedRepo = {
   readonly fullName: string;
   readonly defaultBranch: string;
+  readonly publisherPath: string;
   readonly application: boolean;
   readonly secrets: readonly string[];
   readonly hostsService: boolean;
@@ -53,6 +54,7 @@ export function managedRepositories(config: InfraConfig): readonly ManagedRepo[]
   const applications = Object.entries(config.github?.repositories ?? {}).map(([name, spec]) => ({
     fullName: `${org}/${name}`,
     defaultBranch: spec.default_branch,
+    publisherPath: spec.publisher_file ?? PUBLISHER_PATH,
     application: true,
     secrets: spec.actions_secrets ?? [],
     hostsService: hosting.has(`${org}/${name}`),
@@ -61,6 +63,7 @@ export function managedRepositories(config: InfraConfig): readonly ManagedRepo[]
     {
       fullName: infraRepo,
       defaultBranch: config.github?.pr_ready?.repo_settings.default_branch ?? "main",
+      publisherPath: PUBLISHER_PATH,
       application: false,
       secrets: [],
       hostsService: hosting.has(infraRepo),
@@ -86,9 +89,9 @@ function checkRepository(api: GithubApi, repo: ManagedRepo): Promise<CheckResult
 function checkPublisher(api: GithubApi, repo: ManagedRepo): Promise<CheckResult> {
   const name = `publisher ${repo.fullName}`;
   return guarded(name, async () => {
-    const res = await api(`/repos/${repo.fullName}/contents/${PUBLISHER_PATH}?ref=${encodeURIComponent(repo.defaultBranch)}`);
-    if (res.status === 200) return pass(name, `${PUBLISHER_PATH} on ${repo.defaultBranch}`);
-    return fail(name, res.status === 404 ? `${PUBLISHER_PATH} is missing on ${repo.defaultBranch}` : `HTTP ${res.status}`);
+    const res = await api(`/repos/${repo.fullName}/contents/${repo.publisherPath}?ref=${encodeURIComponent(repo.defaultBranch)}`);
+    if (res.status === 200) return pass(name, `${repo.publisherPath} on ${repo.defaultBranch}`);
+    return fail(name, res.status === 404 ? `${repo.publisherPath} is missing on ${repo.defaultBranch}` : `HTTP ${res.status}`);
   });
 }
 
