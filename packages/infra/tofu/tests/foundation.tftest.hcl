@@ -145,3 +145,22 @@ run "pickflix_publisher_builds_on_adoption" {
     error_message = "Pickflix publisher adoption must trigger a build with the reusable workflow's permissions and registry credentials."
   }
 }
+
+run "pickflix_validates_before_publishing" {
+  command = plan
+
+  assert {
+    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "uses: ./.github/workflows/check.yml") && strcontains(github_repository_file.publish["pickflix-v1"].content, "needs: validate")
+    error_message = "Pickflix must validate the production image before publishing or dispatching deployment."
+  }
+
+  assert {
+    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN: $${{ github.token }}")
+    error_message = "Pickflix publishing must retain the repository-scoped GHCR credential."
+  }
+
+  assert {
+    condition     = github_repository_ruleset.pickflix_master.enforcement == "active" && one(github_repository_ruleset.pickflix_master.rules[0].required_status_checks[0].required_check).context == "Required"
+    error_message = "Pickflix master must require the application validation check."
+  }
+}

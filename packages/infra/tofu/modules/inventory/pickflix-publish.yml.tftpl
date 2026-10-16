@@ -1,0 +1,34 @@
+# Managed by OpenTofu github_repository_file.
+name: Publish image
+
+on:
+  push:
+    branches:
+      - ${branch}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  pull-requests: read
+
+jobs:
+  validate:
+    uses: ./.github/workflows/check.yml
+
+%{ for service in services ~}
+  ${service.job_name}:
+    needs: validate
+    uses: ${infra_repo}/.github/workflows/ci.yml@main
+    secrets:
+      DEPLOY_DISPATCH_TOKEN: $${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      CALLER_GITHUB_TOKEN: $${{ github.token }}
+    with:
+      service_id: ${service.id}
+      dockerfile: ${service.dockerfile}
+      context: ${service.build_context}
+      image_owner: ${image_owner}
+      image_prefix: ${image_prefix}
+      infra_github_repo: ${infra_repo}
+
+%{ endfor ~}
