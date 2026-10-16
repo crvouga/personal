@@ -1,8 +1,12 @@
+import { INSTALLER_JS } from './installer-js';
+
 /**
  * The dashboard's only script. Everything it does is an enhancement: pages
  * are complete HTML without it. Served from /assets/app.js (same origin).
  */
-export const APP_JS = `(function () {
+export const APP_JS =
+  INSTALLER_JS +
+  `(function () {
   'use strict';
   var root = document.documentElement;
   root.classList.add('js');
@@ -67,6 +71,7 @@ export const APP_JS = `(function () {
       })
       .then(function (html) {
         live.innerHTML = html;
+        document.dispatchEvent(new Event('fleet:updated'));
         updatedAt = Date.now();
         failed = false;
         refreshTimes();
