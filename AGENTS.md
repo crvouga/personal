@@ -22,6 +22,8 @@ Use `bun run infra[:state|:bootstrap|:vault|:fleet] <OpenTofu command>`. All roo
 
 Vault paths: `secret/data/personal/{dev|prd}`. Update secret inputs through the vault OpenTofu root. Never commit tokens, passwords, initialization credentials, state, plans or secret tfvars. The bootstrap state contains unseal material and must remain encrypted and backed up.
 
+External application repositories own their schemas, migrations, publisher workflows and validation. Keep this platform coupled only through generic hosting inventory, secret metadata, reusable workflows and repository policy; never add application-name conditionals or application table DDL here.
+
 Never patch dependencies. Never disable structural size limits in ESLint; refactor instead.
 
 ## Validation and CI

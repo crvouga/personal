@@ -71,18 +71,14 @@ moved {
 # Iterate the inventory map. Reading the repository resource object warns on
 # every deprecated attribute the provider still exports.
 resource "github_repository_file" "publish" {
-  for_each            = local.application_repositories
+  for_each            = { for name, settings in local.application_repositories : name => settings if try(settings.managed_publisher, true) }
   repository          = github_repository.application[each.key].name
   branch              = each.value.default_branch
   file                = try(each.value.publisher_file, ".github/workflows/publish.yml")
   overwrite_on_create = true
-  # Pickflix's first managed publisher must trigger a push build so its latest
-  # image exists before the fleet root creates the new Railway service.
-  commit_message = each.key == "pickflix-v1" ? "ci: manage image publishing with OpenTofu" : "ci: manage image publishing with OpenTofu [skip ci]"
+  commit_message      = "ci: manage image publishing with OpenTofu [skip ci]"
   lifecycle { ignore_changes = [commit_message, overwrite_on_create] }
-  # Pickflix validates its production image before publishing. Keep that
-  # application-specific contract out of other publishers.
-  content = templatefile("${path.module}/../modules/inventory/${each.key == "pickflix-v1" ? "pickflix-publish" : "publish"}.yml.tftpl", {
+  content = templatefile("${path.module}/../modules/inventory/publish.yml.tftpl", {
     branch       = each.value.default_branch
     infra_repo   = local.config.github.infra_repo
     image_owner  = local.config.image_owner

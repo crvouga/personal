@@ -89,26 +89,34 @@ run "router_stateless_contract" {
   }
 }
 
-run "pickflix_hosting_contract" {
+run "external_application_hosting_contract" {
   command = plan
   assert {
-    condition     = one([for service in output.config.services : service if service.id == "pickflix"]).hostname == "pickflix.chrisvouga.dev" && one([for service in output.config.services : service if service.id == "pickflix"]).health_path == "/health"
-    error_message = "Pickflix needs its managed domain and health endpoint."
+    condition = alltrue([for service in output.config.services :
+      startswith(try(service.health_path, "/"), "/") && contains(keys(output.config.github.repositories), trimprefix(service.github_repo, "${output.config.github.org}/"))
+      if try(service.github_repo, null) != null && try(service.github_repo, null) != output.config.github.infra_repo
+    ])
+    error_message = "Every external application must reference a declared repository and health path."
   }
   assert {
-    condition     = output.config.github.repositories["pickflix-v1"].default_branch == "master" && one([for service in output.config.services : service if service.id == "pickflix"]).github_repo == "crvouga/pickflix-v1"
-    error_message = "Publish Pickflix from its existing master branch."
+    condition = alltrue([for settings in values(output.config.github.repositories) :
+      length(try(settings.required_status_checks, [])) > 0 if !try(settings.managed_publisher, true)
+    ])
+    error_message = "Application-owned publishers must retain required validation checks."
   }
 }
 
-run "pickflix_resend_contract" {
+run "email_service_contract" {
   command = plan
   assert {
-    condition     = contains([for secret in one([for service in output.config.services : service if service.id == "pickflix"]).secrets : secret.name], "RESEND_API_KEY") && one([for service in output.config.services : service if service.id == "pickflix"]).env.EMAIL_FROM == "Pickflix <noreply@resend.chrisvouga.dev>"
-    error_message = "Pickflix must select Resend credentials and its custom-domain sender."
+    condition = alltrue([for service in output.config.services :
+      contains([for secret in service.secrets : secret.name], "RESEND_API_KEY") && strcontains(service.env.EMAIL_FROM, "@")
+      if try(service.env.EMAIL_FROM, null) != null
+    ])
+    error_message = "Email-enabled services must declare credentials and a sender."
   }
   assert {
     condition     = output.config.cloudflare.dns.records["send.resend.chrisvouga.dev_TXT"].content == "v=spf1 include:amazonses.com ~all" && startswith(output.config.cloudflare.dns.records["resend._domainkey.resend.chrisvouga.dev_TXT"].content, "p=")
-    error_message = "Resend sending requires both its SPF and DKIM TXT records."
+    error_message = "The shared email domain requires both SPF and DKIM TXT records."
   }
 }

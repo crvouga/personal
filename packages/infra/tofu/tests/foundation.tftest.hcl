@@ -66,8 +66,8 @@ run "complete_adoption_plan" {
     error_message = "The database role must inherit the built-in owner role so schema changes keep working."
   }
   assert {
-    condition     = length(github_repository_file.publish) == 15
-    error_message = "Foundation adoption must preserve a publisher for every application repository."
+    condition     = toset(keys(github_repository_file.publish)) == toset([for name, settings in local.application_repositories : name if try(settings.managed_publisher, true)])
+    error_message = "Foundation adoption must preserve every platform-managed publisher."
   }
   assert {
     condition     = length(github_actions_secret.repository) == 31 && length(output.unavailable_repository_secrets) == 0
@@ -122,45 +122,14 @@ run "unrelated_invalid_vault_values_do_not_block_adoption" {
   }
 }
 
-run "pickflix_database_is_isolated" {
+run "application_owned_publisher" {
   command = plan
   assert {
-    condition     = postgresql_schema.pickflix.name == "pickflix" && postgresql_schema.pickflix.if_not_exists && endswith(atlas_schema.pickflix.url, "&search_path=pickflix")
-    error_message = "Pickflix must never manage objects outside its schema in the shared database."
+    condition     = alltrue([for name, settings in local.application_repositories : !contains(keys(github_repository_file.publish), name) if !try(settings.managed_publisher, true)])
+    error_message = "Repositories that own their publisher must not have it overwritten by the platform."
   }
   assert {
-    condition     = atlas_schema.pickflix.hcl == file("${path.module}/pickflix-schema.hcl") && length(regexall("(?m)^schema \"", atlas_schema.pickflix.hcl)) == 1
-    error_message = "Pickflix tables and sessions must be owned by the local, single-schema Atlas definition."
-  }
-  assert {
-    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "ci.yml@main") && strcontains(github_repository_file.publish["pickflix-v1"].content, "- master") && github_repository_file.publish["pickflix-v1"].file == ".github/workflows/publish-image.yml"
-    error_message = "Adopt the existing Pickflix publisher in place and build master through the workspace workflow."
-  }
-}
-
-run "pickflix_publisher_builds_on_adoption" {
-  command = plan
-  assert {
-    condition     = !strcontains(github_repository_file.publish["pickflix-v1"].commit_message, "[skip ci]") && strcontains(github_repository_file.publish["pickflix-v1"].content, "id-token: write") && strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN")
-    error_message = "Pickflix publisher adoption must trigger a build with the reusable workflow's permissions and registry credentials."
-  }
-}
-
-run "pickflix_validates_before_publishing" {
-  command = plan
-
-  assert {
-    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "uses: ./.github/workflows/check.yml") && strcontains(github_repository_file.publish["pickflix-v1"].content, "needs: validate")
-    error_message = "Pickflix must validate the production image before publishing or dispatching deployment."
-  }
-
-  assert {
-    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN: $${{ github.token }}")
-    error_message = "Pickflix publishing must retain the repository-scoped GHCR credential."
-  }
-
-  assert {
-    condition     = github_repository_ruleset.pickflix_master.enforcement == "active" && one(github_repository_ruleset.pickflix_master.rules[0].required_status_checks[0].required_check).context == "Required"
-    error_message = "Pickflix master must require the application validation check."
+    condition     = alltrue([for name, ruleset in github_repository_ruleset.application_default_branch : ruleset.enforcement == "active" && toset([for check in one(ruleset.rules).required_status_checks[0].required_check : check.context]) == toset(local.application_repositories[name].required_status_checks)])
+    error_message = "Transferring publisher ownership must preserve required application checks."
   }
 }

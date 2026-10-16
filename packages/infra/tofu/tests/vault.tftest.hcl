@@ -33,8 +33,8 @@ variables {
   secrets = {
     dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
     prd = merge(
-      { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
-      { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+      { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+      { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
     )
   }
   fleet_age_keys = {
@@ -78,15 +78,15 @@ run "fleet_api_credentials" {
   }
 }
 
-run "pickflix_credentials" {
+run "generated_application_credentials" {
   command = plan
   assert {
-    condition     = toset(keys(random_password.pickflix)) == toset(["PICKFLIX_SECRET", "PICKFLIX_SESSION_SECRET"]) && alltrue([for password in values(random_password.pickflix) : password.length == 48 && !password.special])
-    error_message = "Pickflix needs separate generated application and session secrets."
+    condition     = toset(keys(random_password.application)) == toset([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)]) && alltrue([for password in values(random_password.application) : password.length == 48 && !password.special])
+    error_message = "Inventory-generated application secrets must use independent 48 character values."
   }
   assert {
-    condition     = contains(keys(jsondecode(vault_kv_secret_v2.personal["prd"].data_json)), "PICKFLIX_SESSION_SECRET") && !contains(keys(jsondecode(vault_kv_secret_v2.personal["dev"].data_json)), "PICKFLIX_SESSION_SECRET")
-    error_message = "Pickflix generated credentials belong in production only."
+    condition     = alltrue(flatten([for config in ["dev", "prd"] : [for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : contains(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json)), key.name) == contains(key.configs, config) if try(key.generated, false)]]))
+    error_message = "Generated application secrets must appear only in their inventory configurations."
   }
 }
 
@@ -96,8 +96,8 @@ run "reject_missing_youtube_key" {
     secrets = {
       dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
       prd = { for name, value in merge(
-        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
-        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
       ) : name => value if name != "YOUTUBE_API_KEY" }
     }
   }
@@ -110,8 +110,8 @@ run "reject_missing_resend_key" {
     secrets = {
       dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
       prd = { for name, value in merge(
-        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
-        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
       ) : name => value if name != "RESEND_API_KEY" }
     }
   }
@@ -124,8 +124,8 @@ run "reject_blank_service_credential" {
     secrets = {
       dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
       prd = { for name, value in merge(
-        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
-        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
       ) : name => name == "TMDB_API_READ_ACCESS_TOKEN" ? "  " : value }
     }
   }

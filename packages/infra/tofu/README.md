@@ -150,51 +150,29 @@ Nothing was applied from the change that introduced this section; it was validat
 
 CI runs foundation, bootstrap and vault before fleet in `deploy-reconcile`, so a merge performs steps 2 to 4 in that order once `TOFU_MIGRATION_READY` is true.
 
-## Pickflix (`pickflix`)
+## External application ownership
 
-`crvouga/pickflix-v1` builds its Node 22 image from `master`; this repository owns
-its Railway service, `pickflix.chrisvouga.dev`, DNS, Vault values and database
-objects. Foundation adopts `.github/workflows/publish-image.yml` in place using
-the shared publisher template. Land the application changes before deploying:
-the old backend creates tables in `public`. Application changes are prepared in
-[Pickflix PR #67](https://github.com/crvouga/pickflix-v1/pull/67).
+External application repositories own their database schemas and migrations,
+image publisher workflows, and application validation. This platform owns the
+shared database and hosting services, DNS, secret delivery, and generic
+repository policy. Keep application behavior out of platform resource logic.
 
-No production resources have been applied for this integration. The existing
-production Vault document contains the shared database URL, TMDB and YouTube
-credentials, and `RESEND_API_KEY`. Resend reports `resend.chrisvouga.dev` as
-failed verification. The inventory adds its missing DKIM and SPF TXT records
-(the existing sending MX record is already managed); these DNS changes have
-not been applied. Confirm domain verification before relying on email delivery.
+Set `managed_publisher = false` in a repository's inventory entry when it owns
+its publisher. The repository can still call the shared image build/deploy
+workflow. `required_status_checks` declares default-branch checks generically.
+Vault registry entries with `generated = true` receive independent generated
+secrets in their declared `configs`; their values survive resource renames.
 
-Foundation owns `postgresql_schema.pickflix` and `atlas_schema.pickflix`.
-`pickflix-schema.hcl` describes the nine application tables and session table.
-Atlas must retain `search_path=pickflix`. The application pool uses the same
-search path without a `public` fallback; sessions name `pickflix` explicitly.
-Production checks tables at startup and performs no DDL. CI bootstraps only the
-empty `fleet` and `pickflix` schemas before its full saved foundation plan.
-
-Vault generates separate `PICKFLIX_SECRET` and `PICKFLIX_SESSION_SECRET` values.
-The complete production `secrets` input must also contain real values for
-`TMDB_API_READ_ACCESS_TOKEN`, `YOUTUBE_API_KEY` and `RESEND_API_KEY`. The
-non-secret `EMAIL_FROM` is `Pickflix <noreply@resend.chrisvouga.dev>` in the service
-environment. `DATABASE_URL` comes from shared Postgres.
-Preserve every existing KV field when updating this input. The Vault root rejects
-missing or blank required external credentials before writing a KV document;
-it derives this list from required KV entries and Railway service secrets,
-excluding credentials generated or derived by OpenTofu. Update the complete
-`vault_inputs` through foundation (which owns `TOFU_VAULT_INPUTS`), then apply
-the Vault root with the same input. Updating only the live Vault document will
-be undone by the next CI reconciliation.
-
-Rollout follows the usual foundation/bootstrap/vault/fleet order. For a manual
-first foundation plan, apply a reviewed saved plan targeting only
-`postgresql_schema.pickflix` before the full Atlas plan (as with `fleet` above).
-Review that database changes touch only `pickflix.*`. Import existing resources
-before applying. No historical application data is seeded or migrated.
-Publish the updated application image before applying fleet.
-
-`bun run health --only services,dns,tls,images` automatically includes Pickflix;
-its service probe uses `/health`. Missing credentials report `SKIP`.
+Pickflix's schema and publisher ownership transfers to `crvouga/pickflix-v1`.
+The foundation `removed` blocks use `destroy = false`: applying them only forgets
+ownership, preserving the live `pickflix` schema, tables, data and publisher file.
+The app adopts existing tables in place and supplies its missing primary keys.
+Its migrations remain confined to `pickflix`, without a `public` fallback.
+Apply this ownership handoff before merging the application migration PR, so
+image deployment cannot reconcile the old schema and remove the new keys.
+The branch ruleset and generated credentials move to generic resource addresses;
+review the saved plans to confirm no table destruction, credential rotation,
+workflow overwrite or branch protection removal.
 
 ## Normal operations
 
