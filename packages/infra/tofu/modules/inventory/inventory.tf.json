@@ -1072,7 +1072,8 @@
               "DOCKER_USERNAME",
               "DOCKER_PASSWORD"
             ],
-            "publisher_file": ".github/workflows/publish-image.yml"
+            "managed_publisher": false,
+            "required_status_checks": ["Required"]
           }
         },
         "pr_ready": {
@@ -1563,13 +1564,15 @@
             "name": "PICKFLIX_SECRET",
             "configs": ["prd"],
             "used_by": ["pickflix"],
-            "required": true
+            "required": true,
+            "generated": true
           },
           {
             "name": "PICKFLIX_SESSION_SECRET",
             "configs": ["prd"],
             "used_by": ["pickflix"],
-            "required": true
+            "required": true,
+            "generated": true
           },
           {
             "name": "RESEND_API_KEY",
@@ -2083,6 +2086,7 @@
         },
         {
           "id": "pickflix",
+          "database_schema": "pickflix",
           "kind": "railway",
           "hostname": "pickflix.chrisvouga.dev",
           "github_repo": "crvouga/pickflix-v1",

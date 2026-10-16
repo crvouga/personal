@@ -116,8 +116,12 @@ resource "random_password" "fleet_role_token" {
   length   = 48
   special  = false
 }
-resource "random_password" "pickflix" {
-  for_each = toset(["PICKFLIX_SECRET", "PICKFLIX_SESSION_SECRET"])
+moved {
+  from = random_password.pickflix
+  to   = random_password.application
+}
+resource "random_password" "application" {
+  for_each = toset([for key in local.config.vault.kv_keys : key.name if try(key.generated, false)])
   length   = 48
   special  = false
 }
@@ -135,7 +139,7 @@ locals {
       { TURBO_TOKEN = lookup(var.secrets[config], "TURBO_TOKEN", random_password.turbo.result) },
       config == "prd" ? local.router_values : {},
       config == "prd" ? local.fleet_values : {},
-      config == "prd" ? { for name, password in random_password.pickflix : name => password.result } : {},
+      { for key in local.config.vault.kv_keys : key.name => random_password.application[key.name].result if try(key.generated, false) && contains(key.configs, config) },
       config == "prd" ? {
         INITIAL_PASSWORD = local.router_values["9ROUTER_PASSWORD"]
         JWT_SECRET       = local.router_values["9ROUTER_JWT_SECRET"]

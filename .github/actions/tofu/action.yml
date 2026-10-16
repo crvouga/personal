@@ -98,13 +98,13 @@ runs:
       run: |
         set -euo pipefail
         ROOT="packages/infra/tofu/foundation"
-        tofu -chdir="${ROOT}" plan -input=false -parallelism=1 -target=postgresql_schema.fleet -target=postgresql_schema.pickflix -out=app-schemas.tfplan
+        tofu -chdir="${ROOT}" plan -input=false -parallelism=1 -target=postgresql_schema.fleet -out=app-schemas.tfplan
         tofu -chdir="${ROOT}" show -json app-schemas.tfplan | jq -e '
           all((.resource_changes // [])[];
             .mode == "data" or .change.actions == ["no-op"] or
-            ((.address == "postgresql_schema.fleet" or .address == "postgresql_schema.pickflix") and .change.actions == ["create"]))
+            ((.address == "postgresql_schema.fleet") and .change.actions == ["create"]))
         ' > /dev/null || {
-          echo "::error::Schema bootstrap may only create postgresql_schema.fleet or postgresql_schema.pickflix; review dependency changes separately."
+          echo "::error::Schema bootstrap may only create postgresql_schema.fleet; review dependency changes separately."
           exit 1
         }
         tofu -chdir="${ROOT}" apply -input=false -parallelism=1 app-schemas.tfplan

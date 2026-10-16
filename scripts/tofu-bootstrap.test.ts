@@ -34,23 +34,28 @@ test('schema bootstrap applies only creation of the empty application schemas', 
     [
       [
         {
-          address: 'postgresql_schema.pickflix',
+          address: 'postgresql_schema.external_app',
           change: { actions: ['create'] },
         },
       ],
-      true,
+      false,
     ],
     [
       [
         {
-          address: 'postgresql_schema.pickflix',
+          address: 'postgresql_schema.external_app',
           change: { actions: ['delete', 'create'] },
         },
       ],
       false,
     ],
     [
-      [{ address: 'atlas_schema.pickflix', change: { actions: ['create'] } }],
+      [
+        {
+          address: 'atlas_schema.external_app',
+          change: { actions: ['create'] },
+        },
+      ],
       false,
     ],
     [undefined, true],

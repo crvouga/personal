@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix="workspace-tofu-foundation-") as directo
         # isolated test copy omits import blocks; production adoption retains them.
         text = re.sub(r"(?ms)^import \{\n.*?^\}\n", "", source.read_text())
         (root / source.name).write_text(text)
-    for name in ["variables.tf.json", ".terraform.lock.hcl", "pickflix-schema.hcl"]:
+    for name in ["variables.tf.json", ".terraform.lock.hcl"]:
         shutil.copyfile(tofu_root / "foundation" / name, root / name)
     shutil.copyfile(tofu_root / "tests/foundation.tftest.hcl", root / "foundation.tftest.hcl")
     for args in [("init", "-backend=false", "-input=false", "-lockfile=readonly"), ("test", "-no-color")]:
