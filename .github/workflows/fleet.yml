@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: fleet-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -68,28 +72,29 @@ jobs:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.fleet == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [roles, runtime, lifecycle, image]
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Flake check, role closures, and NixOS tests
+      - name: Build this group of flake checks
         working-directory: packages/fleet
-        run: |
-          set -euo pipefail
-          # Public ubuntu-latest is 4 cores and 16 GB, and Nix starts one build
-          # per core. These NixOS tests boot QEMU guests. Two at a time fit.
-          nix flake check --no-write-lock-file --system x86_64-linux --max-jobs 2 -L
-          # ci-gpu stays a nixosConfiguration. It is not a default build.
-          nix build --no-link -L \
-            'path:.#ci' 'path:.#web' 'path:.#cache' 'path:.#netboot' 'path:.#devbox'
-          nix build -o result-iso -L 'path:.#installer'
-
+        env:
+          CHECK_GROUP: ${{ matrix.group }}
+        # Two simultaneous QEMU tests per 16 GB runner. Every flake check is
+        # assigned once; new checks automatically join the roles group.
+        run: python3 scripts/ci-checks.py "$CHECK_GROUP"
       - uses: actions/upload-artifact@v4
+        if: matrix.group == 'image' && github.event_name != 'pull_request'
         with:
           name: fleet-installer
           path: packages/fleet/result-iso/iso/fleet-installer.iso
           if-no-files-found: error
-          retention-days: 14
+          compression-level: 0
+          retention-days: 1
 
   # The installer wizard is a program people download and double-click, so it is
   # built and proven on every platform it ships for. Each build must pass its own
@@ -120,15 +125,21 @@ jobs:
       - name: Wizard tests
         working-directory: packages/fleet
         run: python -B -m unittest discover -s tests -p "test_wizard.py" -v
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Install browser acceptance dependencies once
+        working-directory: packages/fleet
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
       - name: Click through the wizard page in a real browser
         working-directory: packages/fleet
         shell: bash
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
-        run: |
-          npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
-          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
-          PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright" node wizard/ui-e2e.cjs
+          PLAYWRIGHT_PATH: '@playwright/test'
+        run: node wizard/ui-e2e.cjs
       - name: Build the installer and run its self-test
         working-directory: packages/fleet
         run: |
@@ -137,17 +148,12 @@ jobs:
       - name: Select the packaged installer for browser acceptance
         working-directory: packages/fleet
         run: python bdd/packaged.py
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.11
       - name: Gherkin acceptance against the packaged installer
         env:
           FLEET_BDD_EXPECT_VERSION: ${{ github.sha }}
           PYTHON: ${{ steps.python.outputs.python-path }}
         working-directory: packages/fleet
         run: |
-          bun install --frozen-lockfile
-          bunx playwright install --with-deps chromium
           bun run tc
           bun run lint:bdd
           bun run test:bdd:local
@@ -260,15 +266,15 @@ jobs:
             exit 1
           fi
           for attr in ci web cache netboot devbox; do
-            nix build -o "result-${attr}" "path:.#${attr}"
+            nix build -o "result-${attr}" ".#${attr}"
             if [ ! -L "result-${attr}" ] || [ ! -d "result-${attr}" ]; then
               echo "Fleet cache: missing build result for ${attr}. Rebuild this role before publishing." >&2
               exit 1
             fi
           done
-          nix run 'path:.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
+          nix run '.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
           for attr in ci web cache netboot devbox; do
-            nix run 'path:.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
+            nix run '.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
           done
 
   gate:
