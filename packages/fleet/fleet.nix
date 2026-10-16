@@ -11,7 +11,7 @@ in {
   # can override this through the fleet API's Postgres-backed settings.
   github = builtins.fromJSON (builtins.readFile ./settings/github.json);
   containers = false; # opt into rootless per-slot Podman and its Docker-compatible socket
-  secretsFile = null; # set to ./secrets/fleet.yaml AFTER encrypting it
+  secretsFile = ./secrets/fleet.yaml;
   cache = {
     maxGiB = 100;
     minFreeGiB = 30;

@@ -23,7 +23,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      fleet: ${{ steps.filter.outputs.fleet }}
+      fleet: ${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,6 +41,28 @@ jobs:
               - '.github/workflows/flake-update.yml'
               - '.github/workflows/fleet-enroll.yml'
               - 'packages/fleet/workflows/fleet.yml'
+      # A failed first publication must not leave /add broken indefinitely while
+      # unrelated pushes report green. Retry the full checks and publication.
+      - name: Check that the installer release is complete
+        id: release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view fleet-installer --json assets --jq '.assets[].name') || assets=''
+          for asset in \
+            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.iso.part-000 fleet-node.sh \
+            fleet-installer-windows-x64.exe \
+            fleet-installer-macos-arm64.zip fleet-installer-macos-x64.zip \
+            fleet-installer-linux-arm64.tar.gz fleet-installer-linux-x64.tar.gz; do
+            if ! grep -Fxq "$asset" <<< "$assets"; then
+              echo "Installer release is missing $asset; rebuilding and publishing."
+              echo 'missing=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo 'missing=false' >> "$GITHUB_OUTPUT"
 
   check:
     needs: changes
@@ -107,6 +129,29 @@ jobs:
           npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
           PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright" node wizard/ui-e2e.cjs
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          bun-version: 1.3.11
+      - name: Gherkin installer and App setup scenarios
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: packages/fleet
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+          bun run tc
+          bun run lint:bdd
+          bun run test:bdd:local
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.os == 'ubuntu-latest'
+        with:
+          name: fleet-bdd-report
+          path: |
+            packages/fleet/dist/bdd-report/
+            packages/fleet/dist/bdd-results/
+            packages/fleet/dist/bdd-results.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Build the installer and run its self-test
         working-directory: packages/fleet
         run: |

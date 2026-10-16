@@ -87,7 +87,9 @@ just setup                       # in packages/fleet; reads settings/github.json
 3. encrypts the App's private key into `secrets/fleet.yaml` for the `ci` role only,
 4. fills `settings/github.json` with the App and installation IDs, scope and bootstrap repository allowlist, then enables the encrypted secret in `fleet.nix`. Use `--repos owner/private-repo` only to override the JSON allowlist for setup.
 
-Then two reviewed steps, because infrastructure changes through a reviewed plan:
+On the local setup page, press **Create runner GitHub App**. Keep that page open: GitHub opens in another tab. If GitHub asks you to sign in or confirm access and then reports a missing App Manifest, finish authentication, return to the setup page, and press its button again.
+
+Finish the reviewed setup steps:
 
 1. Merge the pull request with `settings/github.json`, `fleet.nix`, `secrets/fleet.yaml` and `.sops.yaml`. The `Fleet` workflow builds every role and publishes the installer release.
 2. Apply the vault root so Vault holds the role keys and the `fleet-enroll` login:
@@ -96,6 +98,8 @@ Then two reviewed steps, because infrastructure changes through a reviewed plan:
    bun run infra:vault plan -out=fleet.plan     # review
    bun run infra:vault apply fleet.plan
    ```
+
+   Include the same complete `fleet_age_keys` map in the foundation root's `vault_inputs` JSON, which manages the `TOFU_VAULT_INPUTS` GitHub secret. CI uses that input for later Vault applies; the local ignored tfvars file is not available there.
 
 3. Apply the `foundation` root (it creates the `fleet` Postgres schema and its tables) and the `fleet` root (it deploys the fleet API at https://fleet.chrisvouga.dev). CI does both in order on a merge once `TOFU_MIGRATION_READY` is true; the exact order and what to check is in [the infra README](../infra/tofu/README.md#fleet-api-fleet-api).
 
@@ -130,6 +134,47 @@ Hardware replacement and cleaning, cabling, and one-time firmware settings (Secu
 
 Git is the only control surface. Open a pull request; `Required` and `Fleet` pass on GitHub-hosted runners; the merge lands on `main`; nodes poll `main` and switch only to a system that is already in the binary cache. A bad change is a revert pull request. `fleet-node status` on a node is read-only. See [operations](docs/runbook.md).
 
+## Browser acceptance tests (Gherkin)
+
+Install from the workspace root with `bun install --frozen-lockfile`, then:
+
+```sh
+cd packages/fleet
+bunx playwright install chromium
+bun run test:bdd:local
+```
+
+`playwright-bdd` generates Playwright tests from `bdd/features/*.feature`.
+The local scenarios drive the real setup form/callback and installer wizard
+in Chromium. They reproduce GitHub losing the manifest during authentication,
+retry the original form, verify erase confirmation and image read-back, and
+refuse a missing download. GitHub authentication is simulated for this local
+regression; disks are temporary regular files behind both existing test guards.
+CI runs these scenarios before publishing installers and uploads `fleet-bdd-report`.
+
+To check the actual deployed `/add` page, GitHub release, all five platform
+downloads, multipart manifest and configured private-repository runner App,
+run from the workspace root:
+
+```sh
+vault run --config prd -- bun run --filter @pkgs/fleet test:bdd
+```
+
+The live scenarios require `FLEET_ADMIN_TOKEN`, `sops` and the CI role age key
+in `SOPS_AGE_KEY` or the ignored vault-root role-key inputs from setup. Missing
+access fails the test. The Windows executable is downloaded through the real
+release page and checked against GitHub's published SHA-256 and size. Image
+parts receive HTTP checks and their manifest hashes/sizes are compared with
+GitHub's asset metadata. The App uses its real encrypted key to obtain a runner
+registration token for the configured private repository; it never registers a
+runner or writes a physical disk. Live traces/video are disabled and evidence
+attachments contain no credentials.
+
+Open `packages/fleet/dist/bdd-report/index.html` for the HTML report and
+`packages/fleet/dist/bdd-results.json` for machine-readable results. Reports and
+generated tests stay ignored under `dist/`. These tests do not prove a Windows
+firmware handoff or a boot on the user's physical machine.
+
 ## What is tested, and what is not
 
 | Layer                                                                                  | How                                                                                                                                                                                                                                                  |
@@ -145,7 +190,7 @@ Git is the only control surface. Open a pull request; `Required` and `Fleet` pas
 | Every role evaluates with the agent wired in                                           | `agent-units` and the other `nix flake check` items                                                                                                                                                                                                  |
 | Role closures, installer ISO, sync, rollback, lifecycle                                | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                                                                                                                                                                         |
 
-Run the portable ones with `bun run --filter @pkgs/fleet check`. Be clear about the gaps: no change here has been run on a real machine or on github.com. The Windows conversion, the unsigned-GRUB boot from a raw partition, the real GitHub App creation and the production rollout of the API (Railway, Vault, PlanetScale) are covered by stand-ins and local equivalents, not by the real thing. Run them on a spare machine before relying on them, and read [the validation record](docs/validation.md).
+Run the portable ones with `bun run --filter @pkgs/fleet check`. The owner has created and installed the runner App on github.com; live acceptance tests check its registration permission and the deployed download. Windows conversion, the unsigned-GRUB boot from a raw partition and installation on physical hardware still need a spare-machine test. See [the validation record](docs/validation.md) for the dated evidence and remaining limits.
 
 ## Reference
 

@@ -71,9 +71,15 @@ def form_page(owner_kind, owner, state, document):
     value = html.escape(json.dumps(document), quote=True)
     return (
         "<!doctype html><meta charset=utf-8><title>Fleet setup</title>"
-        "<p>Sending the runner app definition to GitHub. Press <b>Create GitHub App</b> on the next page.</p>"
-        f'<form id=f method=post action="{action}"><input type=hidden name=manifest value="{value}"></form>'
-        "<script>document.getElementById('f').submit()</script>"
+        "<h1>Set up fleet runners</h1>"
+        "<p>Create a private GitHub App to register your fleet runners. "
+        "GitHub opens in another tab; press <b>Create GitHub App</b> there.</p>"
+        "<p>If GitHub asks you to sign in or confirm access, finish that first. "
+        "If it then says it could not find an App Manifest, return to this tab "
+        "and press the button again. Keep this page open until setup finishes.</p>"
+        f'<form method=post action="{action}" target="_blank" rel="noopener noreferrer">'
+        f'<input type=hidden name=manifest value="{value}">'
+        '<button type=submit>Create runner GitHub App</button></form>'
     ).encode()
 
 
@@ -127,7 +133,7 @@ def create_app(owner, kind, wait):
     server.flow = {"state": state, "code": None, "done": threading.Event(), "page": form_page(kind, owner, state, document)}
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{port}/"
-    say("Create the runner GitHub App: press 'Create GitHub App' on the GitHub page that opens.")
+    say("On the setup page, press 'Create runner GitHub App', then press 'Create GitHub App' on GitHub.")
     say(f"If no page opened, open this address in a browser on this computer: {url}")
     if not os.environ.get("FLEET_NO_BROWSER"):
         webbrowser.open(url)
@@ -298,6 +304,7 @@ def main(argv):
     say("  2. Apply the vault OpenTofu root so Vault holds the role keys and the fleet-enroll role:")
     say("       bun run infra:vault plan -out=fleet.plan   # review it")
     say("       bun run infra:vault apply fleet.plan")
+    say("     Keep the same fleet_age_keys map in foundation's vault_inputs (TOFU_VAULT_INPUTS), so CI preserves these keys.")
     return 0
 
 

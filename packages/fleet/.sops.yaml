@@ -1,12 +1,12 @@
 # One age recipient per role. CI and web never share a key.
 creation_rules:
   - path_regex: secrets/fleet\.(yaml|yml|json)$
-    age: age1j8gpklvaldjhyy7hk5us8zf6ftc2fhg4wshgne5uvfqlwjghc5fs04n5qq
+    age: age15gnpd4d83e2szeg8gzjgjqhk0agugywvgrr444h9mk75aqha89dq7q2cnr
   - path_regex: secrets/web\.(yaml|yml|json)$
-    age: age1l2yrazvrruefde5qz4d8ve7jfs02jvcgz33a3k3gseejhc42jcvqc22w0v
+    age: age1au6sgfhc30g24wf0emd8xvj970cewykhq7nxpkqmacftexj3pgqstw4zj3
   - path_regex: secrets/cache\.(yaml|yml|json)$
-    age: age1qg65hl4ra4qk42k95npcz70cgjurmalw8yyrvqp4fz4hc0q38c5qhyld7h
+    age: age1f5dj80uz0zjwhyvur8hh98w7crr3jlszl8vm6n0emfhy00psve0qtrr9nd
   - path_regex: secrets/netboot\.(yaml|yml|json)$
-    age: age1gwgacsaljs447yz94wa4ulef8n6fhyswmwnq5s7xgemxyh0n8sfq2af9sx
+    age: age1pjyzl9pxqsxll9p9cwrvn9llpksvx74h3lzqm27lzyxvrtdkwg6ste5a83
   - path_regex: secrets/devbox\.(yaml|yml|json)$
-    age: age19c6jvkp3lwtew6pc6al8v6chn2eygkdwul2xs5hvvkp87zc4ae3spuvslt
+    age: age1cmg9vu39pwv8u38mndql7h20fgl80wveweq4jgdexyrkrpgnqy3ss4dzkv

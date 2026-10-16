@@ -1,5 +1,65 @@
 # Validation record
 
+## 2026-10-16 installer recovery and browser acceptance
+
+The original `fleet-installer` release was absent. Re-running the failed main
+Fleet workflow [38685265311, attempt 2](https://github.com/crvouga/workspace/actions/runs/38685265311/attempts/2)
+passed its NixOS checks, VM tests, role/ISO builds, five wizard platform builds
+and publication. All five public installer downloads now return HTTP 200.
+The release-recovery workflow change also rebuilds an incomplete/missing
+release on a main push rather than accepting a skipped build as publication.
+
+The owner created and installed `crvouga-fleet-runners` on github.com. Setup
+saved its IDs in `settings/github.json` and its private key only in the
+CI-recipient-encrypted `secrets/fleet.yaml`, enabled by `fleet.nix`.
+Distinct enrollment keys for all five roles were applied through a reviewed
+saved vault-root plan (five additions, no updates/deletions), with missing
+prior Vault metadata checked first. The complete key map was then persisted
+in OpenTofu-managed CI vault inputs through a reviewed saved foundation plan
+(one secret update). Verification plans showed no changes for those targets.
+No private key, state, plan or secret input was committed.
+
+Installed pinned `playwright-bdd` 9.2.1 and `@playwright/test` 1.63.0. The latter
+matches the existing cross-platform wizard browser job. Playwright 1.64.1
+produced a generated-test source-location mismatch with this BDD version;
+1.63.0 runs the unmodified dependencies successfully.
+
+`vault run --config prd -- bun run --filter @pkgs/fleet test:bdd`:
+**11 passed in 18.7 seconds** in Chromium on macOS ARM64, none skipped:
+
+- Three local scenarios reproduce the GitHub authentication/manifest loss and
+  retry the real setup form/callback; refuse an unconfirmed erase; write and
+  read back the verified image; and refuse an unavailable image without
+  changing the simulated disk. GitHub is a local stand-in in the retry test;
+  disk access uses both existing guards and temporary regular files.
+- Eight live scenarios load the actual authenticated Fleet `/add` page,
+  follow its actual GitHub release link, download the Windows PE executable
+  and match its bytes/size/SHA-256 against release metadata; check HTTP 200
+  for all five platform downloads; compare every image part's availability,
+  size and GitHub asset digest with the manifest; and authenticate using the
+  real encrypted App key, verify the configured repository is private, and
+  obtain an HTTP 201 runner registration token. Tokens are never attached or
+  traced. No runner is registered by these tests.
+
+The full `bun run check` passed all **42 tasks**, including **568 Fleet tests**,
+with native PowerShell on PATH. The initial full run hit a concurrent Tailwind
+package-cache copy error in the API CSS test; a direct CSS build populated the
+cache and the complete rerun passed, including all 571 API tests. No dependency
+or check was patched or weakened. Fleet BDD typecheck and ESLint also pass.
+
+Gherkin and step definitions are under `bdd/`. The ignored HTML report is
+`dist/bdd-report/index.html`, with JSON at `dist/bdd-results.json` and sanitized
+checksum/registration evidence attached. CI runs the local scenarios in the
+Ubuntu wizard job before publication, preserving its report as an artifact.
+The live scenarios require owner credentials and are run explicitly, not
+silently skipped in credential-free CI.
+
+This proves the deployed downloads and the new App's registration permission.
+It does not prove a Windows UAC/firmware handoff, a physical NixOS install or
+a runner successfully executing a job. The published image tested above
+predates this newly enabled App configuration; a main Fleet publication of
+these changes is required before relying on the image's runner setup.
+
 ## Windows CI configuration follow-up
 
 The planned role/path is now CI by converting an existing Windows installation.
