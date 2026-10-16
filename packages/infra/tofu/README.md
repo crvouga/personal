@@ -171,7 +171,13 @@ The complete production `secrets` input must also contain real values for
 `TMDB_API_READ_ACCESS_TOKEN`, `YOUTUBE_API_KEY` and `RESEND_API_KEY`. The
 non-secret `EMAIL_FROM` is `Pickflix <noreply@resend.chrisvouga.dev>` in the service
 environment. `DATABASE_URL` comes from shared Postgres.
-Preserve every existing KV field when updating this input.
+Preserve every existing KV field when updating this input. The Vault root rejects
+missing or blank required external credentials before writing a KV document;
+it derives this list from required KV entries and Railway service secrets,
+excluding credentials generated or derived by OpenTofu. Update the complete
+`vault_inputs` through foundation (which owns `TOFU_VAULT_INPUTS`), then apply
+the Vault root with the same input. Updating only the live Vault document will
+be undone by the next CI reconciliation.
 
 Rollout follows the usual foundation/bootstrap/vault/fleet order. For a manual
 first foundation plan, apply a reviewed saved plan targeting only

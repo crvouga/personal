@@ -127,47 +127,60 @@ resource "random_password" "router" {
   special  = false
 }
 
+locals {
+  # Separate generated fields from external inputs so required-input checks can
+  # run during planning, even when generated credential values are unknown.
+  managed_values = {
+    for config in local.vault.kv.configs : config => merge(
+      { TURBO_TOKEN = lookup(var.secrets[config], "TURBO_TOKEN", random_password.turbo.result) },
+      config == "prd" ? local.router_values : {},
+      config == "prd" ? local.fleet_values : {},
+      config == "prd" ? { for name, password in random_password.pickflix : name => password.result } : {},
+      config == "prd" ? {
+        INITIAL_PASSWORD = local.router_values["9ROUTER_PASSWORD"]
+        JWT_SECRET       = local.router_values["9ROUTER_JWT_SECRET"]
+        API_KEY_SECRET   = local.router_values["9ROUTER_API_KEY_SECRET"]
+        MACHINE_ID_SALT  = local.router_values["9ROUTER_MACHINE_ID_SALT"]
+      } : {},
+      {
+        TURBO_API                = "https://${one([for service in local.config.services : service.hostname if service.id == "turborepo"])}"
+        TURBO_TEAM               = "local"
+        TURBO_CACHE              = "remote:rw"
+        TURBO_LOG_ORDER          = "auto"
+        TURBO_TELEMETRY_DISABLED = "1"
+        S3_ENDPOINT              = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
+        S3_REGION                = "auto"
+        S3_BUCKET                = data.terraform_remote_state.foundation.outputs.buckets[config == "dev" ? "development" : "production"]
+        S3_ACCESS_KEY_ID         = data.terraform_remote_state.foundation.outputs.r2_access_key_id
+        S3_SECRET_ACCESS_KEY     = data.terraform_remote_state.foundation.outputs.r2_secret_access_key
+        VAULT_TOKEN              = vault_token.runtime.client_token
+        CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
+        "9ROUTER_TUNNEL_TOKEN"   = data.terraform_remote_state.foundation.outputs.router_token
+        DATABASE_URL             = data.terraform_remote_state.foundation.outputs.database_url
+      }
+    )
+  }
+  required_input_keys = {
+    for config in local.vault.kv.configs : config => setsubtract(toset(concat(
+      [for key in local.vault.kv_keys : key.name if try(key.required, false) && contains(key.configs, config)],
+      config == "prd" ? flatten([for service in local.config.services : [for secret in try(service.secrets, []) : secret.name]
+      if try(service.kind, "railway") == "railway" && !try(service.standalone, false)]) : []
+    )), toset(keys(local.managed_values[config])))
+  }
+}
+
 resource "vault_kv_secret_v2" "personal" {
-  for_each = toset(local.vault.kv.configs)
-  mount    = vault_mount.secret.path
-  name     = "${local.vault.kv.project}/${each.key}"
-  data_json = jsonencode(merge(
-    { TURBO_TOKEN = random_password.turbo.result },
-    var.secrets[each.key],
-    each.key == "prd" ? local.router_values : {},
-    each.key == "prd" ? local.fleet_values : {},
-    each.key == "prd" ? { for name, password in random_password.pickflix : name => password.result } : {},
-    each.key == "prd" ? {
-      INITIAL_PASSWORD = local.router_values["9ROUTER_PASSWORD"]
-      JWT_SECRET       = local.router_values["9ROUTER_JWT_SECRET"]
-      API_KEY_SECRET   = local.router_values["9ROUTER_API_KEY_SECRET"]
-      MACHINE_ID_SALT  = local.router_values["9ROUTER_MACHINE_ID_SALT"]
-    } : {},
-    {
-      TURBO_API                = "https://${one([for service in local.config.services : service.hostname if service.id == "turborepo"])}"
-      TURBO_TEAM               = "local"
-      TURBO_CACHE              = "remote:rw"
-      TURBO_LOG_ORDER          = "auto"
-      TURBO_TELEMETRY_DISABLED = "1"
-      S3_ENDPOINT              = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
-      S3_REGION                = "auto"
-      S3_BUCKET                = data.terraform_remote_state.foundation.outputs.buckets[each.key == "dev" ? "development" : "production"]
-      S3_ACCESS_KEY_ID         = data.terraform_remote_state.foundation.outputs.r2_access_key_id
-      S3_SECRET_ACCESS_KEY     = data.terraform_remote_state.foundation.outputs.r2_secret_access_key
-      VAULT_TOKEN              = vault_token.runtime.client_token
-      CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
-      "9ROUTER_TUNNEL_TOKEN"   = data.terraform_remote_state.foundation.outputs.router_token
-      DATABASE_URL             = data.terraform_remote_state.foundation.outputs.database_url
-    }
-  ))
+  for_each  = toset(local.vault.kv.configs)
+  mount     = vault_mount.secret.path
+  name      = "${local.vault.kv.project}/${each.key}"
+  data_json = jsonencode(merge(var.secrets[each.key], local.managed_values[each.key]))
   lifecycle {
     prevent_destroy = true
     precondition {
-      condition = alltrue([for key in local.vault.kv_keys :
-        contains(keys(var.secrets[each.key]), key.name)
-        if try(key.required, false) && contains(key.configs, each.key) && key.name == "PORTFOLIO_GITHUB_TOKEN"
+      condition = alltrue([for name in local.required_input_keys[each.key] :
+        try(trimspace(var.secrets[each.key][name]) != "", false)
       ])
-      error_message = "Supply PORTFOLIO_GITHUB_TOKEN in each config's secrets input."
+      error_message = "Supply non-empty required Vault inputs for ${each.key}: ${join(", ", nonsensitive([for name in local.required_input_keys[each.key] : name if !try(trimspace(var.secrets[each.key][name]) != "", false)]))}. Generated and derived credentials are supplied by OpenTofu."
     }
   }
 }

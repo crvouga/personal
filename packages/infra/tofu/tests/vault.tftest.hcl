@@ -32,7 +32,10 @@ variables {
   admin_passwords       = { crvouga = "test-password" }
   secrets = {
     dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
-    prd = { PORTFOLIO_GITHUB_TOKEN = "prd-token" }
+    prd = merge(
+      { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
+      { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+    )
   }
   fleet_age_keys = {
     ci  = "AGE-SECRET-KEY-CI"
@@ -85,4 +88,46 @@ run "pickflix_credentials" {
     condition     = contains(keys(jsondecode(vault_kv_secret_v2.personal["prd"].data_json)), "PICKFLIX_SESSION_SECRET") && !contains(keys(jsondecode(vault_kv_secret_v2.personal["dev"].data_json)), "PICKFLIX_SESSION_SECRET")
     error_message = "Pickflix generated credentials belong in production only."
   }
+}
+
+run "reject_missing_youtube_key" {
+  command = plan
+  variables {
+    secrets = {
+      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      prd = { for name, value in merge(
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+      ) : name => value if name != "YOUTUBE_API_KEY" }
+    }
+  }
+  expect_failures = [vault_kv_secret_v2.personal["prd"]]
+}
+
+run "reject_missing_resend_key" {
+  command = plan
+  variables {
+    secrets = {
+      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      prd = { for name, value in merge(
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+      ) : name => value if name != "RESEND_API_KEY" }
+    }
+  }
+  expect_failures = [vault_kv_secret_v2.personal["prd"]]
+}
+
+run "reject_blank_service_credential" {
+  command = plan
+  variables {
+    secrets = {
+      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      prd = { for name, value in merge(
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !startswith(key.name, "PICKFLIX_") },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !startswith(secret.name, "PICKFLIX_")]])) : name => "test-${name}" }
+      ) : name => name == "TMDB_API_READ_ACCESS_TOKEN" ? "  " : value }
+    }
+  }
+  expect_failures = [vault_kv_secret_v2.personal["prd"]]
 }
