@@ -108,7 +108,7 @@ on:
         description: 'PAT or GITHUB_TOKEN with repo dispatch to the infra repo.'
         required: false
       CALLER_GITHUB_TOKEN:
-        description: 'Caller workflow github.token — required for GHCR push from cross-repo calls.'
+        description: 'Caller workflow github.token — GHCR fallback when no platform publish token is supplied.'
         required: false
       RAILWAY_TOKEN:
         description: 'Repo secret — vault bootstrap job only (not passed by callers).'
@@ -721,7 +721,9 @@ jobs:
           CALLER_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if { [ "${GITHUB_REPOSITORY}" = "crvouga/infra" ] || [ "${GITHUB_REPOSITORY}" = "crvouga/workspace" ]; } && [ -n "${DISPATCH_TOKEN}" ]; then
+          # Existing packages may be linked to another repository, so the
+          # caller's repository-scoped token cannot necessarily update them.
+          if [ -n "${DISPATCH_TOKEN}" ]; then
             echo "username=${{ steps.resolve.outputs.image_owner }}" >> "$GITHUB_OUTPUT"
             echo "password=${DISPATCH_TOKEN}" >> "$GITHUB_OUTPUT"
           elif [ -n "${CALLER_TOKEN}" ]; then

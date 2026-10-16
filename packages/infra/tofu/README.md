@@ -91,11 +91,18 @@ Cloudflare 5.26.0 also cannot import `cloudflare_zone_dns_settings`. Its initial
 
 The Postgres branch is `PS_5_AWS_ARM` in `us-east` on PostgreSQL 18 with `replicas = 0`: one primary and no replicas, the cheapest single-node network-attached size. The published PlanetScale provider creates that database from `planetscale_postgres_branch` and reports the replica count, but it does not send a replica count on create. PlanetScale then defaults the branch to two replicas. The branch postcondition rejects any other count before the connection URI is published. Resize the existing branch to the inventory count; replacing it creates the default count again. The role inherits `postgres` so Atlas and the applications can keep creating schemas. Direct connections use `sslmode=require`. `DB_CONNECTION_URI` and `DATABASE_URL` are the same URL; the Vault entrypoint and the Atlas schema resource add `search_path=secret_store` themselves.
 
-## Private image pulls
+## Public image pulls
 
-`fleet-api` and `9router` use private GHCR packages. Their inventory entries declare `railway.registry` with the GitHub username and the production Vault password key (`GITHUB_TOKEN_SUPER`, which must have `read:packages`). The fleet root supplies these through Railway’s `registryCredentials`, never as application variables. State and plans containing the password remain encrypted. Other services continue to pull public images anonymously.
+All container images must be public and anonymously pullable. The inventory
+rejects private registry credentials, and `bun run health --only images` checks
+anonymous GHCR pulls without requiring Vault access. Railway's private registry
+feature requires a paid plan and is not used.
 
-Railway does not expose registry credentials in its read API. The dedicated credential resource therefore tracks configured changes and token rotation without remote verification; ordinary service settings still detect drift. `bun run health --only images` verifies authenticated pulls using the same declared Vault credential and skips when Vault access is unavailable. After applying credentials, redeploy the existing image revision.
+The shared publisher prefers the OpenTofu-managed `DEPLOY_DISPATCH_TOKEN`,
+whose PAT needs `write:packages` as well as repository/workflow access. Existing
+packages can be linked to a different repository, so a caller's `GITHUB_TOKEN`
+may lack package write permission despite `packages: write`. The caller token
+remains a fallback when no platform token is supplied.
 
 ## Fleet API (`fleet-api`)
 
@@ -171,7 +178,13 @@ The complete production `secrets` input must also contain real values for
 `TMDB_API_READ_ACCESS_TOKEN`, `YOUTUBE_API_KEY` and `RESEND_API_KEY`. The
 non-secret `EMAIL_FROM` is `Pickflix <noreply@resend.chrisvouga.dev>` in the service
 environment. `DATABASE_URL` comes from shared Postgres.
-Preserve every existing KV field when updating this input.
+Preserve every existing KV field when updating this input. The Vault root rejects
+missing or blank required external credentials before writing a KV document;
+it derives this list from required KV entries and Railway service secrets,
+excluding credentials generated or derived by OpenTofu. Update the complete
+`vault_inputs` through foundation (which owns `TOFU_VAULT_INPUTS`), then apply
+the Vault root with the same input. Updating only the live Vault document will
+be undone by the next CI reconciliation.
 
 Rollout follows the usual foundation/bootstrap/vault/fleet order. For a manual
 first foundation plan, apply a reviewed saved plan targeting only
@@ -187,7 +200,7 @@ its service probe uses `/health`. Missing credentials report `SKIP`.
 
 `bun run infra`, `infra:bootstrap`, `infra:vault`, `infra:fleet` and `infra:state` forward arguments directly to OpenTofu. Review with `plan`; apply the reviewed saved plan. Stateful resources use `prevent_destroy`; decommissioning requires an explicit reviewed OpenTofu change, never an API deletion script.
 
-CI uses [.github/actions/tofu](../../../.github/actions/tofu/action.yml) for initialization, saved plans and serialized applies. It preserves all existing service image revisions when changing a subset of services. Local fleet plans must supply the complete deployed `image_tags` map from `tofu output -json image_tags`; incomplete maps fail validation. A service that was just added to the inventory has no output yet: the action and `bun run health --drift` add it at `default_image_tag`, so supply it the same way locally. Application image building remains Docker CI work. Railway pulls public GHCR images anonymously and private images with the inventory's declared registry credentials. There is no visibility-setting bypass script or dashboard instruction.
+CI uses [.github/actions/tofu](../../../.github/actions/tofu/action.yml) for initialization, saved plans and serialized applies. It preserves all existing service image revisions when changing a subset of services. Local fleet plans must supply the complete deployed `image_tags` map from `tofu output -json image_tags`; incomplete maps fail validation. A service that was just added to the inventory has no output yet: the action and `bun run health --drift` add it at `default_image_tag`, so supply it the same way locally. Application image building remains Docker CI work. All platform images must be public. Railway pulls GHCR images anonymously; the inventory rejects private registry credentials, and `bun run health --only images` verifies anonymous pulls. There is no visibility-setting bypass script or dashboard instruction.
 
 GitHub publisher files are `github_repository_file` resources rendered from [the shared template](modules/inventory/publish.yml.tftpl). The integration guide renders that same template. Resource edits, new hosting entries and secret values all go through OpenTofu.
 

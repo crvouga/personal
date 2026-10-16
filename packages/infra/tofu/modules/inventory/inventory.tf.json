@@ -1934,12 +1934,6 @@
         },
         {
           "id": "fleet-api",
-          "railway": {
-            "registry": {
-              "username": "crvouga",
-              "vault_key": "GITHUB_TOKEN_SUPER"
-            }
-          },
           "kind": "railway",
           "hostname": "fleet.chrisvouga.dev",
           "github_repo": "crvouga/workspace",
@@ -2035,11 +2029,7 @@
           "railway": {
             "sleep": false,
             "replicas": 1,
-            "health_check": false,
-            "registry": {
-              "username": "crvouga",
-              "vault_key": "GITHUB_TOKEN_SUPER"
-            }
+            "health_check": false
           },
           "env": {
             "PORT": "20128",
