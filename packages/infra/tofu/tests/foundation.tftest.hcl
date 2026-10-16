@@ -20,7 +20,7 @@ mock_provider "cloudflare" {
 mock_provider "github" {
   mock_data "github_actions_secrets" {
     defaults = {
-      secrets = [for name in ["DOCKER_USERNAME", "DOCKER_PASSWORD", "DOPPLER_SERVICE_TOKEN", "GENEBYGENE_CLIENT_ID", "GENEBYGENE_CLIENT_SECRET", "JUNCTION_API_KEY", "PADDLE_API_KEY", "STRIPE_SECRET_KEY"] : {
+      secrets = [for name in ["DEPLOY_DISPATCH_TOKEN", "DOCKER_USERNAME", "DOCKER_PASSWORD", "DOPPLER_SERVICE_TOKEN", "GENEBYGENE_CLIENT_ID", "GENEBYGENE_CLIENT_SECRET", "JUNCTION_API_KEY", "PADDLE_API_KEY", "STRIPE_SECRET_KEY"] : {
         name       = name
         created_at = "2026-10-01T00:00:00Z"
         updated_at = "2026-10-01T00:00:00Z"
@@ -66,11 +66,11 @@ run "complete_adoption_plan" {
     error_message = "The database role must inherit the built-in owner role so schema changes keep working."
   }
   assert {
-    condition     = length(github_repository_file.publish) == 14
+    condition     = length(github_repository_file.publish) == 15
     error_message = "Foundation adoption must preserve a publisher for every application repository."
   }
   assert {
-    condition     = length(github_actions_secret.repository) == 28 && length(output.unavailable_repository_secrets) == 0
+    condition     = length(github_actions_secret.repository) == 31 && length(output.unavailable_repository_secrets) == 0
     error_message = "GitHub-only secrets must be adopted without a duplicate plaintext Vault input."
   }
 }
@@ -106,7 +106,7 @@ run "missing_secrets_skip_only_their_resources" {
     values = { secrets = [] }
   }
   assert {
-    condition     = length(github_actions_secret.repository) == 23 && length(output.unavailable_repository_secrets) == 5
+    condition     = length(github_actions_secret.repository) == 26 && length(output.unavailable_repository_secrets) == 5
     error_message = "Missing Mockingbird credentials must not block unrelated foundation resources or other repositories' secrets."
   }
 }
@@ -117,7 +117,31 @@ run "unrelated_invalid_vault_values_do_not_block_adoption" {
     vault_inputs = jsonencode({ secrets = { prd = { DOCKER_PASSWORD = "  " } }, admin_passwords = {} })
   }
   assert {
-    condition     = length(github_actions_secret.repository) == 28
+    condition     = length(github_actions_secret.repository) == 31
     error_message = "GitHub secret adoption must not depend on the content of unrelated Vault fields."
+  }
+}
+
+run "pickflix_database_is_isolated" {
+  command = plan
+  assert {
+    condition     = postgresql_schema.pickflix.name == "pickflix" && postgresql_schema.pickflix.if_not_exists && endswith(atlas_schema.pickflix.url, "&search_path=pickflix")
+    error_message = "Pickflix must never manage objects outside its schema in the shared database."
+  }
+  assert {
+    condition     = atlas_schema.pickflix.hcl == file("${path.module}/pickflix-schema.hcl") && length(regexall("(?m)^schema \"", atlas_schema.pickflix.hcl)) == 1
+    error_message = "Pickflix tables and sessions must be owned by the local, single-schema Atlas definition."
+  }
+  assert {
+    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "ci.yml@main") && strcontains(github_repository_file.publish["pickflix-v1"].content, "- master") && github_repository_file.publish["pickflix-v1"].file == ".github/workflows/publish-image.yml"
+    error_message = "Adopt the existing Pickflix publisher in place and build master through the workspace workflow."
+  }
+}
+
+run "pickflix_publisher_builds_on_adoption" {
+  command = plan
+  assert {
+    condition     = !strcontains(github_repository_file.publish["pickflix-v1"].commit_message, "[skip ci]") && strcontains(github_repository_file.publish["pickflix-v1"].content, "id-token: write") && strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN")
+    error_message = "Pickflix publisher adoption must trigger a build with the reusable workflow's permissions and registry credentials."
   }
 }
