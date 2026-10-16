@@ -134,6 +134,47 @@ Hardware replacement and cleaning, cabling, and one-time firmware settings (Secu
 
 Git is the only control surface. Open a pull request; `Required` and `Fleet` pass on GitHub-hosted runners; the merge lands on `main`; nodes poll `main` and switch only to a system that is already in the binary cache. A bad change is a revert pull request. `fleet-node status` on a node is read-only. See [operations](docs/runbook.md).
 
+## Browser acceptance tests (Gherkin)
+
+Install from the workspace root with `bun install --frozen-lockfile`, then:
+
+```sh
+cd packages/fleet
+bunx playwright install chromium
+bun run test:bdd:local
+```
+
+`playwright-bdd` generates Playwright tests from `bdd/features/*.feature`.
+The local scenarios drive the real setup form/callback and installer wizard
+in Chromium. They reproduce GitHub losing the manifest during authentication,
+retry the original form, verify erase confirmation and image read-back, and
+refuse a missing download. GitHub authentication is simulated for this local
+regression; disks are temporary regular files behind both existing test guards.
+CI runs these scenarios before publishing installers and uploads `fleet-bdd-report`.
+
+To check the actual deployed `/add` page, GitHub release, all five platform
+downloads, multipart manifest and configured private-repository runner App,
+run from the workspace root:
+
+```sh
+vault run --config prd -- bun run --filter @pkgs/fleet test:bdd
+```
+
+The live scenarios require `FLEET_ADMIN_TOKEN`, `sops` and the CI role age key
+in `SOPS_AGE_KEY` or the ignored vault-root role-key inputs from setup. Missing
+access fails the test. The Windows executable is downloaded through the real
+release page and checked against GitHub's published SHA-256 and size. Image
+parts receive HTTP checks and their manifest hashes/sizes are compared with
+GitHub's asset metadata. The App uses its real encrypted key to obtain a runner
+registration token for the configured private repository; it never registers a
+runner or writes a physical disk. Live traces/video are disabled and evidence
+attachments contain no credentials.
+
+Open `packages/fleet/dist/bdd-report/index.html` for the HTML report and
+`packages/fleet/dist/bdd-results.json` for machine-readable results. Reports and
+generated tests stay ignored under `dist/`. These tests do not prove a Windows
+firmware handoff or a boot on the user's physical machine.
+
 ## What is tested, and what is not
 
 | Layer                                                                                  | How                                                                                                                                                                                                                                                  |
@@ -149,7 +190,7 @@ Git is the only control surface. Open a pull request; `Required` and `Fleet` pas
 | Every role evaluates with the agent wired in                                           | `agent-units` and the other `nix flake check` items                                                                                                                                                                                                  |
 | Role closures, installer ISO, sync, rollback, lifecycle                                | `nix flake check` and NixOS VM tests in the `Fleet` workflow                                                                                                                                                                                         |
 
-Run the portable ones with `bun run --filter @pkgs/fleet check`. Be clear about the gaps: no change here has been run on a real machine or on github.com. The Windows conversion, the unsigned-GRUB boot from a raw partition, the real GitHub App creation and the production rollout of the API (Railway, Vault, PlanetScale) are covered by stand-ins and local equivalents, not by the real thing. Run them on a spare machine before relying on them, and read [the validation record](docs/validation.md).
+Run the portable ones with `bun run --filter @pkgs/fleet check`. The owner has created and installed the runner App on github.com; live acceptance tests check its registration permission and the deployed download. Windows conversion, the unsigned-GRUB boot from a raw partition and installation on physical hardware still need a spare-machine test. See [the validation record](docs/validation.md) for the dated evidence and remaining limits.
 
 ## Reference
 
