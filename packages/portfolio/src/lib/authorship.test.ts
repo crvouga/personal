@@ -60,9 +60,9 @@ describe('project authorship', () => {
     expect(isHandWritten('mockingbird')).toBe(false);
   });
 
-  test('work from before 2026 is hand-written', () => {
+  test('historical projects respect the owner’s label choices', () => {
     expect(isHandWritten('asu-earned-admissions')).toBe(true);
-    expect(isHandWritten('normalizer-app')).toBe(true);
+    expect(isHandWritten('normalizer-app')).toBe(false);
     expect(isHandWritten('headless-combobox')).toBe(true);
   });
 

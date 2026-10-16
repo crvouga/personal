@@ -41,12 +41,12 @@
   --success: #3fb950;
   /* Hand-written work: purple, cool like the palette but never mistaken for
      the blue of a link or the green of a live status. */
-  --handwritten: #b388ff;
+  --handwritten: #51278a;
   --handwritten-soft: rgba(168, 112, 255, 0.14);
-  --handwritten-border: #8a5cf6;
-  --handwritten-shine: #ab8cfa;
-  /* A flat purple border with one soft highlight, only a shade lighter than
-     the border itself; drawn three times wider than the element so the
+  --handwritten-border: var(--handwritten);
+  --handwritten-shine: #7545ae;
+  /* A flat purple border with one soft highlight;
+     drawn three times wider than the element so the
      highlight spends most of each cycle off-stage. */
   --handwritten-sheen: linear-gradient(
     110deg,
@@ -323,48 +323,55 @@ section {
   height: 12px;
 }
 
-/* Marks projects written before AI coding agents. Lives here because the
-   project cards and the /projects/ legend both render one.
-
-   The border is a gradient painted under a transparent `border`, since a
-   `border-color` cannot animate a highlight around a rounded box. The fill
-   layers are clipped to the padding box so only the border shows the sheen. */
-.chip-handwritten {
-  flex: none;
-  color: var(--handwritten);
-  font-weight: 600;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(var(--handwritten-soft), var(--handwritten-soft))
-      padding-box,
-    linear-gradient(var(--paper), var(--paper)) padding-box,
-    var(--handwritten-sheen) border-box;
-  background-size:
-    auto,
-    auto,
-    300% 100%;
+/* The legend and card footers share the same shimmer motion. */
+.handwritten-text,
+.handwritten-footer {
+  background: var(--handwritten-sheen);
+  background-size: 300% 100%;
   animation: handwritten-sheen 9s linear infinite;
+}
+
+.handwritten-text {
+  display: inline-block;
+  color: transparent;
+  background-image: linear-gradient(
+    110deg,
+    #b388ff 0% 38%,
+    #e0ccff 50%,
+    #b388ff 62% 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
   white-space: nowrap;
+}
+
+/* A slim purple footer marks projects written before AI coding agents. */
+.handwritten-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: var(--space-2);
+  padding: 6px var(--space-4);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.4;
 }
 
 @keyframes handwritten-sheen {
   from {
-    background-position:
-      0 0,
-      0 0,
-      100% 0;
+    background-position: 100% 0;
   }
   to {
-    background-position:
-      0 0,
-      0 0,
-      0 0;
+    background-position: 0 0;
   }
 }
 
-.chip-handwritten svg {
-  width: 11px;
-  height: 11px;
+.handwritten-footer svg {
+  width: 20px;
+  height: 20px;
   flex: none;
 }
 
@@ -397,7 +404,8 @@ section {
     animation-duration: 0.01ms !important;
   }
   /* A looping animation cut to 0.01ms would strobe, so this one stops. */
-  .chip-handwritten {
+  .handwritten-text,
+  .handwritten-footer {
     animation: none;
   }
 }
