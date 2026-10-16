@@ -44,8 +44,10 @@ export type AuthorshipBadge = {
   readonly title: string;
 };
 
-/** Null for agent-era work and for projects with no recorded history. */
+/** Null for agent-era work, unlabelled projects, or missing history. */
 export const authorshipOf = (project: Project): AuthorshipBadge | null => {
+  // The project owner has opted normalizer.app out of the hand-written label.
+  if (project.id === 'normalizer-app') return null;
   const history = PROJECT_HISTORY[project.id];
   if (history === undefined) return null;
   const year = writtenYear(history);
