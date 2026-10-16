@@ -1,4 +1,4 @@
-{ lib, pkgs, settings, ... }: let
+{ lib, pkgs, settings, revision, ... }: let
   fleetTools = import ./fleet-tools.nix { inherit lib pkgs; };
 in {
   imports = [
@@ -68,11 +68,8 @@ in {
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 14d"; };
   nix.optimise = { automatic = true; dates = [ "03:00" ]; };
   environment.systemPackages = with pkgs; [
-    git pciutils ethtool nvme-cli jq
-    (writeShellScriptBin "fleet-node" ''
-      export PATH=${lib.makeBinPath [ bash python3 curl coreutils ]}:$PATH
-      exec ${bash}/bin/bash ${../scripts/fleet-node.sh} "$@"
-    '')
+    git pciutils ethtool nvme-cli jq kexec-tools
+    (import ./installer-package.nix { inherit pkgs lib revision; })
     (writeShellScriptBin "fleet-remove" ''
       export PATH=${lib.makeBinPath [ bash python3 curl coreutils ]}:$PATH
       exec ${bash}/bin/bash ${../scripts/fleet-node.sh} remove

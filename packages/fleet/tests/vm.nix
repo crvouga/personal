@@ -72,6 +72,11 @@ in pkgs.testers.runNixOSTest {
   testScript = { nodes, ... }: ''
     start_all()
     machine.wait_for_unit("multi-user.target")
+    # Run the native wizard and its real helper inside NixOS.
+    # --selftest writes temporary regular files, never a block device.
+    machine.succeed("fleet-installer --selftest | grep -F 'SELFTEST OK'", timeout=120)
+    machine.succeed("fleet-node --help | grep -- --reinstall")
+    machine.succeed("command -v kexec lsblk findmnt")
     machine.wait_for_unit("github-runner-slot-1.service")
     machine.wait_for_unit("github-runner-slot-2.service")
     machine.succeed("hostname | grep -Eq '^ci-[0-9a-f]{4}$'")

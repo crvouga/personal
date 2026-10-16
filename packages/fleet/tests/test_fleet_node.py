@@ -1013,6 +1013,26 @@ class NodeEntryTests(unittest.TestCase):
         result = self.run_entry(["ci", "--yes"], "", env)
         self.assertEqual(github.requests, [], self.combined(result))
 
+    def test_hard_reinstall_requests_fresh_approval_even_for_the_existing_role(self):
+        github, env = self._enrolling()
+        (self.state / "installed").write_text("role=ci\nstatus=installed\n")
+        process = self._start(["ci", "--reinstall", "--yes"], env)
+        link, lines = self._read_request(process)
+        self.assertFalse(self.boot_log.exists(), "approval must precede boot preparation")
+        self._owner_approves(github, link)
+        rest, _ = process.communicate(timeout=60)
+        text = "".join(lines) + rest
+        self.assertEqual(process.returncode, 0, text)
+        self.assertIn("Hard reinstall requested", text)
+        self.assertIn("fleet.enroll=hvs.CAESIapproved", self.boot_log.read_text())
+        self.assertNotIn("hvs.CAESIapproved", text)
+
+    def test_reinstall_flag_cannot_turn_flash_into_an_internal_disk_write(self):
+        result = self.run_entry(["flash", "--reinstall", "--yes"])
+        self.assertEqual(result.returncode, 2, self.combined(result))
+        self.assertFalse(self.boot_log.exists())
+        self.assertFalse(self.dd_log.exists())
+
     def _node(self, failed="", timer="active", revision="0123456789abcdef"):
         conf = self.root / "node.conf"
         conf.write_text("role=ci\n")

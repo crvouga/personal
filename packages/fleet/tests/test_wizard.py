@@ -210,6 +210,15 @@ class ImagingTests(unittest.TestCase):
 
 
 class HelperUnitTests(unittest.TestCase):
+    def test_native_nix_launcher_is_reentered_for_the_privileged_helper(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            launcher = root / "launcher"
+            launcher.write_text("native wrapper\n")
+            with mock.patch.object(elevate, "__file__", str(root / "elevate.py")):
+                self.assertEqual(elevate.helper_argv(root / "job"),
+                                 [str(launcher.resolve()), "--helper", str(root / "job")])
+
     def test_a_device_lease_excludes_another_process_and_releases_on_exit(self):
         name = "lease-test-" + str(os.getpid())
         code = "import leases,sys;\nwith leases.DeviceLease(sys.argv[1]): print('acquired')"
@@ -1019,6 +1028,16 @@ class InstallHereTests(WizardCase):
         self.assertTrue(scan["here_blockers"])
         status, body = self.call("POST", "/api/plan", {"mode": "here", "role": "ci"})
         self.assertEqual(status, 409)
+
+    def test_reinstall_is_an_explicit_boolean_in_the_acknowledged_plan(self):
+        for value in ("true", "false", 1, [], {}):
+            with self.subTest(value=value):
+                status, _body = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "reinstall": value})
+                self.assertEqual(status, 409)
+        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "reinstall": True})
+        self.assertEqual(status, 200, plan)
+        self.assertIs(plan["reinstall"], True)
+        self.assertIn("Hard reinstall", plan["summary"])
 
 
 class PageTests(unittest.TestCase):

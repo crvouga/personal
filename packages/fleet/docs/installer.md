@@ -1,6 +1,6 @@
 # Fleet installer (the wizard)
 
-Download it, open it, answer the questions. No terminal, no Python, no Nix.
+Download it, open it, answer the questions. Windows, macOS and ordinary Linux need no Python or Nix installation. On NixOS, use the native launcher below.
 
 ## 1. Download
 
@@ -13,6 +13,7 @@ Open the [`fleet-installer` release](https://github.com/crvouga/workspace/releas
 | Mac with an Intel chip   | `fleet-installer-macos-x64.zip`      |
 | Linux (Intel/AMD)        | `fleet-installer-linux-x64.tar.gz`   |
 | Linux (ARM, e.g. a Pi 5) | `fleet-installer-linux-arm64.tar.gz` |
+| NixOS (x86-64 or ARM64)  | Native Nix command below             |
 
 The computer you run it on does not have to be the computer that becomes the node. To set up a new or blank machine, run the wizard on any other computer and make an install USB.
 
@@ -47,8 +48,52 @@ Plug the stick into the new computer and start it from the stick (usually F12, F
 
 ## Changing a node's kind
 
-- On an existing fleet node, run `fleet-node web` (or `ci`, `cache`, `netboot`, `devbox`). It checks first, names the disk, and reinstalls. The wizard binary does not run on NixOS.
+- On an existing fleet node, run `sudo fleet-node web` (or `ci`, `cache`, `netboot`, `devbox`). It checks first, names the disk, and reinstalls. A same-role invocation keeps a healthy existing installation; use `--reinstall` to deliberately replace it.
 - On any other Linux computer, the wizard's **Turn THIS computer into a node** does the same thing.
+
+## NixOS
+
+Use the native Nix package rather than the ordinary Linux download. It includes
+its own Python and disk/boot tools and works without `nix-ld`. Current fleet
+images install both `fleet-installer` and `fleet-node` on every role.
+
+For the browser wizard on this machine:
+
+```sh
+sudo nix --extra-experimental-features 'nix-command flakes' run 'github:crvouga/workspace/main?dir=packages/fleet#fleet-installer' -- --no-browser
+```
+
+Open the loopback address printed in the terminal in a browser on that same
+machine. If it is headless, use the CLI below instead. Root access lets the
+wizard stage the image on the node's persistent `/nix` filesystem. The erase
+checkbox and disk confirmation still apply. In the wizard, choose the existing
+role and select **Hard reinstall** to replace a node with the same role.
+
+For a hard reinstall from a terminal, first preview the exact disk and checks:
+
+```sh
+sudo fleet-node ci --reinstall --plan
+sudo fleet-node ci --reinstall
+```
+
+If the installed command predates this flag, run the latest native CLI:
+
+```sh
+sudo nix --extra-experimental-features 'nix-command flakes' run 'github:crvouga/workspace/main?dir=packages/fleet#fleet-node' -- ci --reinstall --plan
+sudo nix --extra-experimental-features 'nix-command flakes' run 'github:crvouga/workspace/main?dir=packages/fleet#fleet-node' -- ci --reinstall
+```
+
+Replace `ci` with the intended role. The second command asks you to confirm the
+role and exact internal disk before anything is prepared. A hard reinstall
+wipes the OS and every file on that disk; it requests fresh GitHub enrollment
+so the newly installed role can decrypt its shared secrets. Do not use
+`--no-enroll` when those secrets are needed. Active CI jobs block the operation;
+an idle runner is withdrawn and new job admission is closed before handoff.
+If the handoff fails, the node remains withdrawn and the hard reinstall can be
+retried. Changing roles also erases the disk.
+
+NixOS ARM64 can make install USB media. Fleet nodes still require x86-64 UEFI;
+the program refuses to convert an ARM64 machine in place.
 
 ## Connecting to a remote devbox
 
@@ -66,7 +111,7 @@ The wizard shrinks `C:` by the installer's size, writes the installer into a new
 
 ## Supported hardware and operating systems
 
-The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, wired networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
+The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, wired networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. The ordinary Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. NixOS uses the native Nix package on x86-64 or ARM64; it does not need a foreign ELF loader. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
 
 An interrupted USB write leaves an incomplete stick. Keep it plugged in, restart the wizard and write the whole image again; it never reports that stick as ready before verification passes. A role reinstall erases the old OS and files.
 

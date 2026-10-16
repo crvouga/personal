@@ -1,5 +1,10 @@
 @live
 Feature: Install from the actual published fleet release
+  Scenario: The dashboard offers a native NixOS install and reinstall path
+    Given I have owner access to the deployed Fleet dashboard
+    When I open the deployed Add node page
+    Then the page offers the native NixOS installer and hard reinstall guide
+
   Scenario: Download the Windows installer from the deployed Add node page
     Given I have owner access to the deployed Fleet dashboard
     When I open the deployed Add node page

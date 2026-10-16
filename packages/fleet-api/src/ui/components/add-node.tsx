@@ -1,5 +1,6 @@
 import { ROLES } from '../../types';
 import { Icon } from './icon';
+import { NixosInstall } from './nixos-install';
 
 export const INSTALLER_URL =
   'https://github.com/crvouga/workspace/releases/tag/fleet-installer';
@@ -94,6 +95,7 @@ export function AddNodeSteps(props: { heading: 'h1' | 'h2'; title: string }) {
           Already ran it? See pending approvals
         </a>
       </div>
+      <NixosInstall />
     </section>
   );
 }

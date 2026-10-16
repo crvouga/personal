@@ -178,7 +178,9 @@ def install_here(request, progress):
     found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
     problems = [item for item in found if item["status"] == "fail"]
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
-    if decide.installed_for(role, directory):
+    reinstall = request.get("reinstall", False)
+    decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
+    if not reinstall and decide.installed_for(role, directory):
         return f"This computer is already installed as {role}. Nothing was changed."
     with leases.DeviceLease(chosen["path"]):
         # The handoff image is shared state too: a second helper must not

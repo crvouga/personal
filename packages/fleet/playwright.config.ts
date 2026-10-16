@@ -13,15 +13,33 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   workers: 1,
   retries: 0,
-  outputDir: 'dist/bdd-results',
+  outputDir: process.env['FLEET_BDD_OUTPUT_DIR'] ?? 'dist/bdd-results',
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'dist/bdd-report', open: 'never' }],
-    ['json', { outputFile: 'dist/bdd-results.json' }],
+    [
+      'html',
+      {
+        outputFolder:
+          process.env['PLAYWRIGHT_HTML_OUTPUT_DIR'] ?? 'dist/bdd-report',
+        open: 'never',
+      },
+    ],
+    [
+      'json',
+      {
+        outputFile:
+          process.env['PLAYWRIGHT_JSON_OUTPUT_FILE'] ?? 'dist/bdd-results.json',
+      },
+    ],
   ],
   use: { ...devices['Desktop Chrome'], screenshot: 'only-on-failure' },
   projects: [
-    { name: 'local', grep: /@local/, use: { trace: 'retain-on-failure' } },
+    {
+      name: 'local',
+      grep: /@local/,
+      ...(process.platform === 'win32' ? { grepInvert: /@posix/ } : {}),
+      use: { trace: 'retain-on-failure' },
+    },
     // Live authentication must never be written into a trace or video.
     { name: 'live', grep: /@live/, use: { trace: 'off', video: 'off' } },
   ],

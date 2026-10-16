@@ -257,6 +257,9 @@
             esc(r.blurb) +
             '</small></label>';
         });
+        if (s.node_role)
+          h +=
+            '<label class="choice"><input type="checkbox" id="reinstall"> <b>Hard reinstall</b><small>Erase and replace this node even when keeping the same role. Every file on its internal disk will be lost.</small></label>';
         h +=
           '<h2>Devbox SSH access</h2><p>If you choose Remote devbox, select your SSH <b>public</b> key file (usually <code>id_ed25519.pub</code> in your <code>.ssh</code> folder), or paste its contents below. Keep the private key on the computer you will connect from.</p>' +
           '<input type="file" id="key-file" accept=".pub" onchange="readPublicKey(this)">' +
@@ -324,6 +327,7 @@
           role: state.role,
           token: state.token,
           ssh_key: state.sshKey,
+          reinstall: document.getElementById('reinstall')?.checked === true,
           disk_id: state.scan.internal.id,
         });
       }
