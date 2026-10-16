@@ -9,6 +9,29 @@ import {
   publishedAssets,
 } from '../release';
 
+Then(
+  'the page offers the native NixOS installer and hard reinstall guide',
+  async ({ page }) => {
+    await page
+      .getByText('Installing or reinstalling NixOS?', { exact: true })
+      .click();
+    await expect(
+      page.getByRole('link', {
+        name: 'NixOS installation and hard reinstall guide',
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/crvouga/workspace/blob/main/packages/fleet/docs/installer.md#nixos'
+    );
+    await expect(page.locator('code')).toContainText(
+      'packages/fleet#fleet-installer'
+    );
+    await expect(
+      page.getByText(/running CI jobs block reinstallation/)
+    ).toBeVisible();
+  }
+);
+
 Given(
   'I have owner access to the deployed Fleet dashboard',
   async ({ page }) => {

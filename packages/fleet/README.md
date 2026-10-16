@@ -134,6 +134,22 @@ Hardware replacement and cleaning, cabling, and one-time firmware settings (Secu
 
 Git is the only control surface. Open a pull request; `Required` and `Fleet` pass on GitHub-hosted runners; the merge lands on `main`; nodes poll `main` and switch only to a system that is already in the binary cache. A bad change is a revert pull request. `fleet-node status` on a node is read-only. See [operations](docs/runbook.md).
 
+## NixOS installs and hard reinstalls
+
+Every fleet role includes the native `fleet-installer` browser wizard and
+`fleet-node` CLI. They carry their runtime and boot tools and work without
+`nix-ld`. Both are available as flake apps for x86-64 and ARM64 Linux; ARM64 can
+make USB media, while fleet nodes remain x86-64 UEFI only. See the
+[NixOS instructions](docs/installer.md#nixos) for the latest `nix run` commands
+and headless operation.
+
+`sudo fleet-node ci --reinstall --plan` previews a hard reinstall;
+`sudo fleet-node ci --reinstall` asks for the role and exact disk confirmation,
+then obtains fresh enrollment and replaces even a same-role installation.
+Without the flag, an existing healthy same-role node is preserved. The wizard
+has the same explicit **Hard reinstall** option. Running jobs block either
+path; idle CI nodes withdraw and close admission before boot handoff.
+
 ## Browser acceptance tests (Gherkin)
 
 Install from the workspace root with `bun install --frozen-lockfile`, then:
@@ -146,11 +162,15 @@ bun run test:bdd:local
 
 `playwright-bdd` generates Playwright tests from `bdd/features/*.feature`.
 The local scenarios drive the real setup form/callback and installer wizard
-in Chromium. They reproduce GitHub losing the manifest during authentication,
+in Chromium. They also exercise hard reinstalls for all five roles, CLI
+idempotence and preview, busy-job refusal, changed-disk refusal and recovery
+after a failed boot handoff. Reinstall scenarios use stand-in disks, firmware
+facts, runner control and kexec; ISO parsing, checksums, helper processes and
+admission locking run for real. They reproduce GitHub losing the manifest during authentication,
 retry the original form, verify erase confirmation and image read-back, and
 refuse a missing download. GitHub authentication is simulated for this local
 regression; disks are temporary regular files behind both existing test guards.
-CI runs these scenarios before publishing installers and uploads `fleet-bdd-report`.
+CI runs these scenarios against each actual built download before publication and uploads `fleet-bdd-<os>`. Linux x86-64 and ARM64 also run them against the native Nix package, with separate `fleet-bdd-native-<os>` reports. POSIX-only scenarios are filtered out on Windows; the platform, USB and App setup scenarios run there.
 
 To check the actual deployed `/add` page, GitHub release, all five platform
 downloads, multipart manifest and configured private-repository runner App,

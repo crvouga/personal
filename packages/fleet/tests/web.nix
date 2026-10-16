@@ -1,5 +1,17 @@
 { pkgs, lib, sopsModule, diskoModule }: let
   settings = import ../web.nix;
+  nativeFixture = pkgs.runCommand "native-reinstall-fixture" {} ''
+    mkdir -p "$out"
+    cp ${./native_reinstall.py} "$out/native_reinstall.py"
+    cp ${./iso_fixture.py} "$out/iso_fixture.py"
+  '';
+  boot = pkgs.writeShellScript "test-kexec" ''
+    test -f "$(dirname "$FLEET_TEST_ACTIONS")/busy/draining"
+    printf 'boot %s\n' "$*" >> "$FLEET_TEST_ACTIONS"
+  '';
+  control = pkgs.writeShellScript "test-runner-control" ''
+    printf 'runner %s\n' "$*" >> "$FLEET_TEST_ACTIONS"
+  '';
 in pkgs.testers.runNixOSTest {
   name = "fleet-web";
   # No route to the fleet API in the VM: leave the agent out.
@@ -10,14 +22,17 @@ in pkgs.testers.runNixOSTest {
     boot.loader.systemd-boot.enable = lib.mkForce false;
     users.users.root.hashedPassword = lib.mkForce null;
     environment.systemPackages = [ pkgs.curl ];
-    virtualisation = { memorySize = 2048; cores = 2; };
+    virtualisation = { memorySize = 3072; cores = 2; };
     environment.etc."web-role-firewall".text =
       lib.concatStringsSep "," (map toString (lib.sort (a: b: a < b) config.networking.firewall.allowedTCPPorts));
   };
   nodes.client = { pkgs, ... }: { environment.systemPackages = [ pkgs.curl pkgs.netcat-openbsd ]; };
-  testScript = { nodes, ... }: ''
+  testScript = { nodes, ... }: assert !nodes.web.programs.nix-ld.enable; ''
     start_all()
     web.wait_for_unit("multi-user.target")
+    # This role has no nix-ld compatibility loader. Test the native command.
+    web.succeed("fleet-installer --selftest | grep -F 'SELFTEST OK'", timeout=120)
+    web.succeed("${pkgs.python3}/bin/python3 ${nativeFixture}/native_reinstall.py ${boot} ${control}", timeout=120)
     web.wait_for_unit("node-identity.service")
     web.wait_for_unit("web-app-placeholder.service")
     web.wait_for_unit("caddy.service")

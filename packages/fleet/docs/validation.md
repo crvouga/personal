@@ -1,5 +1,33 @@
 # Validation record
 
+## 2026-10-16 native NixOS and explicit hard reinstalls
+
+The local Playwright BDD suite passes **21 Gherkin scenarios** on macOS ARM64,
+using the real wizard, helper subprocess and bundled CLI. Coverage includes
+same-role hard reinstalls for all five roles, default CLI idempotence, explicit
+CLI replacement, read-only preview, busy-runner refusal, changed disk identity,
+failed boot handoff recovery, platform eligibility, verified USB writes, App
+manifest retry without reverse DNS and build-version identity.
+
+Disk writes use regular temporary files. Firmware, disk discovery and boot
+commands are stand-ins; the tests verify the extracted kernel, role parameters,
+runner withdrawal order and closed job admission. They do not erase a physical
+disk or boot an actual installer kernel.
+
+`bun run check` also passes: **42 tasks**, including **572 Fleet Python tests**.
+Focused Fleet BDD and Fleet API typecheck/lint checks pass.
+
+The Fleet workflow now runs browser acceptance against every compiled platform
+download, and additionally against native Nix packages on Linux x86-64 and
+ARM64. The web NixOS VM exercises the native launcher and reinstall CLI with
+`nix-ld` disabled. Those new CI checks must pass for the exact revision before
+claiming platform validation. Reports are uploaded as `fleet-bdd-<os>` and
+`fleet-bdd-native-<os>`.
+
+NixOS ARM64 and macOS can make USB media; fleet targets remain x86-64 UEFI.
+Real Windows firmware handoff, physical USB boot, storage/network compatibility
+and a runner executing a real job still require a spare-machine acceptance run.
+
 ## 2026-10-16 installer recovery and browser acceptance
 
 The original `fleet-installer` release was absent. Re-running the failed main

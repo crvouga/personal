@@ -14,6 +14,8 @@ export interface World {
   downloadStatus?: number;
   registrationStatus?: number;
   installationToken?: string;
+  command?: { code: number; text: string };
+  role?: string;
 }
 
 export function required<T>(value: T | undefined): T {

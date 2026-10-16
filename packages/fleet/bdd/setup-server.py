@@ -5,9 +5,9 @@ No GitHub API calls, App creation, credentials or disks are involved.
 import html
 import json
 import os
+import socket
 import sys
 import threading
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -52,7 +52,11 @@ class Handler(setup.Flow):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    def no_reverse_dns(*args):
+        raise OSError("BDD: reverse DNS is unavailable")
+
+    socket.getfqdn = no_reverse_dns
+    server = setup.LoopbackServer(("127.0.0.1", 0), Handler)
     origin = f"http://127.0.0.1:{server.server_address[1]}"
     os.environ["FLEET_GITHUB_WEB"] = origin
     document = setup.manifest(origin + "/created", False)

@@ -117,6 +117,8 @@
       netboot = netboot.config.system.build.toplevel;
       devbox = devbox.config.system.build.toplevel;
       installer = installerIso.config.system.build.isoImage;
+      fleet-installer = import ./modules/installer-package.nix { inherit pkgs lib revision; };
+      fleet-node = self.packages.${system}.fleet-installer;
       default = self.packages.${system}.ci;
       disko = installDisk;
       disko-ci = installDisk;
@@ -161,7 +163,30 @@
         if broken == [ ] then "mkdir -p $out"
         else "echo 'roles without a working fleet-agent: ${lib.concatStringsSep ", " broken}' >&2; exit 1");
     };
-    apps.${system}.bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
+    apps.${system} = {
+      bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
+      fleet-installer = {
+        type = "app";
+        program = "${self.packages.${system}.fleet-installer}/bin/fleet-installer";
+      };
+      fleet-node = {
+        type = "app";
+        program = "${self.packages.${system}.fleet-node}/bin/fleet-node";
+      };
+    };
+    packages.aarch64-linux.fleet-installer = import ./modules/installer-package.nix {
+      pkgs = nixpkgs.legacyPackages.aarch64-linux;
+      inherit lib revision;
+    };
+    apps.aarch64-linux.fleet-installer = {
+      type = "app";
+      program = "${self.packages.aarch64-linux.fleet-installer}/bin/fleet-installer";
+    };
+    packages.aarch64-linux.fleet-node = self.packages.aarch64-linux.fleet-installer;
+    apps.aarch64-linux.fleet-node = {
+      type = "app";
+      program = "${self.packages.aarch64-linux.fleet-node}/bin/fleet-node";
+    };
     apps.aarch64-darwin.bootstrap = {
       type = "app";
       program = "${bootstrapFor nixpkgs.legacyPackages.aarch64-darwin}";

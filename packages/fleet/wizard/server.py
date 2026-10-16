@@ -184,6 +184,9 @@ class Wizard:
         mode = body.get("mode")
         decide.invariant(mode in ("usb", "here"), "the plan request names an unknown mode", mode=mode)
         role = body.get("role") or None
+        reinstall = body.get("reinstall", False)
+        decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
+        decide.invariant(not reinstall or mode == "here", "a hard reinstall must target this computer")
         ssh_key = decide.validate_ssh_key(body.get("ssh_key")) if mode == "here" and role == "devbox" else None
         token = (body.get("token") or "").strip() or None
         if role is not None:
@@ -217,13 +220,15 @@ class Wizard:
                                         iso_path=imaging.cache_dir(self.os_name) / "fleet-installer.iso")
             erase, disk_id, target = internal["plain"], internal["disk_id"], internal["path"]
             summary = f"This erases {internal['plain']}, including this computer's operating system and every file on it, and installs a {ROLE_INFO[role][0]}."
+            if reinstall:
+                summary = "Hard reinstall: replace the existing installation, even if it already has this role. " + summary
             if self.os_name == "Windows":
                 summary += (" Until it restarts, Windows is only prepared: C: is shrunk by the installer's size, the installer is written into a new partition and read back, "
                             "and the computer is told to start it once. If any step fails, everything is put back and Windows starts as before. "
                             "Save the BitLocker recovery key and plug in the power first; `fleet-node.sh ROLE --plan` prints the exact steps and sizes.")
         problems = [item for item in findings if item["status"] == "fail"]
         plan = {
-            "id": secrets.token_hex(8), "mode": mode, "role": role, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
+            "id": secrets.token_hex(8), "mode": mode, "role": role, "reinstall": reinstall, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
             "erase": erase, "summary": summary, "findings": findings, "ready": not problems, "created": time.time(),
         }
         with self.lock:
@@ -295,7 +300,7 @@ class Wizard:
         scratch = imaging.scratch_dir("fleet-job-")
         try:
             request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
-                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "token": plan["token"], "ssh_key": plan["ssh_key"]}
+                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"]}
             fd = os.open(scratch / "request.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w") as handle:
                 json.dump(request, handle)

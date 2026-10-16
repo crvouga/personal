@@ -37,6 +37,9 @@ def is_admin(os_name):
 
 def launcher_argv():
     """The command that starts this program again."""
+    native = Path(__file__).resolve().parent / "launcher"
+    if native.is_file():
+        return [str(native)]
     if getattr(sys, "frozen", False):
         return [sys.executable]
     return [sys.executable, str(Path(__file__).resolve().parent / "main.py")]

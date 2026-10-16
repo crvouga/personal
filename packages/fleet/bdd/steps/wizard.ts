@@ -3,6 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { Given, When, Then, required } from '../fixtures';
 import { startWizard } from '../wizard';
 
+Then('the wizard reports the expected build revision', async ({ page }) => {
+  const version = process.env['FLEET_BDD_EXPECT_VERSION'] ?? 'dev';
+  await expect(page.getByText(/Version /)).toContainText('Version ' + version);
+});
+
 Given(
   'I open the installer wizard with a published image and a simulated USB disk',
   async ({ page, world }) => {

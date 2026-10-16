@@ -2788,7 +2788,10 @@ exec "$py" "$payload" "$@"
 # def cmd_install(argv, action):
 #     assume_yes = flag(os.environ.get("FLEET_YES")) or any(a in ("--yes", "-y") for a in argv)
 #     plan_only = "--plan" in argv
-#     argv = [a for a in argv if a not in ("--yes", "-y", "--plan")]
+#     reinstall = "--reinstall" in argv
+#     argv = [a for a in argv if a not in ("--yes", "-y", "--plan", "--reinstall")]
+#     if reinstall and action != "install":
+#         return fail("Next: --reinstall takes a node role, not flash. Nothing was written.", 2)
 #     argv, token, token_error = enroll_token(argv)
 #     if token_error:
 #         return fail(token_error, 2)
@@ -2829,7 +2832,7 @@ exec "$py" "$payload" "$@"
 #             say("  " + line)
 #         say("Result: ready. This was only the plan: nothing was written or changed. Run the same command without --plan to do it.")
 #         return 0
-#     if action == "install" and not token and enroll_enabled() and not installed_for(role, directory):
+#     if action == "install" and not token and enroll_enabled() and (reinstall or not installed_for(role, directory)):
 #         token, error = self_enroll(role)
 #         if error:
 #             return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
@@ -2839,6 +2842,8 @@ exec "$py" "$payload" "$@"
 #     if action == "install":
 #         say(f"Role: {role}")
 #         say(f"Disk: {chosen['plain']}")
+#         if reinstall:
+#             say("Hard reinstall requested: the existing installation and every file on the internal disk will be erased.")
 #         say("This erases that internal disk. Nothing is erased until you confirm the role and the disk.")
 #         say("Type this line exactly:")
 #         say(f"{role}: {chosen['plain']}")
@@ -2862,7 +2867,7 @@ exec "$py" "$payload" "$@"
 #     block = install_block if action == "install" else media_block
 #     invariant(block(again["disk"]) is None, "the disk about to be erased fails the rules that chose it", disk=again["disk"])
 #     invariant(device_ok(again["path"]), "the disk about to be erased has an unusable device path", path=again["path"])
-#     if action == "install" and installed_for(role, directory):
+#     if action == "install" and not reinstall and installed_for(role, directory):
 #         say(f"This machine is already installed as {role}. The disk was not wiped.")
 #         return 0
 #     iso = directory / "fleet-installer.iso"
@@ -3048,6 +3053,7 @@ exec "$py" "$payload" "$@"
 #
 # Flags: --yes (take the confirmation as typed), --token-file PATH, --no-enroll (skip the GitHub approval
 # and let the node make its own key), --json (doctor), --plan (print the exact steps and sizes, change nothing).
+# --reinstall deliberately erases an existing installation of the same role; disk checks and confirmation still apply.
 # Every run writes a log; its path is printed when something fails.
 # Agent runbook: """ + GUIDE_URL
 #

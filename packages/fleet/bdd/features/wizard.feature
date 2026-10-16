@@ -1,5 +1,9 @@
 @local
 Feature: Safely download and write the fleet installer
+  Scenario: Run the installer built for this revision
+    Given I open the installer wizard with a published image and a simulated USB disk
+    Then the wizard reports the expected build revision
+
   Scenario: Write a verified installer only after an explicit confirmation
     Given I open the installer wizard with a published image and a simulated USB disk
     When I choose the USB disk and review the installation
