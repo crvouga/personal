@@ -84,7 +84,8 @@ describe("vault", () => {
 
   test("production must hold every key the committed inventory feeds to services, tunnels and stores", () => {
     const keys = requiredKvKeys(loadServicesConfig(), "prd");
-    expect(keys).toEqual(expect.arrayContaining(["TURBO_TOKEN", "DATABASE_URL", "S3_BUCKET", "9ROUTER_PASSWORD", "VAULT_TOKEN", "GITHUB_TOKEN_SUPER"]));
+    expect(keys).toEqual(expect.arrayContaining(["TURBO_TOKEN", "DATABASE_URL", "S3_BUCKET", "9ROUTER_PASSWORD", "VAULT_TOKEN"]));
+    expect(keys).not.toContain("GITHUB_TOKEN_SUPER");
     expect(requiredKvKeys(loadServicesConfig(), "dev")).not.toContain("DATABASE_URL");
   });
 });
