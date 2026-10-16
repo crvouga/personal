@@ -1,0 +1,191 @@
+diff --git a/src/shared/components/OAuthModal.js b/src/shared/components/OAuthModal.js
+index 1335d6f..40e8659 100644
+--- a/src/shared/components/OAuthModal.js
++++ b/src/shared/components/OAuthModal.js
+@@ -4,6 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
+ import PropTypes from "prop-types";
+ import { Modal, Button, Input } from "@/shared/components";
+ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
++import {
++  browserOAuthFlow, callbackStateMatches,
++  requireCallbackState, parseClaudeCallback, isTrustedCallbackOrigin,
++} from "@/lib/oauth/oauth-browser.mjs";
++
++const STATE_CHECKED_PROVIDERS = new Set(["claude", "codex", "xai", "antigravity", "gemini-cli"]);
+ 
+ // Providers using the dynamic-port local callback proxy.
+ // Browser OAuth: popup → auto callback → auto exchange → poll-status.
+@@ -66,16 +72,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+   const { copied, copy } = useCopyToClipboard();
+ 
+   // State for client-only values to avoid hydration mismatch
+-  const [isLocalhost, setIsLocalhost] = useState(false);
+   const [placeholderUrl, setPlaceholderUrl] = useState("/callback?code=...");
+   const callbackProcessedRef = useRef(false);
+ 
+-  // Detect if running on localhost (client-side only)
++  // Set the callback placeholder client-side to avoid hydration mismatch.
+   useEffect(() => {
+     if (typeof window !== "undefined") {
+-      setIsLocalhost(
+-        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+-      );
+       setPlaceholderUrl(`${window.location.origin}/callback?code=...`);
+     }
+   }, []);
+@@ -86,6 +88,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+   const exchangeTokens = useCallback(async (code, state) => {
+     if (!authData) return;
+     try {
++      if (STATE_CHECKED_PROVIDERS.has(provider) && !(code?.startsWith("eyJ") && code.includes("."))) {
++        requireCallbackState(authData.state, state);
++      }
+       const res = await fetch(`/api/oauth/${provider}/exchange`, {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+@@ -361,14 +366,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+ 
+       // Authorization code flow - build redirect URI (some providers require fixed ports)
+       const appPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
+-      let redirectUri;
+-      if (provider === "codex") {
+-        redirectUri = "http://localhost:1455/auth/callback";
+-      } else if (provider === "xai") {
+-        redirectUri = "http://127.0.0.1:56121/callback";
+-      } else {
+-        redirectUri = `http://localhost:${appPort}/callback`;
+-      }
++      const browserFlow = browserOAuthFlow(provider, window.location);
++      const { redirectUri } = browserFlow;
+ 
+       // Build authorize URL first to get codeVerifier/state for codex server-side mode
+       const authorizeUrl = new URL(`/api/oauth/${provider}/authorize`, window.location.origin);
+@@ -383,7 +382,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+       // Codex: start proxy with server-side session (auto-exchange) + fallback to channels
+       let codexProxyActive = false;
+       let codexServerSide = false;
+-      if (provider === "codex") {
++      if (provider === "codex" && browserFlow.startProxy) {
+         try {
+           const proxyUrl = new URL(`/api/oauth/codex/start-proxy`, window.location.origin);
+           proxyUrl.searchParams.set("app_port", appPort);
+@@ -402,7 +401,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+       // xAI: same fixed-port server-side proxy pattern as codex (port 56121)
+       let xaiProxyActive = false;
+       let xaiServerSide = false;
+-      if (provider === "xai") {
++      if (provider === "xai" && browserFlow.startProxy) {
+         try {
+           const proxyUrl = new URL(`/api/oauth/xai/start-proxy`, window.location.origin);
+           proxyUrl.searchParams.set("app_port", appPort);
+@@ -456,7 +455,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+         if (!popupRef.current) {
+           setStep("input");
+         }
+-      } else if (!isLocalhost || provider === "codex" || provider === "xai") {
++      } else if (browserFlow.manual || provider === "codex" || provider === "xai") {
+         // Non-localhost or proxy failed: manual input mode
+         setStep("input");
+         window.open(data.authUrl, "_blank");
+@@ -584,6 +583,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+ 
+       const { code, token, state, error: callbackError, errorDescription } = data;
+ 
++      // Ignore callbacks from another tab or an earlier login attempt.
++      if (STATE_CHECKED_PROVIDERS.has(provider) && !callbackStateMatches(authData.state, state)) return;
++
+       if (callbackError) {
+         callbackProcessedRef.current = true;
+         setError(errorDescription || callbackError);
+@@ -599,10 +601,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+ 
+     // Method 1: postMessage from popup
+     const handleMessage = (event) => {
+-      // Allow messages from same origin or localhost (any port)
+-      const isLocalhost = event.origin.includes("localhost") || event.origin.includes("127.0.0.1");
+-      const isSameOrigin = event.origin === window.location.origin;
+-      if (!isLocalhost && !isSameOrigin) return;
++      if (!isTrustedCallbackOrigin(event.origin, window.location.origin)) return;
+       
+       if (event.data?.type === "oauth_callback") {
+         handleCallback(event.data.data);
+@@ -652,7 +651,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+       window.removeEventListener("storage", handleStorage);
+       if (channel) channel.close();
+     };
+-  }, [authData, exchangeTokens]);
++  }, [authData, exchangeTokens, provider]);
+ 
+   // Handle manual URL input
+   const handleManualSubmit = async () => {
+@@ -677,6 +676,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+ 
+       const input = callbackUrl.trim();
+ 
++      if (provider === "claude") {
++        const { code, state } = parseClaudeCallback(input, authData?.state);
++        await exchangeTokens(code, state);
++        return;
++      }
++
+       // Trae/Windsurf/Zed proxy flow fallback (popup blocked): paste the full callback URL
+       if (PROXY_OAUTH_PROVIDERS.has(provider) && input) {
+         const res = await fetch(`/api/oauth/${provider}/exchange`, {
+@@ -706,7 +711,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+       }
+ 
+       if (provider === "xai" && input && !input.includes("://") && !input.includes("?") && !input.includes("code=")) {
+-        await completeXaiManualCode(input);
++        if (authData?.xaiServerSide) await completeXaiManualCode(input);
++        else await exchangeTokens(input, authData?.state);
+         return;
+       }
+ 
+@@ -755,7 +761,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+   const isKimchiProvider = provider === "kimchi";
+   const deviceLoginUrl = deviceData?.verification_uri_complete || deviceData?.verification_uri || "";
+   const modalTitle = isXaiProvider ? "Connect Grok Build OAuth" : `Connect ${providerInfo.name}`;
+-  const manualPlaceholder = isXaiProvider
++  const manualPlaceholder = provider === "claude"
++    ? "Paste copied code#state or the full callback URL"
++    : isXaiProvider
+     ? "http://127.0.0.1:56121/callback?code=... or copied code"
+     : isKimchiProvider
+       ? `${placeholderUrl.replace("code=...", "token=...")} or copied token`
+@@ -843,6 +851,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+         {/* Waiting + Manual Input combined (non-device-code, non-proxy) */}
+         {(step === "waiting" || step === "input") && !isDeviceCode && !PROXY_OAUTH_PROVIDERS.has(provider) && (
+           <>
++            {step === "waiting" && <>
+             {/* Option A: Auto via popup */}
+             <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
+               <span className="material-symbols-outlined text-base text-primary animate-spin">
+@@ -860,6 +869,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+               <div className="flex-1 h-px bg-border" />
+             </div>
+ 
++            </>}
++
+             {/* Option B: Manual paste */}
+             <div className="space-y-4">
+               <div>
+@@ -876,14 +887,16 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess,
+ 
+               <div>
+                 <p className="text-sm font-medium mb-2">
+-                  Step 2: Paste the {provider === "xai" ? "callback URL or copied code" : isKimchiProvider ? "callback URL or copied token" : "callback URL"} here
++                  Step 2: Paste the {provider === "claude" || provider === "xai" ? "callback URL or copied code" : isKimchiProvider ? "callback URL or copied token" : "callback URL"} here
+                 </p>
+                 <p className="text-xs text-text-muted mb-2">
+-                  {provider === "xai"
++                  {provider === "claude"
++                    ? "After authorizing, copy the code Claude displays and paste it here. You can also paste the full callback URL. Keep this dialog open."
++                    : provider === "xai"
+                     ? "If xAI shows a code instead of redirecting, paste that code here."
+                     : isKimchiProvider
+                       ? "After authorization, copy the full callback URL or token from your browser."
+-                    : "After authorization, copy the full URL from your browser."}
++                    : "After authorization, copy the full URL from your browser, even if localhost cannot connect. Return here, paste it, and click Connect. Keep this dialog open."}
+                 </p>
+                 <Input
+                   value={callbackUrl}

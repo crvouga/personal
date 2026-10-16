@@ -1,6 +1,6 @@
 # 9router on Railway
 
-The unmodified [upstream 9router image](https://github.com/decolua/9router/blob/master/DOCKER.md) serves https://9router.chrisvouga.dev. Configure providers, combos and clients through its dashboard. This package adds only [Litestream](https://litestream.io/guides/docker/) and a startup lock; it has no application fork, local daemon manager, tunnel connector or dependency patches.
+The [upstream 9router image](https://github.com/decolua/9router/blob/master/DOCKER.md), rebuilt with a narrowly scoped hosted OAuth fix, serves https://9router.chrisvouga.dev. Configure providers, combos and clients through its dashboard. This package also adds [Litestream](https://litestream.io/guides/docker/) and a startup lock.
 
 SQLite lives at `/tmp/9router/db/data.sqlite` on the container's ephemeral filesystem. **Do not attach a Railway volume.** Litestream restores from `9router/sqlite` in the existing shared production R2 bucket before starting the app, replicates WAL every second and runs a final one-shot replication after the app closes on graceful shutdown. Only Postgres and blob storage retain durable state. Logs, certificates and other runtime files are disposable; the supported hosted workflow uses the web dashboard and provider OAuth/API connections, without local MITM tools.
 
@@ -9,6 +9,22 @@ The wrapper holds the shared Postgres session advisory lock `(923, 20128)` acros
 Railway runs one replica, always on, with zero overlap and a 60 second drain budget. Its **deployment** healthcheck is disabled so the waiting wrapper becomes active and Railway terminates the old writer; otherwise the lock handoff would deadlock. Public inventory health checks still probe `/api/health`. Updates have a brief interruption while the new process restores. Do not enable sleeping, multiple replicas, or a deployment healthcheck without changing this protocol.
 
 All service, DNS and secret configuration belongs to the [OpenTofu inventory](../infra/tofu/modules/inventory/inventory.tf.json). CI builds this package's Dockerfile and publishes/deploys it with the other workspace images. `DATABASE_URL`, the existing four router credentials (exposed as `INITIAL_PASSWORD`, `JWT_SECRET`, `API_KEY_SECRET`, `MACHINE_ID_SALT`) and shared `S3_*` values come from the production Vault document through OpenTofu. No new bucket or database is needed.
+
+## Hosted provider OAuth
+
+The pinned upstream version (`0.5.104`) constructs `http://localhost:443/callback` on an HTTPS dashboard ([upstream issue #4054](https://github.com/decolua/9router/issues/4054)). The user explicitly approved a narrow exception to the no-dependency-patches rule for this OAuth UI. [hosted-oauth.patch](hosted-oauth.patch) wires the tested [browser helper](oauth-browser.mjs) into the upstream component. Docker verifies the source archive checksum, applies the patch without fuzz, installs the locked upstream build dependencies, and rebuilds the complete Next.js application so server/client manifests and cache hashes agree. It does not edit compiled JavaScript. Keep the image digest, source commit, archive checksum, patch and upstream lockfile aligned when upgrading; remove the patch when upstream provides an equivalent fix.
+
+Hosted logins work as follows:
+
+- **Claude:** Authorize in the tab that opens. Claude redirects to its registered `https://platform.claude.com/oauth/code/callback` page. Copy its displayed code (including `#state` when present), return to the open Connect dialog, paste it into Step 2, and click **Connect**. Full callback URLs are also accepted.
+- **Codex and xAI:** Authorize, then copy the entire final localhost callback URL, even if that page cannot connect. Paste it into Step 2 of the original Connect dialog and click **Connect**. Their registered fixed callback addresses remain intact. No callback listener starts on Railway, and the modal does not claim to be waiting for a popup callback.
+- **Google installed-app providers (Antigravity/Gemini CLI):** Keep a loopback callback accepted by their installed-app registration and use the same manual full-URL flow. A public dashboard hostname is not their registered callback.
+- **Other generic browser callback providers:** Return to the dashboard's actual public origin at `/callback` using the existing popup callback mechanism.
+- **Device-code providers:** Complete their verification page as before.
+
+Keep the original Connect dialog open until completion. Closing or refreshing it loses the attempt's PKCE verifier; restart login if that happens or the code expires. Callback state must match the active attempt. Plain Claude codes remain bound to that attempt by PKCE. Treat callback URLs/codes as credentials and never post them in issues or logs. Local loopback dashboards retain their automatic callback behavior, including the local Codex/xAI listeners.
+
+Setting `BASE_URL`, `NEXT_PUBLIC_BASE_URL`, or `PORT` alone cannot fix this upstream browser code. Redirecting every provider to the public hostname also fails registrations that require loopback or provider-owned callbacks. The focused regression suite covers callback selection, state validation, copied Claude codes, local behavior and trusted callback origins.
 
 ## Cutover
 
