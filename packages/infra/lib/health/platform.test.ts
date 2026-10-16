@@ -186,7 +186,7 @@ describe("github", () => {
       [`${GITHUB}/repos/acme/app/contents/.github/workflows/publish.yml`]: { status: 404 },
       [`${GITHUB}/repos/acme/app/contents/.github/workflows/publish-image.yml`]: { status: 200 },
     }) });
-    const config = { ...ctx.config, github: { ...ctx.config.github,
+    const config = { ...ctx.config, github: { ...ctx.config.github!,
       repositories: { app: { default_branch: "main", publisher_file: ".github/workflows/publish-image.yml" } },
     } };
     const results = await checkGithub({ ...ctx, config });
