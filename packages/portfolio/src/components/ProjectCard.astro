@@ -66,16 +66,6 @@ const badge = authorshipOf(project);
           )
         }
       </h3>
-      {
-        badge !== null && (
-          <span class="chip chip-handwritten" title={badge.title}>
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-            </svg>
-            {badge.label}
-          </span>
-        )
-      }
     </div>
     <p class="desc">{project.description}</p>
     <div class="meta">
@@ -118,6 +108,25 @@ const badge = authorshipOf(project);
       </div>
     </div>
   </div>
+  {
+    badge !== null && (
+      <div class="handwritten-footer" title={badge.title}>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M18 11V7a2 2 0 0 0-4 0M14 10V5a2 2 0 0 0-4 0v5M10 9.5V7a2 2 0 0 0-4 0v9" />
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.9-2.9L7 15" />
+        </svg>
+        {badge.label}
+      </div>
+    )
+  }
 </article>
 
 <style>
@@ -167,15 +176,6 @@ const badge = authorshipOf(project);
     flex-direction: column;
     gap: var(--space-3);
     flex: 1;
-  }
-  /* The badge sits beside the title and drops below it when the two do not
-     fit, rather than squeezing a long title into a narrow column. */
-  .heading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2) var(--space-3);
   }
   h3 {
     font-family: var(--font-mono);
