@@ -24,14 +24,15 @@ data "vault_kv_secret_v2" "production" {
 }
 
 module "service" {
-  for_each       = local.services
-  source         = "../modules/railway-service"
-  project_id     = data.terraform_remote_state.foundation.outputs.project_id
-  environment_id = data.terraform_remote_state.foundation.outputs.environment_id
-  zone_id        = data.terraform_remote_state.foundation.outputs.zone_id
-  region         = local.config.railway.region
-  service        = each.value
-  image          = try(each.value.image, "ghcr.io/${local.config.image_owner}/${local.config.image_prefix}-${each.key}:${lookup(var.image_tags, each.key, local.config.default_image_tag)}")
+  for_each          = local.services
+  source            = "../modules/railway-service"
+  project_id        = data.terraform_remote_state.foundation.outputs.project_id
+  environment_id    = data.terraform_remote_state.foundation.outputs.environment_id
+  zone_id           = data.terraform_remote_state.foundation.outputs.zone_id
+  region            = local.config.railway.region
+  service           = each.value
+  image             = try(each.value.image, "ghcr.io/${local.config.image_owner}/${local.config.image_prefix}-${each.key}:${lookup(var.image_tags, each.key, local.config.default_image_tag)}")
+  registry_password = try(data.vault_kv_secret_v2.production.data[each.value.railway.registry.vault_key], null)
   variables = merge(
     { for name, value in try(each.value.env, {}) : name => lookup({
       from_vault_addr         = local.vault_addr

@@ -32,6 +32,10 @@ variables {
 run "image_and_environment" {
   command = plan
   assert {
+    condition     = length(graphql_mutation.registry_credentials) == 0
+    error_message = "Public image services must not receive private registry credentials."
+  }
+  assert {
     condition     = railway_service.this.source_image == "ghcr.io/example/app:revision"
     error_message = "An image revision must be owned by OpenTofu, not a deployment script."
   }
@@ -74,4 +78,42 @@ run "locked_writer_handoff" {
     condition     = graphql_mutation.settings.mutation_variables.healthcheckPath == "null"
     error_message = "Disable only the Railway deploy probe so the old writer can stop before the new writer restores. Public health probes remain enabled."
   }
+}
+
+run "private_registry" {
+  command = plan
+  variables {
+    registry_password = "test-only-registry-password"
+    service = {
+      id       = "private-app"
+      hostname = "private.example.com"
+      port     = 8080
+      railway  = { registry = { username = "example", vault_key = "GHCR_TOKEN" } }
+    }
+  }
+  assert {
+    condition     = length(graphql_mutation.registry_credentials) == 1
+    error_message = "Private images must configure Railway registry credentials."
+  }
+  assert {
+    condition     = nonsensitive(jsondecode(graphql_mutation.registry_credentials[0].mutation_variables.credentials).username) == "example"
+    error_message = "Use the declared registry username."
+  }
+  assert {
+    condition     = graphql_mutation.registry_credentials[0].enable_remote_state_verification == false && graphql_mutation.settings.enable_remote_state_verification != false
+    error_message = "Only write-only credentials bypass remote verification; ordinary settings must still detect drift."
+  }
+}
+
+run "missing_registry_password" {
+  command = plan
+  variables {
+    service = {
+      id       = "private-app"
+      hostname = "private.example.com"
+      port     = 8080
+      railway  = { registry = { username = "example", vault_key = "GHCR_TOKEN" } }
+    }
+  }
+  expect_failures = [graphql_mutation.registry_credentials[0]]
 }
