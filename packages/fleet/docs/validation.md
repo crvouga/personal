@@ -25,7 +25,7 @@ produced a generated-test source-location mismatch with this BDD version;
 1.63.0 runs the unmodified dependencies successfully.
 
 `vault run --config prd -- bun run --filter @pkgs/fleet test:bdd`:
-**11 passed in 23.2 seconds** in Chromium on macOS ARM64, none skipped:
+**11 passed in 18.7 seconds** in Chromium on macOS ARM64, none skipped:
 
 - Three local scenarios reproduce the GitHub authentication/manifest loss and
   retry the real setup form/callback; refuse an unconfirmed erase; write and
@@ -40,6 +40,12 @@ produced a generated-test source-location mismatch with this BDD version;
   real encrypted App key, verify the configured repository is private, and
   obtain an HTTP 201 runner registration token. Tokens are never attached or
   traced. No runner is registered by these tests.
+
+The full `bun run check` passed all **42 tasks**, including **568 Fleet tests**,
+with native PowerShell on PATH. The initial full run hit a concurrent Tailwind
+package-cache copy error in the API CSS test; a direct CSS build populated the
+cache and the complete rerun passed, including all 571 API tests. No dependency
+or check was patched or weakened. Fleet BDD typecheck and ESLint also pass.
 
 Gherkin and step definitions are under `bdd/`. The ignored HTML report is
 `dist/bdd-report/index.html`, with JSON at `dist/bdd-results.json` and sanitized
