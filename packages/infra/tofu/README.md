@@ -147,11 +147,7 @@ CI runs foundation, bootstrap and vault before fleet in `deploy-reconcile`, so a
 
 `crvouga/pickflix-v1` builds its Node 22 image from `master`; this repository owns
 its Railway service, `pickflix.chrisvouga.dev`, DNS, Vault values and database
-objects. Pickflix's `Protect master` ruleset requires the application's `Required`
-check. The publisher calls the application's reusable `check.yml` before publishing
-or dispatching deployment. It uses the managed cross-repository PAT for the
-existing workspace-owned GHCR package; Pickflix's repository token cannot write
-that package (`permission_denied: write_package`). Foundation adopts `.github/workflows/publish-image.yml` in place using
+objects. Foundation adopts `.github/workflows/publish-image.yml` in place using
 the shared publisher template. Land the application changes before deploying:
 the old backend creates tables in `public`. Application changes are prepared in
 [Pickflix PR #67](https://github.com/crvouga/pickflix-v1/pull/67).
