@@ -23,7 +23,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      fleet: ${{ steps.filter.outputs.fleet }}
+      fleet: ${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,6 +41,28 @@ jobs:
               - '.github/workflows/flake-update.yml'
               - '.github/workflows/fleet-enroll.yml'
               - 'packages/fleet/workflows/fleet.yml'
+      # A failed first publication must not leave /add broken indefinitely while
+      # unrelated pushes report green. Retry the full checks and publication.
+      - name: Check that the installer release is complete
+        id: release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view fleet-installer --json assets --jq '.assets[].name') || assets=''
+          for asset in \
+            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.iso.part-000 fleet-node.sh \
+            fleet-installer-windows-x64.exe \
+            fleet-installer-macos-arm64.zip fleet-installer-macos-x64.zip \
+            fleet-installer-linux-arm64.tar.gz fleet-installer-linux-x64.tar.gz; do
+            if ! grep -Fxq "$asset" <<< "$assets"; then
+              echo "Installer release is missing $asset; rebuilding and publishing."
+              echo 'missing=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo 'missing=false' >> "$GITHUB_OUTPUT"
 
   check:
     needs: changes
