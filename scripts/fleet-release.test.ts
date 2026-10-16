@@ -74,3 +74,49 @@ test('a complete release preserves the normal path filter', () => {
     readFileSync(join(root, 'packages/fleet/workflows/fleet.yml'), 'utf8')
   ).toBe(readFileSync(join(root, '.github/workflows/fleet.yml'), 'utf8'));
 });
+
+test('the parallel check matrix covers all scheduler groups and gates publication', () => {
+  expect(workflow.jobs.check.strategy.matrix.group).toEqual([
+    'roles',
+    'runtime',
+    'lifecycle',
+    'image',
+  ]);
+  expect(workflow.jobs.check.strategy['fail-fast']).toBe(false);
+  expect(workflow.jobs.check['timeout-minutes']).toBe(12);
+  expect(workflow.jobs.gate.needs).toContain('check');
+  expect(workflow.jobs.publish.needs).toContain('check');
+  const upload = workflow.jobs.check.steps.find(
+    (step: { uses?: string }) => step.uses === 'actions/upload-artifact@v4'
+  );
+  expect(upload.if).toBe(
+    "matrix.group == 'image' && github.event_name != 'pull_request'"
+  );
+  expect(upload.with['compression-level']).toBe(0);
+});
+
+for (const event of [
+  'pull_request',
+  'merge_group',
+  'push',
+  'workflow_dispatch',
+]) {
+  test(`${event} gate refuses failed, cancelled, or skipped check groups`, () => {
+    const step = workflow.jobs.gate.steps[0];
+    for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
+      const gate = Bun.spawnSync(['bash', '-c', step.run], {
+        env: {
+          ...process.env,
+          EVENT: event,
+          CHANGES: 'success',
+          FLEET: 'true',
+          CHECK: result,
+          WIZARD: 'success',
+          CACHE: 'success',
+          PUBLISH: 'success',
+        },
+      });
+      expect(gate.exitCode).toBe(result === 'success' ? 0 : 1);
+    }
+  });
+}

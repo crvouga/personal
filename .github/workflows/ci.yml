@@ -535,9 +535,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Portable checks
+      - name: Validate with pinned ShellCheck and actionlint
         working-directory: packages/fleet
-        run: nix develop --command bash scripts/check.sh
+        # Python tests already run in the monorepo check. Only the pinned
+        # validators need a Nix devShell; do not run the full suite twice.
+        run: nix develop --command bash scripts/lint.sh
 
   # The whole fleet with the real programs at every step: the installer scripts,
   # the approval workflow script, the node agent, the fleet API on a throwaway

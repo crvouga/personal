@@ -72,6 +72,7 @@
       modules = [
         (nixpkgs + "/nixos/modules/installer/netboot/netboot-minimal.nix")
         ./modules/installer.nix
+        { netboot.squashfsCompression = "zstd -Xcompression-level 3"; }
       ];
     };
     netboot = mkHost netbootSettings ./hosts/netboot.nix { installer = installerNetboot; };

@@ -4,6 +4,9 @@
   # and the Fleet upload found nothing at iso/fleet-installer.iso.
   image.baseName = lib.mkForce "fleet-installer";
   image.fileName = "fleet-installer.iso";
+  # Level 19 spends minutes recompressing every offline role on each commit.
+  # Keep the same zstd filesystem format with a faster compression level.
+  isoImage.squashfsCompression = "zstd -Xcompression-level 3";
   isoImage.makeEfiBootable = true;
   isoImage.makeUsbBootable = true;
   # The shell initrd honors findiso= and copytoram. systemd in the initrd
