@@ -586,12 +586,26 @@ permissions:
   pull-requests: read
 
 jobs:
+%{ if branch == "master" && length([for service in services : service if service.id == "pickflix"]) > 0 ~}
+  validate:
+    uses: ./.github/workflows/check.yml
+
+%{ endif ~}
 
   my_app:
+%{ if service.id == "pickflix" ~}
+    needs: validate
+%{ endif ~}
     uses: crvouga/workspace/.github/workflows/ci.yml@main
     secrets:
       DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+%{ if service.id == "pickflix" ~}
+      # This existing GHCR package is owned by the workspace; the repository
+      # GITHUB_TOKEN cannot write it. Use the managed cross-repository PAT.
+      CALLER_GITHUB_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+%{ else ~}
       CALLER_GITHUB_TOKEN: ${{ github.token }}
+%{ endif ~}
     with:
       service_id: my-app
       dockerfile: ./Dockerfile
