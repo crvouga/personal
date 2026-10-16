@@ -22,8 +22,7 @@ jobs:
     uses: ${infra_repo}/.github/workflows/ci.yml@main
     secrets:
       DEPLOY_DISPATCH_TOKEN: $${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-      # The existing GHCR package is owned by the workspace.
-      CALLER_GITHUB_TOKEN: $${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      CALLER_GITHUB_TOKEN: $${{ github.token }}
     with:
       service_id: ${service.id}
       dockerfile: ${service.dockerfile}

@@ -155,8 +155,8 @@ run "pickflix_validates_before_publishing" {
   }
 
   assert {
-    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN: $${{ secrets.DEPLOY_DISPATCH_TOKEN }}")
-    error_message = "The existing workspace-owned GHCR package requires the managed cross-repository credential."
+    condition     = strcontains(github_repository_file.publish["pickflix-v1"].content, "CALLER_GITHUB_TOKEN: $${{ github.token }}")
+    error_message = "Pickflix publishing must retain the repository-scoped GHCR credential."
   }
 
   assert {
