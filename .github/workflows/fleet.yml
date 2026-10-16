@@ -128,10 +128,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
-      - name: Install browser acceptance dependencies once
-        working-directory: packages/fleet
+      - name: Install only Fleet browser dependencies
         run: |
-          bun install --frozen-lockfile
+          bun install --frozen-lockfile --filter '@pkgs/fleet'
+          cd packages/fleet
           bunx playwright install --with-deps chromium
       - name: Click through the wizard page in a real browser
         working-directory: packages/fleet
@@ -153,10 +153,8 @@ jobs:
           FLEET_BDD_EXPECT_VERSION: ${{ github.sha }}
           PYTHON: ${{ steps.python.outputs.python-path }}
         working-directory: packages/fleet
-        run: |
-          bun run tc
-          bun run lint:bdd
-          bun run test:bdd:local
+        # Typecheck and BDD lint run once in CI's monorepo check.
+        run: bun run test:bdd:local
       - uses: actions/upload-artifact@v4
         if: always()
         with:
