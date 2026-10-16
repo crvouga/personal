@@ -3,3 +3,7 @@
 !package-lock.json
 !runtime.mjs
 !litestream.yml
+!hosted-oauth.patch
+!oauth-browser.mjs
+!oauth-browser.test.mjs
+!upstream-package-lock.json
