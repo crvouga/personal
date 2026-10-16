@@ -613,7 +613,7 @@ It calls `crvouga/workspace`'s `ci.yml` as a reusable workflow. Inputs:
 | `infra_github_repo` |  | `crvouga/workspace` | Infra repo owner/name for deploy dispatch. |
 | `notify_deploy` |  | `true` | POST repository_dispatch to infra after push. Set false when chaining deploy. |
 
-Caller secrets: `CALLER_GITHUB_TOKEN` (pass `github.token`; used to push to GHCR) and `DEPLOY_DISPATCH_TOKEN` (an repository secret managed by OpenTofu with `repo` scope on `crvouga/workspace`; if missing, the human runs `GITHUB_TOKEN_SUPER=… bun run infra apply --set-org-dispatch-secret`).
+Caller secrets: `DEPLOY_DISPATCH_TOKEN` (the OpenTofu-managed platform PAT, used to publish existing GHCR packages and dispatch deployment; requires repository/workflow access and `write:packages`) and `CALLER_GITHUB_TOKEN` (pass `github.token`; publishing fallback when the platform token is absent). Update missing or rotated credentials through the OpenTofu foundation root.
 
 ### What happens on every push to `main`
 

@@ -112,3 +112,36 @@ test('the health workflow prepares OpenTofu roots read-only and can never apply'
     expect(step.if).toBe("inputs.mode == 'apply'");
   }
 });
+
+for (const [dispatch, caller, expected] of [
+  ['platform-token', 'caller-token', 'platform-token'],
+  ['', 'caller-token', 'caller-token'],
+  ['', '', 'workflow-token'],
+]) {
+  test(`sibling GHCR publish selects ${expected}`, () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ci-ghcr-auth-'));
+    const output = join(directory, 'output');
+    const step = workflow.jobs.publish.steps.find(
+      (candidate: { id?: string }) => candidate.id === 'ghcr_auth'
+    );
+    const script = step.run
+      .replaceAll('${{ steps.resolve.outputs.image_owner }}', 'crvouga')
+      .replaceAll('${{ github.actor }}', 'caller-actor')
+      .replaceAll('${{ github.token }}', 'workflow-token');
+    try {
+      const result = Bun.spawnSync(['bash', '-c', script], {
+        env: {
+          ...process.env,
+          GITHUB_REPOSITORY: 'crvouga/pickflix-v1',
+          DISPATCH_TOKEN: dispatch!,
+          CALLER_TOKEN: caller!,
+          GITHUB_OUTPUT: output,
+        },
+      });
+      expect(result.exitCode).toBe(0);
+      expect(readFileSync(output, 'utf8')).toContain(`password=${expected}`);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+}

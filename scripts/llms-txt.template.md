@@ -470,7 +470,7 @@ It calls `{{infraRepo}}`'s `ci.yml` as a reusable workflow. Inputs:
 
 {{block:workflowCallInputs}}
 
-Caller secrets: `CALLER_GITHUB_TOKEN` (pass `github.token`; used to push to GHCR) and `{{dispatchSecret}}` (an repository secret managed by OpenTofu with `repo` scope on `{{infraRepo}}`; if missing, the human runs `GITHUB_TOKEN_SUPER=… {{script:infra}} apply --set-org-dispatch-secret`).
+Caller secrets: `{{dispatchSecret}}` (the OpenTofu-managed platform PAT, used to publish existing GHCR packages and dispatch deployment; requires repository/workflow access and `write:packages`) and `CALLER_GITHUB_TOKEN` (pass `github.token`; publishing fallback when the platform token is absent). Update missing or rotated credentials through the OpenTofu foundation root.
 
 ### What happens on every push to `main`
 

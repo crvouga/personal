@@ -91,11 +91,18 @@ Cloudflare 5.26.0 also cannot import `cloudflare_zone_dns_settings`. Its initial
 
 The Postgres branch is `PS_5_AWS_ARM` in `us-east` on PostgreSQL 18 with `replicas = 0`: one primary and no replicas, the cheapest single-node network-attached size. The published PlanetScale provider creates that database from `planetscale_postgres_branch` and reports the replica count, but it does not send a replica count on create. PlanetScale then defaults the branch to two replicas. The branch postcondition rejects any other count before the connection URI is published. Resize the existing branch to the inventory count; replacing it creates the default count again. The role inherits `postgres` so Atlas and the applications can keep creating schemas. Direct connections use `sslmode=require`. `DB_CONNECTION_URI` and `DATABASE_URL` are the same URL; the Vault entrypoint and the Atlas schema resource add `search_path=secret_store` themselves.
 
-## Private image pulls
+## Public image pulls
 
-`fleet-api` and `9router` use private GHCR packages. Their inventory entries declare `railway.registry` with the GitHub username and the production Vault password key (`GITHUB_TOKEN_SUPER`, which must have `read:packages`). The fleet root supplies these through Railway’s `registryCredentials`, never as application variables. State and plans containing the password remain encrypted. Other services continue to pull public images anonymously.
+All container images must be public and anonymously pullable. The inventory
+rejects private registry credentials, and `bun run health --only images` checks
+anonymous GHCR pulls without requiring Vault access. Railway's private registry
+feature requires a paid plan and is not used.
 
-Railway does not expose registry credentials in its read API. The dedicated credential resource therefore tracks configured changes and token rotation without remote verification; ordinary service settings still detect drift. `bun run health --only images` verifies authenticated pulls using the same declared Vault credential and skips when Vault access is unavailable. After applying credentials, redeploy the existing image revision.
+The shared publisher prefers the OpenTofu-managed `DEPLOY_DISPATCH_TOKEN`,
+whose PAT needs `write:packages` as well as repository/workflow access. Existing
+packages can be linked to a different repository, so a caller's `GITHUB_TOKEN`
+may lack package write permission despite `packages: write`. The caller token
+remains a fallback when no platform token is supplied.
 
 ## Fleet API (`fleet-api`)
 
