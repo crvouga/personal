@@ -272,7 +272,7 @@ class SetupFlowTest(unittest.TestCase):
 
     def test_a_forged_redirect_does_not_complete_the_flow(self):
         flow = {"state": "right", "code": None, "done": threading.Event(), "page": b"x"}
-        server = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Flow)
+        server = setup.LoopbackServer(("127.0.0.1", 0), setup.Flow)
         server.flow = flow
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.shutdown)
@@ -284,12 +284,19 @@ class SetupFlowTest(unittest.TestCase):
             self.assertEqual(exc.code, 400)
         self.assertFalse(flow["done"].is_set())
 
+    def test_loopback_setup_starts_without_reverse_dns(self):
+        with mock.patch("socket.getfqdn", side_effect=OSError("no reverse DNS")):
+            server = setup.LoopbackServer(("127.0.0.1", 0), setup.Flow)
+        self.addCleanup(server.server_close)
+        self.assertEqual(server.server_name, "127.0.0.1")
+        self.assertGreater(server.server_port, 0)
+
     def test_setup_page_keeps_the_manifest_available_after_github_reauthentication(self):
         document = setup.manifest("http://127.0.0.1:1234/created", False)
         state = "retry-after-sign-in"
         flow = {"state": state, "code": None, "done": threading.Event(),
                 "page": setup.form_page("User", "crvouga", state, document)}
-        server = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Flow)
+        server = setup.LoopbackServer(("127.0.0.1", 0), setup.Flow)
         server.flow = flow
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)

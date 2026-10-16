@@ -2,19 +2,22 @@ import { expect } from '@playwright/test';
 import { Given, When, Then, required } from '../fixtures';
 import { startServer } from '../process';
 
-Given('I open the real runner App setup form', async ({ page, world }) => {
-  const server = await startServer([
-    process.env['PYTHON'] ?? 'python3',
-    '-u',
-    'bdd/setup-server.py',
-  ]);
-  world.cleanup.push(server.stop);
-  world.setupUrl = server.url;
-  await page.goto(server.url);
-  world.setupManifest = JSON.parse(
-    await page.locator('input[name="manifest"]').inputValue()
-  );
-});
+Given(
+  'I open the real runner App setup form without reverse DNS',
+  async ({ page, world }) => {
+    const server = await startServer([
+      process.env['PYTHON'] ?? 'python3',
+      '-u',
+      'bdd/setup-server.py',
+    ]);
+    world.cleanup.push(server.stop);
+    world.setupUrl = server.url;
+    await page.goto(server.url);
+    world.setupManifest = JSON.parse(
+      await page.locator('input[name="manifest"]').inputValue()
+    );
+  }
+);
 
 When('I start creating the runner App in GitHub', async ({ page, world }) => {
   const popup = page.waitForEvent('popup');

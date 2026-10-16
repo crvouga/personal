@@ -22,6 +22,7 @@ import json
 import os
 import re
 import secrets
+import socketserver
 import subprocess
 import sys
 import tempfile
@@ -124,10 +125,17 @@ def owner_kind(owner):
     return request("GET", f"/users/{owner}").get("type", "User")
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # Loopback has no need for reverse DNS, which can stall macOS startup.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def create_app(owner, kind, wait):
     """Run the manifest flow. Returns the converted app: id, slug, pem."""
     state = secrets.token_urlsafe(16)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Flow)
+    server = LoopbackServer(("127.0.0.1", 0), Flow)
     port = server.server_address[1]
     document = manifest(f"http://127.0.0.1:{port}/created", kind == "Organization")
     server.flow = {"state": state, "code": None, "done": threading.Event(), "page": form_page(kind, owner, state, document)}

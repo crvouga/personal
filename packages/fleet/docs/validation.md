@@ -7,7 +7,7 @@ using the real wizard, helper subprocess and bundled CLI. Coverage includes
 same-role hard reinstalls for all five roles, default CLI idempotence, explicit
 CLI replacement, read-only preview, busy-runner refusal, changed disk identity,
 failed boot handoff recovery, platform eligibility, verified USB writes, App
-manifest retry and build-version identity.
+manifest retry without reverse DNS and build-version identity.
 
 Disk writes use regular temporary files. Firmware, disk discovery and boot
 commands are stand-ins; the tests verify the extracted kernel, role parameters,
