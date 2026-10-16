@@ -230,4 +230,37 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
       'nodejs',
     ],
   },
+  {
+    id: 'pickflix',
+    title: 'Pickflix',
+    setting: 'side',
+    deployment: { t: 'public', url: 'https://pickflix.chrisvouga.dev' },
+    code: { t: 'public', url: 'https://github.com/crvouga/pickflix-v1' },
+    description:
+      'A social movie-discovery app for watching trailers, writing reviews, and building shared lists with friends.',
+    imageAlt: IMAGE_ALT,
+    imageSrc: ['/pickflix-screenshot.optimized.webp'],
+    galleryImageSrc: [
+      '/pickflix-screenshot.optimized.webp',
+      toYouTubeVideoUrl({
+        youTubeVideoId: '-atthbuMFIM',
+        autoplay: true,
+        mute: true,
+      }),
+    ],
+    topics: [
+      'express',
+      'jest',
+      'material-ui',
+      'nodejs',
+      'postgres',
+      'ramda',
+      'react',
+      'redux',
+      'redux-saga',
+      'typescript',
+      'css',
+      'react-query',
+    ],
+  },
 ];

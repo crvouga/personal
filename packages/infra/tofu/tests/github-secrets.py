@@ -11,9 +11,10 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 tofu_root = Path(__file__).resolve().parents[1]
-secret_names = {"DOCKER_USERNAME", "DOCKER_PASSWORD", "DOPPLER_SERVICE_TOKEN",
-                "GENEBYGENE_CLIENT_ID", "GENEBYGENE_CLIENT_SECRET", "JUNCTION_API_KEY",
-                "PADDLE_API_KEY", "STRIPE_SECRET_KEY"}
+repositories = json.loads((tofu_root / "modules/inventory/inventory.tf.json").read_text())["locals"]["inventory"]["github"]["repositories"]
+declared_secrets = {(repo, name) for repo, settings in repositories.items()
+                    for name in settings.get("actions_secrets", [])}
+secret_names = {name for _, name in declared_secrets}
 missing = set()
 mutations = []
 timestamp = "2026-10-01T00:00:00Z"
@@ -113,7 +114,7 @@ locals {{ config = module.inventory.config }}
         def plan():
             run("plan", "-input=false", "-parallelism=1", "-out=adopt.tfplan")
             data = json.loads(run("show", "-json", "adopt.tfplan"))
-            assert len(data.get("resource_changes", [])) == 28 - len(missing)
+            assert len(data.get("resource_changes", [])) == len(declared_secrets - missing)
             assert all(change["change"]["actions"] == ["no-op"]
                        for change in data.get("resource_changes", [])), data
 

@@ -1,8 +1,8 @@
 run "fleet_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 20
-    error_message = "The migration must retain all 20 Railway services."
+    condition     = length(output.config.services) == 21
+    error_message = "The migration must retain all 21 Railway services."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
@@ -41,7 +41,7 @@ run "fleet_contract" {
     error_message = "Cloudflare TLS and DNS policy must remain explicit desired state."
   }
   assert {
-    condition     = length(output.config.github.repositories) == 14 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
+    condition     = length(output.config.github.repositories) == 15 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
     error_message = "Every application repository and its default branch must be declared."
   }
   assert {
@@ -86,5 +86,29 @@ run "router_stateless_contract" {
   assert {
     condition     = length(output.config.tunnels) == 0
     error_message = "9router public ingress belongs to Railway, not a local tunnel."
+  }
+}
+
+run "pickflix_hosting_contract" {
+  command = plan
+  assert {
+    condition     = one([for service in output.config.services : service if service.id == "pickflix"]).hostname == "pickflix.chrisvouga.dev" && one([for service in output.config.services : service if service.id == "pickflix"]).health_path == "/health"
+    error_message = "Pickflix needs its managed domain and health endpoint."
+  }
+  assert {
+    condition     = output.config.github.repositories["pickflix-v1"].default_branch == "master" && one([for service in output.config.services : service if service.id == "pickflix"]).github_repo == "crvouga/pickflix-v1"
+    error_message = "Publish Pickflix from its existing master branch."
+  }
+}
+
+run "pickflix_resend_contract" {
+  command = plan
+  assert {
+    condition     = contains([for secret in one([for service in output.config.services : service if service.id == "pickflix"]).secrets : secret.name], "RESEND_API_KEY") && one([for service in output.config.services : service if service.id == "pickflix"]).env.EMAIL_FROM == "Pickflix <noreply@resend.chrisvouga.dev>"
+    error_message = "Pickflix must select Resend credentials and its custom-domain sender."
+  }
+  assert {
+    condition     = output.config.cloudflare.dns.records["send.resend.chrisvouga.dev_TXT"].content == "v=spf1 include:amazonses.com ~all" && startswith(output.config.cloudflare.dns.records["resend._domainkey.resend.chrisvouga.dev_TXT"].content, "p=")
+    error_message = "Resend sending requires both its SPF and DKIM TXT records."
   }
 }

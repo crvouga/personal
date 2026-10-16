@@ -74,9 +74,11 @@ resource "github_repository_file" "publish" {
   for_each            = local.application_repositories
   repository          = github_repository.application[each.key].name
   branch              = each.value.default_branch
-  file                = ".github/workflows/publish.yml"
+  file                = try(each.value.publisher_file, ".github/workflows/publish.yml")
   overwrite_on_create = true
-  commit_message      = "ci: manage image publishing with OpenTofu [skip ci]"
+  # Pickflix's first managed publisher must trigger a push build so its latest
+  # image exists before the fleet root creates the new Railway service.
+  commit_message = each.key == "pickflix-v1" ? "ci: manage image publishing with OpenTofu" : "ci: manage image publishing with OpenTofu [skip ci]"
   lifecycle { ignore_changes = [commit_message, overwrite_on_create] }
   content = templatefile("${path.module}/../modules/inventory/publish.yml.tftpl", {
     branch       = each.value.default_branch
