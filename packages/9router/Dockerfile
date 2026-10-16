@@ -9,7 +9,7 @@ ADD --checksum=sha256:19ef5a68603672c8efe9b140e917fcd71a0b28be930600e2bbfa914819
 RUN tar -xzf /tmp/upstream.tar.gz --strip-components=1 && rm /tmp/upstream.tar.gz
 RUN apk add --no-cache python3 make g++ linux-headers patch
 COPY upstream-package-lock.json ./package-lock.json
-RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm npm ci --include=dev --no-audit --no-fund
 COPY hosted-oauth.patch /patches/hosted-oauth.patch
 COPY oauth-browser.mjs oauth-browser.test.mjs /patches/
 RUN node --test /patches/oauth-browser.test.mjs && patch -p1 --fuzz=0 < /patches/hosted-oauth.patch && cp /patches/oauth-browser.mjs src/lib/oauth/oauth-browser.mjs
