@@ -261,6 +261,9 @@ resource "github_repository_ruleset" "mockingbird_main" {
 }
 
 resource "github_repository_ruleset" "pickflix_master" {
+  # Install the validated publisher before protection forbids direct commits.
+  # Future publisher changes must land by PR before the matching OpenTofu apply.
+  depends_on  = [github_repository_file.publish]
   repository  = github_repository.application["pickflix-v1"].name
   name        = "Protect master"
   target      = "branch"
