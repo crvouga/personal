@@ -260,6 +260,41 @@ resource "github_repository_ruleset" "mockingbird_main" {
   }
 }
 
+resource "github_repository_ruleset" "pickflix_master" {
+  # Install the validated publisher before protection forbids direct commits.
+  # Future publisher changes must land by PR before the matching OpenTofu apply.
+  depends_on  = [github_repository_file.publish]
+  repository  = github_repository.application["pickflix-v1"].name
+  name        = "Protect master"
+  target      = "branch"
+  enforcement = "active"
+  conditions {
+    ref_name {
+      include = ["refs/heads/master"]
+      exclude = []
+    }
+  }
+  rules {
+    deletion         = true
+    non_fast_forward = true
+    pull_request {
+      allowed_merge_methods             = ["merge"]
+      dismiss_stale_reviews_on_push     = false
+      require_code_owner_review         = false
+      require_last_push_approval        = false
+      required_approving_review_count   = 0
+      required_review_thread_resolution = false
+    }
+    required_status_checks {
+      strict_required_status_checks_policy = true
+      required_check {
+        context        = "Required"
+        integration_id = 15368
+      }
+    }
+  }
+}
+
 resource "github_actions_secret" "repository" {
   for_each    = local.existing_repository_secrets
   repository  = each.value.repository

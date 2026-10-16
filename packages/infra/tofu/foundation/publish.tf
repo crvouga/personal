@@ -80,7 +80,9 @@ resource "github_repository_file" "publish" {
   # image exists before the fleet root creates the new Railway service.
   commit_message = each.key == "pickflix-v1" ? "ci: manage image publishing with OpenTofu" : "ci: manage image publishing with OpenTofu [skip ci]"
   lifecycle { ignore_changes = [commit_message, overwrite_on_create] }
-  content = templatefile("${path.module}/../modules/inventory/publish.yml.tftpl", {
+  # Pickflix validates its production image before publishing. Keep that
+  # application-specific contract out of other publishers.
+  content = templatefile("${path.module}/../modules/inventory/${each.key == "pickflix-v1" ? "pickflix-publish" : "publish"}.yml.tftpl", {
     branch       = each.value.default_branch
     infra_repo   = local.config.github.infra_repo
     image_owner  = local.config.image_owner
