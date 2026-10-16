@@ -4,7 +4,7 @@ const NIXOS_INSTALLER_COMMAND =
 /** NixOS needs its native launcher rather than the foreign Linux executable. */
 export function NixosInstall() {
   return (
-    <details class="mt-6 rounded-lg bg-muted p-4 text-sm">
+    <details id="nixos-install" class="mt-6 rounded-lg bg-muted p-4 text-sm">
       <summary class="cursor-pointer font-medium">
         Installing or reinstalling NixOS?
       </summary>

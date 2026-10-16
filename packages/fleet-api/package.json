@@ -13,10 +13,11 @@
     "build": "bun run build:css && test -f Dockerfile && test -f schema.hcl",
     "build:css": "bunx @tailwindcss/cli -i src/ui/app.css -o dist/app.css --minify",
     "dev": "bun run build:css && bun --watch src/server.ts",
-    "lint": "eslint src test --max-warnings 0",
+    "lint": "eslint src test playwright.config.ts --max-warnings 0",
     "tc": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test",
-    "demo": "bun run scripts/demo.ts"
+    "test": "bun test ./test && bun run test:bdd",
+    "demo": "bun run scripts/demo.ts",
+    "test:bdd": "bddgen && playwright test"
   },
   "dependencies": {
     "@pkgs/assert": "workspace:*",
@@ -24,8 +25,10 @@
     "hono": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/cli": "catalog:",
     "@types/bun": "catalog:",
+    "playwright-bdd": "9.2.1",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"
   }

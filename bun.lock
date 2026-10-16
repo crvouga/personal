@@ -57,8 +57,10 @@
         "hono": "catalog:",
       },
       "devDependencies": {
+        "@playwright/test": "1.63.0",
         "@tailwindcss/cli": "catalog:",
         "@types/bun": "catalog:",
+        "playwright-bdd": "9.2.1",
         "tailwindcss": "catalog:",
         "typescript": "catalog:",
       },

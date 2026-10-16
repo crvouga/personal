@@ -1,9 +1,7 @@
 import { ROLES } from '../../types';
 import { Icon } from './icon';
 import { NixosInstall } from './nixos-install';
-
-export const INSTALLER_URL =
-  'https://github.com/crvouga/workspace/releases/tag/fleet-installer';
+import { InstallerDownloads } from './installer-downloads';
 
 const ROLE_HELP: Record<(typeof ROLES)[number], string> = {
   ci: 'GitHub Actions runners',
@@ -21,7 +19,7 @@ interface Step {
 const STEPS: readonly Step[] = [
   {
     title: 'Download the installer',
-    body: 'Get the file for your machine from the fleet-installer release on GitHub.',
+    body: 'Use the recommended download below, or choose the computer you are preparing an installer for.',
   },
   {
     title: 'Run it on the machine',
@@ -81,16 +79,8 @@ export function AddNodeSteps(props: { heading: 'h1' | 'h2'; title: string }) {
           </div>
         ))}
       </dl>
-      <div class="mt-6 flex flex-wrap items-center gap-3">
-        <a
-          class="btn btn-primary"
-          href={INSTALLER_URL}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <Icon name="download" />
-          Open the installer release
-        </a>
+      <InstallerDownloads />
+      <div class="mt-3">
         <a class="text-sm" href="/pending">
           Already ran it? See pending approvals
         </a>

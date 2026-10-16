@@ -62,7 +62,7 @@ OpenTofu supplies all of them (inventory entry `fleet-api`, Vault root). Nothing
 ```sh
 bun run --filter @pkgs/fleet-api demo        # the dashboard with 14 synthetic nodes, no database
 bun run --filter @pkgs/fleet-api demo -- --empty   # the empty state
-bun run --filter @pkgs/fleet-api test        # needs bun, atlas, and Postgres binaries on PATH
+bun run --filter @pkgs/fleet-api test        # needs bun, atlas, Postgres and Playwright Chromium
 bun run --filter @pkgs/fleet-api lint
 bun run --filter @pkgs/fleet-api tc
 bun run --filter @pkgs/fleet-api build:css   # dist/app.css, built by the Docker image too
@@ -70,6 +70,25 @@ docker build -f packages/fleet-api/Dockerfile -t fleet-api .
 ```
 
 The test suite starts a throwaway Postgres cluster in `$TMPDIR`, creates the schema and applies `schema.hcl` with the real Atlas CLI exactly as production does, and removes everything afterwards. In CI a missing tool fails the run; locally the database tests skip with a message.
+
+## Installer recommendation
+
+The add-node page and empty overview recommend a direct installer download using browser platform and architecture hints. Windows x64, macOS Intel/Apple silicon, and Linux x64/ARM64 map to their release files. NixOS opens its native launcher instructions. Nothing downloads automatically.
+
+Some browsers hide the Mac CPU or Linux distribution. An ambiguous Mac never defaults to Intel; choose Apple silicon or Intel in **Installer for**. On NixOS whose browser reports generic Linux, choose **NixOS — native installer**. The selector also supports preparing another computer, keeps that choice through live dashboard refreshes, and takes precedence over delayed detection. **All installers** works without JavaScript. Mobile, ChromeOS, 32-bit Windows and Windows ARM64 do not receive an unsupported native recommendation.
+
+The normal test command includes Playwright BDD Gherkin browser acceptance. To run it separately:
+
+```sh
+cd packages/fleet-api
+bunx playwright install --with-deps chromium
+bun run test:bdd
+# All browser profiles against the deployed page, plus an actual Windows
+# executable download verified against GitHub's published size and SHA-256:
+FLEET_DOWNLOAD_LIVE=1 vault run --config prd -- bun run test:bdd
+```
+
+Local acceptance uses the real dashboard routes/assets with an in-memory store. Production acceptance uses owner authorization, keeps traces off, and never records credentials. Reports are generated under `dist/download-bdd-report/` and `dist/download-bdd-results.json`.
 
 ## Tested end to end
 
