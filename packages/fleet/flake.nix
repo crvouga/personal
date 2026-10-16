@@ -163,14 +163,16 @@
         if broken == [ ] then "mkdir -p $out"
         else "echo 'roles without a working fleet-agent: ${lib.concatStringsSep ", " broken}' >&2; exit 1");
     };
-    apps.${system}.bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
-    apps.${system}.fleet-installer = {
-      type = "app";
-      program = "${self.packages.${system}.fleet-installer}/bin/fleet-installer";
-    };
-    apps.${system}.fleet-node = {
-      type = "app";
-      program = "${self.packages.${system}.fleet-node}/bin/fleet-node";
+    apps.${system} = {
+      bootstrap = { type = "app"; program = "${bootstrapFor pkgs}"; };
+      fleet-installer = {
+        type = "app";
+        program = "${self.packages.${system}.fleet-installer}/bin/fleet-installer";
+      };
+      fleet-node = {
+        type = "app";
+        program = "${self.packages.${system}.fleet-node}/bin/fleet-node";
+      };
     };
     packages.aarch64-linux.fleet-installer = import ./modules/installer-package.nix {
       pkgs = nixpkgs.legacyPackages.aarch64-linux;
