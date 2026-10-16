@@ -27,7 +27,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
   const applied = join(directory, 'applied');
   writeFileSync(
     join(directory, 'tofu'),
-    '#!/bin/sh\ncase "$2" in show) cat "$TEST_PLAN";; apply) touch "$TEST_APPLIED";; esac\n',
+    '#!/bin/sh\ncase "$2" in state) printf "%s\\n" "${TEST_STATE:-}";; show) cat "$TEST_PLAN";; apply) touch "$TEST_APPLIED";; esac\n',
     { mode: 0o755 }
   );
   const cases = [
@@ -107,6 +107,21 @@ test('schema bootstrap applies only creation of the empty application schemas', 
       expect(result.exitCode === 0).toBe(allowed);
       expect(existsSync(applied)).toBe(allowed);
     }
+    // Existing installations must leave state moves/forgetting to the full
+    // foundation plan instead of issuing a partial plan that excludes them.
+    rmSync(applied, { force: true });
+    writeFileSync(plan, 'invalid: targeted planning must not run');
+    const existing = Bun.spawnSync(['bash', '-c', step.run], {
+      env: {
+        ...process.env,
+        PATH: `${directory}:${process.env.PATH}`,
+        TEST_PLAN: plan,
+        TEST_APPLIED: applied,
+        TEST_STATE: 'postgresql_schema.fleet',
+      },
+    });
+    expect(existing.exitCode).toBe(0);
+    expect(existsSync(applied)).toBe(false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

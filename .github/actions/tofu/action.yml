@@ -98,6 +98,13 @@ runs:
       run: |
         set -euo pipefail
         ROOT="packages/infra/tofu/foundation"
+        # Bootstrap is only for first adoption. A targeted plan on an existing
+        # installation can exclude moved resources and block ownership handoffs.
+        MANAGED_SCHEMA="$(tofu -chdir="${ROOT}" state list postgresql_schema.fleet)"
+        if [ "${MANAGED_SCHEMA}" = "postgresql_schema.fleet" ]; then
+          echo "Fleet schema is already managed; use the full foundation plan."
+          exit 0
+        fi
         tofu -chdir="${ROOT}" plan -input=false -parallelism=1 -target=postgresql_schema.fleet -out=app-schemas.tfplan
         tofu -chdir="${ROOT}" show -json app-schemas.tfplan | jq -e '
           all((.resource_changes // [])[];
