@@ -2086,6 +2086,7 @@
         },
         {
           "id": "pickflix",
+          "database_schema": "pickflix",
           "kind": "railway",
           "hostname": "pickflix.chrisvouga.dev",
           "github_repo": "crvouga/pickflix-v1",
