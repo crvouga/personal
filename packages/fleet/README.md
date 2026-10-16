@@ -87,7 +87,9 @@ just setup                       # in packages/fleet; reads settings/github.json
 3. encrypts the App's private key into `secrets/fleet.yaml` for the `ci` role only,
 4. fills `settings/github.json` with the App and installation IDs, scope and bootstrap repository allowlist, then enables the encrypted secret in `fleet.nix`. Use `--repos owner/private-repo` only to override the JSON allowlist for setup.
 
-Then two reviewed steps, because infrastructure changes through a reviewed plan:
+On the local setup page, press **Create runner GitHub App**. Keep that page open: GitHub opens in another tab. If GitHub asks you to sign in or confirm access and then reports a missing App Manifest, finish authentication, return to the setup page, and press its button again.
+
+Finish the reviewed setup steps:
 
 1. Merge the pull request with `settings/github.json`, `fleet.nix`, `secrets/fleet.yaml` and `.sops.yaml`. The `Fleet` workflow builds every role and publishes the installer release.
 2. Apply the vault root so Vault holds the role keys and the `fleet-enroll` login:
@@ -96,6 +98,8 @@ Then two reviewed steps, because infrastructure changes through a reviewed plan:
    bun run infra:vault plan -out=fleet.plan     # review
    bun run infra:vault apply fleet.plan
    ```
+
+   Include the same complete `fleet_age_keys` map in the foundation root's `vault_inputs` JSON, which manages the `TOFU_VAULT_INPUTS` GitHub secret. CI uses that input for later Vault applies; the local ignored tfvars file is not available there.
 
 3. Apply the `foundation` root (it creates the `fleet` Postgres schema and its tables) and the `fleet` root (it deploys the fleet API at https://fleet.chrisvouga.dev). CI does both in order on a merge once `TOFU_MIGRATION_READY` is true; the exact order and what to check is in [the infra README](../infra/tofu/README.md#fleet-api-fleet-api).
 

@@ -4,6 +4,7 @@ the encrypted CI secret, fleet.nix. GitHub is a local fake; the browser click is
 played by a thread that follows the same redirects."""
 
 import base64
+import html
 import importlib.util
 import json
 import os
@@ -282,6 +283,30 @@ class SetupFlowTest(unittest.TestCase):
         except urllib.error.HTTPError as exc:
             self.assertEqual(exc.code, 400)
         self.assertFalse(flow["done"].is_set())
+
+    def test_setup_page_keeps_the_manifest_available_after_github_reauthentication(self):
+        document = setup.manifest("http://127.0.0.1:1234/created", False)
+        state = "retry-after-sign-in"
+        flow = {"state": state, "code": None, "done": threading.Event(),
+                "page": setup.form_page("User", "crvouga", state, document)}
+        server = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Flow)
+        server.flow = flow
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        url = f"http://127.0.0.1:{server.server_address[1]}/"
+        for _ in range(2):
+            with urllib.request.urlopen(url, timeout=5) as response:
+                page = response.read().decode()
+            action = html.unescape(re.search(r'action="([^"]+)"', page).group(1))
+            payload = json.loads(html.unescape(re.search(r'value="([^"]+)"', page).group(1)))
+            self.assertEqual(payload, document)
+            self.assertEqual(parse_qs(urlparse(action).query)["state"], [state])
+            self.assertIn('target="_blank"', page, "GitHub must leave the retry page open")
+            self.assertNotIn(".submit()", page, "returning after login must allow a deliberate retry")
+            self.assertIn("confirm access", page)
+            self.assertFalse(flow["done"].is_set())
+            self.assertIsNone(flow["code"])
 
 
 class FleetNixTest(unittest.TestCase):
