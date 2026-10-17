@@ -38,3 +38,6 @@ crash.log
 
 # Superset design-feedback attachments (generated, not source)
 .superset/attachments/
+
+.superset/.auth-dev/
+.superset/.dev-check/

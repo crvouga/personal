@@ -62,7 +62,7 @@ That job is deliberately _not_ a dependency of `publish`. If the token expires i
 
 [`src/lib/github-freshness.ts`](src/lib/github-freshness.ts) holds the budget. Past `STALE_AFTER_DAYS` the build log warns that the schedule has stopped landing; past `VERY_STALE_AFTER_DAYS` the caption stops implying the figures are current and says they are as of that date. Nothing here can fail a render — stale data still draws the full heatmap.
 
-The preferred local entry point is `bun portfolio`, which wraps the dev server in `vault run --config dev` and always starts `astro dev --force`.
+Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace's Turborepo TUI. The portfolio's `dev` task loads its credentials through `vault run` before starting Astro, including when invoked directly from this package. It defaults to the `dev` Vault configuration; `VAULT_CONFIG` can explicitly override it. Authenticate with `vault login` first. The launcher selects a free port starting at 4321 (or `PORTFOLIO_PORT`) and uses `--ignore-lock` so concurrent workspaces can run independently.
 
 ## Layout
 

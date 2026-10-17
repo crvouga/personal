@@ -17,7 +17,7 @@
       "outputs": []
     },
     "dev": {
-      "dependsOn": ["setup"],
+      "dependsOn": [],
       "persistent": true,
       "cache": false
     },
