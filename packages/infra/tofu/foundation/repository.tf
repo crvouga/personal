@@ -99,6 +99,9 @@ locals {
     for key, environment in local.application_environments : key => environment
     if contains([for existing in data.github_repository_environments.application[environment.repository].environments : existing.name], environment.environment)
   }
+}
+
+locals {
   existing_repository_secrets = {
     for key, secret in local.repository_secret_sources : key => secret
     if contains([for existing in data.github_actions_secrets.repository[secret.repository].secrets : existing.name], secret.name)
