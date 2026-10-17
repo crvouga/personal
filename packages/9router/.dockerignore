@@ -6,4 +6,7 @@
 !hosted-oauth.patch
 !oauth-browser.mjs
 !oauth-browser.test.mjs
+!codex-device.mjs
+!codex-device.test.mjs
+!oauth-integration.test.mjs
 !upstream-package-lock.json

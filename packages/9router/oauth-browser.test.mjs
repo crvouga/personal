@@ -7,6 +7,8 @@ import {
   isTrustedCallbackOrigin,
   parseClaudeCallback,
   requireCallbackState,
+  hostedProxyAuth,
+  shouldUseDeviceCode,
 } from './oauth-browser.mjs';
 
 const hosted = new URL(
@@ -49,10 +51,71 @@ test('other hosted browser callbacks preserve the actual public origin', () => {
     'https://router.example:8443',
   ]) {
     const origin = new URL(address);
-    const flow = browserOAuthFlow('cline', origin);
-    assert.equal(flow.redirectUri, `${origin.origin}/callback`);
-    assert.equal(flow.manual, false);
+    for (const provider of [
+      'cline',
+      'clinepass',
+      'iflow',
+      'gitlab',
+      'kimchi',
+    ]) {
+      const flow = browserOAuthFlow(provider, origin);
+      assert.equal(flow.redirectUri, `${origin.origin}/callback`);
+      assert.equal(flow.manual, false);
+    }
   }
+});
+
+test('hosted Codex uses device login; loopback dashboards keep browser login', () => {
+  assert.equal(shouldUseDeviceCode('codex', hosted), true);
+  for (const provider of ['claude', 'xai', 'github', 'gemini-cli'])
+    assert.equal(shouldUseDeviceCode(provider, hosted), false);
+  for (const hostname of ['localhost', '127.0.0.1', '[::1]'])
+    assert.equal(
+      shouldUseDeviceCode('codex', new URL(`http://${hostname}:20128`)),
+      false
+    );
+});
+
+test('hosted native flows authorize without starting or polling remote listeners', async () => {
+  for (const [provider, redirectUri] of [
+    ['trae', 'http://127.0.0.1:8080/callback'],
+    ['windsurf', 'http://127.0.0.1:8080/windsurf-auth-callback'],
+    ['zed', 'http://127.0.0.1:58443/'],
+  ]) {
+    const calls = [];
+    const attempt = {
+      authUrl: 'https://provider.example/login',
+      state: 'attempt',
+      codeVerifier: 'attempt-private-key',
+      systemId: 'attempt-system-id',
+    };
+    const auth = await hostedProxyAuth(provider, hosted, async (url) => {
+      calls.push(url.pathname);
+      assert.equal(url.origin, hosted.origin);
+      assert.equal(url.searchParams.get('redirect_uri'), redirectUri);
+      return Response.json(attempt);
+    });
+    assert.deepEqual(calls, [`/api/oauth/${provider}/authorize`]);
+    assert.deepEqual(auth, { ...attempt, redirectUri, manual: true });
+    const local = await hostedProxyAuth(
+      provider,
+      new URL('http://localhost:20128'),
+      () => assert.fail('local dashboards must use their existing proxy flow')
+    );
+    assert.equal(local, null);
+  }
+});
+
+test('hosted native authorization errors are shown without opening a login tab', async () => {
+  await assert.rejects(
+    hostedProxyAuth('zed', hosted, async () =>
+      Response.json(
+        { error: 'Unable to create login attempt' },
+        { status: 500 }
+      )
+    ),
+    /Unable to create login attempt/
+  );
 });
 
 test('local IPv4, IPv6 and localhost dashboards retain automatic OAuth', () => {
