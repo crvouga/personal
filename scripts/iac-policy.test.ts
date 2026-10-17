@@ -134,7 +134,9 @@ describe('OpenTofu infrastructure ownership', () => {
     );
     expect(commands.length).toBeGreaterThan(0);
     for (const [, command] of commands) {
-      expect(command).toMatch(/^tofu -chdir=packages\/infra\/tofu\/[a-z]+$/);
+      expect(command).toMatch(
+        /^tofu -chdir=packages\/infra\/tofu\/[a-z]+(?:-[a-z]+)*$/
+      );
     }
     expect(pkg.scripts.reconcile).toBeUndefined();
     expect(sourceFiles).not.toContain('packages/infra/services.yaml');

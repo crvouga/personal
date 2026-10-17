@@ -1,0 +1,32 @@
+name: Auth relay compatibility
+on:
+  pull_request:
+    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-client/**', '.github/workflows/auth-relay*.yml']
+  push:
+    branches: [main]
+    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-client/**', '.github/workflows/auth-relay*.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.13.0
+          tofu_wrapper: false
+      - run: bun install --frozen-lockfile
+      - run: bun run auth:test
+      - name: Install Chromium for the deterministic mock-upstream suite
+        working-directory: packages/fleet
+        run: bunx playwright install --with-deps chromium
+      - run: bun run auth:test:e2e

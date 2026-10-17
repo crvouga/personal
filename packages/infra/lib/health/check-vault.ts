@@ -120,6 +120,13 @@ export function requiredKvKeys(config: InfraConfig, kvConfig: string): readonly 
     if (!(store.namespaces ?? []).includes(kvConfig)) continue;
     keys.push(store.bucket_secret, store.endpoint_secret, store.region_secret, store.access_key_secret, store.secret_key_secret);
   }
+  // Preparation credentials are required even while broker deployment is staged.
+  for (const instance of Object.values(config.auth_relay?.instances ?? {})) {
+    if (instance.vault_config === kvConfig) {
+      keys.push(instance.google_client_id_key, instance.google_client_secret_key, instance.setup_token_key);
+      if (config.auth_relay?.enabled) keys.push('AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET');
+    }
+  }
   // The fleet root copies service secrets, and tunnels read theirs, from production only.
   if (kvConfig === "prd") {
     for (const service of config.services) {

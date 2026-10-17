@@ -195,3 +195,16 @@ The credentials that let OpenTofu reach each provider, the state-encryption pass
 `bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Infra health workflow](../../../.github/workflows/infra-health.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
+
+## Staged authentication relay
+
+The `auth-hosting` root owns the public Bun/Hono UI/API gateway and private Keycloak services, with two replicas per service/instance. `auth` owns each independent realm, Google upstream, signing keys and the two bootstrap system clients. Consuming applications and exact allowed callbacks are registered in the Google-protected UI and stored as runtime data in isolated PostgreSQL schemas, never in an inventory project allowlist. `foundation/auth-relay.tf` owns their restricted roles, schemas and schema-scoped Atlas definitions in the existing shared database. The Vault root stores setup/system/database credentials; it reuses the existing Google credential inputs. No Google secrets reach consuming applications.
+
+Use `bun run infra:auth` and `bun run infra:auth-hosting`; realm states use distinct encrypted keys `auth-production.tfstate` and `auth-nonproduction.tfstate`. The feature stays disabled until [operations/adoption gates](../../auth-relay/operations.md) and [acceptance](../../auth-relay/acceptance.md) pass. The [integration recipe](../../auth-relay/README.md) describes UI registration and framework-neutral OIDC settings. Runtime registration is the explicitly authorized application-data exception; cloud provisioning and Atlas schema changes remain exclusively OpenTofu-owned.
+
+`auth-development` is a loopback-only fixture root used by auth-relay's `dev`
+command. It owns only that worktree's local schema, Atlas scratch database and
+OIDC system identities; it has no cloud or Vault provider. Its state/plans are
+encrypted in `.superset/.auth-dev/`, and its wrapper rejects unrelated resources
+and all deletes before applying a saved plan. Never use this root for adoption
+or production migrations.

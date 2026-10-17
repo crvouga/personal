@@ -1,0 +1,2 @@
+FROM auth-relay-test:local
+COPY --chown=keycloak:keycloak fixture/ /opt/keycloak/data/import/

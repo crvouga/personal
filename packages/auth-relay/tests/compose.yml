@@ -1,0 +1,44 @@
+# Disposable local application tests; never a cloud provisioning path.
+services:
+  db:
+    image: postgres:18.1-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: test-only
+    ports: ['15432:5432']
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U keycloak']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  mock:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    ports: ['8090:8090']
+  broker:
+    image: auth-relay-fixture:local
+    build:
+      context: .
+      dockerfile: Dockerfile.broker
+    command: [start, --optimized, --import-realm]
+    environment: &broker-env
+      KC_DB_URL: jdbc:postgresql://db/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: test-only
+      KC_HOSTNAME: http://localhost:19080
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: test-only
+      KC_CACHE_EMBEDDED_MTLS_ENABLED: 'false'
+    ports: ['18080:8080']
+    depends_on:
+      db:
+        condition: service_healthy
+  replica:
+    image: auth-relay-fixture:local
+    environment: *broker-env
+    ports: ['18081:8080']
+    depends_on:
+      broker:
+        condition: service_healthy

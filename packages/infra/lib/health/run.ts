@@ -1,4 +1,5 @@
 /** The health groups, in report order, and the runner that executes them. */
+import { checkAuthRelay } from "./check-auth-relay.js";
 import { assert } from "@pkgs/assert";
 import { checkDns } from "./check-dns.js";
 import { checkDomains } from './check-domains.js';
@@ -23,6 +24,7 @@ export type HealthGroup = {
 };
 
 export const HEALTH_GROUPS: readonly HealthGroup[] = [
+  { id: "auth", title: "Authentication relay", covers: "OIDC discovery, JWKS and broker readiness", run: checkAuthRelay },
   { id: "inventory", title: "Inventory", covers: "offline consistency of the OpenTofu inventory", run: checkInventory },
   { id: "dns", title: "DNS", covers: "Cloudflare delegation and every declared record", run: checkDns },
   { id: 'domains', title: 'Domains', covers: 'Squarespace registration, retained delegation, DNSSEC, existing Cloudflare records and HTTPS', run: checkDomains },

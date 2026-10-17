@@ -1,0 +1,23 @@
+{
+  "name": "@pkgs/auth-relay",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "bun test src",
+    "test:e2e": "python3 -B tests/run.py",
+    "dev": "bun run build && bun ../../scripts/dev-server.ts auth-relay 8081 bun development/run.ts",
+    "start": "bun src/server.ts",
+    "tc": "tsc --noEmit",
+    "lint": "eslint src ui development --max-warnings 0",
+    "build": "bun build ./ui/app.ts --outdir ./dist --target browser",
+    "dev:fixtures": "AUTH_DEV_MODE=local bun run dev"
+  },
+  "dependencies": {
+    "hono": "catalog:",
+    "openid-client": "6.8.8"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

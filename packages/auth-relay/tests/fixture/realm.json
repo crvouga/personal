@@ -1,0 +1,61 @@
+{
+  "id": "compatibility",
+  "realm": "compatibility",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "accessCodeLifespan": 60,
+  "accessTokenLifespan": 300,
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "config": {
+        "clientId": "mock-broker",
+        "clientSecret": "test-only",
+        "authorizationUrl": "http://localhost:8090/authorize",
+        "tokenUrl": "http://mock:8090/token",
+        "jwksUrl": "http://mock:8090/jwks",
+        "issuer": "http://mock:8090",
+        "validateSignature": "true",
+        "useJwksUrl": "true",
+        "disableUserInfo": "true",
+        "defaultScope": "openid email profile",
+        "syncMode": "IMPORT",
+        "clientAuthMethod": "client_secret_post"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "auth-relay-console",
+      "secret": "test-only",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:19080/auth/callback"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "auth-relay-registration",
+      "secret": "test-only",
+      "publicClient": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-auth-relay-registration",
+      "enabled": true,
+      "serviceAccountClientId": "auth-relay-registration",
+      "clientRoles": {
+        "realm-management": ["manage-clients"]
+      }
+    }
+  ]
+}

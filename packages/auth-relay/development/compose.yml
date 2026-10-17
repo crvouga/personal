@@ -1,0 +1,47 @@
+# Isolated runtime dependencies, never a deployment/provisioning controller.
+services:
+  db:
+    image: postgres:18.1-alpine
+    environment:
+      POSTGRES_DB: auth_relay_development
+      POSTGRES_USER: development
+      POSTGRES_PASSWORD: development-only
+    ports: ['127.0.0.1:${AUTH_LOCAL_DATABASE_PORT}:5432']
+    volumes: ['database:/var/lib/postgresql']
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U development -d auth_relay_development']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  mock:
+    build:
+      context: ../tests
+      dockerfile: Dockerfile.mock
+    ports: ['127.0.0.1:${AUTH_LOCAL_MOCK_PORT}:8090']
+    environment:
+      MOCK_PRIVATE_KEY_PATH: /data/key.pem
+    volumes: ['mock-keys:/data']
+  broker:
+    build:
+      context: ..
+      dockerfile: Dockerfile.keycloak
+    command: [start, --optimized]
+    environment:
+      KC_DB_URL: jdbc:postgresql://db/auth_relay_development
+      KC_DB_USERNAME: development
+      KC_DB_PASSWORD: development-only
+      KC_HOSTNAME: http://localhost:${AUTH_LOCAL_APP_PORT}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: development-only
+      KC_CACHE: local
+      # Production retains its draining delay; this local single replica must
+      # finish within the runner's noninteractive shutdown window.
+      KC_SHUTDOWN_DELAY: 0s
+      JAVA_OPTS_KC_HEAP: -Xms128m -Xmx512m
+    ports: ['127.0.0.1:${AUTH_LOCAL_BROKER_PORT}:8080']
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  database:
+  mock-keys:
