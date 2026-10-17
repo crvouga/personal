@@ -13,6 +13,9 @@ export function browserOAuthFlow(provider, location) {
   const fixed = {
     codex: 'http://localhost:1455/auth/callback',
     xai: 'http://127.0.0.1:56121/callback',
+    trae: 'http://127.0.0.1:8080/callback',
+    windsurf: 'http://127.0.0.1:8080/windsurf-auth-callback',
+    zed: 'http://127.0.0.1:58443/',
   };
   // These installed-app registrations accept loopback callbacks, not arbitrary
   // public dashboard hostnames. The browser must hand their code back manually.
@@ -31,6 +34,25 @@ export function browserOAuthFlow(provider, location) {
       !local && (provider === 'claude' || Boolean(fixed[provider]) || google),
     startProxy: local && Boolean(fixed[provider]),
   };
+}
+
+export function shouldUseDeviceCode(provider, location) {
+  return provider === 'codex' && !isLoopbackHostname(location.hostname);
+}
+
+// Native-app providers require loopback redirects. Hosted dashboards cannot
+// receive those callbacks: keep attempt material in the modal for manual entry.
+export async function hostedProxyAuth(provider, location, fetcher = fetch) {
+  const flow = browserOAuthFlow(provider, location);
+  if (flow.local) return null;
+  const url = new URL(`/api/oauth/${provider}/authorize`, location.origin);
+  url.searchParams.set('redirect_uri', flow.redirectUri);
+  const response = await fetcher(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Unable to start login.');
+  if (!data.authUrl)
+    throw new Error('No authorization URL returned. Restart login.');
+  return { ...data, redirectUri: flow.redirectUri, manual: true };
 }
 
 export function callbackStateMatches(expected, actual) {
