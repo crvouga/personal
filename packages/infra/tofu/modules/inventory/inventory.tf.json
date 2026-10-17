@@ -1087,7 +1087,11 @@
             "environments": ["production"],
             "actions_secrets": [],
             "managed_publisher": false,
-            "required_status_checks": ["fast", "integration"]
+            "required_status_checks": [
+              "fast",
+              "integration",
+              "browser-and-container"
+            ]
           }
         },
         "pr_ready": {

@@ -128,7 +128,7 @@ run "moviefinder_ownership" {
     error_message = "The new MovieFinder service and schema must belong to its own application repository."
   }
   assert {
-    condition     = !output.config.github.repositories.moviefinder.managed_publisher && toset(output.config.github.repositories.moviefinder.required_status_checks) == toset(["fast", "integration"])
+    condition     = !output.config.github.repositories.moviefinder.managed_publisher && toset(output.config.github.repositories.moviefinder.required_status_checks) == toset(["fast", "integration", "browser-and-container"])
     error_message = "The application must retain its publisher and validation ownership."
   }
   assert {
