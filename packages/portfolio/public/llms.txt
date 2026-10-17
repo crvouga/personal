@@ -119,6 +119,7 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `PICKFLIX_SECRET` | prd | pickflix | yes |
 | `PICKFLIX_SESSION_SECRET` | prd | pickflix | yes |
 | `RESEND_API_KEY` | prd | pickflix | yes |
+| `MOVIEFINDER_AUTH_SECRET` | dev, prd | moviefinder | yes |
 
 ### Local dev — `vault run`
 
@@ -651,6 +652,7 @@ Working examples to copy from — each links to its source repo:
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
 | `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |
+| `moviefinder` | https://moviefinder.chrisvouga.dev | [crvouga/moviefinder](https://github.com/crvouga/moviefinder) | `./Dockerfile` (`.`) | 8080 | `/health` |
 
 ---
 
