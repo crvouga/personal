@@ -12,14 +12,7 @@ export type HttpProbeResult = {
   readonly ok: boolean;
   readonly status: number;
   readonly error?: string;
-  readonly fastFail: boolean;
 };
-
-/** LB / gateway errors — retrying won't help. */
-export function isFastFailHttpStatus(status: number): boolean {
-  assert.number(status, "http status must be a number");
-  return status === 502 || status === 503 || status === 504;
-}
 
 export function serviceHealthUrl(service: ServiceSpec, baseUrl?: string): string | undefined {
   assert.record(service, "service spec must be a record");
@@ -51,7 +44,7 @@ export async function probeHttp(
       signal: AbortSignal.timeout(timeoutMs),
     });
     assert.ok(res instanceof Response, "probe fetch must return a Response");
-    const result = { ok: res.ok, status: res.status, fastFail: isFastFailHttpStatus(res.status) };
+    const result = { ok: res.ok, status: res.status };
     assert.ok(typeof result.ok === "boolean", "probe ok must be a boolean");
     assert.number(result.status, "probe status must be a number");
     return result;
@@ -59,7 +52,6 @@ export async function probeHttp(
     return {
       ok: false,
       status: 0,
-      fastFail: false,
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -104,9 +96,6 @@ export async function waitForServiceHealthy(
 
     const detail = http.error ?? `HTTP ${http.status}`;
     console.log(`  ${service.id} not ready: ${detail}`);
-    if (http.fastFail && alwaysOn) {
-      throw new Error(`${service.id} unhealthy: ${detail} (${url})`);
-    }
     await sleep(retryDelayMs);
   }
 

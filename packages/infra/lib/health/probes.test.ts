@@ -132,6 +132,24 @@ describe("services", () => {
     expect(results[0]!.detail).toContain("attempt 3/3");
   });
 
+  test.each([502, 503, 504])("an always-on service can recover from HTTP %i", async (status) => {
+    let calls = 0;
+    const recovering = (async () => new Response("", { status: ++calls === 1 ? status : 200 })) as unknown as typeof fetch;
+    const ctx = fakeContext({ config: { ...CONFIG, cloudflare: {}, services: [CONFIG.services[1]!] }, fetch: recovering });
+    const results = await checkServices({ ...ctx, options: { ...ctx.options, retries: 1 } });
+    expect(results[0]).toMatchObject({ name: "turborepo", status: "pass" });
+    expect(calls).toBe(2);
+  });
+
+  test("persistent gateway errors fail after the configured retries", async () => {
+    let calls = 0;
+    const unavailable = (async () => { calls++; return new Response("", { status: 502 }); }) as unknown as typeof fetch;
+    const ctx = fakeContext({ config: { ...CONFIG, cloudflare: {}, services: [CONFIG.services[1]!] }, fetch: unavailable });
+    const results = await checkServices({ ...ctx, options: { ...ctx.options, retries: 2 } });
+    expect(results[0]).toMatchObject({ name: "turborepo", status: "fail" });
+    expect(calls).toBe(3);
+  });
+
   test("an offline tunnel connector warns; an unreachable edge fails", async () => {
     expect(tunnelHostnames(CONFIG)).toEqual(["llm.example.dev", "router.example.dev"]);
     const results = await checkTunnels(
