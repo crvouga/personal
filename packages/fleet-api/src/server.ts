@@ -4,29 +4,47 @@ import { createApi } from './app';
 import { FleetAdminAuth } from './auth/admin-auth';
 import { createDb } from './db/client';
 import { PgStore } from './db/pg-store';
+import { PgAccessStore } from './db/access-store';
+import { FleetBrowserAuth } from './auth/browser-auth';
 import type { AppDeps } from './deps';
 import { ConfigurationError, readServerEnv, type ServerEnv } from './env';
 import { startJobs } from './jobs/scheduler';
 import { GithubRevisionSource } from './revisions/github';
 import { mountUi } from './routes/ui';
+import { localResponse } from './local-response';
 
 const SHUTDOWN_GRACE_MS = 10_000;
+
+export interface ServerOptions {
+  /** Local development uses the live store without duplicating deployed jobs. */
+  readonly local?: boolean;
+}
 
 export interface RunningServer {
   readonly port: number;
   stop(): Promise<void>;
 }
 
-/** Wires the real database, Vault login, GitHub lookup and clock into AppDeps. */
+/** Wires the real database, relay authentication, GitHub lookup and clock into AppDeps. */
 export function buildDeps(
   env: ServerEnv,
   store: PgStore,
-  log: Logger
+  log: Logger,
+  browserAuth?: FleetBrowserAuth
 ): AppDeps {
   const now = () => new Date();
   return {
     store,
-    auth: new FleetAdminAuth({ env, now, fetch, log }),
+    ...(browserAuth ? { browserAuth } : {}),
+    auth: new FleetAdminAuth({
+      env,
+      now,
+      fetch,
+      log,
+      ...(browserAuth && env.relay
+        ? { browser: browserAuth, publicOrigin: env.relay.origin }
+        : {}),
+    }),
     revisions: new GithubRevisionSource({
       repo: env.githubRepo,
       fetch,
@@ -41,11 +59,15 @@ export function buildDeps(
 /** Boots the HTTP server and the background jobs. Names no secret in any log. */
 export async function startServer(
   env: ServerEnv,
-  log: Logger
+  log: Logger,
+  options: ServerOptions = {}
 ): Promise<RunningServer> {
   const db = createDb({ url: env.databaseUrl, prepare: env.databasePrepare });
   const store = new PgStore(db);
-  const deps = buildDeps(env, store, log);
+  const browser = env.relay
+    ? new FleetBrowserAuth(new PgAccessStore(db), env.relay)
+    : undefined;
+  const deps = buildDeps(env, store, log, browser);
   const app = createApi(deps, { log });
   mountUi(app, deps);
   try {
@@ -55,17 +77,22 @@ export async function startServer(
       'database is not reachable yet; /health will answer 503 until it is'
     );
   }
-  const jobs = startJobs({ store, now: deps.now, fetch, log });
+  const jobs = options.local
+    ? undefined
+    : startJobs({ store, now: deps.now, fetch, log });
   const server = Bun.serve({
-    hostname: '0.0.0.0',
+    hostname: options.local ? '127.0.0.1' : '0.0.0.0',
     port: env.port,
-    fetch: (request, bunServer) => app.fetch(request, { server: bunServer }),
+    fetch: async (request, bunServer) => {
+      const response = await app.fetch(request, { server: bunServer });
+      return options.local ? localResponse(response) : response;
+    },
   });
   log.info('fleet api listening', { port: server.port });
   return {
     port: server.port ?? env.port,
     stop: async () => {
-      jobs.stop();
+      jobs?.stop();
       await server.stop();
       await db.close();
     },
@@ -91,10 +118,10 @@ function shutdownOn(running: RunningServer, log: Logger): void {
   process.on('SIGINT', () => handler('SIGINT'));
 }
 
-async function main(): Promise<void> {
+export async function main(options: ServerOptions = {}): Promise<void> {
   const log = createLogger({ name: 'fleet-api', level: 'info' });
   try {
-    const running = await startServer(readServerEnv(), log);
+    const running = await startServer(readServerEnv(), log, options);
     shutdownOn(running, log);
   } catch (err: unknown) {
     // Only configuration errors are known to be free of secrets.

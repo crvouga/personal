@@ -2,6 +2,8 @@ import type { Context, Hono } from 'hono';
 
 import type { AppDeps } from '../deps';
 import { script, stylesheet, type Asset } from '../ui/assets';
+import { registerBrowser } from '../ui/routes/browser';
+import { registerAccess } from '../ui/routes/access';
 import { registerActions } from '../ui/routes/actions';
 import { registerPages } from '../ui/routes/pages';
 import { registerSettings } from '../ui/routes/settings';
@@ -28,6 +30,8 @@ export function mountUi(app: Hono, deps: AppDeps): void {
   app.get('/assets/app.js', (c) =>
     serve(c, script, 'text/javascript; charset=utf-8')
   );
+  registerBrowser(app, deps);
+  registerAccess(app, deps);
   registerActions(app, deps);
   registerPages(app, deps);
   registerSettings(app, deps);

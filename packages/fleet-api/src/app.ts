@@ -87,6 +87,11 @@ export function createApi(deps: AppDeps, options: ApiOptions = {}): Hono {
     '/login',
     rateLimitGuard(limiter(options.loginLimit ?? LOGIN_LIMIT))
   );
+  app.on(
+    'GET',
+    '/auth/login',
+    rateLimitGuard(limiter(options.loginLimit ?? LOGIN_LIMIT))
+  );
   app.all('/v1/*', (c) => apiError(c, 404, 'not_found', 'No such endpoint.'));
 
   app.onError((err, c) => {

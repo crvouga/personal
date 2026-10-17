@@ -5,6 +5,7 @@ import { createApi, type ApiOptions } from '../../src/app';
 import { FleetAdminAuth } from '../../src/auth/admin-auth';
 import type { AppDeps, AppEnv } from '../../src/deps';
 import type { Store } from '../../src/store';
+import type { BrowserAuth } from '../../src/auth/browser-contract';
 
 import { T0, nodeIdOf, secretOf, sha256 } from './fixtures';
 
@@ -63,6 +64,7 @@ export interface CallInit {
 }
 
 export interface HarnessOptions {
+  readonly browser?: BrowserAuth;
   readonly clock?: Clock;
   readonly env?: Partial<AppEnv>;
   readonly api?: ApiOptions;
@@ -72,9 +74,8 @@ export interface HarnessOptions {
 export function testEnv(overrides: Partial<AppEnv> = {}): AppEnv {
   return {
     adminToken: ADMIN_TOKEN,
-    sessionSecret: SESSION_SECRET,
+
     roleTokenHashes: { ci: sha256(CI_ROLE_TOKEN) },
-    vaultAddr: null,
     githubRepo: 'crvouga/workspace',
     ...overrides,
   };
@@ -90,6 +91,7 @@ export function createHarness(
     store,
     auth: new FleetAdminAuth({
       env,
+      ...(options.browser ? { browser: options.browser } : {}),
       now: clock.now,
       fetch: options.fetch ?? fetch,
       log: silent,

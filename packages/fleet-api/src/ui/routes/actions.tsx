@@ -2,7 +2,6 @@ import type { Context, Hono } from 'hono';
 
 import type { AppDeps } from '../../deps';
 import type { Approval, NodeRow } from '../../types';
-import { LoginPage } from '../pages/login';
 import { parseEdit } from '../lib/node-edit';
 import { action, back, safeNext, type Handler } from './guard';
 
@@ -101,58 +100,7 @@ function edit(deps: AppDeps): Handler {
   });
 }
 
-function loginPage(deps: AppDeps): Handler {
-  return async (c) => {
-    if ((await deps.auth.actor(c)) !== null)
-      return c.redirect(safeNext(c.req.query('next')), 303);
-    return c.html(
-      <LoginPage next={safeNext(c.req.query('next'))} error={null} />
-    );
-  };
-}
-
-function login(deps: AppDeps): Handler {
-  return async (c) => {
-    if (!deps.auth.sameOrigin(c))
-      return c.text('Forbidden: cross-site request refused.', 403);
-    const form = await body(c);
-    const username =
-      typeof form['username'] === 'string' ? form['username'].trim() : '';
-    const password =
-      typeof form['password'] === 'string' ? form['password'] : '';
-    const next = safeNext(form['next']);
-    const result =
-      username === '' || password === ''
-        ? null
-        : await deps.auth.login(username, password);
-    if (result === null) {
-      c.header('Cache-Control', 'no-store');
-      return c.html(
-        <LoginPage
-          next={next}
-          error="That username and password did not work."
-        />,
-        401
-      );
-    }
-    c.header('Set-Cookie', result.cookie, { append: true });
-    return c.redirect(next, 303);
-  };
-}
-
-function logout(deps: AppDeps): Handler {
-  return async (c) => {
-    if (!deps.auth.sameOrigin(c))
-      return c.text('Forbidden: cross-site request refused.', 403);
-    c.header('Set-Cookie', deps.auth.logoutCookie(), { append: true });
-    return c.redirect('/login', 303);
-  };
-}
-
 export function registerActions(app: Hono, deps: AppDeps): void {
-  app.get('/login', loginPage(deps));
-  app.post('/login', login(deps));
-  app.post('/logout', logout(deps));
   app.post('/nodes/:id/approve', transition(deps, 'approve'));
   app.post('/nodes/:id/reject', transition(deps, 'reject'));
   app.post('/nodes/:id/retire', transition(deps, 'retire'));

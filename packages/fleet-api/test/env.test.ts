@@ -29,9 +29,7 @@ describe('readServerEnv', () => {
       port: 8080,
       databasePrepare: true,
       adminToken: 'a'.repeat(32),
-      sessionSecret: 'b'.repeat(32),
       roleTokenHashes: {},
-      vaultAddr: null,
       githubRepo: 'crvouga/workspace',
     });
   });
@@ -50,7 +48,6 @@ describe('readServerEnv', () => {
     });
     expect(env).toMatchObject({
       port: 9000,
-      vaultAddr: 'https://vault.example.com',
       githubRepo: 'someone/else',
       databasePrepare: false,
       roleTokenHashes: { ci: sha256('x'), web: sha256('y') },
@@ -65,7 +62,7 @@ describe('readServerEnv', () => {
       FLEET_GITHUB_REPO: '  ',
     });
     expect(env.port).toBe(8080);
-    expect(env.vaultAddr).toBeNull();
+    expect(env).not.toHaveProperty('vaultAddr');
     expect(env.githubRepo).toBe('crvouga/workspace');
   });
 
@@ -74,7 +71,6 @@ describe('readServerEnv', () => {
     for (const name of [
       'DATABASE_URL',
       'FLEET_ADMIN_TOKEN',
-      'FLEET_SESSION_SECRET',
       'FLEET_ROLE_TOKEN_HASHES',
     ]) {
       expect(message).toContain(name);
@@ -84,9 +80,6 @@ describe('readServerEnv', () => {
   test('refuses short secrets', () => {
     expect(problems({ ...VALID, FLEET_ADMIN_TOKEN: 'a'.repeat(31) })).toContain(
       'FLEET_ADMIN_TOKEN must be at least 32'
-    );
-    expect(problems({ ...VALID, FLEET_SESSION_SECRET: 'short' })).toContain(
-      'FLEET_SESSION_SECRET must be at least 32'
     );
   });
 
@@ -118,9 +111,6 @@ describe('readServerEnv', () => {
     expect(problems({ ...VALID, DATABASE_URL: 'not a url' })).toContain(
       'DATABASE_URL'
     );
-    expect(problems({ ...VALID, VAULT_ADDR: 'ftp://vault' })).toContain(
-      'VAULT_ADDR'
-    );
     expect(problems({ ...VALID, FLEET_GITHUB_REPO: 'no-slash' })).toContain(
       'FLEET_GITHUB_REPO'
     );
@@ -145,4 +135,40 @@ describe('readServerEnv', () => {
       expect(message).not.toContain(secret);
     }
   });
+});
+
+test('browser login accepts only a complete relay configuration and exact HTTPS/loopback origins', () => {
+  const settings = {
+    ...VALID,
+    FLEET_OIDC_ISSUER: 'https://auth.example.test/realms/fleet',
+    FLEET_OIDC_CLIENT_ID: 'app-id',
+    FLEET_PUBLIC_ORIGIN: 'http://localhost:5173',
+  };
+  expect(readServerEnv(settings).relay?.origin).toBe('http://localhost:5173');
+  expect(
+    readServerEnv({ ...settings, FLEET_PUBLIC_ORIGIN: 'http://127.0.0.1:8082' })
+      .relay
+  ).toBeDefined();
+  for (const bad of [
+    'http://fleet.example',
+    'https://fleet.example/path',
+    'https://fleet.example/',
+  ])
+    expect(problems({ ...settings, FLEET_PUBLIC_ORIGIN: bad })).toContain(
+      'FLEET_PUBLIC_ORIGIN'
+    );
+  for (const bad of [
+    'https://accounts.google.com',
+    'http://auth.example.test/realms/fleet',
+    'https://auth.example/realms/fleet?x=1',
+  ])
+    expect(problems({ ...settings, FLEET_OIDC_ISSUER: bad })).toContain(
+      'FLEET_OIDC_ISSUER'
+    );
+  expect(problems({ ...settings, FLEET_OIDC_CLIENT_ID: '' })).toContain(
+    'FLEET_OIDC_CLIENT_ID'
+  );
+  expect(
+    readServerEnv({ ...VALID, VAULT_ADDR: 'invalid-and-unused' })
+  ).not.toHaveProperty('vaultAddr');
 });

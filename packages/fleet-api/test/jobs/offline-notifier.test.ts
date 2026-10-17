@@ -11,7 +11,7 @@ import {
   nodeIdOf,
   registerInput,
 } from '../support/fixtures';
-import { recordingLogger } from '../support/fake-vault';
+import { recordingLogger } from '../support/recording-logger';
 
 interface Post {
   readonly url: string;

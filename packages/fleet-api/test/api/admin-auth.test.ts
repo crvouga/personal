@@ -1,13 +1,11 @@
-import { afterAll, describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 
-import { SESSION_SECONDS } from '../../src/auth/session';
+import { FleetBrowserAuth } from '../../src/auth/browser-auth';
+import { PgAccessStore } from '../../src/db/access-store';
+import { sha256Hex } from '../../src/auth/hash';
 import { ADMIN_TOKEN, CI_ROLE_TOKEN } from '../support/api';
 import { describeApi } from '../support/describe-api';
-import { startFakeVault } from '../support/fake-vault';
 import { nodeIdOf } from '../support/fixtures';
-
-const vault = startFakeVault();
-afterAll(() => vault.stop());
 
 const ADMIN_ROUTES: readonly (readonly [string, string, unknown?])[] = [
   ['GET', '/v1/nodes'],
@@ -90,10 +88,32 @@ describeApi('admin authentication', (ctx) => {
 
   describe('with a signed-in session', () => {
     const signIn = async () => {
-      const h = ctx().harness({ env: { vaultAddr: vault.url } });
-      const login = await h.deps.auth.login('chris', 'correct horse');
-      expect(login).not.toBeNull();
-      const cookie = (login?.cookie ?? '').split(';')[0] ?? '';
+      const access = new PgAccessStore(ctx().db.sql);
+      await access.allow('chris@example.test', 'test-owner');
+      const token = 's'.repeat(43);
+      await access.createSession(
+        sha256Hex(token),
+        {
+          issuer: 'https://relay.example/realms/test',
+          subject: 'google-user',
+          email: 'chris@example.test',
+        },
+        new Date(Date.now() + 43200000),
+        sha256Hex(
+          JSON.stringify([
+            'https://relay.example/realms/test',
+            'fleet',
+            'http://localhost',
+          ])
+        )
+      );
+      const browser = new FleetBrowserAuth(access, {
+        origin: 'http://localhost',
+        issuer: 'https://relay.example/realms/test',
+        clientId: 'fleet',
+      });
+      const h = ctx().harness({ browser });
+      const cookie = `fleet_${sha256Hex('http://localhost').slice(0, 16)}_session=${token}`;
       return { h, cookie };
     };
     const same = { Origin: 'http://localhost' };
@@ -166,9 +186,9 @@ describeApi('admin authentication', (ctx) => {
       });
       expect(
         (await h.admin('GET', `/v1/nodes/${nodeIdOf(1)}`)).body.node.approvedBy
-      ).toBe('chris');
+      ).toBe('chris@example.test');
       expect((await h.admin('GET', '/v1/settings/fleet')).body.updatedBy).toBe(
-        'chris'
+        'chris@example.test'
       );
       const events = (await h.admin('GET', '/v1/events')).body.events;
       expect(
@@ -187,7 +207,8 @@ describeApi('admin authentication', (ctx) => {
 
     test('an expired session is just anonymous', async () => {
       const { h, cookie } = await signIn();
-      h.clock.advance(SESSION_SECONDS);
+      await ctx().db
+        .sql`update fleet.browser_sessions set expires_at = now() - interval '1 second'`;
       expect(
         (await h.call('GET', '/v1/nodes', { headers: { Cookie: cookie } }))
           .status
@@ -219,14 +240,14 @@ describeApi('admin authentication', (ctx) => {
 });
 
 describe('login rate limit', () => {
-  describeApi('POST /login', (ctx) => {
+  describeApi('GET /auth/login', (ctx) => {
     test('is limited per address before the dashboard handler runs', async () => {
       const { harness } = ctx();
       const h = harness({
         api: { loginLimit: { limit: 3, windowMs: 60_000 } },
       });
       const attempt = (ip: string) =>
-        h.call('POST', '/login', {
+        h.call('GET', '/auth/login', {
           headers: { 'cf-connecting-ip': ip },
           body: 'username=a&password=b',
         });
@@ -247,7 +268,9 @@ describe('login rate limit', () => {
         api: { loginLimit: { limit: 1, windowMs: 60_000 } },
       });
       for (let i = 0; i < 5; i += 1) await h.call('GET', '/login');
-      expect((await h.call('POST', '/login', { body: 'x' })).status).toBe(404);
+      expect((await h.call('GET', '/auth/login', { body: 'x' })).status).toBe(
+        404
+      );
     });
   });
 });

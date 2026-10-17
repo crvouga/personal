@@ -23,7 +23,8 @@ Base URL: `https://fleet.chrisvouga.dev`. All bodies are JSON (`Content-Type: ap
 - **Node id** is the lowercase sha256 hex (64 chars) of the machine's stable hardware material, exactly the digest whose first four hex digits are the node's hostname suffix (`ci-a3f9` -> id starts `a3f9`). It is `/run/fleet/node` field `machine_id`.
 - The server stores `sha256(node secret)` only. A node secret is 32 random bytes, hex encoded (64 chars).
 - `FLEET_ROLE_TOKEN_HASHES` is a JSON object `{ "ci": "<sha256 hex>", ... }`. The server compares `sha256(presented role token)` to the hash for the node's claimed role with a constant-time comparison.
-- Passwords are checked against Vault `auth/userpass/login/<username>`; the Vault token is discarded at once and only a username that logs in with the `admin` policy gets a session.
+- Browser authentication is Google through the shared auth relay only: OIDC code + S256 PKCE, state, nonce and signature/issuer/audience/expiry verification. The verified email must appear in `fleet.allowed_emails`. Fleet uses an opaque, database-backed session, rechecks access on authorized requests and invalidates it on sign-out. Vault only stores application secrets.
+- `/not-allowed` shows a denied signed-in account and permits same-origin sign-out without requiring allowlist access. `/access` manages allowed emails for existing allowed administrators, auditing changes and protecting the final allowed address. Initial access is populated by the database owner. See README for schema rollout and exact callback configuration.
 
 ## Node endpoints
 
@@ -133,7 +134,7 @@ State-changing browser requests also require a same-origin `Origin` header (CSRF
 
 ## Dashboard (cookie session)
 
-`GET /login`, `POST /login` (username, password), `POST /logout`; `GET /` fleet overview; `GET /nodes`, `GET /nodes/:id`; `GET /pending`; `GET /events`; `GET /settings`, `GET /settings/:scope`, `POST /settings/:scope`; `GET /ui/fleet` (an HTML fragment of the overview for auto refresh).
+`GET /login` (Google sign-in), `GET /auth/login`, `GET /auth/callback`, `GET /not-allowed`, `POST /logout`, `GET /access` and `POST /access` (allowed administrators only); `POST /login` returns 410 and never creates a session; `GET /` fleet overview; `GET /nodes`, `GET /nodes/:id`; `GET /pending`; `GET /events`; `GET /settings`, `GET /settings/:scope`, `POST /settings/:scope`; `GET /ui/fleet` (an HTML fragment of the overview for auto refresh).
 
 ## Background work (inside the server process)
 
@@ -150,7 +151,7 @@ Details the sections above leave open. `test/api/**` and `test/db/**` pin every 
 
 ### Environment
 
-`DATABASE_URL` (`sslmode=require` is honored and never falls back to plaintext; `require` does not verify the certificate, like libpq), `FLEET_ADMIN_TOKEN` and `FLEET_SESSION_SECRET` (at least 32 characters each), `FLEET_ROLE_TOKEN_HASHES` (JSON object, `{}` for none), optional `VAULT_ADDR`, `FLEET_GITHUB_REPO` (default `crvouga/workspace`), `PORT` (default 8080), `FLEET_DB_PREPARE=false` (no named prepared statements, for a transaction-mode pooler). A bad environment stops the process at boot, naming variables and never values.
+`DATABASE_URL` (`sslmode=require` is honored and never falls back to plaintext; `require` does not verify the certificate, like libpq), `FLEET_ADMIN_TOKEN` (at least 32 characters), `FLEET_ROLE_TOKEN_HASHES` (JSON object, `{}` for none), `FLEET_GITHUB_REPO` (default `crvouga/workspace`), `PORT` (default 8080), `FLEET_DB_PREPARE=false` (no named prepared statements, for a transaction-mode pooler). Browser login additionally uses `FLEET_OIDC_ISSUER`, `FLEET_OIDC_CLIENT_ID` and `FLEET_PUBLIC_ORIGIN` as a complete set. The issuer must be an HTTPS relay realm, and the callback must be registered exactly. `FLEET_SESSION_SECRET` and `VAULT_ADDR` no longer participate in browser authentication. A bad environment stops the process at boot, naming variables and never values.
 
 ### Registration and approval
 

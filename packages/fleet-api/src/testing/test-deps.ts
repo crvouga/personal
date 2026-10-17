@@ -13,9 +13,8 @@ export interface TestDepsOptions {
 
 const ENV: AppEnv = {
   adminToken: 'test-admin-token',
-  sessionSecret: 'test-session-secret',
+
   roleTokenHashes: {},
-  vaultAddr: null,
   githubRepo: 'crvouga/workspace',
 };
 

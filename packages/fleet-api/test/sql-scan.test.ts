@@ -17,6 +17,10 @@ const TABLES = new Set([
   'events',
   'settings',
   'settings_history',
+  'allowed_emails',
+  'access_audit',
+  'login_transactions',
+  'browser_sessions',
 ]);
 
 describe('the scanner itself', () => {
@@ -86,7 +90,7 @@ describe('src/db', () => {
     expect(offenders).toEqual([]);
   });
 
-  test('every fleet.<name> is one of the five tables', () => {
+  test('every fleet.<name> is one of the Atlas-owned fleet tables', () => {
     const named = statements.flatMap(({ sql }) =>
       [...sql.matchAll(/\bfleet\.(\w+)/g)].map((m) => m[1] ?? '')
     );

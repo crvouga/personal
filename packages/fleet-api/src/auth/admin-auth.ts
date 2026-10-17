@@ -1,28 +1,21 @@
 import type { Logger } from '@pkgs/logger';
 import type { Context } from 'hono';
-import { getCookie } from 'hono/cookie';
 
-import type { AdminAuth, AppEnv, LoginResult } from '../deps';
+import type { AdminAuth, AppEnv } from '../deps';
+import type { BrowserAuth } from './browser-contract';
 
 import { safeEqual } from './hash';
-import {
-  SESSION_COOKIE,
-  SESSION_SECONDS,
-  clearedSessionCookie,
-  sessionCookie,
-  signSession,
-  verifySession,
-} from './session';
-import { vaultAdminLogin } from './vault-login';
+import { clearedSessionCookie } from './session';
 
 export const TOKEN_ACTOR = 'admin-token';
 
 export interface AdminAuthOptions {
-  readonly env: Pick<AppEnv, 'adminToken' | 'sessionSecret' | 'vaultAddr'>;
+  readonly env: Pick<AppEnv, 'adminToken'>;
   readonly now: () => Date;
   readonly fetch: typeof fetch;
   readonly log: Logger;
-  readonly vaultTimeoutMs?: number;
+  readonly browser?: BrowserAuth;
+  readonly publicOrigin?: string;
 }
 
 function bearerToken(c: Context): string | null {
@@ -55,31 +48,8 @@ export class FleetAdminAuth implements AdminAuth {
     if (token !== null && safeEqual(token, this.options.env.adminToken)) {
       return TOKEN_ACTOR;
     }
-    const nowSeconds = Math.floor(this.options.now().getTime() / 1000);
-    return verifySession(
-      this.options.env.sessionSecret,
-      getCookie(c, SESSION_COOKIE),
-      nowSeconds
-    );
-  }
-
-  async login(username: string, password: string): Promise<LoginResult | null> {
-    const { env, fetch, log, vaultTimeoutMs } = this.options;
-    const ok = await vaultAdminLogin(
-      {
-        vaultAddr: env.vaultAddr,
-        fetch,
-        log,
-        ...(vaultTimeoutMs !== undefined ? { timeoutMs: vaultTimeoutMs } : {}),
-      },
-      username,
-      password
-    );
-    if (!ok) return null;
-    const expires =
-      Math.floor(this.options.now().getTime() / 1000) + SESSION_SECONDS;
-    const value = signSession(env.sessionSecret, username, expires);
-    return { cookie: sessionCookie(value), actor: username };
+    const identity = await this.options.browser?.identity(c);
+    return identity?.allowed ? identity.email : null;
   }
 
   logoutCookie(): string {
@@ -89,6 +59,16 @@ export class FleetAdminAuth implements AdminAuth {
   /** Origin, else Referer, must name this site. Absent both: refuse. */
   sameOrigin(c: Context): boolean {
     const origin = c.req.header('origin');
+    if (this.options.publicOrigin) {
+      try {
+        return (
+          new URL(origin ?? c.req.header('referer') ?? '').origin ===
+          this.options.publicOrigin
+        );
+      } catch {
+        return false;
+      }
+    }
     const claimed = hostOf(origin ?? c.req.header('referer'));
     if (claimed === null) return false;
     return requestHosts(c).includes(claimed);

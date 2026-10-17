@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import type { BrowserAuth } from './auth/browser-contract';
 
 import type { Store } from './store';
 import type { Role } from './types';
@@ -7,27 +8,16 @@ import type { Role } from './types';
 export interface AppEnv {
   /** Bearer token for scripts and CI (`bun run health`). */
   readonly adminToken: string;
-  /** Signs dashboard session cookies. */
-  readonly sessionSecret: string;
   /** sha256 hex of each role's shared token; a node that presents the token is auto-approved. */
   readonly roleTokenHashes: Readonly<Partial<Record<Role, string>>>;
-  /** Vault address used to check a person's username and password. Null disables password login. */
-  readonly vaultAddr: string | null;
   /** owner/name whose main branch defines "latest". */
   readonly githubRepo: string;
-}
-
-export interface LoginResult {
-  /** The Set-Cookie header value. */
-  readonly cookie: string;
-  readonly actor: string;
 }
 
 /** Who is making an administrative request. Implemented in src/auth. */
 export interface AdminAuth {
   /** The actor for a Bearer token or a valid session cookie, else null. */
   actor(c: Context): Promise<string | null>;
-  login(username: string, password: string): Promise<LoginResult | null>;
   /** A Set-Cookie header value that clears the session. */
   logoutCookie(): string;
   /** True when a state-changing request came from this site (Origin check). */
@@ -40,6 +30,7 @@ export interface RevisionSource {
 }
 
 export interface AppDeps {
+  readonly browserAuth?: BrowserAuth;
   readonly store: Store;
   readonly auth: AdminAuth;
   readonly revisions: RevisionSource;

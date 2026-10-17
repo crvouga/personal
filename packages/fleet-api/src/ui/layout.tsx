@@ -21,6 +21,7 @@ interface NavItem {
 }
 
 const NAV: readonly NavItem[] = [
+  { href: '/access', label: 'Access', match: (p) => p === '/access' },
   { href: '/', label: 'Overview', match: (p) => p === '/' || p === '/add' },
   { href: '/nodes', label: 'Nodes', match: (p) => p.startsWith('/nodes') },
   { href: '/pending', label: 'Pending', match: (p) => p === '/pending' },

@@ -6,7 +6,7 @@ import type { JobDeps } from '../../src/jobs/offline-notifier';
 import type { Store } from '../../src/store';
 import { Clock, silent } from '../support/api';
 import { describeStore } from '../support/describe-store';
-import { recordingLogger } from '../support/fake-vault';
+import { recordingLogger } from '../support/recording-logger';
 import {
   T0,
   heartbeatBody,

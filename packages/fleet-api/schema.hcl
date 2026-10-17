@@ -326,3 +326,112 @@ table "settings_history" {
     }
   }
 }
+
+# Browser Google/OIDC authorization; never seeded from source code.
+table "allowed_emails" {
+  schema = schema.fleet
+  column "email" {
+    null = false
+    type = text
+  }
+  column "added_by" {
+    null = false
+    type = text
+  }
+  column "added_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key { columns = [column.email] }
+}
+
+# Browser Google/OIDC authorization; never seeded from source code.
+table "login_transactions" {
+  schema = schema.fleet
+  column "state_hash" {
+    null = false
+    type = text
+  }
+  column "binding_hash" {
+    null = false
+    type = text
+  }
+  column "verifier" {
+    null = false
+    type = text
+  }
+  column "nonce" {
+    null = false
+    type = text
+  }
+  column "next_path" {
+    null = false
+    type = text
+  }
+  column "expires_at" {
+    null = false
+    type = timestamptz
+  }
+  primary_key { columns = [column.state_hash] }
+  index "login_transactions_expiry" { columns = [column.expires_at] }
+}
+
+# Browser Google/OIDC authorization; never seeded from source code.
+table "browser_sessions" {
+  schema = schema.fleet
+  column "session_context" {
+    type = text
+    null = false
+  }
+  column "token_hash" {
+    null = false
+    type = text
+  }
+  column "issuer" {
+    null = false
+    type = text
+  }
+  column "subject" {
+    null = false
+    type = text
+  }
+  column "email" {
+    null = false
+    type = text
+  }
+  column "expires_at" {
+    null = false
+    type = timestamptz
+  }
+  primary_key { columns = [column.token_hash] }
+  index "browser_sessions_expiry" { columns = [column.expires_at] }
+}
+
+# Browser Google/OIDC authorization; never seeded from source code.
+table "access_audit" {
+  schema = schema.fleet
+  column "id" {
+    null = false
+    type = bigint
+    identity { generated = ALWAYS }
+  }
+  column "email" {
+    null = false
+    type = text
+  }
+  column "actor" {
+    null = false
+    type = text
+  }
+  column "action" {
+    null = false
+    type = text
+  }
+  column "at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key { columns = [column.id] }
+}
