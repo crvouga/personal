@@ -196,6 +196,28 @@ The credentials that let OpenTofu reach each provider, the state-encryption pass
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
 
+### New application namespace allocation
+
+A service can opt into foundation-owned empty namespace allocation with
+`database_schema` and `manage_database_schema = true`. The generic
+`postgresql_schema.application` resource creates only that namespace and prevents
+its destruction. Application repositories retain exclusive ownership of their
+Atlas migrations, tables and migration history. Existing schemas without this
+opt-in remain externally owned; no legacy schema is adopted implicitly.
+
+The `moviefinder` entry allocates the new namespace for `crvouga/moviefinder` and
+hosts its image in the existing Workspace Railway project. It preserves all
+three legacy MovieFinder deployments. The foundation already feeds the same
+opaque DATABASE_URL into dev and prd; this change does not alter that platform
+contract or claim separate physical databases. MovieFinder local development
+uses embedded PostgreSQL and never connects to the shared development URL.
+
+`MOVIEFINDER_AUTH_SECRET` is a new generated Vault field, delivered through the
+fleet alongside DATABASE_URL and TMDB_API_READ_ACCESS_TOKEN. No existing auth
+key or secret input is rotated. Optional OAuth and mail remain unconfigured.
+Apply the approved foundation allocation before running MovieFinder's guarded
+production Atlas workflow. No application DDL is reconciled by this platform.
+
 ## Staged authentication relay
 
 The `auth-hosting` root owns the public Bun/Hono UI/API gateway and private Keycloak services, with two replicas per service/instance. `auth` owns each independent realm, Google upstream, signing keys and the two bootstrap system clients. Consuming applications and exact allowed callbacks are registered in the Google-protected UI and stored as runtime data in isolated PostgreSQL schemas, never in an inventory project allowlist. `foundation/auth-relay.tf` owns their restricted roles, schemas and schema-scoped Atlas definitions in the existing shared database. The Vault root stores setup/system/database credentials; it reuses the existing Google credential inputs. No Google secrets reach consuming applications.

@@ -31,7 +31,6 @@ async function checkService(ctx: HealthContext, service: ServiceSpec): Promise<C
       return pass(service.id, `${url} → HTTP ${http.status} (${Date.now() - started}ms${retried})`);
     }
     lastError = http.error ?? `HTTP ${http.status}`;
-    if (http.fastFail && alwaysOn) break;
     if (attempt < attempts) await sleep(ctx.options.retryDelayMs);
   }
   return fail(service.id, `${url} → ${lastError}`);

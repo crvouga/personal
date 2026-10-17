@@ -133,3 +133,11 @@ run "application_owned_publisher" {
     error_message = "Transferring publisher ownership must preserve required application checks."
   }
 }
+
+run "application_namespace_allocation_is_opt_in" {
+  command = plan
+  assert {
+    condition     = toset(keys(postgresql_schema.application)) == toset(["moviefinder"]) && postgresql_schema.application["moviefinder"].name == "moviefinder" && postgresql_schema.application["moviefinder"].if_not_exists
+    error_message = "Allocate only the new namespace; never adopt or alter existing application schemas."
+  }
+}
