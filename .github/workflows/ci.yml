@@ -982,7 +982,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run packages/infra/scripts/print-platform-env.ts --format github >> "$GITHUB_ENV"
       - name: Health-check all public services
-        run: bun run health-check --all-public
+        # Always-on services can still return gateway errors during deployment.
+        # Allow two minutes of retries for writer drain, lock handoff and restore.
+        run: bun run health-check --all-public --retries 24 --retry-delay-ms 5000
 
   smoke:
     runs-on: ubuntu-latest
