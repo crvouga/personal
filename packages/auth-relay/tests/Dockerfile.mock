@@ -1,0 +1,3 @@
+FROM node:22-alpine
+COPY mock-idp.mjs /test/mock-idp.mjs
+CMD ["node", "/test/mock-idp.mjs"]

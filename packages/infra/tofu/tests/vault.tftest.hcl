@@ -31,7 +31,9 @@ variables {
   cloudflare_account_id = "test-account-id"
   admin_passwords       = { crvouga = "test-password" }
   secrets = {
-    dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+    dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+      for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
+    })
     prd = merge(
       { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
       { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
@@ -94,7 +96,9 @@ run "reject_missing_youtube_key" {
   command = plan
   variables {
     secrets = {
-      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
+      })
       prd = { for name, value in merge(
         { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
         { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
@@ -108,7 +112,9 @@ run "reject_missing_resend_key" {
   command = plan
   variables {
     secrets = {
-      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
+      })
       prd = { for name, value in merge(
         { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
         { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
@@ -122,11 +128,45 @@ run "reject_blank_service_credential" {
   command = plan
   variables {
     secrets = {
-      dev = { PORTFOLIO_GITHUB_TOKEN = "dev-token" }
+      dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
+      })
       prd = { for name, value in merge(
         { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
         { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
       ) : name => name == "TMDB_API_READ_ACCESS_TOKEN" ? "  " : value }
+    }
+  }
+  expect_failures = [vault_kv_secret_v2.personal["prd"]]
+}
+
+run "reject_missing_google_client_id" {
+  command = plan
+  variables {
+    secrets = {
+      dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev") && key.name != "WEB_CLIENT_GOOGLE_CLIENT_ID"
+      })
+      prd = merge(
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
+      )
+    }
+  }
+  expect_failures = [vault_kv_secret_v2.personal["dev"]]
+}
+
+run "reject_blank_google_client_secret" {
+  command = plan
+  variables {
+    secrets = {
+      dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
+      })
+      prd = merge(
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => key.name == "WEB_CLIENT_GOOGLE_CLIENT_SECRET" ? "  " : "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
+      )
     }
   }
   expect_failures = [vault_kv_secret_v2.personal["prd"]]

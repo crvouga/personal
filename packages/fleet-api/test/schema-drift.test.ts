@@ -62,10 +62,14 @@ function mapperReads(
 }
 
 describe('schema.hcl', () => {
-  test('is parsed into the five tables', () => {
+  test('is parsed into the fleet and browser authorization tables', () => {
     expect(Object.keys(SCHEMA).sort()).toEqual([
+      'access_audit',
+      'allowed_emails',
+      'browser_sessions',
       'events',
       'heartbeats',
+      'login_transactions',
       'nodes',
       'settings',
       'settings_history',
@@ -149,7 +153,17 @@ describe('what PgStore writes', () => {
 
   test('finds the inserts', () => {
     expect(new Set(inserts.map((i) => i.table))).toEqual(
-      new Set(['nodes', 'heartbeats', 'events', 'settings', 'settings_history'])
+      new Set([
+        'nodes',
+        'heartbeats',
+        'events',
+        'settings',
+        'settings_history',
+        'allowed_emails',
+        'access_audit',
+        'login_transactions',
+        'browser_sessions',
+      ])
     );
   });
 
@@ -207,6 +221,7 @@ describe('what PgStore writes', () => {
   test('every snake_case identifier in the SQL is a column, a table or a known function', () => {
     const known = new Set<string>([
       'jsonb_array_elements',
+      'pg_advisory_xact_lock',
       ...Object.keys(SCHEMA),
     ]);
     for (const columns of Object.values(SCHEMA))

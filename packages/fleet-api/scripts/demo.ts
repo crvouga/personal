@@ -20,9 +20,8 @@ const deps: AppDeps = {
   revisions: { latest: async () => DEMO_LATEST },
   env: {
     adminToken: 'demo',
-    sessionSecret: 'demo',
+
     roleTokenHashes: {},
-    vaultAddr: null,
     githubRepo: 'crvouga/workspace',
   },
   now: () => new Date(),
@@ -32,8 +31,23 @@ const empty = process.argv.includes('--empty');
 if (!empty) seedDemo(store, new Date(), (at) => (clock = at));
 
 const app = new Hono();
+app.use('*', async (c, next) => {
+  await next();
+  if (!c.res.headers.get('content-type')?.includes('text/html')) return;
+  const html = await c.res.text();
+  c.res = new Response(
+    html.replace(
+      '<main',
+      '<aside role="note">LOCAL DEMO: synthetic fleet data; changes disappear on restart.</aside><main'
+    ),
+    {
+      status: c.res.status,
+      headers: c.res.headers,
+    }
+  );
+});
 mountUi(app, deps);
-Bun.serve({ port, fetch: app.fetch });
+Bun.serve({ hostname: '127.0.0.1', port, fetch: app.fetch });
 process.stdout.write(
-  `Fleet dashboard demo: http://localhost:${port}${empty ? ' (empty)' : ''}\n`
+  `LOCAL DEMO: synthetic fleet data, in-memory storage, no live fleet or Vault access.\nFleet dashboard demo: http://localhost:${port}${empty ? ' (empty)' : ''}\n`
 );

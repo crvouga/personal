@@ -104,7 +104,7 @@ async function main(): Promise<void> {
 
   const body = `${lines.join('\n')}\n`;
   assert.nonEmptyString(body, 'env body must be non-empty');
-  writeFileSync(tmpPath, body, { encoding: 'utf8' });
+  writeFileSync(tmpPath, body, { encoding: 'utf8', mode: 0o600 });
   renameSync(tmpPath, outPath);
 
   for (const line of lines) {

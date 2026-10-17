@@ -12,7 +12,7 @@ import {
 import { startCluster } from '../support/cluster';
 import { databaseAvailable } from '../support/database';
 import { describeApi } from '../support/describe-api';
-import { recordingLogger } from '../support/fake-vault';
+import { recordingLogger } from '../support/recording-logger';
 import { heartbeatBody, nodeIdOf, secretOf } from '../support/fixtures';
 import { findTooling } from '../support/tooling';
 

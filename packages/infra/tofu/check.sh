@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 export TF_VAR_state_passphrase="${TF_VAR_state_passphrase:-validation-only-passphrase-never-used-for-real-state}"
 tofu fmt -check -recursive
-for root in state foundation bootstrap vault fleet; do
+for root in state foundation bootstrap vault fleet auth auth-hosting auth-development; do
   tofu -chdir="$root" init -backend=false -input=false -lockfile=readonly
   tofu -chdir="$root" validate
 done
@@ -22,3 +22,7 @@ python3 tests/vault.py
 python3 tests/cloudflare-dns-settings.py
 python3 tests/github-secrets.py
 python3 tests/domains.py
+
+tofu -chdir=modules/auth-client init -backend=false -input=false -lockfile=readonly
+tofu -chdir=modules/auth-client test
+bun run --cwd ../../auth-relay test

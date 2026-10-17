@@ -9,8 +9,7 @@
  * with the address and credentials once /health answers, then runs until it
  * receives SIGTERM or stdin closes, and cleans everything up.
  *
- * Environment: FLEET_E2E_ROLE_TOKEN (default generated), VAULT_ADDR (optional,
- * for dashboard password login), FLEET_E2E_IMAGE (optional).
+ * Environment: FLEET_E2E_ROLE_TOKEN (default generated), FLEET_E2E_IMAGE (optional).
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -53,8 +52,6 @@ function serverEnv(
     FLEET_ROLE_TOKEN_HASHES: JSON.stringify({ ci: sha256(roleToken) }),
     FLEET_GITHUB_REPO: 'crvouga/workspace',
   };
-  const vault = process.env['VAULT_ADDR'];
-  if (vault !== undefined && vault !== '') env['VAULT_ADDR'] = vault;
   return env;
 }
 

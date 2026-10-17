@@ -7,17 +7,22 @@ import { startServer } from '../src/server';
 import { ADMIN_TOKEN, CI_ROLE_TOKEN, SESSION_SECRET } from './support/api';
 import { freePort } from './support/cluster';
 import { databaseAvailable, useDatabase } from './support/database';
-import { recordingLogger } from './support/fake-vault';
-import { heartbeatBody, nodeIdOf, secretOf, sha256 } from './support/fixtures';
+import { recordingLogger } from './support/recording-logger';
+import {
+  heartbeatBody,
+  nodeIdOf,
+  registerInput,
+  secretOf,
+  sha256,
+} from './support/fixtures';
 
 const envFor = (databaseUrl: string): ServerEnv => ({
   databaseUrl,
   port: 0,
   databasePrepare: true,
   adminToken: ADMIN_TOKEN,
-  sessionSecret: SESSION_SECRET,
+
   roleTokenHashes: { ci: sha256(CI_ROLE_TOKEN) },
-  vaultAddr: null,
   githubRepo: 'crvouga/workspace',
 });
 
@@ -94,6 +99,40 @@ describe.skipIf(!databaseAvailable)('startServer', () => {
       secretOf(1),
     ]) {
       expect(logged).not.toContain(secret);
+    }
+  });
+
+  test('local mode uses persisted data, keeps authentication and never prunes history', async () => {
+    const fixture = database();
+    const { store } = fixture.newStore();
+    await store.registerNode(registerInput(77, { approval: 'approved' }));
+    const old = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    await store.recordHeartbeat(nodeIdOf(77), heartbeatBody(77), null, old);
+    const running = await startServer(envFor(fixture.url), recordingLogger(), {
+      local: true,
+    });
+    const base = `http://127.0.0.1:${running.port}`;
+    const headers = { Authorization: `Bearer ${ADMIN_TOKEN}` };
+    try {
+      expect((await fetch(`${base}/v1/nodes`)).status).toBe(401);
+      const nodes = await fetch(`${base}/v1/nodes`, { headers });
+      expect(nodes.headers.get('X-Fleet-Data-Source')).toBe('managed');
+      expect(await nodes.json()).toMatchObject({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ id: nodeIdOf(77) }),
+        ]),
+      });
+      const page = await fetch(base, { headers });
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain('LIVE FLEET DATA');
+      // Normal startup immediately launches history pruning. Local startup must
+      // preserve old records while still reading the same persistent store.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(
+        await store.listHeartbeats(nodeIdOf(77), new Date(0))
+      ).toHaveLength(1);
+    } finally {
+      await running.stop();
     }
   });
 

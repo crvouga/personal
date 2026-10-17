@@ -1,25 +1,14 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { Hono } from 'hono';
 
 import { FleetAdminAuth, TOKEN_ACTOR } from '../../src/auth/admin-auth';
-import { SESSION_SECONDS } from '../../src/auth/session';
-import { ADMIN_TOKEN, Clock, SESSION_SECRET, silent } from '../support/api';
-import { recordingLogger, startFakeVault } from '../support/fake-vault';
+import { ADMIN_TOKEN, silent } from '../support/api';
 
-const vault = startFakeVault();
-afterAll(() => vault.stop());
-
-const clock = new Clock();
 const auth = new FleetAdminAuth({
-  env: {
-    adminToken: ADMIN_TOKEN,
-    sessionSecret: SESSION_SECRET,
-    vaultAddr: vault.url,
-  },
-  now: clock.now,
+  env: { adminToken: ADMIN_TOKEN },
+  now: () => new Date(),
   fetch,
   log: silent,
-  vaultTimeoutMs: 500,
 });
 
 /** A route that reports what the auth object decided about the request. */
@@ -38,14 +27,6 @@ async function ask(
   });
   return res.json();
 }
-
-const cookieOf = (setCookie: string): string => setCookie.split(';')[0] ?? '';
-
-beforeEach(() => {
-  clock.set(new Date('2026-10-14T12:00:00.000Z'));
-  vault.calls.length = 0;
-  vault.mode = 'normal';
-});
 
 describe('actor: bearer token', () => {
   test('the admin token identifies the token actor', async () => {
@@ -77,92 +58,9 @@ describe('actor: bearer token', () => {
   });
 });
 
-describe('login and the session cookie', () => {
-  test('a Vault admin gets a cookie that identifies them', async () => {
-    const result = await auth.login('chris', 'correct horse');
-    expect(result?.actor).toBe('chris');
-    expect(result?.cookie).toContain('HttpOnly');
-    expect(result?.cookie).toContain('Secure');
-    expect(result?.cookie).toContain('SameSite=Lax');
-    expect((await ask({ Cookie: cookieOf(result?.cookie ?? '') })).actor).toBe(
-      'chris'
-    );
-  });
-
-  test('refused logins return null and issue nothing', async () => {
-    expect(await auth.login('chris', 'wrong')).toBeNull();
-    expect(await auth.login('ops.bob', 'bob-password')).toBeNull();
-    expect(await auth.login('../x', 'p')).toBeNull();
-    vault.mode = 'error';
-    expect(await auth.login('chris', 'correct horse')).toBeNull();
-  });
-
-  test('the session lasts twelve hours to the second', async () => {
-    const result = await auth.login('chris', 'correct horse');
-    const cookie = cookieOf(result?.cookie ?? '');
-    clock.advance(SESSION_SECONDS - 1);
-    expect((await ask({ Cookie: cookie })).actor).toBe('chris');
-    clock.advance(1);
-    expect((await ask({ Cookie: cookie })).actor).toBeNull();
-  });
-
-  test('a tampered cookie is refused', async () => {
-    const result = await auth.login('chris', 'correct horse');
-    const cookie = cookieOf(result?.cookie ?? '');
-    const [name = '', value = ''] = cookie.split('=');
-    const [encoded = '', expiry = '', signature = ''] = value.split('.');
-    const forgeries = [
-      `${name}=${Buffer.from('root').toString('base64url')}.${expiry}.${signature}`,
-      `${name}=${encoded}.${Number(expiry) + 3600}.${signature}`,
-      `${name}=${encoded}.${expiry}.${signature.replace(/.$/, 'f')}`,
-      `${name}=garbage`,
-      `${name}=`,
-    ].filter((forged) => forged !== cookie);
-    for (const Cookie of forgeries)
-      expect((await ask({ Cookie })).actor).toBeNull();
-  });
-
-  test('a cookie signed with another secret is refused', async () => {
-    const other = new FleetAdminAuth({
-      env: {
-        adminToken: ADMIN_TOKEN,
-        sessionSecret: `${SESSION_SECRET}-other`,
-        vaultAddr: vault.url,
-      },
-      now: clock.now,
-      fetch,
-      log: silent,
-    });
-    const result = await other.login('chris', 'correct horse');
-    expect(
-      (await ask({ Cookie: cookieOf(result?.cookie ?? '') })).actor
-    ).toBeNull();
-  });
-
-  test('the cookie is read among other cookies', async () => {
-    const result = await auth.login('chris', 'correct horse');
-    const Cookie = `theme=dark; ${cookieOf(result?.cookie ?? '')}; other=1`;
-    expect((await ask({ Cookie })).actor).toBe('chris');
-  });
-
-  test('logout gives a cookie that clears the session', () => {
-    expect(auth.logoutCookie()).toContain('Max-Age=0');
-    expect(auth.logoutCookie()).toContain('fleet_session=;');
-  });
-
-  test('login is off when there is no Vault address', async () => {
-    const off = new FleetAdminAuth({
-      env: {
-        adminToken: ADMIN_TOKEN,
-        sessionSecret: SESSION_SECRET,
-        vaultAddr: null,
-      },
-      now: clock.now,
-      fetch,
-      log: recordingLogger(),
-    });
-    expect(await off.login('chris', 'correct horse')).toBeNull();
-  });
+test('legacy Vault password sessions are no longer accepted', async () => {
+  expect((await ask({ Cookie: 'fleet_session=ok:chris' })).actor).toBeNull();
+  expect(auth).not.toHaveProperty('login');
 });
 
 describe('sameOrigin (CSRF)', () => {

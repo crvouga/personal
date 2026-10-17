@@ -87,7 +87,7 @@ export function useDatabase(): () => TestDatabase {
       },
       async reset() {
         await sql.unsafe(
-          'delete from fleet.events; delete from fleet.settings_history; delete from fleet.settings; delete from fleet.nodes'
+          'delete from fleet.login_transactions; delete from fleet.browser_sessions; delete from fleet.access_audit; delete from fleet.allowed_emails; delete from fleet.events; delete from fleet.settings_history; delete from fleet.settings; delete from fleet.nodes'
         );
       },
     };

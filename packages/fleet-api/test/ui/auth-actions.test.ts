@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 
-import { FAKE_PASSWORD } from '../../src/testing/fake-auth';
 import {
   IDS,
   ORIGIN,
@@ -50,77 +49,29 @@ describe('sign in', () => {
     );
   });
 
-  test('the login page is public and has labelled fields', async () => {
+  test('login uses the relay and never renders Vault credentials', async () => {
     const { app } = populated();
     const page = await html(app, '/login?next=/nodes', null);
-    expect(page).toContain('Sign in');
-    expect(page).toContain('for="login-username"');
-    expect(page).toContain('for="login-password"');
-    expect(page).toContain('name="next" value="/nodes"');
+    expect(page).toContain('Google');
+    expect(page).not.toContain('login-password');
+    expect(page).not.toContain('login-username');
+    expect(page).not.toContain('Vault');
   });
-
-  test('a good password sets the session cookie and goes to next', async () => {
+  test('password posts cannot create a session', async () => {
     const { app } = populated();
     const res = await post(
       app,
       '/login',
-      { username: 'dana', password: FAKE_PASSWORD, next: '/pending' },
+      { username: 'dana', password: 'anything' },
       { cookie: null }
     );
-    expect(res.status).toBe(303);
-    expect(res.headers.get('location')).toBe('/pending');
-    expect(res.headers.get('set-cookie')).toContain('fleet_session=ok:dana');
-  });
-
-  test('a bad password shows an error and no cookie', async () => {
-    const { app } = populated();
-    const res = await post(
-      app,
-      '/login',
-      { username: 'dana', password: 'nope' },
-      { cookie: null }
-    );
-    expect(res.status).toBe(401);
-    expect(await res.text()).toContain('did not work');
+    expect(res.status).toBe(410);
     expect(res.headers.get('set-cookie')).toBeNull();
-    const empty = await post(
-      app,
-      '/login',
-      { username: '', password: '' },
-      { cookie: null }
-    );
-    expect(empty.status).toBe(401);
   });
-
-  test('next cannot leave the site', async () => {
+  test('logout refuses missing or foreign origin', async () => {
     const { app } = populated();
-    for (const next of [
-      '//evil.example',
-      'https://evil.example',
-      '/\\evil.example',
-      'javascript:alert(1)',
-    ]) {
-      const res = await post(
-        app,
-        '/login',
-        { username: 'dana', password: FAKE_PASSWORD, next },
-        { cookie: null }
-      );
-      expect(res.headers.get('location')).toBe('/');
-    }
-  });
-
-  test('login and logout refuse cross-site posts', async () => {
-    const { app } = populated();
-    const login = await post(
-      app,
-      '/login',
-      { username: 'dana', password: FAKE_PASSWORD },
-      { cookie: null, origin: 'https://evil.example' }
-    );
-    expect(login.status).toBe(403);
-    const none = await post(app, '/logout', {}, { origin: null });
-    expect(none.status).toBe(403);
+    for (const origin of [null, 'https://evil.example'])
+      expect((await post(app, '/logout', {}, { origin })).status).toBe(403);
   });
 
   test('logout clears the cookie and goes to /login', async () => {

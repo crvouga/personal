@@ -1,8 +1,11 @@
+import { readRelay } from './auth/relay-config';
+import type { RelayConfig } from './auth/browser-contract';
 import type { AppEnv } from './deps';
 import { isRole, type Role } from './types';
 
 /** Everything the process reads from its environment, parsed once at boot. */
 export interface ServerEnv extends AppEnv {
+  readonly relay?: RelayConfig;
   /** Postgres connection string. May carry `sslmode=require`. Never logged. */
   readonly databaseUrl: string;
   readonly port: number;
@@ -116,20 +119,6 @@ function parseRoleHashes(
   return out;
 }
 
-function parseVaultAddr(source: EnvSource, problems: string[]): string | null {
-  const raw = read(source, 'VAULT_ADDR');
-  if (raw === null) return null;
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:')
-      throw new Error();
-    return raw.replace(/\/+$/, '');
-  } catch {
-    problems.push('VAULT_ADDR must be an http(s) URL');
-    return null;
-  }
-}
-
 function parseRepo(source: EnvSource, problems: string[]): string {
   const raw = read(source, 'FLEET_GITHUB_REPO') ?? DEFAULT_REPO;
   if (!REPO_PATTERN.test(raw)) {
@@ -149,14 +138,14 @@ function parsePrepare(source: EnvSource, problems: string[]): boolean {
 /** Parses and validates the environment, failing once with every problem. */
 export function readServerEnv(source: EnvSource = process.env): ServerEnv {
   const problems: string[] = [];
+  const relay = readRelay(source, problems);
   const env: ServerEnv = {
+    ...(relay ? { relay } : {}),
     databaseUrl: parseDatabaseUrl(source, problems),
     port: parsePort(source, problems),
     databasePrepare: parsePrepare(source, problems),
     adminToken: readSecret(source, 'FLEET_ADMIN_TOKEN', problems),
-    sessionSecret: readSecret(source, 'FLEET_SESSION_SECRET', problems),
     roleTokenHashes: parseRoleHashes(source, problems),
-    vaultAddr: parseVaultAddr(source, problems),
     githubRepo: parseRepo(source, problems),
   };
   if (problems.length > 0) throw new ConfigurationError(problems);

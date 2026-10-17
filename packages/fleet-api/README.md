@@ -33,31 +33,115 @@ Do not point an Atlas resource at this database without `search_path`, and do no
 
 ## Authentication
 
-| Who                | Credential                                                                           | Where                                           |
-| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| A node, first time | its role token, or nothing (then it waits as pending)                                | `POST /v1/nodes/register`                       |
-| A node, afterwards | `Bearer <node id>.<node secret>`; the secret is 32 random bytes, hashed              | `POST /v1/heartbeat`, `/v1/retire`              |
-| A person           | Vault username and password; only Vault tokens with the `admin` policy get a session | `/login`, then an HttpOnly, SameSite=Lax cookie |
-| Scripts and CI     | `Bearer $FLEET_ADMIN_TOKEN`                                                          | `/v1/*`, `/metrics` (`bun run health` uses it)  |
+| Who                | Credential                                                                             | Where                                           |
+| ------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| A node, first time | its role token, or nothing (then it waits as pending)                                  | `POST /v1/nodes/register`                       |
+| A node, afterwards | `Bearer <node id>.<node secret>`; the secret is 32 random bytes, hashed                | `POST /v1/heartbeat`, `/v1/retire`              |
+| A person           | Google through the shared auth relay; verified email must be in `fleet.allowed_emails` | `/login`, then an HttpOnly, SameSite=Lax cookie |
+| Scripts and CI     | `Bearer $FLEET_ADMIN_TOKEN`                                                            | `/v1/*`, `/metrics` (`bun run health` uses it)  |
 
 Browser requests that change state must come from this site (Origin check). Registration and login are rate limited per address. No page, response or log contains a token, a secret hash or a full webhook URL.
 
+## Browser authentication and access
+
+Vault is only a secret store. Fleet never sends a person's username/password to
+Vault, and has no password login. Google authentication goes exclusively through
+the new shared auth relay using OIDC code + S256 PKCE, state and nonce. Fleet
+verifies the ID token signature, issuer, audience, expiry and nonce. It stores
+only identity and an opaque local session, never Google credentials or tokens.
+
+Configure `FLEET_OIDC_ISSUER` (the relay's HTTPS `/realms/<realm>` issuer),
+`FLEET_OIDC_CLIENT_ID` (the public PKCE client registered through the relay UI),
+and `FLEET_PUBLIC_ORIGIN` (this Fleet instance's exact origin, without a trailing
+slash). Register `${FLEET_PUBLIC_ORIGIN}/auth/callback` as an exact callback.
+Use distinct production and nonproduction clients. These are configuration
+values, not a Google client secret. If absent, the node API remains usable and
+the login page explicitly reports that Google sign-in is unavailable; there is
+no password or mock fallback. Partial configuration fails validation.
+
+Local `dev` deliberately ignores the deployed browser client settings. Set
+`FLEET_LOCAL_OIDC_ISSUER` and `FLEET_LOCAL_OIDC_CLIENT_ID` for a separately
+registered nonproduction client. The launcher sets its origin to the actual
+`http://localhost:<port>` and uses per-origin cookie names, so concurrent ports
+have independent sessions. Browser cookies are shared across localhost ports, so
+these names prevent collisions rather than isolating untrusted local services.
+Register the exact printed callback and update that
+client's callback when the port changes. No wildcard is accepted. The relay's
+managed deployment is still blocked; live Google sign-in cannot work until that
+resource and the Fleet clients are provisioned.
+
+Atlas/OpenTofu must apply the new tables before enabling browser sign-in:
+`fleet.allowed_emails`, `fleet.access_audit`, `fleet.login_transactions` and
+`fleet.browser_sessions`. No runtime DDL, migration, seeding or first-login
+approval occurs. For initial access, the database owner inserts their own
+verified Google email as runtime data, for example:
+
+```sql
+INSERT INTO fleet.allowed_emails (email, added_by)
+VALUES (lower('YOUR_GOOGLE_EMAIL'), 'database-owner');
+```
+
+After signing in, open **Access** to add or remove allowed email addresses.
+Every allowed person is a Fleet administrator. Addresses are trimmed and
+lowercased; Google aliases/dots are not merged. Changes are audited. The final
+allowed address cannot be removed, including through concurrent removals.
+Removal denies existing sessions on their next authorized request. Email-based
+access follows ownership of that verified address, so administrators must
+review recycled organization addresses.
+
+A signed-in account outside the list sees **Not allowed**, its email, and a
+working **Sign out** button. It has no Fleet or access-management permissions.
+Sign-out revokes the local session and clears its cookie, including for denied
+accounts; the next sign-in requests account selection through the relay. It
+does not sign the person out of Google globally. Sessions and ten-minute login
+transactions live in PostgreSQL and survive restarts/replicas. Cookies are
+HttpOnly, SameSite=Lax, Secure on HTTPS; HTTP is limited to loopback origins.
+The removed Vault session cookies are no longer accepted.
+
 ## Configuration of the service
 
-| Variable                  | Meaning                                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`            | Postgres connection string (`sslmode=require` in production). Never logged.                            |
-| `PORT`                    | Default 8080.                                                                                          |
-| `FLEET_ADMIN_TOKEN`       | At least 32 characters. Generated by OpenTofu and stored in Vault.                                     |
-| `FLEET_SESSION_SECRET`    | At least 32 characters. Signs dashboard sessions.                                                      |
-| `FLEET_ROLE_TOKEN_HASHES` | JSON `{ "ci": "<sha256 hex>", ... }`. The service sees hashes only.                                    |
-| `VAULT_ADDR`              | Where to check a person's password. Without it, password login is off and the admin token still works. |
-| `FLEET_GITHUB_REPO`       | `owner/name` whose `main` defines "latest" for the revision badges. Default `crvouga/workspace`.       |
-| `FLEET_DB_PREPARE`        | `true` (default) or `false`. Use `false` behind a transaction-mode pooler.                             |
+| Variable                  | Meaning                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`            | Postgres connection string (`sslmode=require` in production). Never logged.                      |
+| `PORT`                    | Default 8080.                                                                                    |
+| `FLEET_ADMIN_TOKEN`       | At least 32 characters. Generated by OpenTofu and stored in Vault.                               |
+| `FLEET_ROLE_TOKEN_HASHES` | JSON `{ "ci": "<sha256 hex>", ... }`. The service sees hashes only.                              |
+| `FLEET_GITHUB_REPO`       | `owner/name` whose `main` defines "latest" for the revision badges. Default `crvouga/workspace`. |
+| `FLEET_DB_PREPARE`        | `true` (default) or `false`. Use `false` behind a transaction-mode pooler.                       |
 
-OpenTofu supplies all of them (inventory entry `fleet-api`, Vault root). Nothing is configured by hand.
+OpenTofu supplies core server settings (inventory entry `fleet-api`, Vault root).
+After registering the Fleet browser client in the relay UI, declare its public
+issuer/client ID/origin as `FLEET_OIDC_ISSUER`, `FLEET_OIDC_CLIENT_ID` and
+`FLEET_PUBLIC_ORIGIN` in the service environment through a reviewed OpenTofu
+plan. Do not mutate hosting dashboards. No Google secret is copied into Fleet.
 
 ## Run it
+
+Workspace `bun run dev` starts the real database-backed API and dashboard, using
+`vault run --config prd` to read the existing managed fleet credentials. No demo
+data is seeded or substituted. Sign in with Google through the auth relay using an allowed email address. The port starts at 8082, or `FLEET_API_PORT`, and advances when
+occupied; the local server binds only to `127.0.0.1`.
+
+**Local and deployed dashboards show the same managed fleet data.** Authenticated
+edits in either affect real nodes. The local dashboard labels this explicitly.
+Local startup disables offline notifications, webhooks and history pruning;
+these jobs remain owned by the deployed server. Production `src/server.ts` keeps
+its existing background jobs, authentication and network binding.
+
+`FLEET_VAULT_CONFIG=dev` selects another existing Vault document explicitly; it
+must contain all required fleet credentials and the intended database URL.
+The current fleet credentials exist only in `prd`, so that is the fleet-specific
+default, independently of the root `VAULT_CONFIG=dev` used by portfolio/cache.
+Missing credentials or an unavailable database never trigger synthetic fallback.
+No schema changes or infrastructure apply run during startup.
+
+```sh
+bun run --filter @pkgs/fleet-api dev
+# Read-only verification against a running local server's actual printed port:
+vault run --config prd -- bun scripts/check-dev-fleet.ts 8082
+# Explicit synthetic mode for UI work and deterministic acceptance:
+bun run --filter @pkgs/fleet-api dev:fixtures
+```
 
 ```sh
 bun run --filter @pkgs/fleet-api demo        # the dashboard with 14 synthetic nodes, no database
@@ -108,10 +192,31 @@ PROTOCOL.md           the wire contract
 src/server.ts         boot, graceful shutdown, background jobs
 src/app.ts            the JSON API; routes/ holds node and admin routes
 src/db/               the only code that runs SQL (PgStore implements Store)
-src/auth/             node credentials, role tokens, sessions, Vault login
+src/auth/             node credentials, role tokens, Google/relay OIDC and sessions
 src/jobs/             offline notices, webhook, history pruning
 src/config/schema.ts  settings: rules, validation, merge, revisions
 src/ui/               dashboard pages and components (Hono JSX + Tailwind)
 src/testing/          in-memory store, fixtures and demo data
 test/                 unit, API, database, isolation and UI tests; test/e2e/stack.ts starts the real stack
 ```
+
+## Google authentication validation
+
+The package test command runs a Chromium journey through an isolated HTTPS mock
+relay with real signed ID tokens and PostgreSQL-backed authorization. It proves
+that denied people can sign out and use an allowed account, and that allowed
+administrators manage the access list. Additional tests cover JWT tampering,
+issuer/audience/nonce/expiry, callback replay, transaction expiry, concurrent
+tabs, restart persistence, copied sessions across origins/clients/issuers,
+immediate access removal and concurrent last-account protection. No Google
+request or live access-list mutation is made by these tests.
+
+Before live activation, apply the reviewed schema plan, deploy the relay with
+verified Google email claims, register separate Fleet clients and exact callbacks,
+and configure each Fleet origin. Insert the initial email yourself. With a fresh
+browser, verify an unlisted Google account reaches **Not allowed**, can sign out,
+and can select a listed account. Verify **Access** can add/remove a second test
+email and removal denies its established session. Repeat on the actual local
+callback port and deployed HTTPS origin, including after a restart. Record the
+results before claiming live Google compatibility. This rollout remains blocked
+by the relay deployment prerequisites documented in its operations guide.

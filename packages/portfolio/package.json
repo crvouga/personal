@@ -7,7 +7,7 @@
     "assets:optimize": "bun run ./scripts/optimize-images.ts",
     "assets:prune": "bun run ./scripts/prune-unused-assets.ts",
     "build": "astro build",
-    "dev": "astro dev --force",
+    "dev": "vault run --config ${VAULT_CONFIG:-dev} -- bun ../../scripts/dev-server.ts portfolio 4321 astro dev --ignore-lock --host 0.0.0.0 --port {port}",
     "gen": "bun run generate-all",
     "generate-all": "bun run ./src/generate-all.ts",
     "gh": "open https://github.com/crvouga/workspace/actions",

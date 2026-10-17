@@ -21,6 +21,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import shutil
 import stat
 import subprocess
@@ -178,8 +179,8 @@ class FullChainTest(unittest.TestCase):
                 "size": 2000000000000, "model": "Samsung SSD 980", "serial": "S5", "mountpoints": [None],
             }]})
         )
-        write_executable(work / "lsblk", f"#!/bin/sh\ncat {work}/lsblk.json\n")
-        write_executable(work / "kexec", f'#!/bin/sh\nprintf "%s\\n" "$*" >> {work}/kexec.log\n')
+        write_executable(work / "lsblk", f"#!/bin/sh\ncat {shlex.quote(str(work / 'lsblk.json'))}\n")
+        write_executable(work / "kexec", f'#!/bin/sh\nprintf "%s\\n" "$*" >> {shlex.quote(str(work / "kexec.log"))}\n')
         env = {
             **os.environ,
             "FLEET_OS": "Linux", "FLEET_ARCH": "x86_64", "FLEET_EUID": "0", "FLEET_ISO_FS": "ext4",
@@ -412,45 +413,30 @@ class FullChainTest(unittest.TestCase):
         _status, events = self.admin_get(f"/v1/events?node={identity}&limit=50")
         self.assertTrue(any("roll" in e["kind"] for e in events["events"]), events)
 
-    def test_07_the_dashboard_signs_in_through_vault_and_metrics_are_for_admins(self):
+    def test_07_dashboard_has_no_vault_password_login_and_metrics_require_admin(self):
         status, _data, _ = http("GET", self.api + "/", follow=False)
         self.assertIn(status, (302, 303))
         self.assertEqual(http("GET", self.api + "/metrics")[0], 401)
         status, text, _ = http("GET", self.api + "/metrics", self.admin)
         self.assertEqual(status, 200)
         self.assertIn("fleet_nodes", text.decode())
-
-        form = urlencode({"username": "crvouga", "password": "wrong"})
-        request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
-        with self.assertRaises(urllib.error.HTTPError) as caught:
-            urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
-        self.assertNotEqual(caught.exception.code, 303)
-
-        form = urlencode({"username": "crvouga", "password": self.vault.password})
-        request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
-        try:
-            urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
-            self.fail("a successful login redirects")
-        except urllib.error.HTTPError as redirect:
-            self.assertIn(redirect.code, (302, 303))
-            cookie = redirect.headers.get("Set-Cookie", "")
-        self.assertIn("HttpOnly", cookie)
-        self.assertIn("SameSite=Lax", cookie)
-        session = cookie.split(";", 1)[0]
-        status, page, _ = http("GET", self.api + "/", headers={"Cookie": session})
+        status, page, _ = http("GET", self.api + "/login")
+        self.assertEqual(status, 200)
+        self.assertIn("Google", page.decode())
+        self.assertNotIn('type="password"', page.decode())
+        self.assertNotIn("Vault", page.decode())
+        # The node/install chain does not stand in for Google/OIDC acceptance.
+        # Fleet's auth/browser-journey.test.ts owns the signed-token browser flow.
+        for password in ("wrong", self.vault.password):
+            form = urlencode({"username": "crvouga", "password": password})
+            request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
+            self.assertEqual(caught.exception.code, 410)
+            self.assertIsNone(caught.exception.headers.get("Set-Cookie"))
+        status, page, _ = http("GET", self.api + "/", self.admin)
         self.assertEqual(status, 200)
         self.assertIn("Fleet", page.decode())
-        self.assertNotIn("Set-Cookie", "")
-
-        # A person without the admin policy is refused even with the right password.
-        form = urlencode({"username": "guest", "password": self.vault.password})
-        request = urllib.request.Request(self.api + "/login", data=form.encode(), method="POST", headers={"Origin": self.api})
-        try:
-            urllib.request.build_opener(_NoRedirect).open(request, timeout=20)
-            guest_cookie = ""
-        except urllib.error.HTTPError as error:
-            guest_cookie = error.headers.get("Set-Cookie", "")
-        self.assertNotIn("HttpOnly", guest_cookie)
 
     def test_08_everything_lives_in_the_fleet_schema(self):
         psql = shutil.which("psql")

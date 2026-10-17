@@ -27,6 +27,8 @@ function currentPath(c: Context): string {
 export function page(deps: AppDeps, run: ActorHandler): Handler {
   return async (c) => {
     const actor = await deps.auth.actor(c);
+    if (actor === null && (await deps.browserAuth?.identity(c)))
+      return c.redirect('/not-allowed', 303);
     if (actor === null)
       return c.redirect(
         `/login?next=${encodeURIComponent(currentPath(c))}`,
@@ -43,7 +45,11 @@ export function action(deps: AppDeps, run: ActorHandler): Handler {
     if (!deps.auth.sameOrigin(c))
       return c.text('Forbidden: cross-site request refused.', 403);
     const actor = await deps.auth.actor(c);
-    if (actor === null) return c.redirect('/login', 303);
+    if (actor === null)
+      return c.redirect(
+        (await deps.browserAuth?.identity(c)) ? '/not-allowed' : '/login',
+        303
+      );
     return run(c, actor);
   };
 }

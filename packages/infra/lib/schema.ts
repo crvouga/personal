@@ -240,6 +240,7 @@ export type TunnelSpec = {
 
 /** OpenTofu inventory consumed by documentation and builds. */
 export type InfraConfig = {
+  readonly auth_relay?: AuthRelayConfig;
   readonly domains?: Readonly<Record<string, import('./domains/model.js').DomainSpec>>;
   readonly zone: string;
   readonly image_owner: string;
@@ -259,3 +260,21 @@ export type InfraConfig = {
 
 /** @deprecated Alias — use InfraConfig */
 export type ServicesConfig = InfraConfig;
+
+/** Staged OIDC relay inventory; consuming applications can live anywhere. */
+export type AuthRelayConfig = {
+  readonly enabled: boolean;
+  readonly status: string;
+  readonly instances: Readonly<Record<string, {
+    readonly hostname: string;
+    readonly realm: string;
+    readonly vault_config: string;
+    readonly google_client_id_key: string;
+    readonly google_client_secret_key: string;
+    readonly database_schema: string;
+    readonly console_database_schema: string;
+    readonly service?: { readonly id: string };
+    readonly setup_token_key: string;
+    readonly signing_key_generations: Readonly<Record<string, { readonly priority: number; readonly active: boolean }>>;
+  }>>;
+};

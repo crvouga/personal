@@ -1341,6 +1341,18 @@
         ],
         "kv_keys": [
           {
+            "name": "WEB_CLIENT_GOOGLE_CLIENT_ID",
+            "configs": ["dev", "prd"],
+            "used_by": ["auth-relay", "auth-relay-dev"],
+            "required": true
+          },
+          {
+            "name": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "configs": ["dev", "prd"],
+            "used_by": ["auth-relay", "auth-relay-dev"],
+            "required": true
+          },
+          {
             "name": "TURBO_TOKEN",
             "configs": ["dev", "prd"],
             "used_by": ["turborepo", "ci"],
@@ -1599,6 +1611,50 @@
             "required": true
           },
           {
+            "name": "AUTH_RELAY_SETUP_TOKEN_PRODUCTION",
+            "configs": ["prd"],
+            "required": true,
+            "generated": true,
+            "used_by": ["auth-relay"]
+          },
+          {
+            "name": "AUTH_RELAY_SETUP_TOKEN_NONPRODUCTION",
+            "configs": ["dev"],
+            "required": true,
+            "generated": true,
+            "used_by": ["auth-relay-dev"]
+          },
+          {
+            "name": "AUTH_RELAY_DATABASE_URL",
+            "configs": ["dev", "prd"],
+            "required": false,
+            "used_by": ["auth-relay", "auth-relay-dev"]
+          },
+          {
+            "name": "AUTH_CONSOLE_CLIENT_ID",
+            "configs": ["dev", "prd"],
+            "required": false,
+            "used_by": ["auth-relay", "auth-relay-dev"]
+          },
+          {
+            "name": "AUTH_CONSOLE_CLIENT_SECRET",
+            "configs": ["dev", "prd"],
+            "required": false,
+            "used_by": ["auth-relay", "auth-relay-dev"]
+          },
+          {
+            "name": "AUTH_MANAGER_CLIENT_ID",
+            "configs": ["dev", "prd"],
+            "required": false,
+            "used_by": ["auth-relay", "auth-relay-dev"]
+          },
+          {
+            "name": "AUTH_MANAGER_CLIENT_SECRET",
+            "configs": ["dev", "prd"],
+            "required": false,
+            "used_by": ["auth-relay", "auth-relay-dev"]
+          },
+          {
             "name": "MOVIEFINDER_AUTH_SECRET",
             "configs": ["dev", "prd"],
             "used_by": ["moviefinder"],
@@ -1652,6 +1708,84 @@
       ],
       "tunnels": [],
       "aliases": [],
+      "auth_relay": {
+        "status": "preproduction",
+        "instances": {
+          "production": {
+            "hostname": "auth.chrisvouga.dev",
+            "realm": "projects",
+            "vault_config": "prd",
+            "google_client_id_key": "WEB_CLIENT_GOOGLE_CLIENT_ID",
+            "google_client_secret_key": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "database_schema": "auth_production",
+            "signing_key_generations": {
+              "initial": {
+                "priority": 200,
+                "active": true
+              }
+            },
+            "service": {
+              "id": "auth-relay",
+              "kind": "railway",
+              "hostname": "auth.chrisvouga.dev",
+              "github_repo": "crvouga/workspace",
+              "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/auth-relay",
+              "dockerfile": "packages/auth-relay/Dockerfile",
+              "build_context": ".",
+              "port": 8080,
+              "health_check": true,
+              "health_path": "/health/ready",
+              "railway": {
+                "sleep": false,
+                "replicas": 2
+              },
+              "env": {
+                "RAILWAY_DEPLOYMENT_OVERLAP_SECONDS": "60",
+                "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": "60"
+              }
+            },
+            "console_database_schema": "auth_relay_production",
+            "setup_token_key": "AUTH_RELAY_SETUP_TOKEN_PRODUCTION"
+          },
+          "nonproduction": {
+            "hostname": "auth-dev.chrisvouga.dev",
+            "realm": "projects-dev",
+            "vault_config": "dev",
+            "google_client_id_key": "WEB_CLIENT_GOOGLE_CLIENT_ID",
+            "google_client_secret_key": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "database_schema": "auth_nonproduction",
+            "signing_key_generations": {
+              "initial": {
+                "priority": 200,
+                "active": true
+              }
+            },
+            "service": {
+              "id": "auth-relay-dev",
+              "kind": "railway",
+              "hostname": "auth-dev.chrisvouga.dev",
+              "github_repo": "crvouga/workspace",
+              "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/auth-relay",
+              "dockerfile": "packages/auth-relay/Dockerfile",
+              "build_context": ".",
+              "port": 8080,
+              "health_check": true,
+              "health_path": "/health/ready",
+              "railway": {
+                "sleep": false,
+                "replicas": 2
+              },
+              "env": {
+                "RAILWAY_DEPLOYMENT_OVERLAP_SECONDS": "60",
+                "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": "60"
+              }
+            },
+            "console_database_schema": "auth_relay_nonproduction",
+            "setup_token_key": "AUTH_RELAY_SETUP_TOKEN_NONPRODUCTION"
+          }
+        },
+        "enabled": false
+      },
       "services": [
         {
           "id": "portfolio",

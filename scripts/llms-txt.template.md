@@ -41,7 +41,7 @@ Source snapshot (always current `main`): {{rawUrl}}
 
 {{block:resources}}
 
-All consumer credentials live in Vault. Vault is the only thing an integrating project authenticates to directly.
+All consumer credentials live in Vault. Vault supplies application secrets; application users authenticate through the shared Google-to-OIDC relay, never through Vault.
 
 This is a consumer guide, not an inventory dump. State backends, provider credentials, the OpenBao storage database, administrative tunnels, and control-plane tokens are intentionally excluded from consumer instructions. They remain OpenTofu-owned and must never be reused by an application.
 
@@ -527,3 +527,20 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R {
 ## Maintaining this file (agents working inside `{{infraRepo}}`)
 
 `llms.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-txt.template.md}}; values, tables and the publish workflow come from {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}, {{path:.github/workflows/ci.yml}}, {{path:packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts}} and {{path:packages/infra/lib/publish-workflow.ts}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
+
+
+## Shared Google authentication relay (preproduction)
+
+Any project using shared managed infrastructure should be able to add Google authentication without obtaining its own Google credentials, for the supported standard OIDC code + S256 PKCE profile. Projects may use unrelated domains, repositories, frameworks, hosting providers and localhost ports. Each application owns its sessions and permissions.
+
+Local `bun run dev` uses managed resources. Fleet loads the `prd` Vault scope for secrets, shows real fleet data, binds to loopback, and disables duplicate background jobs. Its browser uses Google through the shared relay and a database-managed verified-email allowlist; Vault is never the user identity provider. Distinct local OIDC settings use `FLEET_LOCAL_OIDC_ISSUER` / `FLEET_LOCAL_OIDC_CLIENT_ID`; authenticated edits affect live nodes. Auth relay resolves hostname/realm/upstream from canonical inventory for its selected Vault scope, loads managed credentials, and fails clearly with missing Vault fields until its staged deployment, private connectivity and exact issuer/callback configuration exist; it never silently substitutes mocks. Explicit `AUTH_DEV_MODE=local` / `FLEET_DEV_MODE=fixtures` selects synthetic test fixtures. See the integration guides. Production startup stays strict.
+
+An existing stopped default Colima runtime starts automatically; explicit Docker endpoints are respected. `bun run check:dev` verifies all workspace servers with disposable auth storage, browser sign-in, a changed-port restart and cleanup. Portfolio and remote-cache still require a valid dev Vault login. See `.superset/README.md` for cold-run prerequisites and logs.
+
+The relay is staged, not live or production-ready. Read [integration](packages/auth-relay/README.md), [operations](packages/auth-relay/operations.md) and [acceptance](packages/auth-relay/acceptance.md). A Bun/Hono API serves a simple client-side management UI and OIDC gateway from the same public domain. The UI signs in through its own Google-backed relay; only authorized operators can register applications. First-operator setup requires a one-time environment-specific Vault credential, never merely the first Google account to sign in. Register exact URLs, project/environment/instance identity and expiry in the UI. These records live only in isolated `auth_relay_production` / `auth_relay_nonproduction` PostgreSQL schemas. Atlas schema management, hosting, bootstrap system identities and secrets remain OpenTofu-owned. Application callback lists do not live in source code or inventory.
+
+Localhost and 127.0.0.1 support arbitrary exact ports and concurrent instances. Update the record through the UI when a port changes; no Google change or broker deployment is needed. Production callbacks require HTTPS; preview callbacks require verified ownership, a unique instance and a short lease. Revocation/expiry is enforced at the gateway. No wildcard redirects, public dynamic registration or native-app port exception exist. Automatic development startup registration and scoped preview provisioning remain incomplete; use the UI until their acceptance gates pass.
+
+Use the returned issuer and client ID with a maintained OIDC library, discovery, code flow, S256 PKCE, per-tab state/nonce and exact callbacks. Applications receive no Google secrets. SSR libraries must support public PKCE clients. Production and nonproduction issuers/clients are separate. Localhost cookies require per-application and per-instance names because ports do not isolate cookies. Top-level redirects avoid third-party-cookie dependence. Follow the README for production, changing localhost ports, previews, tests and troubleshooting; do not claim a browser/domain/failure scenario passes without the evidence recorded in acceptance.md.
+
+`bun run health -- --only auth` verifies the relay's required Google and setup credential fields in the actual dev/prd Vault documents even before deployment, plus broker/schema isolation and signing-key declarations. Once enabled, console, registration-service and database credentials are also required in Vault. Missing/blank fields fail without revealing values; unavailable Vault access skips rather than passes. Normal inventory/Vault checks enforce the required-key registry. Live Google validity and callback policy still require the documented sign-in smoke test.
