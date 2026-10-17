@@ -24,6 +24,7 @@ jobs:
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
+      - uses: ariga/setup-atlas@v0
       - run: bun install --frozen-lockfile
       - run: bun run auth:test
       - name: Install Chromium for the deterministic mock-upstream suite
