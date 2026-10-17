@@ -89,6 +89,18 @@ data "github_actions_secrets" "repository" {
   name     = each.key
 }
 
+data "github_repository_environments" "application" {
+  for_each   = local.application_repositories
+  repository = each.key
+}
+
+locals {
+  existing_application_environments = {
+    for key, environment in local.application_environments : key => environment
+    if contains([for existing in data.github_repository_environments.application[environment.repository].environments : existing.name], environment.environment)
+  }
+}
+
 locals {
   existing_repository_secrets = {
     for key, secret in local.repository_secret_sources : key => secret
@@ -355,7 +367,7 @@ import {
   id       = each.key
 }
 import {
-  for_each = local.application_environments
+  for_each = local.existing_application_environments
   to       = github_repository_environment.application[each.key]
   id       = "${each.value.repository}:${each.value.environment}"
 }
