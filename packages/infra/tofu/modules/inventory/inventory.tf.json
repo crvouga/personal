@@ -1074,6 +1074,24 @@
             ],
             "managed_publisher": false,
             "required_status_checks": ["Required"]
+          },
+          "moviefinder": {
+            "description": "Movie and TV discovery with shared lists and reactive social features.",
+            "homepage": "https://moviefinder.chrisvouga.dev",
+            "default_branch": "main",
+            "topics": ["typescript", "react", "bun", "postgres", "tmdb"],
+            "vulnerability_alerts": true,
+            "dependabot_security_updates": true,
+            "secret_scanning": "enabled",
+            "secret_scanning_push_protection": "enabled",
+            "environments": ["production"],
+            "actions_secrets": [],
+            "managed_publisher": false,
+            "required_status_checks": [
+              "fast",
+              "integration",
+              "browser-and-container"
+            ]
           }
         },
         "pr_ready": {
@@ -1579,6 +1597,13 @@
             "configs": ["prd"],
             "used_by": ["pickflix"],
             "required": true
+          },
+          {
+            "name": "MOVIEFINDER_AUTH_SECRET",
+            "configs": ["dev", "prd"],
+            "used_by": ["moviefinder"],
+            "required": true,
+            "generated": true
           }
         ]
       },
@@ -2125,6 +2150,41 @@
             },
             {
               "name": "RESEND_API_KEY",
+              "source": "vault"
+            }
+          ]
+        },
+        {
+          "id": "moviefinder",
+          "database_schema": "moviefinder",
+          "manage_database_schema": true,
+          "kind": "railway",
+          "hostname": "moviefinder.chrisvouga.dev",
+          "github_repo": "crvouga/moviefinder",
+          "source_code_url": "https://github.com/crvouga/moviefinder",
+          "dockerfile": "./Dockerfile",
+          "build_context": ".",
+          "port": 8080,
+          "health_check": true,
+          "health_path": "/health",
+          "env": {
+            "PORT": "8080",
+            "NODE_ENV": "production",
+            "MOVIEFINDER_ORIGIN": "https://moviefinder.chrisvouga.dev",
+            "MOVIEFINDER_DATABASE_ALLOCATION": "moviefinder",
+            "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": "30"
+          },
+          "secrets": [
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "TMDB_API_READ_ACCESS_TOKEN",
+              "source": "vault"
+            },
+            {
+              "name": "MOVIEFINDER_AUTH_SECRET",
               "source": "vault"
             }
           ]

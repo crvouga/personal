@@ -195,3 +195,25 @@ The credentials that let OpenTofu reach each provider, the state-encryption pass
 `bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Infra health workflow](../../../.github/workflows/infra-health.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
+
+### New application namespace allocation
+
+A service can opt into foundation-owned empty namespace allocation with
+`database_schema` and `manage_database_schema = true`. The generic
+`postgresql_schema.application` resource creates only that namespace and prevents
+its destruction. Application repositories retain exclusive ownership of their
+Atlas migrations, tables and migration history. Existing schemas without this
+opt-in remain externally owned; no legacy schema is adopted implicitly.
+
+The `moviefinder` entry allocates the new namespace for `crvouga/moviefinder` and
+hosts its image in the existing Workspace Railway project. It preserves all
+three legacy MovieFinder deployments. The foundation already feeds the same
+opaque DATABASE_URL into dev and prd; this change does not alter that platform
+contract or claim separate physical databases. MovieFinder local development
+uses embedded PostgreSQL and never connects to the shared development URL.
+
+`MOVIEFINDER_AUTH_SECRET` is a new generated Vault field, delivered through the
+fleet alongside DATABASE_URL and TMDB_API_READ_ACCESS_TOKEN. No existing auth
+key or secret input is rotated. Optional OAuth and mail remain unconfigured.
+Apply the approved foundation allocation before running MovieFinder's guarded
+production Atlas workflow. No application DDL is reconciled by this platform.

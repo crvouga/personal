@@ -1,8 +1,8 @@
 run "fleet_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 21
-    error_message = "The migration must retain all 21 Railway services."
+    condition     = length(output.config.services) == 22
+    error_message = "The migration must retain all 22 Railway services."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
@@ -41,7 +41,7 @@ run "fleet_contract" {
     error_message = "Cloudflare TLS and DNS policy must remain explicit desired state."
   }
   assert {
-    condition     = length(output.config.github.repositories) == 15 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
+    condition     = length(output.config.github.repositories) == 16 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
     error_message = "Every application repository and its default branch must be declared."
   }
   assert {
@@ -118,5 +118,21 @@ run "email_service_contract" {
   assert {
     condition     = output.config.cloudflare.dns.records["send.resend.chrisvouga.dev_TXT"].content == "v=spf1 include:amazonses.com ~all" && startswith(output.config.cloudflare.dns.records["resend._domainkey.resend.chrisvouga.dev_TXT"].content, "p=")
     error_message = "The shared email domain requires both SPF and DKIM TXT records."
+  }
+}
+
+run "moviefinder_ownership" {
+  command = plan
+  assert {
+    condition     = one([for service in output.config.services : service if service.id == "moviefinder"]).github_repo == "crvouga/moviefinder" && one([for service in output.config.services : service if service.id == "moviefinder"]).database_schema == "moviefinder"
+    error_message = "The new MovieFinder service and schema must belong to its own application repository."
+  }
+  assert {
+    condition     = !output.config.github.repositories.moviefinder.managed_publisher && toset(output.config.github.repositories.moviefinder.required_status_checks) == toset(["fast", "integration", "browser-and-container"])
+    error_message = "The application must retain its publisher and validation ownership."
+  }
+  assert {
+    condition     = one([for key in output.config.vault.kv_keys : key if key.name == "MOVIEFINDER_AUTH_SECRET"]).generated && one([for key in output.config.vault.kv_keys : key if key.name == "MOVIEFINDER_AUTH_SECRET"]).configs == ["dev", "prd"]
+    error_message = "Generate the app-specific auth key through Vault, without rotating any existing key."
   }
 }
