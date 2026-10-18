@@ -174,6 +174,7 @@ jobs:
       runner_fleet: ${{ steps.flags.outputs.runner_fleet }}
       fleet_e2e: ${{ steps.flags.outputs.fleet_e2e }}
       vault: ${{ steps.flags.outputs.vault }}
+      vault_inputs: ${{ steps.filter.outputs.vault_inputs }}
       publish: ${{ steps.flags.outputs.publish }}
       deploy: ${{ steps.flags.outputs.deploy }}
       portfolio: ${{ steps.flags.outputs.portfolio }}
@@ -217,6 +218,10 @@ jobs:
               - '.github/workflows/ci.yml'
             vault:
               - 'packages/vault-service/**'
+            # What can add a required Vault field the TOFU_VAULT_INPUTS secret lacks.
+            vault_inputs:
+              - 'packages/infra/tofu/modules/inventory/**'
+              - 'packages/infra/tofu/vault/**'
             portfolio:
               - 'packages/portfolio/**'
             publish:
@@ -390,8 +395,12 @@ jobs:
       # under /usr/lib/postgresql/16/bin).
       - uses: ariga/setup-atlas@v0
       # The deploy's vault plan rejects a TOFU_VAULT_INPUTS secret that lacks a
-      # required field; catch that here instead of after merge.
+      # required field. Fail the change that can introduce one (inventory or the
+      # vault root); elsewhere only warn, so a stale secret does not block
+      # unrelated work, including the change that repairs it.
       - name: Check TOFU_VAULT_INPUTS against the inventory
+        env:
+          VAULT_INPUTS_STRICT: ${{ needs.changes.outputs.vault_inputs }}
         run: bun run check:vault-inputs
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check

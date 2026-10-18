@@ -3,6 +3,7 @@
 // would otherwise only surface when the deploy's vault plan hits its
 // precondition. Reports names only. Skips when the secret is unavailable
 // (forked pull requests, local runs); `bun run vault:fix` repairs a failure.
+// Without VAULT_INPUTS_STRICT=true a gap is a warning, not a failure.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findGaps, parseVaultInputs } from './vault-inputs/model';
@@ -27,14 +28,16 @@ if (!raw) {
 
 const gaps = findGaps(parseVaultInputs(raw), inventory.vault.kv_keys);
 if (gaps.length > 0) {
-  console.error(
-    `TOFU_VAULT_INPUTS is missing required fields the vault root needs:\n${gaps
+  const strict = process.env['VAULT_INPUTS_STRICT'] === 'true';
+  const report = strict ? console.error : console.warn;
+  report(
+    `${strict ? '' : '::warning::'}TOFU_VAULT_INPUTS is missing required fields the vault root needs:\n${gaps
       .map(
         ({ config, name, legacy }) =>
           `  ${config}.${name}${legacy ? ` (still stored as ${legacy.name})` : ''}`
       )
       .join('\n')}\nRun \`bun run vault:fix\` to repair them through OpenTofu.`
   );
-  process.exit(1);
+  process.exit(strict ? 1 : 0);
 }
 console.log('TOFU_VAULT_INPUTS has every required field.');
