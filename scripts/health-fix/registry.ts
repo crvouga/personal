@@ -1,0 +1,79 @@
+// What `bun run health:fix` knows how to repair. Add a fixer when a failing
+// check has an interactive repair; add advice when it only needs a pointer.
+// Every repair goes through OpenTofu or a reusable workflow, never a provider API.
+import { rerunFailedCi } from '../vault-inputs/ci';
+import { Abort, fixVaultInputs, infraRepo } from '../vault-inputs/flow';
+import type { Advice, Fixer } from './triage';
+
+export type FixSettings = { dryRun: boolean; given: Record<string, string> };
+
+const actionable = (status: string) => status === 'fail' || status === 'warn';
+
+export function fixers(settings: FixSettings): Fixer[] {
+  return [
+    {
+      // Required Vault fields missing, or generated ones never applied because
+      // CI's vault_inputs secret lacks them.
+      id: 'vault-inputs',
+      title: 'Complete vault_inputs (TOFU_VAULT_INPUTS) through OpenTofu',
+      handles: ({ group, status, detail }) =>
+        actionable(status) &&
+        ['auth', 'vault', 'secrets'].includes(group) &&
+        /missing or empty/i.test(detail),
+      run: async () => {
+        try {
+          await fixVaultInputs(settings);
+        } catch (error) {
+          if (!(error instanceof Abort)) throw error;
+          console.log(`\n– vault-inputs: ${error.message}`);
+        }
+      },
+    },
+    {
+      id: 'ci-rerun',
+      title: 'Re-run the failed CI run on main',
+      handles: ({ group, check, status }) =>
+        status === 'fail' && group === 'github' && check.startsWith('pipeline'),
+      run: () => rerunFailedCi(infraRepo),
+    },
+  ];
+}
+
+const when = (group: string, pattern: RegExp, text: string): Advice => ({
+  handles: (finding) =>
+    finding.group === group &&
+    pattern.test(`${finding.check} ${finding.detail}`),
+  text,
+});
+
+export const ADVICE: Advice[] = [
+  when(
+    'tunnels',
+    /connector offline/,
+    'Start the cloudflared tunnel on the workstation that serves this hostname.'
+  ),
+  when(
+    'github',
+    /publish\.yml is missing/,
+    'The application repo owns its publisher workflow: add .github/workflows/publish.yml there (see llms.txt), or set managed_publisher=false in the inventory.'
+  ),
+  when(
+    'runners',
+    /no runner registered/,
+    'Register a runner for that repo on a fleet machine (packages/fleet, role ci); see packages/fleet/AGENTS.md.'
+  ),
+  when(
+    'domains',
+    /advisory/,
+    'Advisory for an unused domain; ignore unless you plan to use it.'
+  ),
+  when(
+    'drift',
+    /state bucket|plan/,
+    'Re-run with --drift and the OpenTofu state credentials (see packages/infra/tofu/README.md).'
+  ),
+  {
+    handles: ({ status }) => status === 'skip',
+    text: 'Not checked: supply the credential or flag named in the message, then re-run.',
+  },
+];

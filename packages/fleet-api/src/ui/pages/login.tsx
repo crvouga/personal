@@ -9,10 +9,12 @@ export function LoginPage(props: {
     <BareShell title="Sign in">
       <h1 class="text-2xl font-semibold tracking-tight">Sign in to Fleet</h1>
       <div class="card card-pad space-y-4">
-        <p>
-          Use your Google account to continue through the shared authentication
-          relay.
-        </p>
+        {props.available === false ? null : (
+          <p>
+            Use your Google account to continue through the shared
+            authentication relay.
+          </p>
+        )}
         {props.error ? <p role="alert">{props.error}</p> : null}
         {props.available === false ? (
           <p role="status">

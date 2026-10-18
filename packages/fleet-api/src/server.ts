@@ -85,7 +85,7 @@ export async function startServer(
     port: env.port,
     fetch: async (request, bunServer) => {
       const response = await app.fetch(request, { server: bunServer });
-      return options.local ? localResponse(response) : response;
+      return options.local ? localResponse(response, request) : response;
     },
   });
   log.info('fleet api listening', { port: server.port });

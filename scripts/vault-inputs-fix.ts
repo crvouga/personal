@@ -1,0 +1,44 @@
+// `bun run vault:fix` — interactive repair of the foundation root's
+// `vault_inputs`, which OpenTofu publishes as the TOFU_VAULT_INPUTS Actions
+// secret that CI feeds to the vault root. It collects what is missing, plans a
+// targeted OpenTofu change, applies it after confirmation, then offers to re-run
+// the failed CI run and the health report. OpenTofu stays the only writer; this
+// script never calls a provider API or sets a secret itself.
+//
+//   bun run vault:fix [--env-file FILE] [--dry-run]
+import { readFileSync } from 'node:fs';
+import { rerunFailedCi } from './vault-inputs/ci';
+import { Abort, fixVaultInputs, infraRepo } from './vault-inputs/flow';
+import { confirm } from './vault-inputs/prompt';
+import { run } from './vault-inputs/process';
+import { parseEnv } from './vault-secrets-tfvars';
+
+function flags() {
+  const args = process.argv.slice(2);
+  const at = args.indexOf('--env-file');
+  const file = at >= 0 ? args[at + 1] : undefined;
+  if (at >= 0 && !file) throw new Abort('--env-file needs a path');
+  return {
+    dryRun: args.includes('--dry-run'),
+    given: file ? parseEnv(readFileSync(file, 'utf8')) : {},
+  };
+}
+
+async function main() {
+  if (!process.stdin.isTTY)
+    throw new Abort('Run this in an interactive terminal.');
+  const options = flags();
+  const applied = await fixVaultInputs(options);
+  if (!applied && options.dryRun) return;
+  if (await confirm('\nRe-run the failed CI run on main?', applied))
+    await rerunFailedCi(infraRepo);
+  if (await confirm('Run `bun run health` now?', false))
+    await run(['bun', 'run', 'health']);
+}
+
+main().catch((error: unknown) => {
+  console.error(
+    `\n✗ ${error instanceof Error ? error.message : String(error)}`
+  );
+  process.exit(1);
+});

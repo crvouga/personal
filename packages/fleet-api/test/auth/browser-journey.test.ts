@@ -23,7 +23,8 @@ describe.skipIf(!databaseAvailable)(
       const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
-        fetch: async (request) => localResponse(await app.fetch(request)),
+        fetch: async (request) =>
+          localResponse(await app.fetch(request), request),
       });
       const certificate = mkdtempSync(join(tmpdir(), 'fleet-relay-tls-'));
       const key = join(certificate, 'key.pem'),

@@ -34,13 +34,13 @@ const derived = new Set([
   'API_KEY_SECRET',
   'MACHINE_ID_SALT',
 ]);
-const isDerived = (name: string) =>
+export const isDerived = (name: string) =>
   derived.has(name) || /^AUTH_(RELAY|CONSOLE|MANAGER)_/.test(name);
 // Optional overrides of generated values, kept to preserve existing credentials.
-const overridable = (name: string) =>
+export const overridable = (name: string) =>
   name === 'TURBO_TOKEN' || name.startsWith('9ROUTER_');
 
-type KvKey = {
+export type KvKey = {
   name: string;
   configs: string[];
   required?: boolean;
