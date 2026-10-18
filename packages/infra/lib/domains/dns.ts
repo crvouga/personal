@@ -1,17 +1,38 @@
-import type { HealthContext } from '../health/context.js';
+import type { CommandResult, HealthContext } from '../health/context.js';
 import { normalizeName, RESOLVERS, type DnsRecord } from './model.js';
 import { answerData, rdata } from './records.js';
 
 export type Answer = { readonly name: string; readonly ttl: number; readonly type: string; readonly value: string };
 export type DnsReply = { readonly records: readonly Answer[]; readonly authoritative: boolean; readonly authenticated: boolean };
 
+/** dig exit 8, 9 and 10 mean no usable connection, no reply or an internal timeout; a killed dig is the same. */
+const TRANSIENT_DIG_CODES: ReadonlySet<number> = new Set([8, 9, 10]);
+
+function isTransientDig(result: CommandResult): boolean {
+  return TRANSIENT_DIG_CODES.has(result.code) || result.stderr.includes('terminated by');
+}
+
+/**
+ * Real answers (including SERVFAIL and NXDOMAIN) exit 0 and are never retried.
+ * Only a resolver that could not be reached is retried, and it still fails once the retries are spent.
+ */
+async function dig(ctx: HealthContext, args: readonly string[], label: string): Promise<CommandResult> {
+  const attempts = ctx.options.retries + 1;
+  for (let attempt = 1; ; attempt++) {
+    const result = await ctx.run('dig', args, { timeoutMs: 8000 });
+    if (result.code === 0) return result;
+    if (!isTransientDig(result)) throw new Error(`DNS ${label}: dig failed (${result.code})`);
+    if (attempt >= attempts) throw new Error(`DNS ${label}: resolver unreachable after ${attempts} attempt${attempts === 1 ? '' : 's'}; dig failed (${result.code})`);
+    await new Promise((resolve) => setTimeout(resolve, ctx.options.retryDelayMs));
+  }
+}
+
 /** Full dig output is essential: +short hides SERVFAIL and negative-answer TTLs. */
 export async function query(ctx: HealthContext, server: string, name: string, type: string, recursive = false): Promise<DnsReply> {
   if (!/^[a-zA-Z0-9.:-]+$/.test(server) || !/^[a-zA-Z0-9_.*-]+(?:\.[a-zA-Z0-9_*-]+)*\.?$/.test(name) || !/^[A-Z]+$/.test(type)) {
     throw new Error('Invalid DNS query');
   }
-  const result = await ctx.run('dig', [`@${server}`, name, type, '+tcp', '+dnssec', '+time=3', '+tries=1', recursive ? '+recurse' : '+norecurse'], { timeoutMs: 8000 });
-  if (result.code !== 0) throw new Error(`DNS ${server} ${type} ${name}: dig failed (${result.code})`);
+  const result = await dig(ctx, [`@${server}`, name, type, '+tcp', '+dnssec', '+time=3', '+tries=1', recursive ? '+recurse' : '+norecurse'], `${server} ${type} ${name}`);
   const status = /status: (\w+)/.exec(result.stdout)?.[1];
   if (!status || !['NOERROR', 'NXDOMAIN'].includes(status)) throw new Error(`DNS ${server} ${type} ${name}: ${status ?? 'malformed response'}`);
   const flags = /flags: ([^;]+);/.exec(result.stdout)?.[1].split(/\s+/) ?? [];

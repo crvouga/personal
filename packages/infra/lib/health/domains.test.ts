@@ -58,3 +58,56 @@ describe('retained Squarespace domains', () => {
     await expect(retainedRegistrar(ctx, domain)).resolves.toContain('Tucows Domains Inc');
   });
 });
+
+describe('dig transient failures', () => {
+  type Run = (args: readonly string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
+  const nsReply = (name: string) => {
+    const servers = name === 'dev' ? ['parent.example.net'] : spec.nameservers;
+    return { code: 0, stdout: `;; status: NOERROR\n;; flags: qr aa;\n${servers.map((server) => `${name}. 3600 IN NS ${server}.`).join('\n')}\n`, stderr: '' };
+  };
+  const delegationResult = async (run: Run, retries = 2) => {
+    const calls: string[] = [];
+    const base = fakeContext();
+    const ctx = fakeContext({
+      config: { ...base.config, zone: 'other.dev', domains: { [domain]: spec } },
+      options: { ...base.options, retries, retryDelayMs: 0 },
+      fetch: fakeFetch(routes(registrar())),
+      run: async (_command, args) => { calls.push(args.join(' ')); return run(args); },
+    });
+    const results = await checkDomains(ctx);
+    return { calls, row: results.find((result) => result.name === `${domain}: existing delegation`) };
+  };
+
+  test('exit 9 once, then a real answer, passes', async () => {
+    let dropped = false;
+    const { row } = await delegationResult(async (args) => {
+      if (!dropped) { dropped = true; return { code: 9, stdout: '', stderr: ';; no servers could be reached' }; }
+      return nsReply(args[1]);
+    });
+    expect(row?.status).toBe('pass');
+  });
+
+  test('exit 9 on every attempt still fails and says the resolver was unreachable', async () => {
+    const { calls, row } = await delegationResult(async () => ({ code: 9, stdout: '', stderr: '' }));
+    expect(row?.status).toBe('fail');
+    expect(row?.detail).toContain('resolver unreachable after 3 attempts');
+    expect(row?.detail).toContain('dig failed (9)');
+    expect(calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('a real negative answer is not retried', async () => {
+    const run: Run = async () => ({ code: 0, stdout: ';; status: SERVFAIL\n;; flags: qr;\n', stderr: '' });
+    const { calls, row } = await delegationResult(run);
+    expect(row?.status).toBe('fail');
+    expect(row?.detail).toContain('SERVFAIL');
+    expect(calls.length).toBe((await delegationResult(run, 0)).calls.length);
+  });
+
+  test('other dig failures are not retried', async () => {
+    const run: Run = async () => ({ code: 1, stdout: '', stderr: 'usage' });
+    const { calls, row } = await delegationResult(run);
+    expect(row?.status).toBe('fail');
+    expect(row?.detail).toContain('dig failed (1)');
+    expect(calls.length).toBe((await delegationResult(run, 0)).calls.length);
+  });
+});
