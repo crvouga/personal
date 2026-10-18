@@ -105,10 +105,42 @@ export function fillsFromLive(
   gaps: Gap[],
   live: Record<string, string>
 ): Fill[] {
+  const legacyOf = new Map(
+    Object.entries(LEGACY_RENAMES).map(([old, current]) => [current, old])
+  );
   return gaps.flatMap(({ config, name }) => {
-    const value = live[name];
+    const old = legacyOf.get(name);
+    const value = live[name] ?? (old ? live[old] : undefined);
     return filled(value) ? [{ config, name, value }] : [];
   });
+}
+
+/**
+ * Everything that needs no operator: a renamed field's old value from the
+ * inputs themselves, else the live document's. `unresolved` is what remains.
+ */
+export function autoFills(
+  gaps: Gap[],
+  live: Record<string, string>
+): { fills: Fill[]; unresolved: Gap[] } {
+  const carried = gaps.flatMap(({ config, name, legacy }) =>
+    legacy ? [{ config, name, value: legacy.value }] : []
+  );
+  const rest = gaps.filter(
+    (gap) =>
+      !carried.some(
+        (fill) => fill.config === gap.config && fill.name === gap.name
+      )
+  );
+  const fromLive = fillsFromLive(rest, live);
+  const fills = [...carried, ...fromLive];
+  const unresolved = rest.filter(
+    (gap) =>
+      !fromLive.some(
+        (fill) => fill.config === gap.config && fill.name === gap.name
+      )
+  );
+  return { fills, unresolved };
 }
 
 /** Legacy fields still present; the vault root would write them to Vault. */
