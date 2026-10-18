@@ -145,7 +145,7 @@ run "reject_missing_google_client_id" {
   variables {
     secrets = {
       dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
-        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev") && key.name != "WEB_CLIENT_GOOGLE_CLIENT_ID"
+        for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev") && key.name != "GOOGLE_OAUTH_CLIENT_ID"
       })
       prd = merge(
         { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
@@ -164,7 +164,7 @@ run "reject_blank_google_client_secret" {
         for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
       })
       prd = merge(
-        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => key.name == "WEB_CLIENT_GOOGLE_CLIENT_SECRET" ? "  " : "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
+        { for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => key.name == "GOOGLE_OAUTH_CLIENT_SECRET" ? "  " : "test-${key.name}" if try(key.required, false) && !try(key.generated, false) },
         { for name in toset(flatten([for service in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.services : [for secret in try(service.secrets, []) : secret.name if !contains([for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name if try(key.generated, false)], secret.name)]])) : name => "test-${name}" }
       )
     }

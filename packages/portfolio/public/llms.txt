@@ -75,8 +75,8 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 
 | Key | Configs | Used by | Required |
 | --- | --- | --- | --- |
-| `WEB_CLIENT_GOOGLE_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev | yes |
-| `WEB_CLIENT_GOOGLE_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev | yes |
+| `GOOGLE_OAUTH_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev | yes |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev | yes |
 | `TURBO_TOKEN` | dev, prd | turborepo, ci | yes |
 | `TURBO_API` | dev, prd | turborepo, ci | yes |
 | `TURBO_TEAM` | dev, prd | turborepo, ci | yes |

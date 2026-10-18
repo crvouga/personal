@@ -90,7 +90,7 @@ specified in [Keycloak's OIDC implementation](https://github.com/keycloak/keyclo
 
 ## Credentials and bootstrap
 
-Reuse existing `WEB_CLIENT_GOOGLE_CLIENT_ID` / `WEB_CLIENT_GOOGLE_CLIENT_SECRET` from `secret/data/personal/{dev|prd}`. They have been observed present in both documents without printing values; live validity and Google callback policy remain unverified. Google only needs the corresponding fixed broker callback, subject to its consent/branding policies. Applications never need these credentials.
+Supply `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` through the vault root's `secrets` input for `dev` and `prd` (`bun run vault:secrets`). These replace the earlier `WEB_CLIENT_GOOGLE_CLIENT_ID` / `WEB_CLIENT_GOOGLE_CLIENT_SECRET` fields: copy the existing values to the new names before applying, or the old fields are removed and the new ones are empty. Live validity and Google callback policy remain unverified. Google only needs the corresponding fixed broker callback, subject to its consent/branding policies. Applications never need these credentials.
 
 The Vault root generates independent `AUTH_RELAY_SETUP_TOKEN_PRODUCTION` and `AUTH_RELAY_SETUP_TOKEN_NONPRODUCTION`. After Google sign-in, the first operator proves possession of that environment's setup token. The database's singleton bootstrap claim prevents reuse or a first-login takeover. Back up that claim with operators and sessions. Add a second operator through the UI before launch. Operator identity is the stable relay subject in that instance, never an email address. Recovery/removal of operators needs an audited administrative database procedure; self-service operator deletion is not implemented.
 

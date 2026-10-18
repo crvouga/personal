@@ -1341,13 +1341,13 @@
         ],
         "kv_keys": [
           {
-            "name": "WEB_CLIENT_GOOGLE_CLIENT_ID",
+            "name": "GOOGLE_OAUTH_CLIENT_ID",
             "configs": ["dev", "prd"],
             "used_by": ["auth-relay", "auth-relay-dev"],
             "required": true
           },
           {
-            "name": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "name": "GOOGLE_OAUTH_CLIENT_SECRET",
             "configs": ["dev", "prd"],
             "used_by": ["auth-relay", "auth-relay-dev"],
             "required": true
@@ -1715,8 +1715,8 @@
             "hostname": "auth.chrisvouga.dev",
             "realm": "projects",
             "vault_config": "prd",
-            "google_client_id_key": "WEB_CLIENT_GOOGLE_CLIENT_ID",
-            "google_client_secret_key": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "google_client_id_key": "GOOGLE_OAUTH_CLIENT_ID",
+            "google_client_secret_key": "GOOGLE_OAUTH_CLIENT_SECRET",
             "database_schema": "auth_production",
             "signing_key_generations": {
               "initial": {
@@ -1751,8 +1751,8 @@
             "hostname": "auth-dev.chrisvouga.dev",
             "realm": "projects-dev",
             "vault_config": "dev",
-            "google_client_id_key": "WEB_CLIENT_GOOGLE_CLIENT_ID",
-            "google_client_secret_key": "WEB_CLIENT_GOOGLE_CLIENT_SECRET",
+            "google_client_id_key": "GOOGLE_OAUTH_CLIENT_ID",
+            "google_client_secret_key": "GOOGLE_OAUTH_CLIENT_SECRET",
             "database_schema": "auth_nonproduction",
             "signing_key_generations": {
               "initial": {
