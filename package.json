@@ -10,6 +10,7 @@
     "check:agents": "bun scripts/agent-commands.ts --check",
     "check:dev": "bun scripts/check-dev.ts",
     "check:llms": "bun scripts/llms-txt.ts --check",
+    "check:vault-inputs": "bun scripts/vault-inputs-check.ts",
     "check:scripts": "tsc --noEmit -p tsconfig.json && bun test ./scripts",
     "check:ci": "bun run ci:install && bun scripts/check-ci.ts",
     "check:smoke:secrets": "vault run --config dev -- bun run --filter @pkgs/turborepo-remote-cache smoke:secrets",

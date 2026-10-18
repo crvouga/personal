@@ -389,6 +389,10 @@ jobs:
       # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
       # under /usr/lib/postgresql/16/bin).
       - uses: ariga/setup-atlas@v0
+      # The deploy's vault plan rejects a TOFU_VAULT_INPUTS secret that lacks a
+      # required field; catch that here instead of after merge.
+      - name: Check TOFU_VAULT_INPUTS against the inventory
+        run: bun run check:vault-inputs
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check
         env:
