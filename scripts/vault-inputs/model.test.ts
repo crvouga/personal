@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import {
+  autoFills,
   diffNames,
   fillsFromLive,
   findGaps,

@@ -15,9 +15,39 @@ const inventory = JSON.parse(
   )
 ).locals.inventory;
 
+const strings = (data: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(data).flatMap(([name, value]) =>
+      typeof value === 'string' && value.trim() ? [[name, value]] : []
+    )
+  );
+
+// GitHub Actions has a token in VAULT_TOKEN (vault-action) but no `vault` CLI.
+async function readOverHttp(
+  token: string,
+  config: string
+): Promise<Record<string, string> | undefined> {
+  const { mount, project } = inventory.vault.kv;
+  try {
+    const response = await fetch(
+      `https://${inventory.vault.hostname}/v1/${mount}/data/${project}/${config}`,
+      { headers: { 'X-Vault-Token': token } }
+    );
+    if (!response.ok) return undefined;
+    const body = (await response.json()) as {
+      data: { data: Record<string, unknown> };
+    };
+    return strings(body.data.data);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function readLiveVault(
   config = 'prd'
 ): Promise<Record<string, string> | undefined> {
+  const token = process.env['VAULT_TOKEN'];
+  if (token) return readOverHttp(token, config);
   const { mount, project } = inventory.vault.kv;
   const out = await capture(
     [
@@ -32,12 +62,7 @@ export async function readLiveVault(
   );
   if (!out) return undefined;
   try {
-    const data = JSON.parse(out).data.data as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(data).flatMap(([name, value]) =>
-        typeof value === 'string' && value.trim() ? [[name, value]] : []
-      )
-    );
+    return strings(JSON.parse(out).data.data as Record<string, unknown>);
   } catch {
     return undefined;
   }

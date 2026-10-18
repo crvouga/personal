@@ -5,10 +5,19 @@
 // the failed CI run and the health report. OpenTofu stays the only writer; this
 // script never calls a provider API or sets a secret itself.
 //
+// It first offers to run in GitHub Actions (vault-inputs-fix.yml), which can
+// read the repo secrets this terminal cannot, and only prompts for whatever the
+// workflow could not fill. `--ci` is that workflow's entry point.
+//
 //   bun run vault:fix [--env-file FILE] [--dry-run]
 import { readFileSync } from 'node:fs';
 import { rerunFailedCi } from './vault-inputs/ci';
-import { Abort, fixVaultInputs, infraRepo } from './vault-inputs/flow';
+import {
+  Abort,
+  fixVaultInputs,
+  fixVaultInputsUnattended,
+  infraRepo,
+} from './vault-inputs/flow';
 import { confirm } from './vault-inputs/prompt';
 import { run } from './vault-inputs/process';
 import { parseEnv } from './vault-secrets-tfvars';
@@ -25,6 +34,10 @@ function flags() {
 }
 
 async function main() {
+  if (process.argv.includes('--ci')) {
+    await fixVaultInputsUnattended(process.argv.includes('--dry-run'));
+    return;
+  }
   if (!process.stdin.isTTY)
     throw new Abort('Run this in an interactive terminal.');
   const options = flags();
