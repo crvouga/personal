@@ -29,6 +29,12 @@ variable "database_port" { type = number }
 variable "broker_port" { type = number }
 variable "mock_port" { type = number }
 variable "app_port" { type = number }
+# Atlas connects to the scratch database while planning, so the first run
+# creates the PostgreSQL scaffolding with this disabled and then enables it.
+variable "atlas_enabled" {
+  type    = bool
+  default = true
+}
 locals {
   database_url = "postgres://development:development-only@127.0.0.1:${var.database_port}/auth_relay_development?sslmode=disable"
   origin       = "http://localhost:${var.app_port}"
@@ -57,7 +63,12 @@ resource "postgresql_schema" "scratch" {
   name          = "auth_relay_nonproduction"
   if_not_exists = true
 }
+moved {
+  from = atlas_schema.console
+  to   = atlas_schema.console[0]
+}
 resource "atlas_schema" "console" {
+  count      = var.atlas_enabled ? 1 : 0
   url        = "${local.database_url}&search_path=auth_relay_nonproduction"
   dev_url    = "postgres://development:development-only@127.0.0.1:${var.database_port}/auth_relay_atlas_scratch?sslmode=disable&search_path=auth_relay_nonproduction"
   hcl        = templatefile("${path.module}/../../../auth-relay/schema.hcl", { schema = "auth_relay_nonproduction" })

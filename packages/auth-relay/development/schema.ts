@@ -1,14 +1,13 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { command } from './process';
 
-const bootstrap = new Set([
+const ATLAS = 'atlas_schema.console[0]';
+const resources = new Set([
   'postgresql_schema.console',
   'postgresql_database.scratch',
   'postgresql_schema.scratch',
-]);
-const resources = new Set([
-  ...bootstrap,
-  'atlas_schema.console',
+  ATLAS,
   'keycloak_realm.broker',
   'keycloak_oidc_identity_provider.mock',
   'keycloak_openid_client.console',
@@ -41,8 +40,9 @@ export async function prepareSchema(
     ],
     env
   );
+  if (!(await scaffolded(prefix, cache, env)))
+    await apply(prefix, cache, env, false);
   await apply(prefix, cache, env, true);
-  await apply(prefix, cache, env, false);
   const outputs = JSON.parse(
     await command(
       [...prefix, 'output', '-json', 'development_environment'],
@@ -52,31 +52,44 @@ export async function prepareSchema(
   ) as Record<string, string>;
   return outputs;
 }
+async function scaffolded(
+  prefix: string[],
+  cache: string,
+  env: NodeJS.ProcessEnv
+): Promise<boolean> {
+  if (!existsSync(join(cache, 'state.tfstate'))) return false;
+  const state = await command([...prefix, 'state', 'list'], env, true);
+  return state.split('\n').includes('postgresql_schema.scratch');
+}
 async function apply(
   prefix: string[],
   cache: string,
   env: NodeJS.ProcessEnv,
-  initial: boolean
+  atlas: boolean
 ): Promise<void> {
-  const plan = join(cache, initial ? 'schema.tfplan' : 'application.tfplan');
-  const targets = initial
-    ? [...bootstrap].map((address) => `-target=${address}`)
-    : [];
+  const plan = join(cache, atlas ? 'application.tfplan' : 'schema.tfplan');
+  const flags = ['-input=false', '-compact-warnings'];
   await command(
-    [...prefix, 'plan', '-input=false', `-out=${plan}`, ...targets],
+    [
+      ...prefix,
+      'plan',
+      ...flags,
+      `-var=atlas_enabled=${String(atlas)}`,
+      `-out=${plan}`,
+    ],
     env
   );
   const report = JSON.parse(
     await command([...prefix, 'show', '-json', plan], env, true)
   ) as { resource_changes?: Change[] };
-  validatePlan(report.resource_changes ?? [], initial);
+  validatePlan(report.resource_changes ?? [], atlas);
   process.stdout.write(
     'Reviewed local-only plan: owned resources, no deletions.\n'
   );
-  await command([...prefix, 'apply', '-input=false', plan], env);
+  await command([...prefix, 'apply', ...flags, plan], env);
 }
 
-export function validatePlan(changes: Change[], initial = false): void {
+export function validatePlan(changes: Change[], atlas = true): void {
   for (const resource of changes) {
     if (resource.mode === 'data') continue;
     if (
@@ -87,10 +100,10 @@ export function validatePlan(changes: Change[], initial = false): void {
     )
       throw new Error('Unsafe local development plan rejected');
     if (
-      initial &&
-      !bootstrap.has(resource.address) &&
+      !atlas &&
+      resource.address === ATLAS &&
       resource.change.actions.some((action) => action !== 'no-op')
     )
-      throw new Error('Schema bootstrap touched unrelated resources');
+      throw new Error('Schema scaffolding must not apply the Atlas schema');
   }
 }

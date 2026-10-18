@@ -64,8 +64,13 @@ function declaredRecord(ctx: HealthContext, record: CloudflareDnsRecordSpec): Pr
       const addresses = await ctx.dns.resolve4(record.name);
       return addresses.length > 0 ? pass(name, "proxied; resolves") : fail(name, "does not resolve");
     }
+    // Names are case-insensitive; TXT content (DKIM keys) is case-sensitive.
     const expected =
-      record.type === "MX" ? `${record.priority ?? 0} ${normalize(record.content)}` : normalize(record.content);
+      record.type === "MX"
+        ? `${record.priority ?? 0} ${normalize(record.content)}`
+        : record.type === "TXT"
+          ? record.content
+          : normalize(record.content);
     const answers = await recordAnswers(ctx, record);
     return answers.includes(expected)
       ? pass(name, `→ ${expected}`)

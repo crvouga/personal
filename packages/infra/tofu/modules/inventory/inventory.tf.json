@@ -1073,6 +1073,7 @@
               "DOCKER_PASSWORD"
             ],
             "managed_publisher": false,
+            "publisher_file": ".github/workflows/publish-image.yml",
             "required_status_checks": ["Required"]
           },
           "moviefinder": {
@@ -1087,6 +1088,7 @@
             "environments": ["production"],
             "actions_secrets": [],
             "managed_publisher": false,
+            "publisher_file": ".github/workflows/check.yml",
             "required_status_checks": [
               "fast",
               "integration",

@@ -53,6 +53,22 @@ describe("dns", () => {
     expect(legacy.detail).toContain("expected 203.0.113.7, got 198.51.100.1");
   });
 
+  test("TXT content is compared case-sensitively and unchanged", async () => {
+    const key = "p=MIGfMA0GCSqGSIb3DQEB/Zz";
+    const ctx = fakeContext();
+    const config = {
+      ...ctx.config,
+      cloudflare: {
+        ...ctx.config.cloudflare,
+        dns: { records: { dkim: { name: "k._domainkey.example.dev", type: "TXT" as const, content: key, proxied: false } } },
+      },
+    };
+    const dns = (answer: string) => ({ ...ctx.dns, resolveTxt: async () => [answer] });
+    const name = "TXT k._domainkey.example.dev";
+    expect(statusOf(await checkDns({ ...ctx, config, dns: dns(key) }), name)).toBe("pass");
+    expect(statusOf(await checkDns({ ...ctx, config, dns: dns(key.toLowerCase()) }), name)).toBe("fail");
+  });
+
   test("foreign nameservers and unresolvable service hostnames fail", async () => {
     const ctx = fakeContext();
     const missing = async (): Promise<never> => {

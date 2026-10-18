@@ -42,16 +42,16 @@ test('local schema plans cannot delete owned resources or change unrelated resou
     change: { actions },
   });
   expect(() =>
-    validatePlan([change('atlas_schema.console', ['create'])])
+    validatePlan([change('atlas_schema.console[0]', ['create'])])
   ).not.toThrow();
   expect(() =>
-    validatePlan([change('atlas_schema.console', ['delete', 'create'])])
+    validatePlan([change('atlas_schema.console[0]', ['delete', 'create'])])
   ).toThrow();
   expect(() =>
     validatePlan([change('postgresql_schema.other_project', ['create'])])
   ).toThrow();
   expect(() =>
-    validatePlan([change('keycloak_realm.broker', ['create'])], true)
+    validatePlan([change('atlas_schema.console[0]', ['create'])], false)
   ).toThrow();
 });
 
