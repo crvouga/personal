@@ -3,7 +3,7 @@
 // targeted OpenTofu change and apply it after confirmation.
 import { rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { repairInActions } from './ci';
+import { repairInActions, VAULT_FIX_WORKFLOW } from './ci';
 import { collectEnvironment } from './environment';
 import { completeInputs, loadCurrentInputs } from './inputs';
 import { readLiveVault } from './live';
@@ -138,7 +138,14 @@ export async function fixVaultInputs({
 }: VaultFixOptions): Promise<boolean> {
   if (
     !dryRun &&
-    (await capture(['gh', 'auth', 'status'])) !== undefined &&
+    (await capture([
+      'gh',
+      'workflow',
+      'view',
+      VAULT_FIX_WORKFLOW,
+      '--repo',
+      infraRepo,
+    ])) !== undefined &&
     (await confirm(
       'Repair in GitHub Actions? It reads the repo secrets itself, so there is nothing to type.'
     ))

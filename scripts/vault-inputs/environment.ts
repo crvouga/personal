@@ -76,6 +76,45 @@ const INPUTS: InputSpec[] = [
   },
 ];
 
+// The three state credentials are bootstrap trust anchors that GitHub will not
+// hand back (Actions secrets are write-only), so they are typed once and kept in
+// the macOS Keychain, readable only by this user, for later runs.
+const KEYCHAIN_SERVICE = 'crvouga-vault-fix';
+const keychain = process.platform === 'darwin';
+
+const fromKeychain = (variable: string) =>
+  keychain
+    ? capture([
+        'security',
+        'find-generic-password',
+        '-s',
+        KEYCHAIN_SERVICE,
+        '-a',
+        variable,
+        '-w',
+      ])
+    : Promise.resolve(undefined);
+
+async function saveToKeychain(spec: InputSpec, value: string): Promise<void> {
+  if (!keychain || !spec.secret || spec.fromVault) return;
+  if (spec.variable === 'github_token') return;
+  if (!(await confirm(`Remember ${spec.variable} in the macOS Keychain?`)))
+    return;
+  // -w takes the value on argv; `security -i` reads the command from stdin instead.
+  const child = Bun.spawn({
+    cmd: ['security', '-i'],
+    stdin: 'pipe',
+    stdout: 'ignore',
+    stderr: 'inherit',
+  });
+  child.stdin.write(
+    `add-generic-password -U -s ${KEYCHAIN_SERVICE} -a ${spec.variable} -w ${JSON.stringify(value)}\n`
+  );
+  child.stdin.end();
+  if ((await child.exited) !== 0)
+    console.log('Could not save to the Keychain.');
+}
+
 async function resolve(
   spec: InputSpec,
   given: Record<string, string>,
@@ -88,6 +127,8 @@ async function resolve(
   if (fromGh) return fromGh;
   const fromVault = spec.fromVault && live[spec.fromVault];
   if (fromVault) return fromVault;
+  const remembered = await fromKeychain(spec.variable);
+  if (remembered) return remembered;
   if (spec.variable === 'github_token') {
     const token = await capture(['gh', 'auth', 'token']);
     if (token && (await confirm('Use your `gh` login as the GitHub PAT?')))
@@ -96,7 +137,10 @@ async function resolve(
   const prompt = spec.secret ? askSecret : ask;
   for (;;) {
     const value = await prompt(spec.label);
-    if (value) return value;
+    if (value) {
+      await saveToKeychain(spec, value);
+      return value;
+    }
     console.log('A value is required.');
   }
 }
