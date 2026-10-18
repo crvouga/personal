@@ -87,7 +87,7 @@ describe("vault", () => {
     expect(keys).toEqual(expect.arrayContaining(["TURBO_TOKEN", "DATABASE_URL", "S3_BUCKET", "9ROUTER_PASSWORD", "VAULT_TOKEN"]));
     expect(keys).not.toContain("GITHUB_TOKEN_SUPER");
     for (const environment of ["dev", "prd"]) {
-      expect(requiredKvKeys(loadServicesConfig(), environment)).toEqual(expect.arrayContaining(["WEB_CLIENT_GOOGLE_CLIENT_ID", "WEB_CLIENT_GOOGLE_CLIENT_SECRET"]));
+      expect(requiredKvKeys(loadServicesConfig(), environment)).toEqual(expect.arrayContaining(["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"]));
     }
     expect(requiredKvKeys(loadServicesConfig(), "dev")).not.toContain("DATABASE_URL");
   });

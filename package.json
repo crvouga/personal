@@ -48,6 +48,7 @@
     "llms:sync": "bun scripts/llms-txt.ts",
     "pr:ready": "bun scripts/pr-ready.ts",
     "infra:fleet": "tofu -chdir=packages/infra/tofu/fleet",
+    "vault:secrets": "bun scripts/vault-secrets-tfvars.ts",
     "infra:vault": "tofu -chdir=packages/infra/tofu/vault",
     "infra:bootstrap": "tofu -chdir=packages/infra/tofu/bootstrap",
     "infra:state": "tofu -chdir=packages/infra/tofu/state",
