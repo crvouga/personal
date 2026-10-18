@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { problemsFor } from '../../packages/infra/lib/health/secret-rules';
 import type { KvKey } from '../vault-secrets-tfvars';
 import {
+  fillsFromLive,
   findGaps,
   inputsFromState,
   legacyPresent,
@@ -82,12 +83,21 @@ async function valueFor(gap: Gap, fills: Fill[]): Promise<string> {
 
 export async function completeInputs(
   inputs: VaultInputs,
-  keys: KvKey[]
+  keys: KvKey[],
+  live: Record<string, string>
 ): Promise<VaultInputs> {
   const gaps = findGaps(inputs, keys);
   const legacy = legacyPresent(inputs);
-  const fills: Fill[] = [];
-  for (const gap of gaps)
+  const auto = fillsFromLive(gaps, live);
+  const useLive =
+    auto.length > 0 &&
+    (await confirm(
+      `Fill ${[...new Set(auto.map((fill) => fill.name))].join(', ')} from the live prd Vault (same value for dev and prd; values not shown)?`
+    ));
+  const fills: Fill[] = useLive ? auto : [];
+  const covered = (gap: Gap) =>
+    fills.some((fill) => fill.config === gap.config && fill.name === gap.name);
+  for (const gap of gaps.filter((gap) => !covered(gap)))
     fills.push({
       config: gap.config,
       name: gap.name,

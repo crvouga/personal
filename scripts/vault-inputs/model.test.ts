@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import {
   diffNames,
+  fillsFromLive,
   findGaps,
   inputsFromState,
   legacyPresent,
@@ -108,4 +109,15 @@ test('accepts a plan that only updates the vault inputs secret', () => {
   expect(unexpectedChanges(plan([secret, other]))).toEqual([
     'railway_service.x: delete + create',
   ]);
+});
+
+test('fills gaps from the live document, one value for every config', () => {
+  const gaps = findGaps(base({}, {}), keys);
+  expect(
+    fillsFromLive(gaps, { GOOGLE_OAUTH_CLIENT_ID: 'live', UNRELATED: 'x' })
+  ).toEqual([
+    { config: 'dev', name: 'GOOGLE_OAUTH_CLIENT_ID', value: 'live' },
+    { config: 'prd', name: 'GOOGLE_OAUTH_CLIENT_ID', value: 'live' },
+  ]);
+  expect(fillsFromLive(gaps, {})).toEqual([]);
 });

@@ -97,6 +97,20 @@ export function findGaps(inputs: VaultInputs, keys: KvKey[]): Gap[] {
   );
 }
 
+/**
+ * Gaps the live Vault already answers. One value serves every config: the
+ * prd document is the source and dev takes the same value.
+ */
+export function fillsFromLive(
+  gaps: Gap[],
+  live: Record<string, string>
+): Fill[] {
+  return gaps.flatMap(({ config, name }) => {
+    const value = live[name];
+    return filled(value) ? [{ config, name, value }] : [];
+  });
+}
+
 /** Legacy fields still present; the vault root would write them to Vault. */
 export function legacyPresent(inputs: VaultInputs): string[] {
   return CONFIGS.flatMap((config) =>

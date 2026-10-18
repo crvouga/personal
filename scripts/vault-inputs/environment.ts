@@ -11,6 +11,8 @@ type InputSpec = {
   /** Also exported under these names (the S3 state backend reads AWS_*). */
   alsoAs?: string[];
   fromGh?: string[];
+  /** Field of the live prd Vault document holding the same credential. */
+  fromVault?: string;
 };
 
 const INPUTS: InputSpec[] = [
@@ -47,17 +49,25 @@ const INPUTS: InputSpec[] = [
     variable: 'cloudflare_api_token',
     label: 'Cloudflare API token',
     secret: true,
+    fromVault: 'CLOUDFLARE_API_TOKEN',
   },
-  { variable: 'railway_token', label: 'Railway account token', secret: true },
+  {
+    variable: 'railway_token',
+    label: 'Railway account token',
+    secret: true,
+    fromVault: 'RAILWAY_TOKEN',
+  },
   {
     variable: 'planetscale_service_token_id',
     label: 'PlanetScale service token ID',
     secret: true,
+    fromVault: 'PLANETSCALE_SERVICE_TOKEN_ID',
   },
   {
     variable: 'planetscale_service_token',
     label: 'PlanetScale service token',
     secret: true,
+    fromVault: 'PLANETSCALE_SERVICE_TOKEN',
   },
   {
     variable: 'github_token',
@@ -68,13 +78,16 @@ const INPUTS: InputSpec[] = [
 
 async function resolve(
   spec: InputSpec,
-  given: Record<string, string>
+  given: Record<string, string>,
+  live: Record<string, string>
 ): Promise<string> {
   const key = `TF_VAR_${spec.variable}`;
   const known = process.env[key] || given[key];
   if (known) return known;
   const fromGh = spec.fromGh && (await capture(['gh', ...spec.fromGh]));
   if (fromGh) return fromGh;
+  const fromVault = spec.fromVault && live[spec.fromVault];
+  if (fromVault) return fromVault;
   if (spec.variable === 'github_token') {
     const token = await capture(['gh', 'auth', 'token']);
     if (token && (await confirm('Use your `gh` login as the GitHub PAT?')))
@@ -90,11 +103,12 @@ async function resolve(
 
 /** The env for every foundation tofu command. */
 export async function collectEnvironment(
-  given: Record<string, string>
+  given: Record<string, string>,
+  live: Record<string, string>
 ): Promise<Record<string, string>> {
   const env: Record<string, string> = {};
   for (const spec of INPUTS) {
-    const value = await resolve(spec, given);
+    const value = await resolve(spec, given, live);
     env[`TF_VAR_${spec.variable}`] = value;
     for (const alias of spec.alsoAs ?? []) env[alias] = value;
   }

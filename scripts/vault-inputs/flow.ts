@@ -5,6 +5,7 @@ import { rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { collectEnvironment } from './environment';
 import { completeInputs, loadCurrentInputs } from './inputs';
+import { readLiveVault } from './live';
 import {
   diffNames,
   TOFU_VAULT_INPUTS_ADDRESS,
@@ -133,7 +134,10 @@ export async function fixVaultInputs({
   console.log(
     'Collecting foundation inputs (existing env vars are used as-is)…'
   );
-  const env = await collectEnvironment(given);
+  const live = (await readLiveVault()) ?? {};
+  if (Object.keys(live).length)
+    console.log('Using your Vault login to pre-fill credentials (prd).');
+  const env = await collectEnvironment(given, live);
   await initialize(env);
 
   const tofu = (args: string[]) => ['tofu', `-chdir=${foundation}`, ...args];
@@ -142,7 +146,7 @@ export async function fixVaultInputs({
   );
   console.log(`\nCurrent vault_inputs loaded from ${source}.`);
 
-  const next = await completeInputs(inputs, inventory.vault.kv_keys);
+  const next = await completeInputs(inputs, inventory.vault.kv_keys, live);
   const { added, removed, changed } = diffNames(inputs, next);
   console.log('\nChanges to vault_inputs (names only):');
   console.log(`  add:    ${added.join(', ') || '—'}`);
