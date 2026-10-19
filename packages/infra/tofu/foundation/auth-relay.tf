@@ -2,6 +2,12 @@
 # separate schema/role per broker, never a dedicated database or owner password.
 locals {
   auth_instances = local.config.auth_relay.enabled ? local.config.auth_relay.instances : {}
+  # PlanetScale usernames carry a ".<branch id>" routing suffix that exists only
+  # on the wire; the Postgres role itself is the part before the dot. The
+  # PostgreSQL provider looks roles up in pg_roles, so it needs the bare name.
+  auth_relay_role   = { for key, role in planetscale_postgres_branch_role.auth_relay : key => split(".", role.username)[0] }
+  auth_console_role = { for key, role in planetscale_postgres_branch_role.auth_console : key => split(".", role.username)[0] }
+  openbao_role      = split(".", planetscale_postgres_branch_role.openbao.username)[0]
 }
 resource "planetscale_postgres_branch_role" "auth_relay" {
   for_each        = local.auth_instances
@@ -15,7 +21,7 @@ resource "planetscale_postgres_branch_role" "auth_relay" {
 resource "postgresql_schema" "auth_relay" {
   for_each = local.auth_instances
   name     = each.value.database_schema
-  owner    = planetscale_postgres_branch_role.auth_relay[each.key].username
+  owner    = local.auth_relay_role[each.key]
   lifecycle { prevent_destroy = true }
 }
 output "auth_relay_database" {
@@ -55,7 +61,7 @@ resource "atlas_schema" "auth_console" {
 resource "postgresql_grant" "auth_console_schema" {
   for_each    = local.auth_instances
   database    = planetscale_postgres_branch_role.openbao.database_name
-  role        = planetscale_postgres_branch_role.auth_console[each.key].username
+  role        = local.auth_console_role[each.key]
   schema      = postgresql_schema.auth_console[each.key].name
   object_type = "schema"
   privileges  = ["USAGE"]
@@ -63,7 +69,7 @@ resource "postgresql_grant" "auth_console_schema" {
 resource "postgresql_grant" "auth_console_tables" {
   for_each    = local.auth_instances
   database    = planetscale_postgres_branch_role.openbao.database_name
-  role        = planetscale_postgres_branch_role.auth_console[each.key].username
+  role        = local.auth_console_role[each.key]
   schema      = postgresql_schema.auth_console[each.key].name
   object_type = "table"
   privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
@@ -72,7 +78,7 @@ resource "postgresql_grant" "auth_console_tables" {
 resource "postgresql_grant" "auth_console_sequences" {
   for_each    = local.auth_instances
   database    = planetscale_postgres_branch_role.openbao.database_name
-  role        = planetscale_postgres_branch_role.auth_console[each.key].username
+  role        = local.auth_console_role[each.key]
   schema      = postgresql_schema.auth_console[each.key].name
   object_type = "sequence"
   privileges  = ["USAGE", "SELECT"]
@@ -81,8 +87,8 @@ resource "postgresql_grant" "auth_console_sequences" {
 resource "postgresql_default_privileges" "auth_console_tables" {
   for_each    = local.auth_instances
   database    = planetscale_postgres_branch_role.openbao.database_name
-  owner       = planetscale_postgres_branch_role.openbao.username
-  role        = planetscale_postgres_branch_role.auth_console[each.key].username
+  owner       = local.openbao_role
+  role        = local.auth_console_role[each.key]
   schema      = postgresql_schema.auth_console[each.key].name
   object_type = "table"
   privileges  = ["SELECT", "INSERT", "UPDATE", "DELETE"]
@@ -90,8 +96,8 @@ resource "postgresql_default_privileges" "auth_console_tables" {
 resource "postgresql_default_privileges" "auth_console_sequences" {
   for_each    = local.auth_instances
   database    = planetscale_postgres_branch_role.openbao.database_name
-  owner       = planetscale_postgres_branch_role.openbao.username
-  role        = planetscale_postgres_branch_role.auth_console[each.key].username
+  owner       = local.openbao_role
+  role        = local.auth_console_role[each.key]
   schema      = postgresql_schema.auth_console[each.key].name
   object_type = "sequence"
   privileges  = ["USAGE", "SELECT"]
