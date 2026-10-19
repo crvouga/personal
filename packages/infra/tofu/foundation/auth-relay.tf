@@ -21,8 +21,18 @@ resource "planetscale_postgres_branch_role" "auth_relay" {
 resource "postgresql_schema" "auth_relay" {
   for_each = local.auth_instances
   name     = each.value.database_schema
-  owner    = local.auth_relay_role[each.key]
   lifecycle { prevent_destroy = true }
+}
+# Not the schema owner: PlanetScale refuses the GRANT <role> TO <owner> the
+# provider needs to assign ownership to an API-created role. The connection
+# role owns the schema; Keycloak gets what it needs to create its own tables.
+resource "postgresql_grant" "auth_relay_schema" {
+  for_each    = local.auth_instances
+  database    = planetscale_postgres_branch_role.openbao.database_name
+  role        = local.auth_relay_role[each.key]
+  schema      = postgresql_schema.auth_relay[each.key].name
+  object_type = "schema"
+  privileges  = ["USAGE", "CREATE"]
 }
 output "auth_relay_database" {
   sensitive = true
