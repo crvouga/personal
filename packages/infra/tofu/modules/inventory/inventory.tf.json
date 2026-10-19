@@ -1715,6 +1715,7 @@
         "instances": {
           "production": {
             "hostname": "auth.chrisvouga.dev",
+            "admin_hostname": "auth-admin.chrisvouga.dev",
             "realm": "projects",
             "vault_config": "prd",
             "google_client_id_key": "GOOGLE_OAUTH_CLIENT_ID",
@@ -1751,6 +1752,7 @@
           },
           "nonproduction": {
             "hostname": "auth-dev.chrisvouga.dev",
+            "admin_hostname": "auth-admin-dev.chrisvouga.dev",
             "realm": "projects-dev",
             "vault_config": "dev",
             "google_client_id_key": "GOOGLE_OAUTH_CLIENT_ID",
@@ -1786,7 +1788,8 @@
             "setup_token_key": "AUTH_RELAY_SETUP_TOKEN_NONPRODUCTION"
           }
         },
-        "enabled": false
+        "enabled": false,
+        "live": false
       },
       "services": [
         {

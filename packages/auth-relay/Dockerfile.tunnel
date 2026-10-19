@@ -1,0 +1,5 @@
+# Outbound-only Cloudflare Tunnel connector for the private identity service's
+# admin API. The command is baked in so Railway needs no shell start command.
+FROM docker.io/cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+ENTRYPOINT ["cloudflared", "tunnel", "--no-autoupdate", "run"]
+CMD []
