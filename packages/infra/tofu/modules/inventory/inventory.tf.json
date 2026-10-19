@@ -1788,7 +1788,7 @@
             "setup_token_key": "AUTH_RELAY_SETUP_TOKEN_NONPRODUCTION"
           }
         },
-        "enabled": false,
+        "enabled": true,
         "live": false
       },
       "services": [
