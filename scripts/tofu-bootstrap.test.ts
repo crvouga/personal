@@ -25,6 +25,13 @@ test('schema bootstrap applies only creation of the empty application schemas', 
   const directory = mkdtempSync(join(tmpdir(), 'tofu-bootstrap-'));
   const plan = join(directory, 'plan.json');
   const applied = join(directory, 'applied');
+  const inventory = join(directory, 'inventory.json');
+  const inventoryFor = (enabled: boolean) =>
+    writeFileSync(
+      inventory,
+      JSON.stringify({ locals: { inventory: { auth_relay: { enabled } } } })
+    );
+  inventoryFor(false);
   writeFileSync(
     join(directory, 'tofu'),
     '#!/bin/sh\ncase "$2" in state) printf "%s\\n" "${TEST_STATE:-}";; show) cat "$TEST_PLAN";; apply) touch "$TEST_APPLIED";; esac\n',
@@ -102,6 +109,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
           PATH: `${directory}:${process.env.PATH}`,
           TEST_PLAN: plan,
           TEST_APPLIED: applied,
+          TOFU_INVENTORY: inventory,
         },
       });
       expect(result.exitCode === 0).toBe(allowed);
@@ -118,9 +126,80 @@ test('schema bootstrap applies only creation of the empty application schemas', 
         TEST_PLAN: plan,
         TEST_APPLIED: applied,
         TEST_STATE: 'postgresql_schema.fleet',
+        TOFU_INVENTORY: inventory,
       },
     });
     expect(existing.exitCode).toBe(0);
+    expect(existsSync(applied)).toBe(false);
+
+    // With the relay enabled, its empty schemas and restricted roles follow the
+    // same create-only rule; anything else in the targeted plan is refused.
+    inventoryFor(true);
+    const authCases = [
+      [
+        [
+          {
+            address:
+              'planetscale_postgres_branch_role.auth_console["production"]',
+            change: { actions: ['create'] },
+          },
+          {
+            address: 'postgresql_schema.auth_console["production"]',
+            change: { actions: ['create'] },
+          },
+        ],
+        true,
+      ],
+      [
+        [
+          {
+            address: 'postgresql_schema.auth_console["production"]',
+            change: { actions: ['delete', 'create'] },
+          },
+        ],
+        false,
+      ],
+      [
+        [
+          {
+            address: 'atlas_schema.auth_console["production"]',
+            change: { actions: ['create'] },
+          },
+        ],
+        false,
+      ],
+    ] as const;
+    for (const [changes, allowed] of authCases) {
+      rmSync(applied, { force: true });
+      writeFileSync(plan, JSON.stringify({ resource_changes: changes }));
+      const result = Bun.spawnSync(['bash', '-c', step.run], {
+        env: {
+          ...process.env,
+          PATH: `${directory}:${process.env.PATH}`,
+          TEST_PLAN: plan,
+          TEST_APPLIED: applied,
+          TEST_STATE: 'postgresql_schema.fleet',
+          TOFU_INVENTORY: inventory,
+        },
+      });
+      expect(result.exitCode === 0).toBe(allowed);
+      expect(existsSync(applied)).toBe(allowed);
+    }
+    // Already-managed auth schemas are left to the full plan.
+    rmSync(applied, { force: true });
+    writeFileSync(plan, 'invalid: targeted planning must not run');
+    const managed = Bun.spawnSync(['bash', '-c', step.run], {
+      env: {
+        ...process.env,
+        PATH: `${directory}:${process.env.PATH}`,
+        TEST_PLAN: plan,
+        TEST_APPLIED: applied,
+        TEST_STATE:
+          'postgresql_schema.fleet\npostgresql_schema.auth_console["production"]',
+        TOFU_INVENTORY: inventory,
+      },
+    });
+    expect(managed.exitCode).toBe(0);
     expect(existsSync(applied)).toBe(false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
