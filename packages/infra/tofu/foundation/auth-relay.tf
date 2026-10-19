@@ -102,3 +102,84 @@ output "auth_console_database" {
     "postgres://${urlencode(role.username)}:${urlencode(role.password)}@${role.access_host_url}/${role.database_name}?sslmode=verify-full"
   }
 }
+
+# Keycloak's admin API stays off the public gateway. CI reaches it only through
+# a Cloudflare Tunnel whose hostname is an Access application that admits a
+# single service token. The connector runs inside the private Railway project
+# (auth-hosting) and the identity service gets no public ingress.
+resource "random_password" "auth_admin_tunnel" {
+  for_each = local.auth_instances
+  length   = 64
+  special  = false
+}
+resource "random_password" "auth_admin_password" {
+  for_each = local.auth_instances
+  length   = 48
+  special  = false
+}
+resource "cloudflare_zero_trust_tunnel_cloudflared" "auth_admin" {
+  for_each      = local.auth_instances
+  account_id    = var.cloudflare_account_id
+  name          = "auth-admin-${each.key}"
+  tunnel_secret = base64encode(random_password.auth_admin_tunnel[each.key].result)
+  lifecycle { prevent_destroy = true }
+}
+resource "cloudflare_zero_trust_tunnel_cloudflared_config" "auth_admin" {
+  for_each   = local.auth_instances
+  account_id = var.cloudflare_account_id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.auth_admin[each.key].id
+  config = {
+    ingress = [
+      { hostname = each.value.admin_hostname, service = "http://${each.value.service.id}-identity.railway.internal:8080" },
+      { service = "http_status:404" }
+    ]
+  }
+}
+data "cloudflare_zero_trust_tunnel_cloudflared_token" "auth_admin" {
+  for_each   = local.auth_instances
+  account_id = var.cloudflare_account_id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.auth_admin[each.key].id
+}
+resource "cloudflare_dns_record" "auth_admin" {
+  for_each = local.auth_instances
+  zone_id  = cloudflare_zone.primary.id
+  name     = each.value.admin_hostname
+  type     = "CNAME"
+  content  = "${cloudflare_zero_trust_tunnel_cloudflared.auth_admin[each.key].id}.cfargotunnel.com"
+  ttl      = 1
+  proxied  = true
+  lifecycle { prevent_destroy = true }
+}
+resource "cloudflare_zero_trust_access_service_token" "auth_admin" {
+  for_each   = local.auth_instances
+  account_id = var.cloudflare_account_id
+  name       = "auth-admin-${each.key}-ci"
+  duration   = "8760h"
+}
+resource "cloudflare_zero_trust_access_policy" "auth_admin" {
+  for_each   = local.auth_instances
+  account_id = var.cloudflare_account_id
+  name       = "auth-admin-${each.key}-ci"
+  decision   = "non_identity"
+  include    = [{ service_token = { token_id = cloudflare_zero_trust_access_service_token.auth_admin[each.key].id } }]
+}
+resource "cloudflare_zero_trust_access_application" "auth_admin" {
+  for_each         = local.auth_instances
+  account_id       = var.cloudflare_account_id
+  name             = "auth-admin-${each.key}"
+  type             = "self_hosted"
+  domain           = each.value.admin_hostname
+  session_duration = "1h"
+  policies         = [{ id = cloudflare_zero_trust_access_policy.auth_admin[each.key].id, precedence = 1 }]
+}
+output "auth_admin" {
+  sensitive = true
+  value = { for key, instance in local.auth_instances : key => {
+    url                  = "https://${instance.admin_hostname}"
+    username             = "admin"
+    password             = random_password.auth_admin_password[key].result
+    tunnel_token         = data.cloudflare_zero_trust_tunnel_cloudflared_token.auth_admin[key].token
+    access_client_id     = cloudflare_zero_trust_access_service_token.auth_admin[key].client_id
+    access_client_secret = cloudflare_zero_trust_access_service_token.auth_admin[key].client_secret
+  } }
+}

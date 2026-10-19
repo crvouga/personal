@@ -264,9 +264,13 @@ export type ServicesConfig = InfraConfig;
 /** Staged OIDC relay inventory; consuming applications can live anywhere. */
 export type AuthRelayConfig = {
   readonly enabled: boolean;
+  /** Realm credentials are projected to Vault and the public gateway deploys. */
+  readonly live?: boolean;
   readonly status: string;
   readonly instances: Readonly<Record<string, {
     readonly hostname: string;
+    /** Access-protected tunnel hostname for the private identity admin API. */
+    readonly admin_hostname?: string;
     readonly realm: string;
     readonly vault_config: string;
     readonly google_client_id_key: string;

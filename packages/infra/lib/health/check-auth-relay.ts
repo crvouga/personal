@@ -10,6 +10,7 @@ export async function checkAuthRelay(ctx: HealthContext): Promise<readonly Check
   if (configuration.status === 'fail') return [configuration];
   const prerequisites = [configuration, ...await relayCredentials(ctx, config)];
   if (!config.enabled) return [...prerequisites, skip('auth-relay', 'preproduction; live acceptance has not been completed')];
+  if (config.live === false) return [...prerequisites, skip('auth-relay', 'identity service staged; public gateway not live until credentials are projected')];
   return [...prerequisites, ...await Promise.all(Object.entries(config.instances).map(async ([name, instance]) => {
     const base = `https://${instance.hostname}`;
     const issuer = `${base}/realms/${instance.realm}`;

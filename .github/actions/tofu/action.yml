@@ -3,7 +3,10 @@ description: Initialize, plan and apply one OpenTofu root with encrypted R2 stat
 inputs:
   root:
     required: true
-    description: OpenTofu root (foundation, bootstrap, vault or fleet)
+    description: OpenTofu root (foundation, bootstrap, vault, fleet, auth-hosting or auth)
+  state_key:
+    default: ''
+    description: State object name without .tfstate; defaults to the root. The auth root uses one state per instance (auth-production, auth-nonproduction).
   vault_image_tag:
     default: ''
     description: New vault image revision; empty preserves the deployed revision.
@@ -37,9 +40,11 @@ runs:
       env:
         TOFU_ROOT: ${{ inputs.root }}
         TOFU_MODE: ${{ inputs.mode }}
+        TOFU_STATE_KEY: ${{ inputs.state_key }}
       run: |
         set -euo pipefail
-        case "${TOFU_ROOT}" in foundation|bootstrap|vault|fleet) ;; *) exit 1 ;; esac
+        case "${TOFU_ROOT}" in foundation|bootstrap|vault|fleet|auth-hosting|auth) ;; *) exit 1 ;; esac
+        case "${TOFU_STATE_KEY:-${TOFU_ROOT}}" in *[!a-z-]*) exit 1 ;; esac
         case "${TOFU_MODE}" in apply|prepare) ;; *) exit 1 ;; esac
         ROOT="packages/infra/tofu/${TOFU_ROOT}"
         umask 077
@@ -51,7 +56,7 @@ runs:
           use_path_style: true, use_lockfile: true
         }' > /tmp/tofu-backend.json
         echo "TF_VAR_state_backend=$(cat /tmp/tofu-backend.json | jq -c .)" >> "$GITHUB_ENV"
-        jq --arg key "${TOFU_ROOT}.tfstate" '. + {key: $key}' /tmp/tofu-backend.json > "${ROOT}/backend.backend.json"
+        jq --arg key "${TOFU_STATE_KEY:-${TOFU_ROOT}}.tfstate" '. + {key: $key}' /tmp/tofu-backend.json > "${ROOT}/backend.backend.json"
         if [ "${TOFU_ROOT}" = vault ]; then
           test -n "${TOFU_VAULT_INPUTS}"
           printf '%s' "${TOFU_VAULT_INPUTS}" > "${ROOT}/inputs.auto.tfvars.json"
@@ -62,7 +67,7 @@ runs:
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
-      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" init -input=false -lockfile=readonly -backend-config=backend.backend.json
+      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" init -input=false -reconfigure -lockfile=readonly -backend-config=backend.backend.json
     - name: Preserve deployed image revisions
       shell: bash
       env:
@@ -120,10 +125,10 @@ runs:
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
-      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" plan -input=false -parallelism=1 -out=apply.tfplan
+      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" plan -input=false -lock-timeout=15m -parallelism=1 -out=apply.tfplan
     - name: Apply
       if: inputs.mode == 'apply'
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
-      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" apply -input=false -parallelism=1 apply.tfplan
+      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 apply.tfplan

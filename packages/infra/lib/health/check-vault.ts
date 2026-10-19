@@ -124,7 +124,7 @@ export function requiredKvKeys(config: InfraConfig, kvConfig: string): readonly 
   for (const instance of Object.values(config.auth_relay?.instances ?? {})) {
     if (instance.vault_config === kvConfig) {
       keys.push(instance.google_client_id_key, instance.google_client_secret_key, instance.setup_token_key);
-      if (config.auth_relay?.enabled) keys.push('AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET');
+      if (config.auth_relay?.enabled && config.auth_relay.live !== false) keys.push('AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET');
     }
   }
   // The fleet root copies service secrets, and tunnels read theirs, from production only.
