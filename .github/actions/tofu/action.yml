@@ -118,16 +118,17 @@ runs:
           }
           tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 "${plan}"
         }
-        MANAGED_SCHEMA="$(tofu -chdir="${ROOT}" state list postgresql_schema.fleet)"
-        if [ "${MANAGED_SCHEMA}" != "postgresql_schema.fleet" ]; then
+        STATE="$(tofu -chdir="${ROOT}" state list || true)"
+        if ! grep -qx 'postgresql_schema.fleet' <<< "${STATE}"; then
           bootstrap app-schemas.tfplan '^postgresql_schema\.fleet$' -target=postgresql_schema.fleet
         else
           echo "Fleet schema is already managed; use the full foundation plan."
         fi
         # The auth relay's per-instance schemas (and their restricted roles) follow
         # the same rule, and only while the inventory enables the relay.
-        if [ "$(jq -r '.locals.inventory.auth_relay.enabled' packages/infra/tofu/modules/inventory/inventory.tf.json)" = true ] && \
-           [ -z "$(tofu -chdir="${ROOT}" state list postgresql_schema.auth_console)" ]; then
+        INVENTORY="${TOFU_INVENTORY:-packages/infra/tofu/modules/inventory/inventory.tf.json}"
+        if [ "$(jq -r '.locals.inventory.auth_relay.enabled' "${INVENTORY}")" = true ] && \
+           ! grep -q '^postgresql_schema.auth_console\[' <<< "${STATE}"; then
           bootstrap auth-schemas.tfplan '^(postgresql_schema\.auth_(relay|console)\[.*\]|planetscale_postgres_branch_role\.auth_(relay|console)\[.*\])$' \
             -target=postgresql_schema.auth_relay -target=postgresql_schema.auth_console
         else
