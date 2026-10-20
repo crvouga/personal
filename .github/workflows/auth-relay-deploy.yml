@@ -22,6 +22,7 @@ on:
       - 'packages/infra/tofu/foundation/auth-relay.tf'
       - '.github/workflows/auth-relay-deploy.yml'
       - '.github/actions/tofu/**'
+      - 'scripts/tofu-plan.ts'
   workflow_dispatch:
 
 permissions:

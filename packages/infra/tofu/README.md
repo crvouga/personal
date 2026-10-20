@@ -196,6 +196,13 @@ The credentials that let OpenTofu reach each provider, the state-encryption pass
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
 
+The shared CI OpenTofu action retries planning up to three times only when every
+error is a Cloudflare GET returning HTTP 429 or 5xx. Backoff starts at two minutes
+and doubles, honoring a response's longer `retry_after` up to ten minutes. A
+failed attempt's saved plan is removed. Other errors fail immediately; exhausted
+retries still fail deployment. The successful saved plan is displayed and then
+applied once. Apply failures are never replayed automatically.
+
 ### New application namespace allocation
 
 A service can opt into foundation-owned empty namespace allocation with
