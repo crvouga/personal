@@ -1,10 +1,10 @@
 name: Auth relay compatibility
 on:
   pull_request:
-    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-client/**', '.github/workflows/auth-relay*.yml']
+    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-*/**', '.github/workflows/auth-relay*.yml']
   push:
     branches: [main]
-    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-client/**', '.github/workflows/auth-relay*.yml']
+    paths: ['packages/auth-relay/**', 'packages/infra/tofu/auth*/**', 'packages/infra/tofu/modules/auth-*/**', '.github/workflows/auth-relay*.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,13 @@ jobs:
           tofu_wrapper: false
       - uses: ariga/setup-atlas@v0
       - run: bun install --frozen-lockfile
+      # The deploy builds these three images; a build failure should fail the PR.
+      - name: Build the gateway and tunnel images as the deploy does
+        run: |
+          docker build -f packages/auth-relay/Dockerfile -t auth-relay-gateway:ci .
+          docker build -f packages/auth-relay/Dockerfile.tunnel -t auth-relay-tunnel:ci packages/auth-relay
+      - name: Start the identity image exactly as deployed
+        run: python3 packages/auth-relay/tests/production-image.py
       - run: bun run auth:test
       - name: Install Chromium for the deterministic mock-upstream suite
         working-directory: packages/fleet

@@ -12,6 +12,10 @@ tofu -chdir=modules/inventory init -backend=false -input=false
 tofu -chdir=modules/inventory test
 tofu -chdir=modules/railway-service init -backend=false -input=false -lockfile=readonly
 tofu -chdir=modules/railway-service test
+tofu -chdir=modules/auth-identity-service init -backend=false -input=false -lockfile=readonly
+tofu -chdir=modules/auth-identity-service test
+tofu -chdir=modules/auth-realm-management init -backend=false -input=false -lockfile=readonly
+tofu -chdir=modules/auth-realm-management test
 
 python3 tests/bootstrap.py
 python3 tests/railway-settings.py
