@@ -47,8 +47,11 @@ export async function relayCredentials(ctx: HealthContext, config: AuthRelayConf
           ? skip(name, `${path}: Vault access unavailable; credential presence not verified`)
           : fail(name, `${path}: Vault document unavailable; credential presence not verified`);
       }
+      // The deployed identity service and realm exist before `live`; only then does
+      // OpenTofu project the console, manager and database credentials into Vault.
+      const staged = config.enabled && config.live === false;
       const expected = [instance.google_client_id_key, instance.google_client_secret_key, instance.setup_token_key,
-        'AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET'];
+        ...(staged ? [] : ['AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET'])];
       const missing = expected.filter((key) => !doc.data[key]?.trim());
       return missing.length > 0
         ? fail(name, `${path}: missing or empty ${missing.join(', ')}`)

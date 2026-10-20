@@ -105,6 +105,15 @@ test('enabled relay requires console and database secrets in Vault without leaki
   expect(JSON.stringify(results)).not.toContain(credentials.AUTH_CONSOLE_CLIENT_SECRET);
 });
 
+test('a staged relay does not require credentials that are projected only once live', async () => {
+  const ctx = context();
+  const results = await checkAuthRelay({ ...ctx,
+    config: { ...config, auth_relay: { ...config.auth_relay, live: false } },
+    kv: async () => ({ ok: true, data: { GOOGLE_ID: 'id', GOOGLE_SECRET: 'secret', SETUP_TOKEN: 'setup', SETUP_TOKEN_DEV: 'setup-dev' } }),
+  });
+  for (const name of ['production credentials', 'nonproduction credentials']) expect(statusOf(results, name)).toBe('pass');
+});
+
 test('disabled relay still fails missing runtime credentials before local dev attempts startup', async () => {
   const ctx = context();
   const results = await checkAuthRelay({ ...ctx,
