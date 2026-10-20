@@ -37,7 +37,9 @@ resource "postgresql_grant" "auth_relay_schema" {
 output "auth_relay_database" {
   sensitive = true
   value = { for key, role in planetscale_postgres_branch_role.auth_relay : key => {
-    KC_DB_URL      = "jdbc:postgresql://${role.access_host_url}/${role.database_name}?sslmode=verify-full"
+    # pgjdbc reads ~/.postgresql/root.crt for verify-full unless told to use the
+    # JVM trust store, which already trusts PlanetScale's public CA.
+    KC_DB_URL      = "jdbc:postgresql://${role.access_host_url}/${role.database_name}?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"
     KC_DB_USERNAME = role.username
     KC_DB_PASSWORD = role.password
     KC_DB_SCHEMA   = local.auth_instances[key].database_schema
