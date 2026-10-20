@@ -7,9 +7,17 @@ variable "instance" {
   }
 }
 locals { broker = module.inventory.config.auth_relay.instances[var.instance] }
-data "vault_kv_secret_v2" "google" {
-  mount = module.inventory.config.vault.kv.mount
-  name  = "${module.inventory.config.vault.kv.project}/${local.broker.vault_config}"
+# The Google upstream credentials come from Vault (secret/data/personal/<config>,
+# keys named by google_client_*_key in the inventory). CI loads them with the
+# Vault action rather than the Vault provider: the CI JWT role carries no default
+# policy, so the provider's token lookup-self is denied.
+variable "google_client_id" {
+  type      = string
+  sensitive = true
+}
+variable "google_client_secret" {
+  type      = string
+  sensitive = true
 }
 resource "keycloak_realm" "broker" {
   internal_id                = local.broker.realm
@@ -32,8 +40,8 @@ resource "keycloak_realm" "broker" {
 resource "keycloak_oidc_google_identity_provider" "google" {
   realm          = keycloak_realm.broker.id
   alias          = "google"
-  client_id      = data.vault_kv_secret_v2.google.data[local.broker.google_client_id_key]
-  client_secret  = data.vault_kv_secret_v2.google.data[local.broker.google_client_secret_key]
+  client_id      = var.google_client_id
+  client_secret  = var.google_client_secret
   default_scopes = "openid email profile"
   store_token    = false
   # Preserve Google's verified-email assertion for email-based application access.

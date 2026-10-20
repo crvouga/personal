@@ -190,8 +190,9 @@ jobs:
             echo "FIRST_DEPLOYMENT=true" >> "$GITHUB_ENV"
           fi
 
-      # The CI-read policy reads secret/data/personal/*: the realm roots read the
-      # Google upstream credentials and the gateway reads the system credentials.
+      # The CI-read policy reads secret/data/personal/*. The realm roots take the
+      # Google upstream credentials from here (the role has no default policy, so
+      # the OpenTofu Vault provider's token lookup-self would be denied).
       - uses: hashicorp/vault-action@v4
         if: steps.flags.outputs.enabled == 'true'
         with:
@@ -202,7 +203,11 @@ jobs:
           jwtGithubAudience: ${{ env.VAULT_ADDR }}
           exportToken: true
           secrets: |
-            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | VAULT_PROBE_ACCOUNT_ID
+            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | VAULT_PROBE_ACCOUNT_ID ;
+            secret/data/personal/prd GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_PRODUCTION ;
+            secret/data/personal/prd GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_PRODUCTION ;
+            secret/data/personal/dev GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_NONPRODUCTION ;
+            secret/data/personal/dev GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_NONPRODUCTION
 
       # --- Private identity service + tunnel connector -----------------------
       - uses: ./.github/actions/tofu
@@ -249,6 +254,8 @@ jobs:
           state_key: auth-production
         env:
           TF_VAR_instance: production
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
       - uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
@@ -256,6 +263,8 @@ jobs:
           state_key: auth-nonproduction
         env:
           TF_VAR_instance: nonproduction
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
 
       # --- Credential projection and the public gateway (staged) -------------
       - uses: ./.github/actions/tofu
