@@ -257,7 +257,12 @@ jobs:
           done
 
       # --- Realms: Google upstream, signing keys, system clients -------------
-      - uses: ./.github/actions/tofu
+      # Creating a realm makes Keycloak grant the admin user that realm's
+      # management roles, but the provider's login token predates them, so the
+      # first apply of a new realm gets 403s. A fresh login (the retry) succeeds.
+      - id: realm_production
+        continue-on-error: true
+        uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
           root: auth
@@ -266,8 +271,33 @@ jobs:
           TF_VAR_instance: production
           TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
           TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
-      - uses: ./.github/actions/tofu
+      - name: Retry the production realm with a fresh login
+        uses: ./.github/actions/tofu
+        if: steps.flags.outputs.enabled == 'true' && steps.realm_production.outcome == 'failure'
+        with:
+          root: auth
+          state_key: auth-production
+        env:
+          TF_VAR_instance: production
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
+      # Creating a realm makes Keycloak grant the admin user that realm's
+      # management roles, but the provider's login token predates them, so the
+      # first apply of a new realm gets 403s. A fresh login (the retry) succeeds.
+      - id: realm_nonproduction
+        continue-on-error: true
+        uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
+        with:
+          root: auth
+          state_key: auth-nonproduction
+        env:
+          TF_VAR_instance: nonproduction
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
+      - name: Retry the nonproduction realm with a fresh login
+        uses: ./.github/actions/tofu
+        if: steps.flags.outputs.enabled == 'true' && steps.realm_nonproduction.outcome == 'failure'
         with:
           root: auth
           state_key: auth-nonproduction
