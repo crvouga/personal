@@ -1,7 +1,6 @@
 terraform {
   required_version = "~> 1.13.0"
   required_providers {
-    vault    = { source = "hashicorp/vault", version = "= 5.12.0" }
     keycloak = { source = "keycloak/keycloak", version = "= 5.9.0" }
   }
   backend "s3" {}

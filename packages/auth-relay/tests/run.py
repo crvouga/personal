@@ -27,7 +27,7 @@ for port in [3000, 5173, int(os.environ.get('AUTH_TEST_PORT_C', '8080')), 3443, 
 try:
     run('bun', 'run', '--cwd', 'packages/auth-relay', 'build')
     run(*COMPOSE, 'down', '--volumes')
-    run('docker', 'build', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', 'auth-relay-test:local', 'packages/auth-relay')
+    run('docker', 'build', '--build-arg', 'KC_CACHE=ispn', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', 'auth-relay-test:local', 'packages/auth-relay')
     run(*COMPOSE, 'build', 'broker', 'mock')
     run(*COMPOSE, 'up', '-d', '--wait', '--wait-timeout', '180')
     for port in (18080, 18081):

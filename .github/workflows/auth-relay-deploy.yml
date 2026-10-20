@@ -190,8 +190,9 @@ jobs:
             echo "FIRST_DEPLOYMENT=true" >> "$GITHUB_ENV"
           fi
 
-      # The CI-read policy reads secret/data/personal/*: the realm roots read the
-      # Google upstream credentials and the gateway reads the system credentials.
+      # The CI-read policy reads secret/data/personal/*. The realm roots take the
+      # Google upstream credentials from here (the role has no default policy, so
+      # the OpenTofu Vault provider's token lookup-self would be denied).
       - uses: hashicorp/vault-action@v4
         if: steps.flags.outputs.enabled == 'true'
         with:
@@ -202,7 +203,11 @@ jobs:
           jwtGithubAudience: ${{ env.VAULT_ADDR }}
           exportToken: true
           secrets: |
-            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | VAULT_PROBE_ACCOUNT_ID
+            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | VAULT_PROBE_ACCOUNT_ID ;
+            secret/data/personal/prd GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_PRODUCTION ;
+            secret/data/personal/prd GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_PRODUCTION ;
+            secret/data/personal/dev GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_NONPRODUCTION ;
+            secret/data/personal/dev GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_NONPRODUCTION
 
       # --- Private identity service + tunnel connector -----------------------
       - uses: ./.github/actions/tofu
@@ -224,15 +229,25 @@ jobs:
             id="$(jq -r --arg i "${instance}" '.[$i].access_client_id' /tmp/auth-admin.json)"
             secret="$(jq -r --arg i "${instance}" '.[$i].access_client_secret' /tmp/auth-admin.json)"
             ok=false
-            # First start creates Keycloak's tables; allow 20 minutes.
+            # First start creates Keycloak's tables; allow 20 minutes. Railway
+            # rolls the new deployment out behind the old one (about two minutes,
+            # then the old container is removed), so the first 200 may still come
+            # from the previous deployment. Require an unbroken run of 200s that
+            # outlasts the rollout.
             deadline=$((SECONDS + 1200))
+            stable_since=""
             for attempt in $(seq 1 120); do
               [ "${SECONDS}" -lt "${deadline}" ] || break
               code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' \
                 -H "CF-Access-Client-Id: ${id}" -H "CF-Access-Client-Secret: ${secret}" \
                 "${url}/realms/master/.well-known/openid-configuration" || true)"
-              if [ "${code}" = 200 ]; then ok=true; break; fi
-              echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
+              if [ "${code}" = 200 ]; then
+                stable_since="${stable_since:-${SECONDS}}"
+                if [ $((SECONDS - stable_since)) -ge 240 ]; then ok=true; break; fi
+              else
+                stable_since=""
+                echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
+              fi
               sleep 10
             done
             if [ "${ok}" != true ]; then
@@ -242,20 +257,54 @@ jobs:
           done
 
       # --- Realms: Google upstream, signing keys, system clients -------------
-      - uses: ./.github/actions/tofu
+      # Creating a realm makes Keycloak grant the admin user that realm's
+      # management roles, but the provider's login token predates them, so the
+      # first apply of a new realm gets 403s. A fresh login (the retry) succeeds.
+      - id: realm_production
+        continue-on-error: true
+        uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
           root: auth
           state_key: auth-production
         env:
           TF_VAR_instance: production
-      - uses: ./.github/actions/tofu
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
+      - name: Retry the production realm with a fresh login
+        uses: ./.github/actions/tofu
+        if: steps.flags.outputs.enabled == 'true' && steps.realm_production.outcome == 'failure'
+        with:
+          root: auth
+          state_key: auth-production
+        env:
+          TF_VAR_instance: production
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
+      # Creating a realm makes Keycloak grant the admin user that realm's
+      # management roles, but the provider's login token predates them, so the
+      # first apply of a new realm gets 403s. A fresh login (the retry) succeeds.
+      - id: realm_nonproduction
+        continue-on-error: true
+        uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
           root: auth
           state_key: auth-nonproduction
         env:
           TF_VAR_instance: nonproduction
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
+      - name: Retry the nonproduction realm with a fresh login
+        uses: ./.github/actions/tofu
+        if: steps.flags.outputs.enabled == 'true' && steps.realm_nonproduction.outcome == 'failure'
+        with:
+          root: auth
+          state_key: auth-nonproduction
+        env:
+          TF_VAR_instance: nonproduction
+          TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+          TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
 
       # --- Credential projection and the public gateway (staged) -------------
       - uses: ./.github/actions/tofu
