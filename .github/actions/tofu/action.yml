@@ -139,7 +139,10 @@ runs:
       shell: bash
       env:
         TOFU_ROOT: ${{ inputs.root }}
-      run: tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" plan -input=false -lock-timeout=15m -parallelism=1 -out=apply.tfplan
+      # Only planning can be replayed; Apply below consumes that saved plan once.
+      run: |
+        bun scripts/tofu-plan.ts
+        tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -no-color apply.tfplan
     - name: Apply
       if: inputs.mode == 'apply'
       shell: bash
