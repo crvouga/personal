@@ -229,15 +229,25 @@ jobs:
             id="$(jq -r --arg i "${instance}" '.[$i].access_client_id' /tmp/auth-admin.json)"
             secret="$(jq -r --arg i "${instance}" '.[$i].access_client_secret' /tmp/auth-admin.json)"
             ok=false
-            # First start creates Keycloak's tables; allow 20 minutes.
+            # First start creates Keycloak's tables; allow 20 minutes. Railway
+            # rolls the new deployment out behind the old one (about two minutes,
+            # then the old container is removed), so the first 200 may still come
+            # from the previous deployment. Require an unbroken run of 200s that
+            # outlasts the rollout.
             deadline=$((SECONDS + 1200))
+            stable_since=""
             for attempt in $(seq 1 120); do
               [ "${SECONDS}" -lt "${deadline}" ] || break
               code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' \
                 -H "CF-Access-Client-Id: ${id}" -H "CF-Access-Client-Secret: ${secret}" \
                 "${url}/realms/master/.well-known/openid-configuration" || true)"
-              if [ "${code}" = 200 ]; then ok=true; break; fi
-              echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
+              if [ "${code}" = 200 ]; then
+                stable_since="${stable_since:-${SECONDS}}"
+                if [ $((SECONDS - stable_since)) -ge 240 ]; then ok=true; break; fi
+              else
+                stable_since=""
+                echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
+              fi
               sleep 10
             done
             if [ "${ok}" != true ]; then
