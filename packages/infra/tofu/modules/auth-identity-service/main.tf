@@ -21,7 +21,13 @@ resource "railway_service" "this" {
   project_id   = var.project_id
   source_image = var.image
   regions      = [{ region = var.region, num_replicas = try(var.service.railway.replicas, 1) }]
-  lifecycle { prevent_destroy = true }
+  # Provider 0.6.2 creates the replica count but cannot change it afterwards (the
+  # update leaves the count unchanged and fails the consistency check), so the
+  # settings mutation below owns it after creation.
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [regions]
+  }
 }
 
 # The Railway provider does not expose these per-environment settings. The
@@ -29,7 +35,7 @@ resource "railway_service" "this" {
 # There are no shell provisioners or API controllers outside OpenTofu.
 locals {
   update_settings = <<-GRAPHQL
-    mutation Settings($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String) {
+    mutation Settings($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String, $multiRegionConfig: JSON!) {
       serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: {
         autoInstrumentationEnabled: false
         buildCommand: null
@@ -40,6 +46,7 @@ locals {
         healthcheckPath: $healthcheckPath
         healthcheckTimeout: null
         ipv6EgressEnabled: false
+        multiRegionConfig: $multiRegionConfig
         overlapSeconds: null
         preDeployCommand: null
         preDeployTimeoutSeconds: null
@@ -63,6 +70,8 @@ resource "graphql_mutation" "settings" {
     healthcheckPath  = try(var.service.railway.health_check, true) ? try(var.service.railway.health_path, var.service.health_path, "/") : "null"
     sleepApplication = jsonencode(try(var.service.railway.sleep, true))
     startCommand     = try(var.service.railway.start_command, "null")
+    # Region -> replica count; Railway reads it as a JSON scalar.
+    multiRegionConfig = jsonencode({ (var.region) = { numReplicas = try(var.service.railway.replicas, 1) } })
   }
   read_query_variables = {
     serviceId     = railway_service.this.id
