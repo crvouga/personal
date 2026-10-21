@@ -18,6 +18,17 @@ const SLOTS_EXHAUSTED =
 function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
   if (SLOTS_EXHAUSTED.test(`${error.summary}\n${error.detail}`))
     return 60 * 2 ** attempt;
+  // Railway can fail a variable-collection refresh with this opaque upstream
+  // error. Match the resource and read diagnostic, never a failed write or auth.
+  if (
+    /(?:^|\.)railway_variable_collection\.[^.\[]+(?:\[.*\])?$/.test(
+      error.address ?? ''
+    ) &&
+    error.summary === 'Client Error' &&
+    error.detail.trim() ===
+      'Unable to read variable collection, got error: input: Problem processing request'
+  )
+    return 120 * 2 ** attempt;
   const request = /^GET\s+"https:\/\/[^\"]+":\s*(\d{3})\b/.exec(error.detail);
   const status = Number(request?.[1]);
   if (
