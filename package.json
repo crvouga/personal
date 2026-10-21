@@ -58,6 +58,7 @@
     "check:infra": "bash packages/infra/tofu/check.sh",
     "infra:auth": "tofu -chdir=packages/infra/tofu/auth",
     "infra:auth-hosting": "tofu -chdir=packages/infra/tofu/auth-hosting",
+    "auth:setup": "bun scripts/auth-setup.ts",
     "auth:test": "bun run --cwd packages/auth-relay test",
     "auth:test:e2e": "python3 -B packages/auth-relay/tests/run.py"
   },

@@ -110,7 +110,7 @@ The removed Vault session cookies are no longer accepted.
 | `FLEET_DB_PREPARE`        | `true` (default) or `false`. Use `false` behind a transaction-mode pooler.                       |
 
 OpenTofu supplies core server settings (inventory entry `fleet-api`, Vault root).
-After registering the Fleet browser client in the relay UI, declare its public
+Run `bun run auth:setup`; it guides the relay registration and writes these values. Otherwise, after registering the Fleet browser client in the relay UI, declare its public
 issuer/client ID/origin as `FLEET_OIDC_ISSUER`, `FLEET_OIDC_CLIENT_ID` and
 `FLEET_PUBLIC_ORIGIN` in the service environment through a reviewed OpenTofu
 plan. Do not mutate hosting dashboards. No Google secret is copied into Fleet.

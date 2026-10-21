@@ -1,6 +1,6 @@
 # Shared authentication relay
 
-**Preproduction: not deployed or production-ready.** Any project using the shared managed infrastructure can integrate Google sign-in through standard OIDC without obtaining its own Google credentials, within the supported profile below. Read [operations.md](operations.md) and [acceptance.md](acceptance.md) before deployment.
+**Preproduction: deployed (`auth_relay.live`) but its live and reliability gates are not yet passed.** Any project using the shared managed infrastructure can integrate Google sign-in through standard OIDC without obtaining its own Google credentials, within the supported profile below. Read [operations.md](operations.md) and [acceptance.md](acceptance.md) before deployment.
 
 ## Managed local development
 
@@ -13,10 +13,12 @@ Vault supplies the
 console/manager credentials and `AUTH_RELAY_DATABASE_URL`; the launcher maps the
 latter to `AUTH_DATABASE_URL` and selects the environment's setup token.
 
-**The managed relay is still staged/disabled.** Until its reviewed infrastructure,
-Vault projection and Google setup are deployed, local managed startup reports
-the exact missing Vault fields and fails. `bun run health -- --only auth` checks
-those same credential prerequisites even while deployment is disabled. It does not present a mock as live authentication.
+**The managed relay is deployed** at `auth.chrisvouga.dev` (production) and
+`auth-dev.chrisvouga.dev` (nonproduction) once the Auth relay deploy workflow has
+applied the `live` stage. If infrastructure, Vault projection or Google setup is
+missing, local managed startup reports the exact missing Vault fields and fails.
+`bun run health -- --only auth` checks those credential prerequisites and probes
+both public issuers. It does not present a mock as live authentication.
 The private Railway hostname is not reachable directly from a laptop. A trusted
 private connection and routing through the configured issuer origin are required;
 changing `AUTH_ORIGIN` to a random localhost port cannot reuse an existing
@@ -70,6 +72,29 @@ must advertise that exact origin/issuer and allow `${AUTH_ORIGIN}/auth/callback`
 An explicitly configured or partially configured provider never falls back to
 mock sign-in on failure. Production uses `start`, which remains strict and does
 not prepare local fixtures. Local fixture mode refuses production environments.
+
+## Guided Fleet setup
+
+After the deploy workflow is green, `bun run auth:setup` walks the one-time
+human steps for Fleet and automates the rest. It reads your own Vault login and
+checks live state first, so every step skips when already done and the command is
+safe to re-run:
+
+1. Shows (and copies) the two fixed Google redirect URIs to add to the OAuth client.
+2. Waits for both relay endpoints to answer.
+3. Copies the one-time setup token to your clipboard (never printed), opens the
+   relay UI and waits until the operator claim appears in the database.
+4. Shows the exact Fleet registration form values, and
+   and waits for the registration to appear, then reads back its client ID.
+5. Adds your email to Fleet's access list in the Fleet database, after asking.
+6. Writes `FLEET_OIDC_ISSUER`, `FLEET_OIDC_CLIENT_ID` and `FLEET_PUBLIC_ORIGIN`
+   into the `fleet-api` inventory entry. Merge that change (`/pr-ready`), then re-run
+   the command to check the live sign-in page.
+
+The Google console, the operator claim and the registration form stay manual by
+design: only an authenticated operator may register a client. Production
+registrations expire after at most 366 days, and the command prints the date to
+renew before.
 
 ## Register in the UI
 
