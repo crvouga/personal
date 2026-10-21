@@ -70,20 +70,10 @@ test('Atlas inspection refused for lack of connection slots retries', () => {
       0
     )
   ).toBe(60_000);
-  // Other inspection failures are real.
-  expect(
-    retryDelay(refused('pq: password authentication failed'), 0)
-  ).toBeNull();
-  // Mixed with a permanent error, nothing retries.
-  expect(
-    retryDelay(
-      {
-        ...refused(slots),
-        errors: [...refused(slots).errors, failure(403).errors[0]!],
-      },
-      0
-    )
-  ).toBeNull();
+  // Any other failure is retried too: a plan only reads, so replaying it is safe.
+  expect(retryDelay(refused('pq: password authentication failed'), 0)).toBe(
+    60_000
+  );
 });
 
 test('real process output recovers from HTTP errors and rejects malformed diagnostics', () => {
@@ -150,37 +140,40 @@ test('real process output recovers from HTTP errors and rejects malformed diagno
   }
 });
 
-test('permanent, mixed, unknown and mutating failures never retry', () => {
-  for (const status of [400, 401, 403, 404, 409, 422])
-    expect(retryDelay(failure(status), 0)).toBeNull();
-  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'])
-    expect(retryDelay(failure(504, method), 0)).toBeNull();
-  const permanent = failure(403).errors[0]!;
-  const transient = failure();
-  expect(
-    retryDelay({ ...transient, errors: [...transient.errors, permanent] }, 0)
-  ).toBeNull();
-  expect(retryDelay({ ...transient, errors: [] }, 0)).toBeNull();
-  expect(retryDelay({ ...transient, valid: false }, 0)).toBeNull();
-  for (const address of [undefined, 'railway_service.example'])
-    expect(
-      retryDelay(
-        { ...transient, errors: [{ ...transient.errors[0]!, address }] },
-        0
-      )
-    ).toBeNull();
-  expect(
-    retryDelay(
-      {
-        ...transient,
-        errors: [{ ...permanent, summary: 'Invalid configuration' }],
-      },
-      0
-    )
-  ).toBeNull();
+const slotsFailure = () => ({
+  code: 1,
+  valid: true,
+  errors: [
+    {
+      severity: 'error',
+      summary: 'Inspect Error',
+      detail: 'pq: remaining connection slots are reserved (53300)',
+    },
+  ],
 });
 
-test('planning retries only four times and discards every failed saved plan', async () => {
+test('every failed plan retries; only unparseable output and over-long waits stop', () => {
+  for (const status of [400, 401, 403, 404, 409, 422])
+    expect(retryDelay(failure(status), 0)).toBe(60_000);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'])
+    expect(retryDelay(failure(504, method), 0)).toBe(60_000);
+  // A transient hint outranks a permanent-looking error beside it.
+  const transient = failure();
+  expect(
+    retryDelay(
+      { ...transient, errors: [...transient.errors, failure(403).errors[0]!] },
+      0
+    )
+  ).toBe(120_000);
+  expect(retryDelay({ ...transient, errors: [] }, 0)).toBe(60_000);
+  expect(retryDelay({ ...transient, valid: false }, 0)).toBeNull();
+  // Backoff is bounded, never an unbounded deployment wait.
+  expect(retryDelay(slotsFailure(), 3)).toBe(480_000);
+  expect(retryDelay(slotsFailure(), 4)).toBeNull();
+  expect(retryDelay(failure(), 3)).toBeNull();
+});
+
+test('planning retries five times and discards every failed saved plan', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-retry-'));
   const savedPlan = join(directory, 'apply.tfplan');
   try {
@@ -194,28 +187,49 @@ test('planning retries only four times and discards every failed saved plan', as
           expect(existsSync(savedPlan)).toBe(false);
           attempts++;
           writeFileSync(savedPlan, `attempt ${attempts}`);
-          return succeeds && attempts === 4
+          return succeeds && attempts === 5
             ? { code: 0, errors: [], valid: true }
-            : failure();
+            : slotsFailure();
         },
         async (delay) => {
           expect(existsSync(savedPlan)).toBe(false);
           waits.push(delay);
         }
       );
-      expect(attempts).toBe(4);
-      expect(waits).toEqual([120_000, 240_000, 480_000]);
+      expect(attempts).toBe(5);
+      expect(waits).toEqual([60_000, 120_000, 240_000, 480_000]);
       expect(code).toBe(succeeds ? 0 : 1);
       expect(existsSync(savedPlan)).toBe(succeeds);
-      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 4');
+      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 5');
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
-test('permanent failure stops immediately and preserves its exit status', async () => {
+test('unparseable output stops immediately and preserves its exit status', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-permanent-'));
+  try {
+    let attempts = 0;
+    const code = await planWithRetry(
+      directory,
+      async () => {
+        attempts++;
+        return { ...failure(403), code: 7, valid: false };
+      },
+      async () => {
+        throw new Error('must not sleep');
+      }
+    );
+    expect(code).toBe(7);
+    expect(attempts).toBe(1);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('a permanent error is retried, then reported with its exit status', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tofu-final-'));
   try {
     let attempts = 0;
     const code = await planWithRetry(
@@ -224,12 +238,10 @@ test('permanent failure stops immediately and preserves its exit status', async 
         attempts++;
         return { ...failure(403), code: 7 };
       },
-      async () => {
-        throw new Error('must not sleep');
-      }
+      async () => {}
     );
     expect(code).toBe(7);
-    expect(attempts).toBe(1);
+    expect(attempts).toBe(5);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
