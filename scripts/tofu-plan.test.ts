@@ -39,6 +39,53 @@ test('Cloudflare GET 429 and 5xx diagnostics retry with bounded backoff', () => 
   expect(retryDelay(result, 0)).toBe(300_000);
 });
 
+test('Atlas inspection refused for lack of connection slots retries', () => {
+  const refused = (detail: string, summary = 'Inspect Error') => ({
+    code: 1,
+    valid: true,
+    errors: [{ severity: 'error', summary, detail }],
+  });
+  const slots =
+    'Unable to inspect, got error: Error: postgres: querying system variables: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)';
+  expect(retryDelay(refused(slots), 0)).toBe(60_000);
+  expect(retryDelay(refused(slots), 1)).toBe(120_000);
+  expect(retryDelay(refused('pq: sorry, too many clients already'), 0)).toBe(
+    60_000
+  );
+  expect(
+    retryDelay(
+      refused(
+        '',
+        'error connecting to PostgreSQL server: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute'
+      ),
+      0
+    )
+  ).toBe(60_000);
+  expect(
+    retryDelay(
+      refused(
+        'Unable to generate migration plan, got error: Error: driver: bad connection',
+        'Atlas Plan Error'
+      ),
+      0
+    )
+  ).toBe(60_000);
+  // Other inspection failures are real.
+  expect(
+    retryDelay(refused('pq: password authentication failed'), 0)
+  ).toBeNull();
+  // Mixed with a permanent error, nothing retries.
+  expect(
+    retryDelay(
+      {
+        ...refused(slots),
+        errors: [...refused(slots).errors, failure(403).errors[0]!],
+      },
+      0
+    )
+  ).toBeNull();
+});
+
 test('real process output recovers from HTTP errors and rejects malformed diagnostics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-process-'));
   const runner = join(directory, 'runner.ts');
@@ -133,7 +180,7 @@ test('permanent, mixed, unknown and mutating failures never retry', () => {
   ).toBeNull();
 });
 
-test('planning retries only three times and discards every failed saved plan', async () => {
+test('planning retries only four times and discards every failed saved plan', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-retry-'));
   const savedPlan = join(directory, 'apply.tfplan');
   try {
@@ -147,7 +194,7 @@ test('planning retries only three times and discards every failed saved plan', a
           expect(existsSync(savedPlan)).toBe(false);
           attempts++;
           writeFileSync(savedPlan, `attempt ${attempts}`);
-          return succeeds && attempts === 3
+          return succeeds && attempts === 4
             ? { code: 0, errors: [], valid: true }
             : failure();
         },
@@ -156,11 +203,11 @@ test('planning retries only three times and discards every failed saved plan', a
           waits.push(delay);
         }
       );
-      expect(attempts).toBe(3);
-      expect(waits).toEqual([120_000, 240_000]);
+      expect(attempts).toBe(4);
+      expect(waits).toEqual([120_000, 240_000, 480_000]);
       expect(code).toBe(succeeds ? 0 : 1);
       expect(existsSync(savedPlan)).toBe(succeeds);
-      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 3');
+      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 4');
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });

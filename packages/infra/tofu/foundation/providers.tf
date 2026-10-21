@@ -28,4 +28,8 @@ provider "postgresql" {
   sslmode         = "require"
   superuser       = false
   connect_timeout = 30
+  # The cluster has 25 connection slots and its services hold about 14. The
+  # provider's default pool of 4, plus Atlas inspecting beside it, exhausts the
+  # rest (53300); applies are serial, so two cover a transaction beside a read.
+  max_connections = 2
 }
