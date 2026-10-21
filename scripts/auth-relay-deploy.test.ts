@@ -191,6 +191,7 @@ test('the deploy waits for each public gateway before the health check', () => {
   expect(wait).toBeGreaterThan(-1);
   expect(wait).toBeLessThan(names.indexOf('Health'));
   expect(String(steps[wait].run)).toContain('/health/ready');
+  expect(String(steps[wait].run)).toContain('streak');
 });
 
 test('the CI Vault role can describe its own token when the gateway is live', () => {

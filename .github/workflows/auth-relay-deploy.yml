@@ -352,26 +352,33 @@ jobs:
           root: auth-hosting
 
       # Railway verifies the custom domain and issues its certificate after the
-      # apply returns, and sleeping services cold-start: wait instead of racing.
+      # apply returns, sleeping services cold-start, and the identity service's
+      # rolling redeploy overlaps and drains for a minute while the gateways
+      # flap between ready and not: require consecutive all-green rounds
+      # instead of racing on the first 200.
       - name: Wait for the public gateways
         if: steps.flags.outputs.enabled == 'true' && steps.flags.outputs.live == 'true'
         run: |
           set -euo pipefail
           INV=packages/infra/tofu/modules/inventory/inventory.tf.json
-          for instance in ${{ steps.flags.outputs.instances }}; do
-            host="$(jq -r --arg i "${instance}" '.locals.inventory.auth_relay.instances[$i].hostname' "${INV}")"
-            ok=false
-            for attempt in $(seq 1 90); do
+          needed=6
+          streak=0
+          for attempt in $(seq 1 90); do
+            round=ok
+            for instance in ${{ steps.flags.outputs.instances }}; do
+              host="$(jq -r --arg i "${instance}" '.locals.inventory.auth_relay.instances[$i].hostname' "${INV}")"
               code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "https://${host}/health/ready" || true)"
-              if [ "${code}" = 200 ]; then ok=true; break; fi
-              echo "${instance}: https://${host}/health/ready not ready (HTTP ${code:-000}), attempt ${attempt}/90"
-              sleep 10
+              if [ "${code}" != 200 ]; then
+                echo "${instance}: https://${host}/health/ready not ready (HTTP ${code:-000}), attempt ${attempt}/90"
+                round=bad
+              fi
             done
-            if [ "${ok}" != true ]; then
-              echo "::error::${instance}: https://${host} never became ready. Check the Railway custom domain verification, DNS and the gateway logs."
-              exit 1
-            fi
+            if [ "${round}" = ok ]; then streak=$((streak + 1)); else streak=0; fi
+            if [ "${streak}" -ge "${needed}" ]; then exit 0; fi
+            sleep 10
           done
+          echo "::error::The public gateways never stayed ready for ${needed} consecutive checks. Check the Railway custom domain verification, DNS and the gateway and identity logs."
+          exit 1
 
       - name: Health
         if: steps.flags.outputs.enabled == 'true'
