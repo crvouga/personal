@@ -52,11 +52,19 @@ test('Atlas inspection refused for lack of connection slots retries', () => {
   expect(retryDelay(refused('pq: sorry, too many clients already'), 0)).toBe(
     60_000
   );
-  // Other inspection failures, and the same text under another summary, are real.
+  expect(
+    retryDelay(
+      refused(
+        '',
+        'error connecting to PostgreSQL server: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute'
+      ),
+      0
+    )
+  ).toBe(60_000);
+  // Other inspection failures are real.
   expect(
     retryDelay(refused('pq: password authentication failed'), 0)
   ).toBeNull();
-  expect(retryDelay(refused(slots, 'Invalid configuration'), 0)).toBeNull();
   // Mixed with a permanent error, nothing retries.
   expect(
     retryDelay(

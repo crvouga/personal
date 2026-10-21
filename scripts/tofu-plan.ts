@@ -16,7 +16,7 @@ const SLOTS_EXHAUSTED =
   /\(53300\)|too many clients already|remaining connection slots are reserved/;
 
 function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
-  if (error.summary === 'Inspect Error' && SLOTS_EXHAUSTED.test(error.detail))
+  if (SLOTS_EXHAUSTED.test(`${error.summary}\n${error.detail}`))
     return 60 * 2 ** attempt;
   const request = /^GET\s+"https:\/\/[^\"]+":\s*(\d{3})\b/.exec(error.detail);
   const status = Number(request?.[1]);
