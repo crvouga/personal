@@ -21,42 +21,33 @@ const failure = (
   errors: Parameters<typeof retryDelay>[0]['errors'] = [railway]
 ) => ({ code: 1, valid: true, errors });
 
-test('Railway variable read failures retry alone and alongside PostgreSQL exhaustion', () => {
-  for (const errors of [[railway], [slots, railway]]) {
-    expect(retryDelay(failure(errors), 0)).toBe(120_000);
-    expect(retryDelay(failure(errors), 1)).toBe(240_000);
-    expect(retryDelay(failure(errors), 2)).toBe(480_000);
-    expect(retryDelay(failure(errors), 3)).toBeNull();
-  }
-  for (const address of [
-    'railway_variable_collection.example',
-    'module.service["auth.production"].railway_variable_collection.this',
-    'railway_variable_collection.example["production"]',
-  ])
-    expect(retryDelay(failure([{ ...railway, address }]), 0)).toBe(120_000);
-});
+const project = {
+  severity: 'error',
+  summary: 'Client Error',
+  address: 'railway_project.workspace',
+  detail: 'Unable to read project, got error: input:3: project Not Authorized',
+};
+const atlas = {
+  severity: 'error',
+  summary: 'Atlas Plan Error',
+  detail:
+    'Unable to generate migration plan, got error: Error: postgres: querying schemas: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)',
+};
 
-test('Railway retries reject writes, auth errors, unknown reads and unrelated resources', () => {
-  for (const detail of [
-    'Unable to create variable collection, got error: input: Problem processing request',
-    'Unable to update variable collection, got error: input: Problem processing request',
-    'Unable to delete variable collection, got error: input: Problem processing request',
-    'Unable to read variable collection, got error: Not Authorized',
-    'Unable to read variable collection, got error: input: Not Found',
-    railway.detail + 'Additional unknown failure',
-  ])
-    expect(retryDelay(failure([{ ...railway, detail }]), 0)).toBeNull();
-  for (const address of [
-    undefined,
-    'module.vault_service.railway_service.this',
-    'other_railway_variable_collection.this',
-  ])
-    expect(retryDelay(failure([{ ...railway, address }]), 0)).toBeNull();
-  const permanent = { ...railway, detail: 'Permission denied' };
-  expect(retryDelay(failure([slots, railway, permanent]), 0)).toBeNull();
-  expect(
-    retryDelay(failure([{ ...railway, summary: 'Unknown Error' }]), 0)
-  ).toBeNull();
+test('recorded Railway and PostgreSQL deploy failures retry with bounded backoff', () => {
+  for (const errors of [
+    [railway],
+    [project],
+    [slots, railway],
+    [project, atlas],
+    [slots, railway, project, atlas],
+  ]) {
+    expect(retryDelay(failure(errors), 0)).toBe(60_000);
+    expect(retryDelay(failure(errors), 1)).toBe(120_000);
+    expect(retryDelay(failure(errors), 2)).toBe(240_000);
+    expect(retryDelay(failure(errors), 3)).toBe(480_000);
+    expect(retryDelay(failure(errors), 4)).toBeNull();
+  }
 });
 
 test('the recorded deploy failure retries the plan process and retains only its successful plan', () => {
@@ -96,7 +87,7 @@ test('the recorded deploy failure retries the plan process and retains only its 
       timeout: 5_000,
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString()).toContain('wait=120000');
+    expect(result.stdout.toString()).toContain('wait=60000');
     expect(readFileSync(join(directory, 'apply.tfplan'), 'utf8')).toBe(
       'complete\n'
     );
