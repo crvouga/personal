@@ -48,7 +48,7 @@ test('readiness distinguishes a database failure from healthy identity discovery
     );
   }) as unknown as Dependencies['db'];
   try {
-    const app = readinessRoutes({
+    const dependencies = {
       db,
       config: {
         schema: 'auth_relay_production',
@@ -57,12 +57,20 @@ test('readiness distinguishes a database failure from healthy identity discovery
         realm: 'projects',
         issuer: 'https://auth.example/realms/projects',
       } as Dependencies['config'],
-    });
+    };
+    const app = readinessRoutes(dependencies, async () => true);
     const response = await app.request('/health/ready');
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
       ok: false,
       checks: { database: false, identity: true, assets: true },
+    });
+    const missingAssets = readinessRoutes(dependencies, async () => false);
+    expect(
+      await (await missingAssets.request('/health/ready')).json()
+    ).toMatchObject({
+      ok: false,
+      checks: { database: false, identity: true, assets: false },
     });
   } finally {
     await upstream.stop(true);

@@ -5,7 +5,9 @@ import { step } from './telemetry';
 import type { Context, Dependencies } from './types';
 
 export function readinessRoutes(
-  deps: Pick<Dependencies, 'db' | 'config' | 'log'>
+  deps: Pick<Dependencies, 'db' | 'config' | 'log'>,
+  assetsAvailable = () =>
+    Bun.file(new URL('../dist/app.js', import.meta.url)).exists()
 ): Hono<Context> {
   const app = new Hono<Context>();
   app.get('/health/live', (c) => c.json({ ok: true }));
@@ -47,9 +49,7 @@ export function readinessRoutes(
         });
     });
     await check('assets', async () => {
-      if (
-        !(await Bun.file(new URL('../dist/app.js', import.meta.url)).exists())
-      )
+      if (!(await assetsAvailable()))
         throw Object.assign(new Error('UI bundle missing'), {
           code: 'AUTH_UI_ASSETS_MISSING',
         });
