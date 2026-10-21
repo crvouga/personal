@@ -7,6 +7,7 @@ import {
   inputsFromState,
   legacyPresent,
   parseVaultInputs,
+  adoptLive,
   TOFU_VAULT_INPUTS_ADDRESS,
   unexpectedChanges,
   updatesVaultInputs,
@@ -121,4 +122,37 @@ test('fills gaps from the live document, one value for every config', () => {
     { config: 'prd', name: 'GOOGLE_OAUTH_CLIENT_ID', value: 'live' },
   ]);
   expect(fillsFromLive(gaps, {})).toEqual([]);
+});
+
+test('adopts live Vault values over existing fields', () => {
+  const live = { GOOGLE_OAUTH_CLIENT_ID: 'new', PROD_ONLY: 'p' };
+  expect(
+    adoptLive(keys, ['GOOGLE_OAUTH_CLIENT_ID', 'PROD_ONLY'], live)
+  ).toEqual([
+    { config: 'dev', name: 'GOOGLE_OAUTH_CLIENT_ID', value: 'new' },
+    { config: 'prd', name: 'GOOGLE_OAUTH_CLIENT_ID', value: 'new' },
+    { config: 'prd', name: 'PROD_ONLY', value: 'p' },
+  ]);
+  const inputs = base({ GOOGLE_OAUTH_CLIENT_ID: 'old' }, { A: 'keep' });
+  const next = withFills(
+    inputs,
+    adoptLive(keys, ['GOOGLE_OAUTH_CLIENT_ID'], live),
+    false
+  );
+  expect(diffNames(inputs, next)).toEqual({
+    added: ['prd.GOOGLE_OAUTH_CLIENT_ID'],
+    removed: [],
+    changed: ['dev.GOOGLE_OAUTH_CLIENT_ID'],
+  });
+});
+
+test('refuses to adopt generated, unknown or missing fields', () => {
+  const live = { GOOGLE_OAUTH_CLIENT_ID: ' ', AUTH_RELAY_DATABASE_URL: 'x' };
+  expect(() => adoptLive(keys, ['AUTH_RELAY_DATABASE_URL'], live)).toThrow(
+    /not an operator-supplied/
+  );
+  expect(() => adoptLive(keys, ['NOPE'], live)).toThrow();
+  expect(() => adoptLive(keys, ['GOOGLE_OAUTH_CLIENT_ID'], live)).toThrow(
+    /no value/
+  );
 });

@@ -80,6 +80,29 @@ export function requiredManualKeys(keys: KvKey[], config: Config): string[] {
 const filled = (value: string | undefined): value is string =>
   value !== undefined && value.trim() !== '';
 
+/**
+ * Existing fields to overwrite with what the live Vault holds (the prd document
+ * is the source; dev takes the same value). Unlike a gap, the field already has
+ * a value; an unknown, generated or empty-in-Vault field is an error.
+ */
+export function adoptLive(
+  keys: KvKey[],
+  names: string[],
+  live: Record<string, string>
+): Fill[] {
+  return names.flatMap((name) => {
+    const configs = CONFIGS.filter((config) =>
+      requiredManualKeys(keys, config).includes(name)
+    );
+    if (!configs.length)
+      throw new Error(`${name} is not an operator-supplied vault field`);
+    const value = live[name];
+    if (!filled(value))
+      throw new Error(`The live prd Vault has no value for ${name}`);
+    return configs.map((config) => ({ config, name, value }));
+  });
+}
+
 export function findGaps(inputs: VaultInputs, keys: KvKey[]): Gap[] {
   const legacyOf = new Map(
     Object.entries(LEGACY_RENAMES).map(([old, current]) => [current, old])

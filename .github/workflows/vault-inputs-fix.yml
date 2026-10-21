@@ -23,6 +23,10 @@ on:
         description: Plan only; do not update the secret
         type: boolean
         default: false
+      from_vault:
+        description: Comma-separated fields to overwrite with the live Vault's values
+        type: string
+        default: ''
 
 concurrency:
   group: vault-inputs-fix
@@ -75,8 +79,10 @@ jobs:
       - name: Complete TOFU_VAULT_INPUTS
         env:
           DRY_RUN: ${{ inputs.dry_run }}
+          FROM_VAULT: ${{ inputs.from_vault }}
         run: |
           set -euo pipefail
           args=(--ci)
           if [ "${DRY_RUN}" = true ]; then args+=(--dry-run); fi
+          if [ -n "${FROM_VAULT}" ]; then args+=(--from-vault "${FROM_VAULT}"); fi
           bun run vault:fix "${args[@]}"

@@ -8,6 +8,7 @@ import { collectEnvironment } from './environment';
 import { completeInputs, loadCurrentInputs } from './inputs';
 import { readLiveVault } from './live';
 import {
+  adoptLive,
   autoFills,
   diffNames,
   findGaps,
@@ -36,6 +37,15 @@ export class Abort extends Error {}
 
 function fail(message: string): never {
   throw new Abort(message);
+}
+
+function adoptFromVault(names: string[], live: Record<string, string>) {
+  if (!names.length) return [];
+  try {
+    return adoptLive(inventory.vault.kv_keys, names, live);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : String(error));
+  }
 }
 
 async function initialize(env: Record<string, string>) {
@@ -129,12 +139,15 @@ async function planAndApply(
 export type VaultFixOptions = {
   dryRun: boolean;
   given: Record<string, string>;
+  /** Fields whose existing value is overwritten with the live Vault's. */
+  fromVault?: string[];
 };
 
 /** Resolves true when the TOFU_VAULT_INPUTS secret was updated. */
 export async function fixVaultInputs({
   dryRun,
   given,
+  fromVault = [],
 }: VaultFixOptions): Promise<boolean> {
   if (
     !dryRun &&
@@ -150,7 +163,7 @@ export async function fixVaultInputs({
       'Repair in GitHub Actions? It reads the repo secrets itself, so there is nothing to type.'
     ))
   ) {
-    if (await repairInActions(infraRepo)) return true;
+    if (await repairInActions(infraRepo, fromVault)) return true;
     console.log('The Actions repair did not finish; continuing locally.');
   }
 
@@ -172,7 +185,8 @@ export async function fixVaultInputs({
   );
   console.log(`\nCurrent vault_inputs loaded from ${source}.`);
 
-  const next = await completeInputs(inputs, inventory.vault.kv_keys, live);
+  const filledIn = await completeInputs(inputs, inventory.vault.kv_keys, live);
+  const next = withFills(filledIn, adoptFromVault(fromVault, live), false);
   const { added, removed, changed } = diffNames(inputs, next);
   console.log('\nChanges to vault_inputs (names only):');
   console.log(`  add:    ${added.join(', ') || '—'}`);
@@ -191,7 +205,8 @@ export async function fixVaultInputs({
  * initialized the foundation root.
  */
 export async function fixVaultInputsUnattended(
-  dryRun: boolean
+  dryRun: boolean,
+  fromVault: string[] = []
 ): Promise<boolean> {
   const live = (await readLiveVault()) ?? {};
   console.log(
@@ -208,7 +223,11 @@ export async function fixVaultInputsUnattended(
       `No automatic source for: ${unresolved.map((gap) => `${gap.config}.${gap.name}`).join(', ')}.\n` +
         'Supply them with `bun run vault:fix` from a terminal.'
     );
-  const next = withFills(inputs, fills, legacyPresent(inputs).length > 0);
+  const next = withFills(
+    withFills(inputs, fills, legacyPresent(inputs).length > 0),
+    adoptFromVault(fromVault, live),
+    false
+  );
   const { added, removed, changed } = diffNames(inputs, next);
   console.log('Changes to vault_inputs (names only):');
   console.log(`  add:    ${added.join(', ') || '—'}`);
