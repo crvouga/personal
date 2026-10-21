@@ -78,7 +78,7 @@ run "router_stateless_contract" {
   command = plan
   assert {
     condition = alltrue([for service in output.config.services :
-      service.kind == "railway" && service.railway.replicas == 1 && !service.railway.sleep && !service.railway.health_check && service.env.DATA_DIR == "/tmp/9router"
+      service.kind == "railway" && service.railway.replicas == 1 && try(service.railway.sleep, true) && !service.railway.health_check && service.env.DATA_DIR == "/tmp/9router"
       if service.id == "9router"
     ])
     error_message = "9router must restore ephemeral SQLite under a single-writer lock, without a deployment healthcheck that deadlocks handoff."

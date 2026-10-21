@@ -68,7 +68,7 @@ module "identity" {
   project_id     = data.terraform_remote_state.foundation.outputs.project_id
   environment_id = data.terraform_remote_state.foundation.outputs.environment_id
   region         = module.inventory.config.railway.region
-  service        = { id = "${each.value.service.id}-identity", health_path = "/health/ready", railway = { sleep = false, replicas = 1 } }
+  service        = { id = "${each.value.service.id}-identity", health_path = "/health/ready", railway = { replicas = 1 } }
   image          = var.keycloak_image
   variables = merge(data.terraform_remote_state.foundation.outputs.auth_relay_database[each.key], {
     KC_BOOTSTRAP_ADMIN_USERNAME                         = data.terraform_remote_state.foundation.outputs.auth_admin[each.key].username
@@ -91,7 +91,7 @@ module "admin_connector" {
   project_id     = data.terraform_remote_state.foundation.outputs.project_id
   environment_id = data.terraform_remote_state.foundation.outputs.environment_id
   region         = module.inventory.config.railway.region
-  service        = { id = "${each.value.service.id}-admin-tunnel", railway = { sleep = false, replicas = 2, health_check = false } }
+  service        = { id = "${each.value.service.id}-admin-tunnel", railway = { replicas = 1, health_check = false } }
   image          = var.tunnel_image
   variables      = { TUNNEL_TOKEN = data.terraform_remote_state.foundation.outputs.auth_admin[each.key].tunnel_token }
 }
