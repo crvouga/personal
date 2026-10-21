@@ -133,7 +133,7 @@ test('roots run with the CI Vault token never use the Vault provider while its r
 test('the identity service is a single replica until Railway replicas can cluster', () => {
   const hosting = read('packages/infra/tofu/auth-hosting/main.tf');
   expect(hosting).toMatch(
-    /-identity", health_path = "\/health\/ready", railway = \{ sleep = false, replicas = 1 \}/
+    /-identity", health_path = "\/health\/ready", railway = \{ replicas = 1 \}/
   );
   const dockerfile = read('packages/auth-relay/Dockerfile.keycloak');
   expect(dockerfile).toContain('ARG KC_CACHE=local');
