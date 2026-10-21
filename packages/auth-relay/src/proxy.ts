@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { forwardedHeaders } from './oidc';
 import type { Dependencies } from './types';
 
 // Only this gateway has a public ingress. Keycloak admin and dynamic client
@@ -25,20 +26,7 @@ export function proxyRoutes({ db, config }: Dependencies): Hono {
         return c.json({ error: 'unauthorized_client' }, 400);
       }
     }
-    const headers = new Headers(c.req.raw.headers);
-    headers.delete('host');
-    for (const name of [
-      'forwarded',
-      'x-forwarded-port',
-      'x-forwarded-prefix',
-      'x-forwarded-for',
-    ])
-      headers.delete(name);
-    headers.set('x-forwarded-host', new URL(config.origin).host);
-    headers.set(
-      'x-forwarded-proto',
-      new URL(config.origin).protocol.slice(0, -1)
-    );
+    const headers = forwardedHeaders(config.origin, c.req.raw.headers);
     const response = await fetch(
       new URL(url.pathname + url.search, config.upstream),
       {
