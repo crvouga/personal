@@ -39,6 +39,36 @@ test('Cloudflare GET 429 and 5xx diagnostics retry with bounded backoff', () => 
   expect(retryDelay(result, 0)).toBe(300_000);
 });
 
+test('Atlas inspection refused for lack of connection slots retries', () => {
+  const refused = (detail: string, summary = 'Inspect Error') => ({
+    code: 1,
+    valid: true,
+    errors: [{ severity: 'error', summary, detail }],
+  });
+  const slots =
+    'Unable to inspect, got error: Error: postgres: querying system variables: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)';
+  expect(retryDelay(refused(slots), 0)).toBe(60_000);
+  expect(retryDelay(refused(slots), 1)).toBe(120_000);
+  expect(retryDelay(refused('pq: sorry, too many clients already'), 0)).toBe(
+    60_000
+  );
+  // Other inspection failures, and the same text under another summary, are real.
+  expect(
+    retryDelay(refused('pq: password authentication failed'), 0)
+  ).toBeNull();
+  expect(retryDelay(refused(slots, 'Invalid configuration'), 0)).toBeNull();
+  // Mixed with a permanent error, nothing retries.
+  expect(
+    retryDelay(
+      {
+        ...refused(slots),
+        errors: [...refused(slots).errors, failure(403).errors[0]!],
+      },
+      0
+    )
+  ).toBeNull();
+});
+
 test('real process output recovers from HTTP errors and rejects malformed diagnostics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-process-'));
   const runner = join(directory, 'runner.ts');
