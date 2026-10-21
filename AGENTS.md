@@ -32,6 +32,8 @@ Never patch dependencies. Never disable structural size limits in ESLint; refact
 
 ## Validation and CI
 
+Service runtime logs use `@pkgs/logger` and its [observability contract](packages/logger/README.md): correlated HTTP requests, named dependency operations, safe structured error causes, lifecycle events and background-job outcomes. New services must expose read-only dependency readiness and keep credentials, SQL parameters and OAuth payloads out of logs. Third-party runtimes use native structured logs; infrastructure for collection/alerts remains OpenTofu-owned.
+
 `bun run check` installs with the frozen lock, checks formatting, agent links, generated docs, root scripts, OpenTofu fmt/init/validate/tests, then package typecheck/lint/test/build. Install OpenTofu 1.13.0 locally first. `bun run check:ci` adds the Vault dev gates and supplies portfolio build credentials.
 
 `bun run health` is the single read-only report on whether the live platform matches the inventory and is healthy (DNS, TLS, services, tunnels, Vault, storage, images, GitHub, runners); add `--drift` to plan every initialized OpenTofu root. Missing credentials report `SKIP`, never a pass. New infrastructure gets a check in `packages/infra/lib/health/`; checks must stay read-only. The **Infra health** workflow runs it daily with drift. `bun run health:fix` is its interactive counterpart: it runs the same checks, then walks each failure with a confirmed guided fixer (always through OpenTofu or CI, never a provider API) or a manual pointer. Add a fixer or advice in `scripts/health-fix/registry.ts` when adding a check.

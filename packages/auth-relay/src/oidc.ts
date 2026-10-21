@@ -1,5 +1,6 @@
 import * as oidc from 'openid-client';
 import type { Config } from './config';
+import { logContext, operation } from '@pkgs/logger';
 
 // Keycloak trusts x-forwarded-* (KC_PROXY_HEADERS=xforwarded) and its realm
 // requires HTTPS, so every request to it must carry the public origin, whether
@@ -21,6 +22,17 @@ export function forwardedHeaders(
   const url = new URL(origin);
   headers.set('x-forwarded-host', url.host);
   headers.set('x-forwarded-proto', url.protocol.slice(0, -1));
+  const context = logContext();
+  headers.delete('traceparent');
+  headers.delete('tracestate');
+  headers.delete('x-request-id');
+  if (typeof context['requestId'] === 'string')
+    headers.set('x-request-id', context['requestId']);
+  if (typeof context['traceId'] === 'string')
+    headers.set(
+      'traceparent',
+      `00-${context['traceId']}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}-01`
+    );
   return headers;
 }
 
@@ -34,12 +46,15 @@ export async function provider(config: Config): Promise<oidc.Configuration> {
       init.body instanceof Uint8Array
         ? new Uint8Array(init.body).buffer
         : (init.body ?? null);
-    return fetch(destination, {
-      ...init,
-      headers: forwardedHeaders(config.origin, init.headers),
-      body,
-      signal: AbortSignal.timeout(5000),
-    });
+    return operation('oidc.transport', () =>
+      fetch(destination, {
+        ...init,
+        headers: forwardedHeaders(config.origin, init.headers),
+        body,
+        signal: AbortSignal.timeout(5000),
+        redirect: 'manual',
+      })
+    );
   };
   return oidc.discovery(
     new URL(config.issuer),

@@ -18,6 +18,8 @@ COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 COPY packages/auth-relay ./packages/auth-relay
+COPY packages/logger ./packages/logger
+COPY packages/assert ./packages/assert
 WORKDIR /app/packages/auth-relay
 RUN bun install --filter @pkgs/auth-relay --production --frozen-lockfile --ignore-scripts && bun run build
 
@@ -26,6 +28,8 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/auth-relay/node_modules ./packages/auth-relay/node_modules
 COPY --from=build /app/packages/auth-relay/src ./packages/auth-relay/src
+COPY --from=build /app/packages/logger ./packages/logger
+COPY --from=build /app/packages/assert ./packages/assert
 COPY --from=build /app/packages/auth-relay/ui/index.html ./packages/auth-relay/ui/index.html
 COPY --from=build /app/packages/auth-relay/ui/style.css ./packages/auth-relay/ui/style.css
 COPY --from=build /app/packages/auth-relay/dist ./packages/auth-relay/dist

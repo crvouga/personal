@@ -81,6 +81,17 @@ First adoption requires a staged plan: foundation roles/empty schemas, then sche
 
 Bun readiness `/health/ready` checks its schema and private-provider discovery; liveness `/health/live` is process-only. Bounded DB pools, request sizes, upstream timeouts and database-backed per-client/global admission limits contain overload. These are initial limits, not proof of fair capacity under hostile traffic. SIGTERM stops accepting requests and drains them before database shutdown, with a 25-second deadline. Railway overlap/drain settings are 60 seconds with automatic failure restart. Verify actual routing and termination in deployment; declarations alone are not evidence.
 
+The shared PostgreSQL cluster has about 25 connection slots. Each gateway is
+limited to one connection and each private Keycloak to two: the four gateways
+and two identity services together can hold eight connections at steady state,
+leaving room for Vault, other applications and schema/deployment operations.
+The clustered compatibility fixture uses four connections per Keycloak because
+JDBC_PING requires that minimum; it does not use the production local cache.
+Rolling overlap temporarily adds pools; keep deploys serial and monitor actual
+usage. PostgreSQL `53300` (remaining slots reserved for superusers) means database
+capacity is exhausted, not that a Google email lacks permission. Do not seed an
+operator or retry a consumed authorization code to recover from it.
+
 ## Verified email claims
 
 Fleet authorizes only verified Google emails. The Google provider enables
@@ -103,6 +114,21 @@ The realm root generates `AUTH_CONSOLE_CLIENT_ID`, `AUTH_CONSOLE_CLIENT_SECRET`,
 Upstream, database, manager and console secret rotation require overlapping credentials/roles and a two-phase rollout. Established console sessions are opaque database-backed sessions and do not depend on an unchanged client secret, but an outstanding console code exchange can fail if its old secret is revoked early. No secret-overlap automation or live rotation test is claimed. Signing-key generations are managed through the realm root: activate a higher-priority key, retain the former verification key for the token lifetime plus JWKS cache/skew window, validate both, then retire separately. Never regenerate keys on startup. The pinned Keycloak provider requires managed realm name and internal ID to match.
 
 ## Consistency, restart and recovery
+
+Runtime diagnostics follow the [shared service contract](../logger/README.md).
+Every gateway response carries `X-Request-ID`; sign-in failure pages display the
+same reference. Search JSON events by that ID and deployment/replica. Callback
+steps identify transaction consumption, code exchange and session persistence;
+cleanup logs identify logins, sessions, limits or client reconciliation with a
+job ID, duration, safe cause and retry delay. Readiness reports database, identity
+discovery and UI assets separately. Gateway-to-Keycloak requests include the
+public HTTPS forwarding headers and correlation headers; no OAuth query, cookie,
+token, verifier, raw database error detail or personal subject is logged.
+
+For HTTPS callbacks, clearing a `__Host-` transaction/session cookie must retain
+`Secure` and `Path=/`. Hono validates these attributes on deletion too; omitting
+`Secure` throws before code exchange. The signed-token HTTPS regression tests
+cover this independently of the HTTP-only local identity fixtures.
 
 Bun login state, nonce, verifier and browser binding are stored in Postgres with a ten-minute lifetime and atomic single-use consumption. Opaque hashed console sessions and CSRF tokens live there too. Any Bun replica can complete a pending console callback; no process-local authentication state or filesystem persistence is used. Authorization-code exchanges have bounded timeouts and no retries. Back up both console and Keycloak schemas; test restoration together.
 

@@ -1,4 +1,4 @@
-import { createLogger, type Logger } from '@pkgs/logger';
+import { createLogger, errorDetails, type Logger } from '@pkgs/logger';
 
 import { createApi } from './app';
 import { FleetAdminAuth } from './auth/admin-auth';
@@ -110,7 +110,7 @@ function shutdownOn(running: RunningServer, log: Logger): void {
       .stop()
       .then(() => process.exit(0))
       .catch((err: unknown) => {
-        log.error('shutdown failed', { error: String(err) });
+        log.error('shutdown failed', { error: errorDetails(err) });
         process.exit(1);
       });
   };

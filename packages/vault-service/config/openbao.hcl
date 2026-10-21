@@ -20,3 +20,4 @@ listener "tcp" {
 
 ui             = true
 disable_mlock  = true
+log_format     = "json"

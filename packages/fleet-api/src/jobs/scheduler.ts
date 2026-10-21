@@ -1,3 +1,4 @@
+import { errorDetails } from '@pkgs/logger';
 import type { JobDeps } from './offline-notifier';
 import { runOfflineSweep } from './offline-notifier';
 import { runPrune } from './prune';
@@ -35,7 +36,7 @@ function guarded(
       .catch((err: unknown) => {
         deps.log.error('background job failed', {
           job: name,
-          error: String(err),
+          error: errorDetails(err),
         });
       })
       .finally(() => {

@@ -242,7 +242,8 @@ describeApi('logging', (ctx) => {
       expect(logged).not.toContain(secret);
     }
     expect(logged).toContain('"method":"POST"');
-    expect(logged).toContain('"path":"/v1/heartbeat"');
+    expect(logged).toContain('"route":"/v1/heartbeat"');
+    expect(logged).toContain('"requestId":');
   });
 });
 

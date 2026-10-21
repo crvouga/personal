@@ -13,9 +13,10 @@ ARG KC_CACHE=local
 # readiness), and the shared PlanetScale cluster has few connection slots, so a
 # small pool and no clustering keep every instance within them.
 ENV KC_DB=postgres KC_HEALTH_ENABLED=true KC_METRICS_ENABLED=true \
+    KC_LOG_CONSOLE_OUTPUT=json \
     KC_HTTP_ENABLED=true KC_HTTP_PORT=8080 KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false \
     KC_CACHE=${KC_CACHE} KC_CACHE_STACK=jdbc-ping KC_HTTP_MAX_QUEUED_REQUESTS=128 \
-    KC_DB_POOL_INITIAL_SIZE=1 KC_DB_POOL_MIN_SIZE=1 KC_DB_POOL_MAX_SIZE=4 \
+    KC_DB_POOL_INITIAL_SIZE=1 KC_DB_POOL_MIN_SIZE=1 KC_DB_POOL_MAX_SIZE=2 \
     KC_SHUTDOWN_DELAY=10s KC_TRANSACTION_XA_ENABLED=false
 EXPOSE 8080 7800 57800
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \

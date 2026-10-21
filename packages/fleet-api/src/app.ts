@@ -1,4 +1,9 @@
-import { createLogger, type Logger } from '@pkgs/logger';
+import {
+  createLogger,
+  errorDetails,
+  observeHttp,
+  type Logger,
+} from '@pkgs/logger';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 
@@ -42,6 +47,17 @@ export function createApi(deps: AppDeps, options: ApiOptions = {}): Hono {
   const limiter = (setting: RateLimitSetting) =>
     new RateLimiter({ ...setting, now: clock });
   const app = new Hono();
+  app.use('*', async (c, next) => {
+    c.res = await observeHttp(
+      log,
+      c.req.raw,
+      async () => {
+        await next();
+        return c.res;
+      },
+      () => c.req.routePath
+    );
+  });
 
   app.use(
     '*',
@@ -56,17 +72,6 @@ export function createApi(deps: AppDeps, options: ApiOptions = {}): Hono {
         ),
     })
   );
-  app.use('*', async (c, next) => {
-    const started = performance.now();
-    await next();
-    const level = c.req.path === '/health' ? 'debug' : 'info';
-    log[level]('request', {
-      method: c.req.method,
-      path: c.req.path,
-      status: c.res.status,
-      ms: Math.round(performance.now() - started),
-    });
-  });
   app.use('/v1/*', async (c, next) => {
     await next();
     c.header('Cache-Control', 'no-store');
@@ -96,9 +101,8 @@ export function createApi(deps: AppDeps, options: ApiOptions = {}): Hono {
 
   app.onError((err, c) => {
     log.error('unhandled error', {
-      path: c.req.path,
-      error: err.name,
-      message: err.message,
+      route: c.req.routePath,
+      error: errorDetails(err),
     });
     return apiError(c, 500, 'internal', 'Something went wrong on the server.');
   });

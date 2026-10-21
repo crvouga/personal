@@ -27,6 +27,9 @@ services:
       KC_DB_URL: jdbc:postgresql://db/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: test-only
+      # The clustered test image uses JDBC_PING, whose minimum pool is four.
+      # Production's local cache keeps its smaller two-connection pool.
+      KC_DB_POOL_MAX_SIZE: '4'
       KC_HOSTNAME: http://localhost:19080
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: test-only

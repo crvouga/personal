@@ -13,6 +13,7 @@
     "dev:fixtures": "AUTH_DEV_MODE=local bun run dev"
   },
   "dependencies": {
+    "@pkgs/logger": "workspace:*",
     "hono": "catalog:",
     "openid-client": "6.8.8"
   },

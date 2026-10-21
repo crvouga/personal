@@ -16,7 +16,11 @@ export interface Config {
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing required setting: ${name}`);
+  if (!value)
+    throw Object.assign(new Error(`Missing required setting: ${name}`), {
+      code: 'AUTH_SETTING_MISSING',
+      setting: name,
+    });
   return value;
 }
 
