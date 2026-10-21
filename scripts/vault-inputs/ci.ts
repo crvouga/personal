@@ -38,7 +38,10 @@ export const VAULT_FIX_WORKFLOW = 'vault-inputs-fix.yml';
  * return, and waits for it. Resolves false when it could not be dispatched or
  * did not succeed, so the caller can fall back to the interactive flow.
  */
-export async function repairInActions(infraRepo: string): Promise<boolean> {
+export async function repairInActions(
+  infraRepo: string,
+  fromVault: string[] = []
+): Promise<boolean> {
   const started = Date.now();
   const dispatched = await run([
     'gh',
@@ -49,6 +52,7 @@ export async function repairInActions(infraRepo: string): Promise<boolean> {
     infraRepo,
     '--ref',
     'main',
+    ...(fromVault.length ? ['-f', `from_vault=${fromVault.join(',')}`] : []),
   ]);
   if (dispatched.code !== 0) return false;
   for (let attempt = 0; attempt < 12; attempt++) {

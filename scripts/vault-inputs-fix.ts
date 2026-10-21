@@ -9,7 +9,10 @@
 // read the repo secrets this terminal cannot, and only prompts for whatever the
 // workflow could not fill. `--ci` is that workflow's entry point.
 //
-//   bun run vault:fix [--env-file FILE] [--dry-run]
+//   bun run vault:fix [--env-file FILE] [--dry-run] [--from-vault NAME[,NAME]]
+//
+// `--from-vault` overwrites existing fields with the live Vault's values (e.g.
+// after rotating the Google OAuth client there) instead of only filling blanks.
 import { readFileSync } from 'node:fs';
 import { rerunFailedCi } from './vault-inputs/ci';
 import {
@@ -22,6 +25,14 @@ import { confirm } from './vault-inputs/prompt';
 import { run } from './vault-inputs/process';
 import { parseEnv } from './vault-secrets-tfvars';
 
+function fromVaultNames(args: string[]): string[] {
+  const at = args.indexOf('--from-vault');
+  if (at < 0) return [];
+  const names = args[at + 1];
+  if (!names) throw new Abort('--from-vault needs field names');
+  return names.split(',').filter(Boolean);
+}
+
 function flags() {
   const args = process.argv.slice(2);
   const at = args.indexOf('--env-file');
@@ -30,12 +41,16 @@ function flags() {
   return {
     dryRun: args.includes('--dry-run'),
     given: file ? parseEnv(readFileSync(file, 'utf8')) : {},
+    fromVault: fromVaultNames(args),
   };
 }
 
 async function main() {
   if (process.argv.includes('--ci')) {
-    await fixVaultInputsUnattended(process.argv.includes('--dry-run'));
+    await fixVaultInputsUnattended(
+      process.argv.includes('--dry-run'),
+      fromVaultNames(process.argv.slice(2))
+    );
     return;
   }
   if (!process.stdin.isTTY)
