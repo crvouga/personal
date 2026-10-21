@@ -11,7 +11,7 @@ variables {
   region         = "us-west2"
   image          = "ghcr.io/example/identity@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   variables      = { KC_DB = "postgres" }
-  service        = { id = "identity", health_path = "/health/ready", railway = { sleep = false, replicas = 1 } }
+  service        = { id = "identity", health_path = "/health/ready", railway = { replicas = 1 } }
 }
 
 # Provider 0.6.2 cannot lower num_replicas after creation, so the settings
@@ -31,7 +31,7 @@ run "single_replica_is_set_by_the_settings_mutation" {
 run "replica_count_follows_the_service_definition" {
   command = plan
   variables {
-    service = { id = "tunnel", railway = { sleep = false, replicas = 2, health_check = false } }
+    service = { id = "tunnel", railway = { replicas = 2, health_check = false } }
   }
   assert {
     condition     = jsondecode(graphql_mutation.settings.mutation_variables.multiRegionConfig) == { us-west2 = { numReplicas = 2 } }
