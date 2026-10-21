@@ -13,7 +13,7 @@ type PlanResult = { code: number; errors: Diagnostic[]; valid: boolean };
 // services hold most of them, so an Atlas inspection can be refused (53300)
 // until a pool drains. That read is idempotent, like a Cloudflare GET.
 const SLOTS_EXHAUSTED =
-  /\(53300\)|too many clients already|remaining connection slots are reserved/;
+  /\(53300\)|too many clients already|remaining connection slots are reserved|driver: bad connection/;
 
 function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
   if (SLOTS_EXHAUSTED.test(`${error.summary}\n${error.detail}`))
@@ -96,21 +96,23 @@ async function plan(root: string): Promise<PlanResult> {
   return { code: await child.exited, errors, valid };
 }
 
+const ATTEMPTS = 4;
+
 export async function planWithRetry(
   root: string,
   run = plan,
   wait: (milliseconds: number) => Promise<unknown> = Bun.sleep
 ): Promise<number> {
   const savedPlan = join(root, 'apply.tfplan');
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     rmSync(savedPlan, { force: true });
     const result = await run(root);
     if (result.code === 0) return 0;
     rmSync(savedPlan, { force: true });
     const delay = retryDelay(result, attempt);
-    if (attempt === 2 || delay === null) return result.code;
+    if (attempt === ATTEMPTS - 1 || delay === null) return result.code;
     console.log(
-      `Read failed transiently; retrying plan ${attempt + 2}/3 in ${delay / 1000}s.`
+      `Read failed transiently; retrying plan ${attempt + 2}/${ATTEMPTS} in ${delay / 1000}s.`
     );
     await wait(delay);
   }
