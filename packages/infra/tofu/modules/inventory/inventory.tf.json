@@ -1787,7 +1787,7 @@
           }
         },
         "enabled": true,
-        "live": false
+        "live": true
       },
       "services": [
         {

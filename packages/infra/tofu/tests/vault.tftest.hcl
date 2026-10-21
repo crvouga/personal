@@ -11,6 +11,24 @@ override_data {
       r2_secret_access_key = "r2-secret"
       router_token         = "router-token"
       database_url         = "postgres://owner:secret@db.example.net/app?sslmode=require"
+      auth_console_database = {
+        production    = "postgres://console-prd:secret@db.example.net/app?sslmode=verify-full"
+        nonproduction = "postgres://console-dev:secret@db.example.net/app?sslmode=verify-full"
+      }
+    }
+  }
+}
+# One override covers both realm states (auth-production / auth-nonproduction).
+override_data {
+  target = data.terraform_remote_state.auth_relay
+  values = {
+    outputs = {
+      console_credentials = {
+        AUTH_CONSOLE_CLIENT_ID     = "console-id"
+        AUTH_CONSOLE_CLIENT_SECRET = "console-secret"
+        AUTH_MANAGER_CLIENT_ID     = "manager-id"
+        AUTH_MANAGER_CLIENT_SECRET = "manager-secret"
+      }
     }
   }
 }
@@ -77,6 +95,19 @@ run "fleet_api_credentials" {
       && jsondecode(vault_kv_secret_v2.fleet[role].data_json).age_key == var.fleet_age_keys[role]
     ]) && length(vault_kv_secret_v2.fleet) == 2
     error_message = "Each fleet role document carries its age key and the raw API token whose hash the service holds."
+  }
+}
+
+run "auth_relay_credentials_are_projected" {
+  command = plan
+  assert {
+    condition = alltrue([
+      for config, url in { dev = "console-dev", prd = "console-prd" } :
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).AUTH_CONSOLE_CLIENT_ID == "console-id"
+      && jsondecode(vault_kv_secret_v2.personal[config].data_json).AUTH_MANAGER_CLIENT_SECRET == "manager-secret"
+      && strcontains(jsondecode(vault_kv_secret_v2.personal[config].data_json).AUTH_RELAY_DATABASE_URL, url)
+    ])
+    error_message = "Each Vault document must carry its own realm's console and manager credentials and its own console database URL."
   }
 }
 

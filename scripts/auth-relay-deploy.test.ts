@@ -138,3 +138,63 @@ test('the identity service is a single replica until Railway replicas can cluste
   const dockerfile = read('packages/auth-relay/Dockerfile.keycloak');
   expect(dockerfile).toContain('ARG KC_CACHE=local');
 });
+
+test('the Vault provider in auth-hosting never creates a child token', () => {
+  expect(read('packages/infra/tofu/auth-hosting/main.tf')).toMatch(
+    /provider "vault" \{[\s\S]*?skip_child_token\s*=\s*true/
+  );
+});
+
+test('the gateway waits for projected credentials and gets a fresh Vault login', () => {
+  const index = (predicate: (step: Record<string, any>) => boolean) =>
+    steps.findIndex(predicate);
+  const hosting = (step: Record<string, any>) =>
+    step.uses === './.github/actions/tofu' &&
+    step.with?.root === 'auth-hosting' &&
+    step.with?.mode !== 'prepare';
+  const firstHosting = index(hosting);
+  const lastHosting = steps.map(hosting).lastIndexOf(true);
+  const vaultRoot = index(
+    (step) =>
+      step.uses === './.github/actions/tofu' && step.with?.root === 'vault'
+  );
+  expect(firstHosting).toBeGreaterThan(-1);
+  expect(lastHosting).toBeGreaterThan(firstHosting);
+  // No gateway (and so no Vault read) before the credentials are projected.
+  const defer = steps.find(
+    (step) =>
+      step.name === 'Defer the gateway until its credentials are projected'
+  )!;
+  expect(index((step) => step === defer)).toBeLessThan(firstHosting);
+  expect(String(defer.run)).toContain('TF_VAR_deploy_gateway=false');
+  expect(String(defer.run)).toContain('TF_VAR_deploy_gateway=true');
+  const repin = steps.find((step) =>
+    String(step.name ?? '').startsWith('Re-pin Keycloak')
+  )!;
+  expect(String(repin.run)).toContain('TF_VAR_deploy_gateway=true');
+  expect(vaultRoot).toBeLessThan(index((step) => step === repin));
+  // The 15-minute CI token must be reissued after the vault root, right before
+  // the gateway pass and the health check that read Vault.
+  const logins = steps
+    .map((step, position) => ({ step, position }))
+    .filter(({ step }) =>
+      String(step.uses ?? '').startsWith('hashicorp/vault-action')
+    );
+  expect(logins.length).toBe(2);
+  expect(logins[1].position).toBeGreaterThan(vaultRoot);
+  expect(logins[1].position).toBeLessThan(lastHosting);
+});
+
+test('the deploy waits for each public gateway before the health check', () => {
+  const names = steps.map((step) => step.name);
+  const wait = names.indexOf('Wait for the public gateways');
+  expect(wait).toBeGreaterThan(-1);
+  expect(wait).toBeLessThan(names.indexOf('Health'));
+  expect(String(steps[wait].run)).toContain('/health/ready');
+});
+
+test('the CI Vault role can describe its own token when the gateway is live', () => {
+  expect(read('packages/vault-service/config/policies/ci-read.hcl')).toMatch(
+    /path "auth\/token\/lookup-self" \{\s*capabilities = \["read"\]/
+  );
+});
