@@ -4,9 +4,10 @@ import type { Config } from './config';
 export function database(config: Config): SQL {
   return new SQL({
     url: config.database,
-    // The shared PostgreSQL cluster has few connection slots and every gateway
-    // replica draws from it: keep the pool small and release idle connections.
-    max: 3,
+    // Four gateways share a small cluster with Keycloak, Vault and other apps.
+    // Serialize each replica's queries and release idle connections so sign-in
+    // bursts cannot reserve twelve slots just for the consoles.
+    max: 1,
     connectionTimeout: 5,
     idleTimeout: 10,
   });

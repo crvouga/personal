@@ -1,9 +1,11 @@
-import { Hono } from 'hono';
+import { Hono, type Handler } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { timingSafeEqual } from 'node:crypto';
 import * as oidc from 'openid-client';
 import { digest, random } from './db';
 import type { Context, Dependencies, Session } from './types';
+import { signInError } from './sign-in-error';
+import { step } from './telemetry';
 
 export function cookieName(origin: string): string {
   return origin.startsWith('https:')
@@ -24,8 +26,11 @@ export function loginRoutes(deps: Dependencies): Hono<Context> {
     const verifier = oidc.randomPKCECodeVerifier();
     const binding = random();
     const nonce = random();
-    await db`INSERT INTO ${schema}.logins (state, verifier, nonce, binding, expires_at)
-      VALUES (${state}, ${verifier}, ${nonce}, ${digest(binding)}, now() + interval '10 minutes')`;
+    await step(
+      'login.transaction.create',
+      () => db`INSERT INTO ${schema}.logins (state, verifier, nonce, binding, expires_at)
+      VALUES (${state}, ${verifier}, ${nonce}, ${digest(binding)}, now() + interval '10 minutes')`
+    );
     setCookie(c, transactionCookie(config.origin, state), binding, {
       httpOnly: true,
       secure: config.origin.startsWith('https:'),
@@ -44,32 +49,47 @@ export function loginRoutes(deps: Dependencies): Hono<Context> {
     });
     return c.redirect(url.href);
   });
-  app.get('/auth/callback', async (c) => {
+  app.get('/auth/callback', loginCallback(deps));
+  return app;
+}
+
+function loginCallback(deps: Dependencies): Handler<Context> {
+  const { db, config } = deps;
+  const schema = db(config.schema);
+  return async (c) => {
     const state = c.req.query('state') ?? '';
-    if (!/^[A-Za-z0-9_-]{43}$/.test(state))
-      return c.text('Invalid login state', 400);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(state)) return signInError(c, 'expired');
     const binding = getCookie(c, transactionCookie(config.origin, state)) ?? '';
-    const rows = await db`DELETE FROM ${schema}.logins WHERE state = ${state}
-      AND binding = ${digest(binding)} AND expires_at > now() RETURNING verifier, nonce`;
-    deleteCookie(c, transactionCookie(config.origin, state), { path: '/' });
-    if (!rows[0])
-      return c.text(
-        'Login expired or browser binding invalid. Start a new sign-in.',
-        400
-      );
+    const rows = await step(
+      'login.transaction.consume',
+      () => db`DELETE FROM ${schema}.logins WHERE state = ${state}
+      AND binding = ${digest(binding)} AND expires_at > now() RETURNING verifier, nonce`
+    );
+    deleteCookie(c, transactionCookie(config.origin, state), {
+      path: '/',
+      secure: config.origin.startsWith('https:'),
+    });
+    if (!rows[0]) return signInError(c, 'expired');
+    if (c.req.query('error') === 'access_denied')
+      return signInError(c, 'denied');
     // Consume before exchange. A one-time code is never retried after a timeout.
     const callback = new URL('/auth/callback', config.origin);
     callback.search = new URL(c.req.url).search;
-    const tokens = await oidc.authorizationCodeGrant(deps.oidc, callback, {
-      pkceCodeVerifier: rows[0].verifier as string,
-      expectedState: state,
-      expectedNonce: rows[0].nonce as string,
-    });
+    const tokens = await step('login.code.exchange', () =>
+      oidc.authorizationCodeGrant(deps.oidc, callback, {
+        pkceCodeVerifier: rows[0].verifier as string,
+        expectedState: state,
+        expectedNonce: rows[0].nonce as string,
+      })
+    );
     const subject = tokens.claims()?.sub;
     if (!subject) return c.text('Identity missing', 401);
     const token = random();
-    await db`INSERT INTO ${schema}.sessions (token_hash, subject, csrf, expires_at)
-      VALUES (${digest(token)}, ${subject}, ${random()}, now() + interval '8 hours')`;
+    await step(
+      'login.session.create',
+      () => db`INSERT INTO ${schema}.sessions (token_hash, subject, csrf, expires_at)
+      VALUES (${digest(token)}, ${subject}, ${random()}, now() + interval '8 hours')`
+    );
     setCookie(c, cookieName(config.origin), token, {
       httpOnly: true,
       secure: config.origin.startsWith('https:'),
@@ -78,8 +98,7 @@ export function loginRoutes(deps: Dependencies): Hono<Context> {
       maxAge: 28800,
     });
     return c.redirect('/');
-  });
-  return app;
+  };
 }
 
 export function sessionRoutes(deps: Dependencies): Hono<Context> {
@@ -132,7 +151,10 @@ export function sessionRoutes(deps: Dependencies): Hono<Context> {
   });
   app.post('/api/logout', async (c) => {
     await db`DELETE FROM ${schema}.sessions WHERE token_hash = ${c.get('session').token_hash}`;
-    deleteCookie(c, cookieName(config.origin), { path: '/' });
+    deleteCookie(c, cookieName(config.origin), {
+      path: '/',
+      secure: config.origin.startsWith('https:'),
+    });
     return c.json({ ok: true });
   });
   return app;

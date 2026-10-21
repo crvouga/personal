@@ -1,5 +1,5 @@
 import { Assert, ThrowingCrashHandler, assert } from '@pkgs/assert';
-import { createLogger, type Logger } from '@pkgs/logger';
+import { createLogger, errorDetails, type Logger } from '@pkgs/logger';
 
 import { CacheBootManager } from './cache/boot-manager';
 import {
@@ -150,8 +150,7 @@ export function createCacheRequestHandler(
 
       return app.fetch(request);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      log.error('top-level handler error', { error: message });
+      log.error('top-level handler error', { error: errorDetails(err) });
 
       if (request.method === 'OPTIONS') {
         return preflightResponse(request);
@@ -196,8 +195,9 @@ export async function startServer(
 
 if (import.meta.main) {
   startServer().catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    defaultLog.error('cache server failed to start', { error: message });
+    defaultLog.error('cache server failed to start', {
+      error: errorDetails(err),
+    });
     process.exit(1);
   });
 }

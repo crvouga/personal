@@ -1,5 +1,5 @@
 import { assert } from '@pkgs/assert';
-import { createLogger, type Logger } from '@pkgs/logger';
+import { createLogger, errorDetails, type Logger } from '@pkgs/logger';
 import {
   isSecretStoreError,
   SecretStoreRequestError,
@@ -66,7 +66,7 @@ async function bootApp(env: CacheServerEnv, deps: CacheBootDeps): Promise<App> {
     'bootConfig requires turboToken'
   );
   assert.defined(bootConfig.objectStore, 'bootConfig requires objectStore');
-  return createCacheApp(bootConfig);
+  return createCacheApp({ ...bootConfig, logger: deps.logger ?? defaultLog });
 }
 
 export class CacheBootManager {
@@ -138,7 +138,10 @@ export class CacheBootManager {
         const message = err instanceof Error ? err.message : String(err);
         this.lastError = message;
         this.nextAttemptAtMs = this.nowMs() + RETRY_COOLDOWN_MS;
-        this.log.warn('cache boot vault error; will retry', { error: message });
+        this.log.warn('cache boot vault error; will retry', {
+          error: errorDetails(err),
+          retryInMs: RETRY_COOLDOWN_MS,
+        });
         return null;
       }
       if (isSecretStoreError(err)) {

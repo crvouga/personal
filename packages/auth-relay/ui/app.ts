@@ -90,16 +90,16 @@ async function start() {
   }
   if (!response.ok) throw new Error('Relay unavailable');
   session = (await response.json()) as Session;
-  element('setup').hidden = !session.setup;
+  element('signed-in').hidden = false;
+  element('identity').textContent =
+    `${session.environment} · ${session.subject}`;
+  element('setup').hidden = session.operator || !session.setup;
   if (!session.operator) {
-    notice(
-      `Your relay subject: ${session.subject}. Ask an operator for access.`
-    );
+    element('access-denied').hidden = session.setup;
+    element('access-subject').textContent = session.subject;
     return;
   }
   element('console').hidden = false;
-  element('identity').textContent =
-    `${session.environment} · ${session.subject}`;
   const environments =
     session.environment === 'production'
       ? ['production']
@@ -164,6 +164,6 @@ element<HTMLFormElement>('operator-form').onsubmit = (event) => {
     notice('Operator added');
   })();
 };
-void start().catch((error: unknown) =>
-  notice(error instanceof Error ? error.message : 'Request failed')
-);
+void start().catch(() => {
+  element('unavailable').hidden = false;
+});

@@ -1,4 +1,6 @@
 import { assert } from '@pkgs/assert';
+import { logContext } from './context';
+import { redact } from './redact';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
@@ -82,17 +84,23 @@ function buildLogger(
     if (LEVEL_VALUE[lvl] < threshold) return;
 
     const entry = {
+      deployment: process.env['RAILWAY_DEPLOYMENT_ID'],
+      replica: process.env['RAILWAY_REPLICA_ID'],
+      revision: process.env['RAILWAY_GIT_COMMIT_SHA'],
+      ...bindings,
+      ...logContext(),
+      ...context,
       level: lvl,
       time: new Date().toISOString(),
       name,
       msg,
-      ...bindings,
-      ...context,
     };
 
     const method = CONSOLE_METHOD[lvl];
     assert.defined(method, 'emit: console method must exist for level');
-    (console[method] as (...args: unknown[]) => void)(JSON.stringify(entry));
+    (console[method] as (...args: unknown[]) => void)(
+      JSON.stringify(redact(entry))
+    );
   }
 
   return {

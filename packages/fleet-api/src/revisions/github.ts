@@ -1,4 +1,4 @@
-import type { Logger } from '@pkgs/logger';
+import { errorDetails, type Logger } from '@pkgs/logger';
 
 import type { RevisionSource } from '../deps';
 
@@ -45,7 +45,7 @@ export class GithubRevisionSource implements RevisionSource {
       await this.request();
     } catch (err: unknown) {
       this.options.log.warn('github revision lookup failed', {
-        error: String(err),
+        error: errorDetails(err),
       });
     }
     // Failures count as a check too, so an outage is retried once per TTL.

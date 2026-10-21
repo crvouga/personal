@@ -9,7 +9,7 @@
  * uptime no longer depends on an external cron or a redeploy cadence.
  */
 import { assert } from '@pkgs/assert';
-import { createLogger, type Logger } from '@pkgs/logger';
+import { createLogger, errorDetails, type Logger } from '@pkgs/logger';
 import type { VaultFetch } from './vault-fetch';
 
 const defaultLog = createLogger({ name: 'turbo-cache-token' });
@@ -136,9 +136,9 @@ export class VaultTokenRenewer {
       });
       this.schedule(delayMs);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       this.log.warn('vault token renewal failed; will retry', {
-        error: message,
+        error: errorDetails(err),
+        retryInMs: RETRY_INTERVAL_MS,
       });
       this.schedule(RETRY_INTERVAL_MS);
     }

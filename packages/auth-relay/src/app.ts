@@ -7,9 +7,34 @@ import { proxyRoutes } from './proxy';
 import type { Context, Dependencies } from './types';
 import { rateLimit } from './limits';
 import { RegistrationError } from './policy';
+import { signInError } from './sign-in-error';
+import {
+  errorDetails,
+  logContext,
+  observeHttp,
+  withLogContext,
+} from '@pkgs/logger';
+import { relayLogger } from './telemetry';
+import { readinessRoutes } from './readiness';
 
 export function application(deps: Dependencies): Hono<Context> {
   const app = new Hono<Context>();
+  const log = deps.log ?? relayLogger(deps.config);
+  app.use('*', async (c, next) => {
+    const response = await observeHttp(
+      log,
+      c.req.raw,
+      async () => {
+        c.set('requestId', String(logContext()['requestId']));
+        return withLogContext({ route: c.req.routePath }, async () => {
+          await next();
+          return c.res;
+        });
+      },
+      () => c.req.routePath
+    );
+    c.res = response;
+  });
   app.use('*', bodyLimit({ maxSize: 16384 }));
   app.use('*', rateLimit(deps));
   const headers = secureHeaders({
@@ -34,19 +59,7 @@ export function application(deps: Dependencies): Hono<Context> {
     c.header('Cache-Control', 'no-store');
     await next();
   });
-  app.get('/health/live', (c) => c.json({ ok: true }));
-  app.get('/health/ready', async (c) => {
-    await deps.db`SELECT 1 FROM ${deps.db(deps.config.schema)}.bootstrap LIMIT 1`;
-    const response = await fetch(
-      `${deps.config.upstream}/realms/${deps.config.realm}/.well-known/openid-configuration`,
-      { signal: AbortSignal.timeout(3000) }
-    );
-    const assets = await Bun.file(
-      new URL('../dist/app.js', import.meta.url)
-    ).exists();
-    const ready = response.ok && assets;
-    return c.json({ ok: ready }, ready ? 200 : 503);
-  });
+  app.route('/', readinessRoutes({ ...deps, log }));
   app.route('/', loginRoutes(deps));
   app.route('/', sessionRoutes(deps));
   app.route('/', registryRoutes(deps));
@@ -55,16 +68,16 @@ export function application(deps: Dependencies): Hono<Context> {
   app.onError((error, c) => {
     if (error instanceof RegistrationError)
       return c.json({ error: error.message }, 400);
-    console.error(
-      'Auth relay request failed',
-      c.req.method,
-      c.req.path,
-      error.name
-    );
+    log.error('request_failed', {
+      route: c.req.routePath,
+      error: errorDetails(error),
+    });
+    if (c.req.path.startsWith('/auth/')) return signInError(c, 'unavailable');
     return c.json(
       {
+        requestId: c.get('requestId'),
         error:
-          'Request failed. Check the registration and try a new sign-in; contact an operator if it persists.',
+          'Authentication relay unavailable. Try again shortly; contact an operator if it persists.',
       },
       503
     );

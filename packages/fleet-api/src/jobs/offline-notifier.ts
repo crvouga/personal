@@ -1,4 +1,4 @@
-import type { Logger } from '@pkgs/logger';
+import { errorDetails, type Logger } from '@pkgs/logger';
 
 import {
   effectiveConfig,
@@ -76,7 +76,7 @@ export async function runOfflineSweep(deps: JobDeps): Promise<number> {
     } catch (err: unknown) {
       deps.log.error('offline notice failed', {
         node: node.id,
-        error: String(err),
+        error: errorDetails(err),
       });
     }
   }
