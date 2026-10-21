@@ -6,6 +6,11 @@ storage "postgresql" {
   table             = "vault_kv_store"
   ha_table          = "vault_ha_locks"
   skip_create_table = true
+  # The backend allows 128 parallel requests, each on its own connection. The
+  # shared PostgreSQL cluster has about 25 slots, so a burst of secret reads
+  # (every CI job loads Vault) starves deploy planning (53300). Bound the pool.
+  max_parallel         = "4"
+  max_idle_connections = 2
 }
 
 listener "tcp" {
