@@ -67,7 +67,7 @@ All 14 domain registrations remain at Squarespace; registrar/DNS consolidation i
 | Project | `personal` — shared by all personal apps; use it unless told otherwise              |
 | Configs | `dev`, `prd` — `dev` for local work, `prd` for CI / production (same key names in both) |
 
-Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` — a new project namespace needs a policy change in `crvouga/workspace`, so add your app's keys under `personal`.
+Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` and `auth/token/lookup-self` — a new project namespace needs a policy change in `crvouga/workspace`, so add your app's keys under `personal`.
 
 ### Keys that already exist
 

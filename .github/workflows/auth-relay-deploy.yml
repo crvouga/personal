@@ -9,7 +9,8 @@ name: Auth relay deploy
 #   auth-hosting  private Keycloak + tunnel connector (broker once `live`)
 #   auth          realm, Google upstream, signing keys, system clients
 #   vault         projects the system credentials (once `live`)
-#   auth-hosting  public Bun/Hono gateway (once `live`)
+#   auth-hosting  public Bun/Hono gateway (once `live`); the first pass defers
+#                 it until the credentials exist, the last pass deploys it
 on:
   push:
     branches: [main]
@@ -210,6 +211,23 @@ jobs:
             secret/data/personal/dev GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_NONPRODUCTION
 
       # --- Private identity service + tunnel connector -----------------------
+      # The gateway reads the console credentials that the vault root projects
+      # only after the realms exist. Until a gateway exists, this first pass
+      # deploys just the private services; afterwards it keeps the gateway.
+      - uses: ./.github/actions/tofu
+        if: steps.flags.outputs.enabled == 'true'
+        with:
+          root: auth-hosting
+          mode: prepare
+      - name: Defer the gateway until its credentials are projected
+        if: steps.flags.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          if tofu -chdir=packages/infra/tofu/auth-hosting state list 2>/dev/null | grep -q '^module\.broker\['; then
+            echo "TF_VAR_deploy_gateway=true" >> "$GITHUB_ENV"
+          else
+            echo "TF_VAR_deploy_gateway=false" >> "$GITHUB_ENV"
+          fi
       - uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
@@ -313,11 +331,47 @@ jobs:
           root: vault
       - name: Re-pin Keycloak to schema validation and deploy the gateway
         if: steps.flags.outputs.enabled == 'true'
-        run: echo "TF_VAR_keycloak_schema_init=false" >> "$GITHUB_ENV"
+        run: |
+          echo "TF_VAR_keycloak_schema_init=false" >> "$GITHUB_ENV"
+          echo "TF_VAR_deploy_gateway=true" >> "$GITHUB_ENV"
+      # The first login is minutes old by now (image builds, a stable-admin wait
+      # of up to 20 minutes, two realm applies) and the CI token lives 15.
+      - name: Log in to Vault again for the gateway and health checks
+        if: steps.flags.outputs.enabled == 'true'
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
       - uses: ./.github/actions/tofu
         if: steps.flags.outputs.enabled == 'true'
         with:
           root: auth-hosting
+
+      # Railway verifies the custom domain and issues its certificate after the
+      # apply returns, and sleeping services cold-start: wait instead of racing.
+      - name: Wait for the public gateways
+        if: steps.flags.outputs.enabled == 'true' && steps.flags.outputs.live == 'true'
+        run: |
+          set -euo pipefail
+          INV=packages/infra/tofu/modules/inventory/inventory.tf.json
+          for instance in ${{ steps.flags.outputs.instances }}; do
+            host="$(jq -r --arg i "${instance}" '.locals.inventory.auth_relay.instances[$i].hostname' "${INV}")"
+            ok=false
+            for attempt in $(seq 1 90); do
+              code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "https://${host}/health/ready" || true)"
+              if [ "${code}" = 200 ]; then ok=true; break; fi
+              echo "${instance}: https://${host}/health/ready not ready (HTTP ${code:-000}), attempt ${attempt}/90"
+              sleep 10
+            done
+            if [ "${ok}" != true ]; then
+              echo "::error::${instance}: https://${host} never became ready. Check the Railway custom domain verification, DNS and the gateway logs."
+              exit 1
+            fi
+          done
 
       - name: Health
         if: steps.flags.outputs.enabled == 'true'

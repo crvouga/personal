@@ -33,9 +33,14 @@ data "terraform_remote_state" "foundation" {
 # The private identity service and its tunnel connector deploy as soon as the
 # relay is enabled. The public gateway needs the realm's system credentials in
 # Vault, so it follows only once the inventory marks the relay live.
+variable "deploy_gateway" {
+  type        = bool
+  default     = true
+  description = "Deploy the public gateway. The deploy workflow sets false only while an instance has no gateway yet and its credentials are not in Vault; once the gateway exists it must stay true."
+}
 locals {
   instances        = module.inventory.config.auth_relay.enabled ? module.inventory.config.auth_relay.instances : {}
-  broker_instances = module.inventory.config.auth_relay.live ? local.instances : {}
+  broker_instances = module.inventory.config.auth_relay.live && var.deploy_gateway ? local.instances : {}
 }
 variable "tunnel_image" {
   type = string
@@ -56,7 +61,12 @@ variable "keycloak_image" {
     error_message = "Use an immutable Keycloak image digest."
   }
 }
-provider "vault" { address = "https://${module.inventory.config.vault.hostname}" }
+# CI authenticates with a short-lived read-only token (VAULT_TOKEN) that cannot
+# create child tokens.
+provider "vault" {
+  address          = "https://${module.inventory.config.vault.hostname}"
+  skip_child_token = true
+}
 data "vault_kv_secret_v2" "console" {
   for_each = local.broker_instances
   mount    = module.inventory.config.vault.kv.mount
