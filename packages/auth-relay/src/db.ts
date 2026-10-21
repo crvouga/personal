@@ -4,9 +4,11 @@ import type { Config } from './config';
 export function database(config: Config): SQL {
   return new SQL({
     url: config.database,
-    max: 8,
+    // The shared PostgreSQL cluster has few connection slots and every gateway
+    // replica draws from it: keep the pool small and release idle connections.
+    max: 3,
     connectionTimeout: 5,
-    idleTimeout: 30,
+    idleTimeout: 10,
   });
 }
 
