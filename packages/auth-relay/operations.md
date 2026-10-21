@@ -85,6 +85,8 @@ The shared PostgreSQL cluster has about 25 connection slots. Each gateway is
 limited to one connection and each private Keycloak to two: the four gateways
 and two identity services together can hold eight connections at steady state,
 leaving room for Vault, other applications and schema/deployment operations.
+The clustered compatibility fixture uses four connections per Keycloak because
+JDBC_PING requires that minimum; it does not use the production local cache.
 Rolling overlap temporarily adds pools; keep deploys serial and monitor actual
 usage. PostgreSQL `53300` (remaining slots reserved for superusers) means database
 capacity is exhausted, not that a Google email lacks permission. Do not seed an
