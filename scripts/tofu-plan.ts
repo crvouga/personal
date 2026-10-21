@@ -15,20 +15,32 @@ type PlanResult = { code: number; errors: Diagnostic[]; valid: boolean };
 const SLOTS_EXHAUSTED =
   /\(53300\)|too many clients already|remaining connection slots are reserved|driver: bad connection/;
 
+const RAILWAY_READS = [
+  {
+    resource: 'railway_variable_collection',
+    detail:
+      'Unable to read variable collection, got error: input: Problem processing request',
+  },
+  {
+    resource: 'railway_project',
+    detail:
+      'Unable to read project, got error: input:3: project Not Authorized',
+  },
+];
+
 function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
   if (SLOTS_EXHAUSTED.test(`${error.summary}\n${error.detail}`))
     return 60 * 2 ** attempt;
-  // Railway can fail a variable-collection refresh with this opaque upstream
-  // error. Match the resource and read diagnostic, never a failed write or auth.
-  if (
-    /(?:^|\.)railway_variable_collection\.[^.\[]+(?:\[.*\])?$/.test(
-      error.address ?? ''
-    ) &&
-    error.summary === 'Client Error' &&
-    error.detail.trim() ===
-      'Unable to read variable collection, got error: input: Problem processing request'
-  )
-    return 120 * 2 ** attempt;
+  // Railway can fail a refresh with these opaque upstream errors while the same
+  // token reads fine moments later. Match the resource and exact read
+  // diagnostic, never a failed write or any other auth error.
+  const railway = RAILWAY_READS.find(
+    ({ resource, detail }) =>
+      new RegExp(`(?:^|\\.)${resource}\\.[^.\\[]+(?:\\[.*\\])?$`).test(
+        error.address ?? ''
+      ) && error.detail.trim() === detail
+  );
+  if (railway && error.summary === 'Client Error') return 120 * 2 ** attempt;
   const request = /^GET\s+"https:\/\/[^\"]+":\s*(\d{3})\b/.exec(error.detail);
   const status = Number(request?.[1]);
   if (

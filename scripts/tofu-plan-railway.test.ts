@@ -36,6 +36,30 @@ test('Railway variable read failures retry alone and alongside PostgreSQL exhaus
     expect(retryDelay(failure([{ ...railway, address }]), 0)).toBe(120_000);
 });
 
+test('the recorded project read failure retries alongside PostgreSQL exhaustion', () => {
+  const project = {
+    severity: 'error',
+    summary: 'Client Error',
+    address: 'railway_project.workspace',
+    detail:
+      'Unable to read project, got error: input:3: project Not Authorized',
+  };
+  const atlas = {
+    severity: 'error',
+    summary: 'Atlas Plan Error',
+    detail:
+      'Unable to generate migration plan, got error: Error: postgres: querying schemas: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)',
+  };
+  expect(retryDelay(failure([project, atlas]), 0)).toBe(120_000);
+  expect(retryDelay(failure([project]), 2)).toBe(480_000);
+  for (const bad of [
+    { ...project, detail: project.detail.replace('read', 'update') },
+    { ...project, address: 'railway_service.workspace' },
+    { ...project, address: undefined },
+  ])
+    expect(retryDelay(failure([bad]), 0)).toBeNull();
+});
+
 test('Railway retries reject writes, auth errors, unknown reads and unrelated resources', () => {
   for (const detail of [
     'Unable to create variable collection, got error: input: Problem processing request',
