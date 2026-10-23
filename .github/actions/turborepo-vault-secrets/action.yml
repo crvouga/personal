@@ -23,7 +23,7 @@ runs:
         set -euo pipefail
         attempts=180
         if [ "$OPTIONAL" = true ]; then attempts=6; fi
-        for i in $(seq 1 "$attempts"); do
+        for _attempt in $(seq 1 "$attempts"); do
           code="$(curl --connect-timeout 3 --max-time 5 -s -o /dev/null -w '%{http_code}' \
             'https://vault.chrisvouga.dev/v1/sys/health?standbyok=true&perfstandbyok=true' || true)"
           case "$code" in

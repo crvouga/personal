@@ -88,6 +88,14 @@ function configChecks(config: InfraConfig, vault: VaultConfig, read: Read): Prom
         : fail("auth backends", `missing or mistyped: ${wrong.map(([path]) => path).join(", ")}`);
     }),
   ];
+  if (vault.operator_credentials_path) {
+    checks.push(inspect("operator credentials", read, `${vault.kv.mount}/data/${vault.operator_credentials_path}`, (document) => {
+      const values = asRecord(document["data"]);
+      const required = ["TOFU_STATE_PASSPHRASE", "TOFU_STATE_ACCESS_KEY", "TOFU_STATE_SECRET_KEY", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID", "GITHUB_TOKEN"];
+      const missing = required.filter((key) => typeof values[key] !== "string" || !(values[key] as string).trim());
+      return missing.length ? fail("operator credentials", `operator setup incomplete: ${missing.join(", ")}`) : pass("operator credentials", "admin-only state and deployment credentials are configured");
+    }));
+  }
   for (const role of jwt?.roles ?? []) {
     const name = `jwt role ${role.name}`;
     checks.push(

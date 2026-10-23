@@ -91,6 +91,26 @@ Cloudflare 5.26.0 also cannot import `cloudflare_zone_dns_settings`. Its initial
 
 The Postgres branch is `PS_5_AWS_ARM` in `us-east` on PostgreSQL 18 with `replicas = 0`: one primary and no replicas, the cheapest single-node network-attached size. The published PlanetScale provider creates that database from `planetscale_postgres_branch` and reports the replica count, but it does not send a replica count on create. PlanetScale then defaults the branch to two replicas. The branch postcondition rejects any other count before the connection URI is published. Resize the existing branch to the inventory count; replacing it creates the default count again. The role inherits `postgres` so Atlas and the applications can keep creating schemas. Direct connections use `sslmode=require`. `DB_CONNECTION_URI` and `DATABASE_URL` are the same URL; the Vault entrypoint and the Atlas schema resource add `search_path=secret_store` themselves.
 
+## Administrative CLI credentials
+
+The Vault root publishes `secret/infra/operator` from the existing CI bootstrap
+environment. This document contains the state access key, state decryption
+passphrase and deployment GitHub credential needed by `bun run vault:edit`.
+It is outside `personal/*`: only the administrator policy can read it;
+application and CI read policies cannot. Never copy it into runtime secret maps.
+GitHub retains the independent bootstrap credentials for recovery when Vault is
+unavailable. No new keys or state encryption material are generated for this
+projection.
+
+After `vault login` as an administrator, the editor loads infrastructure
+credentials automatically and prompts only for selected secret changes and saved
+plan approval. Missing operator setup produces a single actionable error, never
+a prompt for R2 credentials. The same automatic resolution serves `vault:fix`.
+Deploy the Vault root through CI once to establish the document; subsequent
+Vault applies keep it current. `bun run health --only vault` checks its presence
+and required fields when the caller has admin access; restricted tokens skip
+that check.
+
 ## Public image pulls
 
 All container images must be public and anonymously pullable. The inventory
@@ -148,7 +168,7 @@ Nothing was applied from the change that introduced this section; it was validat
 4. `fleet` root: creates the Railway service, custom domain, variables and both DNS records. **No imports are needed**; a brand-new service has nothing to adopt, and `image_tags` is completed with the default tag by the action. Do not add import blocks for it.
 5. Check `https://fleet.chrisvouga.dev/health`, then `bun run health --only services,fleet-nodes`.
 
-CI runs foundation, bootstrap and vault before fleet in `deploy-reconcile`, so a merge performs steps 2 to 4 in that order once `TOFU_MIGRATION_READY` is true.
+CI runs foundation, bootstrap and vault before fleet in the Deploy job, so a merge performs steps 2 to 4 in that order once `TOFU_MIGRATION_READY` is true.
 
 ## External application ownership
 
@@ -182,13 +202,15 @@ CI uses [.github/actions/tofu](../../../.github/actions/tofu/action.yml) for ini
 
 GitHub publisher files are `github_repository_file` resources rendered from [the shared template](modules/inventory/publish.yml.tftpl). The integration guide renders that same template. Resource edits, new hosting entries and secret values all go through OpenTofu.
 
-The foundation root is authoritative for every platform repository's configurable GitHub control plane. Every repository has managed metadata and features, default branch, Actions policy and default workflow-token permissions, security scanning, vulnerability alerts and Dependabot security updates. The workspace repository additionally owns its ruleset, collaborators, issue labels, Actions secrets and Actions variables. The `main` ruleset requires a pull request, the `Required` and `Fleet` checks, and a merge queue whose method is `MERGE`. Direct pushes and force pushes stay refused. Git history, pull requests, issues, workflow runs, releases, packages and artifacts are application or collaboration data rather than infrastructure resources.
+The foundation root is authoritative for every platform repository's configurable GitHub control plane. Every repository has managed metadata and features, default branch, Actions policy and default workflow-token permissions, security scanning, vulnerability alerts and Dependabot security updates. The workspace repository additionally owns its ruleset, collaborators, issue labels, Actions secrets and Actions variables. The `main` ruleset requires a pull request, the `Check` and `Fleet` checks (the temporary `Required` compatibility status stays until migration is verified), and a merge queue whose method is `MERGE`. Direct pushes and force pushes stay refused. Git history, pull requests, issues, workflow runs, releases, packages and artifacts are application or collaboration data rather than infrastructure resources.
 
 The pinned GitHub 6.13.0 provider exposes non-provider secret patterns in its schema but does not send or read that setting. It is deliberately omitted from desired settings until a provider supports its full lifecycle; declaring it produces perpetual drift. Secret scanning and push protection remain explicitly managed. Railway environment reads include both environment and project IDs so the GraphQL provider can preserve every mutation input across refreshes.
 
 Repository secret names are declared in `github.repositories[*].actions_secrets` in the inventory. Their values already live in GitHub Secrets. OpenTofu lists metadata and imports existing secrets without needing or copying plaintext values into Vault. It ignores secret value and rotation timestamp changes, and prevents deletion; a missing name is omitted from adoption and reported in `unavailable_repository_secrets`. The schema-only empty value is never written during adoption, as verified with the real pinned provider against a mock API that rejects every mutation. Bootstrap credentials and newly generated secrets retain their existing OpenTofu value ownership.
 
-Optional credential-dependent integration checks report `SKIP` for missing, malformed or rejected credentials and continue independent checks. CI runs these in `secret-integrations`, outside the core `check` / `Required` gate. Local `check:ci` attempts a bounded Vault read and always runs core checks with local caching. Actual core failures still fail the suite; an active deployment's required credentials and production smoke test still fail that deployment. Public health probes and fleet OpenTofu deploys do not import unrelated third-party credentials.
+The check-name migration keeps a temporary `Required` job alongside `Check`. First land CI with both statuses reporting, then apply the reviewed foundation saved plan to require `Check` and `Fleet`. Read back the live ruleset and verify a successful pull-request and merge-queue run before removing the compatibility job. Declaring the new context here does not prove it has been applied.
+
+Optional credential-dependent integration checks report `SKIP` for missing, malformed or rejected credentials and continue independent checks. CI runs these as nonblocking steps in Check. Local `check:ci` attempts a bounded Vault read and always runs core checks with local caching. Actual core failures still fail the suite; an active deployment's required credentials and production smoke test still fail that deployment. Public health probes and fleet OpenTofu deploys do not import unrelated third-party credentials.
 
 The credentials that let OpenTofu reach each provider, the state-encryption passphrase and the initial state-backend credentials are bootstrap trust anchors. They must be supplied from outside the state they unlock. Scoped credentials created after that boundary—including state and object-store tokens—are OpenTofu resources.
 
@@ -202,7 +224,7 @@ changes or secret replacements. The workflow uses CI's existing state credential
 no local state passphrase is needed. Other fields selected through `--from-vault`
 continue to update only the saved Vault inputs.
 
-`bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Infra health workflow](../../../.github/workflows/infra-health.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
+`bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Maintenance Health job](../../../.github/workflows/maintenance.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
 
@@ -250,7 +272,7 @@ production Atlas workflow. No application DDL is reconciled by this platform.
 
 The `auth-hosting` root owns the public Bun/Hono UI/API gateway and private Keycloak services, with two gateway replicas, one Keycloak replica and one admin-tunnel connector replica per instance. Every Railway service sleeps when idle. `auth` owns each independent realm, Google upstream, signing keys and the two bootstrap system clients. Consuming applications and exact allowed callbacks are registered in the Google-protected UI and stored as runtime data in isolated PostgreSQL schemas, never in an inventory project allowlist. `foundation/auth-relay.tf` owns their restricted roles, schemas and schema-scoped Atlas definitions in the existing shared database. The Vault root stores setup/system/database credentials; it reuses the existing Google credential inputs. No Google secrets reach consuming applications.
 
-The [Auth relay deploy workflow](../../../.github/workflows/auth-relay-deploy.yml) applies the roots in order once `auth_relay.enabled` is true (and the gateway/Vault projection once `auth_relay.live` is true); the `auth` root reaches Keycloak's private admin API only through the foundation-owned Cloudflare Tunnel and Access application. Use `bun run infra:auth` and `bun run infra:auth-hosting`; realm states use distinct encrypted keys `auth-production.tfstate` and `auth-nonproduction.tfstate`. The feature stays disabled until [operations/adoption gates](../../auth-relay/operations.md) and [acceptance](../../auth-relay/acceptance.md) pass. The [integration recipe](../../auth-relay/README.md) describes UI registration and framework-neutral OIDC settings. Runtime registration is the explicitly authorized application-data exception; cloud provisioning and Atlas schema changes remain exclusively OpenTofu-owned.
+The [Deploy workflow](../../../.github/workflows/deploy.yml) applies the roots in order once `auth_relay.enabled` is true (and the gateway/Vault projection once `auth_relay.live` is true); the `auth` root reaches Keycloak's private admin API only through the foundation-owned Cloudflare Tunnel and Access application. Use `bun run infra:auth` and `bun run infra:auth-hosting`; realm states use distinct encrypted keys `auth-production.tfstate` and `auth-nonproduction.tfstate`. The feature stays disabled until [operations/adoption gates](../../auth-relay/operations.md) and [acceptance](../../auth-relay/acceptance.md) pass. The [integration recipe](../../auth-relay/README.md) describes UI registration and framework-neutral OIDC settings. Runtime registration is the explicitly authorized application-data exception; cloud provisioning and Atlas schema changes remain exclusively OpenTofu-owned.
 
 `auth-development` is a loopback-only fixture root used by auth-relay's `dev`
 command. It owns only that worktree's local schema, Atlas scratch database and

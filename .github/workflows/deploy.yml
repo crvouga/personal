@@ -1,0 +1,192 @@
+name: Deploy
+on:
+  workflow_call: {}
+  schedule:
+    - cron: 0 13 * * *
+  repository_dispatch:
+    types:
+      - deploy-service
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operation
+        type: choice
+        options:
+          - release
+          - deploy
+          - auth
+          - unseal
+          - smoke
+        default: deploy
+      service_id:
+        description: Service (empty = all)
+        type: string
+        default: ""
+      image_tag:
+        description: Image tag for redeployment
+        type: string
+        default: latest
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+defaults:
+  run:
+    shell: bash
+jobs:
+  deploy:
+    name: Deploy
+    if: github.repository == 'crvouga/workspace' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+      TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+      TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+      TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+      VAULT_HOSTNAME: vault.chrisvouga.dev
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      DB_CONNECTION_URI: ${{ secrets.DB_CONNECTION_URI }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Choose deployment
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ inputs.action || 'auto' }}
+          INPUT_ID: ${{ inputs.service_id }}
+          INPUT_TAG: ${{ inputs.image_tag || 'latest' }}
+          CLIENT_ID: ${{ github.event.client_payload.id }}
+          CLIENT_TAG: ${{ github.event.client_payload.image_tag }}
+        run: bun scripts/ci/deploy-plan.ts
+      - name: Prepare deployment
+        if: steps.plan.outputs.apply == 'true'
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Check deployment credentials
+        if: steps.plan.outputs.apply == 'true'
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if ! tofu -chdir=packages/infra/tofu/foundation plan \
+            -refresh-only -target=railway_project.workspace \
+            -input=false -lock=false -parallelism=1 -no-color; then
+            echo '::error title=Deployment preflight failed::Railway project access failed. Check RAILWAY_TOKEN access to the adopted Workspace project. For a rotated token already in Vault, use the Maintenance workflow (task=vault-inputs) with from_vault=RAILWAY_TOKEN (review dry_run=true first).'
+            echo '### Deployment blocked before builds' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Railway project access failed. See the preflight diagnostics and repair the managed RAILWAY_TOKEN before rerunning CI.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Set up Docker
+        if: steps.plan.outputs.build == 'true' || steps.plan.outputs.vault == 'true' || steps.plan.outputs.auth == 'true'
+        uses: docker/setup-buildx-action@v4.0.0
+      - name: Log in to registry
+        if: steps.plan.outputs.build == 'true' || steps.plan.outputs.vault == 'true' || steps.plan.outputs.auth == 'true'
+        uses: docker/login-action@v4.1.0
+        with:
+          registry: ghcr.io
+          username: crvouga
+          password: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      - name: Publish Vault
+        if: steps.plan.outputs.vault == 'true'
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: packages/vault-service
+          file: packages/vault-service/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          labels: |
+            org.opencontainers.image.source=https://github.com/crvouga/workspace
+            org.opencontainers.image.description=Standalone OpenBao vault for chrisvouga.dev
+          tags: |
+            ghcr.io/crvouga/chrisvouga-vault:latest
+            ghcr.io/crvouga/chrisvouga-vault:${{ github.sha }}
+      - name: Apply foundation
+        if: steps.plan.outputs.apply == 'true'
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          vault_image_tag: ${{ steps.plan.outputs.vault == 'true' && github.sha || '' }}
+      - name: Apply bootstrap
+        if: steps.plan.outputs.apply == 'true'
+        uses: ./.github/actions/tofu
+        with:
+          root: bootstrap
+      - name: Deploy auth
+        if: steps.plan.outputs.auth == 'true'
+        uses: ./.github/actions/deploy-auth
+      - name: Apply vault
+        if: steps.plan.outputs.apply == 'true' && steps.plan.outputs.auth != 'true'
+        uses: ./.github/actions/tofu
+        with:
+          root: vault
+      - name: Read build credentials
+        if: steps.plan.outputs.build == 'true'
+        uses: hashicorp/vault-action@v4
+        continue-on-error: true
+        with:
+          url: https://vault.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://vault.chrisvouga.dev
+          secrets: secret/data/personal/prd PORTFOLIO_GITHUB_TOKEN | PORTFOLIO_GITHUB_TOKEN
+      - name: Publish service images
+        if: steps.plan.outputs.build == 'true'
+        env:
+          SERVICE_IDS: ${{ steps.plan.outputs.service_ids }}
+        run: bun scripts/ci/publish.ts
+      - name: Deploy services
+        if: steps.plan.outputs.services == 'true'
+        uses: ./.github/actions/tofu
+        with:
+          root: fleet
+          service_ids: ${{ steps.plan.outputs.service_ids }}
+          image_tag: ${{ steps.plan.outputs.image_tag }}
+      - name: Load public endpoints
+        run: bun run packages/infra/scripts/print-platform-env.ts --format github >> "$GITHUB_ENV"
+      - name: Check public services
+        if: steps.plan.outputs.apply == 'true'
+        run: bun run health-check --all-public --retries 24 --retry-delay-ms 5000
+      - name: Read smoke test credentials
+        if: steps.plan.outputs.smoke == 'true'
+        uses: ./.github/actions/turborepo-vault-secrets
+        with:
+          vault_config: prd
+      - name: Smoke test
+        if: steps.plan.outputs.smoke == 'true'
+        env:
+          CI: "true"
+          GITHUB_ACTIONS: "true"
+          VAULT_CONFIG: prd
+          VAULT_PROJECT: personal
+        run: bun run --filter @pkgs/turborepo-remote-cache smoke

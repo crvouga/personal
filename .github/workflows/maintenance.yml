@@ -1,0 +1,294 @@
+name: Maintenance
+on:
+  schedule:
+    - cron: 30 15 * * *
+    - cron: 0 13 * * *
+    - cron: 0 14 * * 1
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task
+        type: choice
+        options:
+          - health
+          - domains
+          - snapshot
+          - dependencies
+          - vault-inputs
+        default: health
+      drift:
+        description: Include infrastructure drift
+        type: boolean
+        default: true
+      strict:
+        description: Fail domain checks on skipped results
+        type: boolean
+        default: true
+      dry_run:
+        description: Plan secret repair without applying
+        type: boolean
+        default: false
+      from_vault:
+        description: Vault fields to refresh (comma-separated)
+        type: string
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: maintenance-${{ github.event.schedule || inputs.task }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  health:
+    name: Health
+    if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'health' || inputs.task == 'domains'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+      TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+      TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+      TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+      DRIFT: ${{ inputs.task != 'domains' && (github.event_name == 'schedule' || inputs.drift) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Install DNS probe tool
+        run: sudo apt-get update && sudo apt-get install -y dnsutils
+      - name: Prepare foundation root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Prepare bootstrap root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: bootstrap
+          mode: prepare
+      - name: Prepare vault root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: vault
+          mode: prepare
+      - name: Prepare fleet root
+        if: ${{ !cancelled() && env.DRIFT == 'true' }}
+        uses: ./.github/actions/tofu
+        with:
+          root: fleet
+          mode: prepare
+      - name: Log in to Vault (OIDC, read-only)
+        if: "!cancelled() && inputs.task != 'domains'"
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
+      - name: Infra health report
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          TASK: ${{ inputs.task }}
+          STRICT: ${{ inputs.strict }}
+        run: |
+          if [ "$TASK" = domains ]; then
+            args=(--only domains --verbose)
+            if [ "$STRICT" = true ]; then args+=(--strict); fi
+            bun run health -- "${args[@]}"
+          elif [ "$DRIFT" = true ]; then
+            bun run health -- --verbose --drift
+          else
+            bun run health -- --verbose
+          fi
+  update:
+    name: Update
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'schedule' && github.event.schedule != '30 15 * * *') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'snapshot' || inputs.task == 'dependencies')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REFRESH_BRANCH: chore/github-insights-refresh
+      SNAPSHOT: packages/portfolio/src/data/github-insights.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Choose update
+        id: task
+        env:
+          TASK: ${{ inputs.task }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          task="$TASK"
+          if [ -z "$task" ]; then
+            if [ "$SCHEDULE" = "0 14 * * 1" ]; then task=dependencies; else task=snapshot; fi
+          fi
+          echo "task=$task" >> "$GITHUB_OUTPUT"
+      - name: Set up Nix
+        if: steps.task.outputs.task == 'dependencies'
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Read snapshot credentials
+        if: steps.task.outputs.task == 'snapshot'
+        uses: hashicorp/vault-action@v4
+        continue-on-error: true
+        with:
+          url: https://vault.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://vault.chrisvouga.dev
+          secrets: secret/data/personal/prd PORTFOLIO_GITHUB_TOKEN | PORTFOLIO_GITHUB_TOKEN
+      - name: Refresh GitHub snapshot
+        id: refresh
+        if: steps.task.outputs.task == 'snapshot'
+        working-directory: packages/portfolio
+        run: bun run refresh-github
+      - name: Open a self-merging PR for the refreshed snapshot
+        if: steps.task.outputs.task == 'snapshot' && (steps.refresh.outputs.changed == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          TITLE: "chore(portfolio): refresh GitHub insights snapshot"
+          PR_BODY: Automated daily refresh of the committed GitHub proof snapshot, the offline fallback rendered when GitHub is unreachable at build time. Opened by Maintenance.
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "${REFRESH_BRANCH}"
+          git add "${SNAPSHOT}"
+          git commit -m "${TITLE}"
+          git fetch origin "${REFRESH_BRANCH}" || true
+          git push --force-with-lease origin "${REFRESH_BRANCH}"
+
+          if [ -z "$(gh pr list --head "${REFRESH_BRANCH}" --state open --json number --jq '.[].number')" ]; then
+            gh pr create \
+              --base main \
+              --head "${REFRESH_BRANCH}" \
+              --title "${TITLE}" \
+              --body "$PR_BODY"
+          fi
+          gh pr merge "${REFRESH_BRANCH}" --auto --merge
+      - name: Update Nix dependencies
+        if: steps.task.outputs.task == 'dependencies'
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          nix flake update --flake packages/fleet
+          if git diff --quiet -- packages/fleet/flake.lock; then
+            echo 'flake.lock is unchanged'
+            exit 0
+          fi
+          branch=chore/fleet-flake-lock
+          git checkout -B "${branch}"
+          git add -- packages/fleet/flake.lock
+          git commit -m 'chore(fleet): update flake.lock'
+          if git fetch origin "${branch}"; then
+            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" origin "HEAD:refs/heads/${branch}"
+          else
+            git push origin "HEAD:refs/heads/${branch}"
+          fi
+          if [ -z "$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[].number')" ]; then
+            gh pr create \
+              --base main \
+              --head "${branch}" \
+              --title 'chore(fleet): update flake.lock' \
+              --body 'Weekly Nix input update for packages/fleet. It goes through the fleet checks and the merge queue. Do not push it to main directly.'
+          fi
+  repair:
+    name: Repair
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+      TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+      TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+      TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Prepare foundation
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Log in to Vault (OIDC, read-only)
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
+      - name: Complete TOFU_VAULT_INPUTS
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          FROM_VAULT: ${{ inputs.from_vault }}
+        run: |
+          set -euo pipefail
+          args=(--ci)
+          if [ "${DRY_RUN}" = true ]; then args+=(--dry-run); fi
+          if [ -n "${FROM_VAULT}" ]; then args+=(--from-vault "${FROM_VAULT}"); fi
+          bun run vault:fix "${args[@]}"

@@ -5,7 +5,7 @@
  *
  * Prose lives in `scripts/llms-txt.template.md`. Every value an integrator
  * copies — hostnames, Vault paths, OIDC role, buckets, key names, the publish
- * workflow, ci.yml inputs, the fleet — is read from its source of truth here, so
+ * workflow, publisher inputs, the fleet — is read from its source of truth here, so
  * the file cannot drift. Template tokens:
  *
  *   {{name}}          scalar from `values()`
@@ -59,9 +59,8 @@ type WorkflowInput = {
   default?: unknown;
 };
 
-type CiWorkflow = {
+type PublishWorkflow = {
   on: {
-    repository_dispatch: { types: string[] };
     workflow_call: {
       inputs: Record<string, WorkflowInput>;
       secrets: Record<string, { description?: string }>;
@@ -71,7 +70,8 @@ type CiWorkflow = {
 
 type Context = {
   config: InfraConfig;
-  ci: CiWorkflow;
+  publisher: PublishWorkflow;
+  deploy: { on: { repository_dispatch: { types: string[] } } };
   scripts: Record<string, string>;
 };
 
@@ -171,7 +171,7 @@ function oidcSecrets(ctx: Context, keys: readonly string[]): string {
 }
 
 function values(ctx: Context): Record<string, string> {
-  const { config, ci } = ctx;
+  const { config, publisher, deploy } = ctx;
   const vault = need(config.vault, 'vault');
   const infraRepo = infraGithubRepo(config);
   const { path: jwtPath, role } = jwtRole(ctx);
@@ -192,8 +192,8 @@ function values(ctx: Context): Record<string, string> {
   const dispatchSecret = 'DEPLOY_DISPATCH_TOKEN';
   for (const name of [dispatchSecret, 'CALLER_GITHUB_TOKEN']) {
     need(
-      ci.on.workflow_call.secrets[name],
-      `ci.yml workflow_call secret ${name}`
+      publisher.on.workflow_call.secrets[name],
+      `publish.yml workflow_call secret ${name}`
     );
   }
   return {
@@ -232,8 +232,8 @@ function values(ctx: Context): Record<string, string> {
     ghcrPattern: `ghcr.io/${config.image_owner}/${imagePrefix(config)}-<id>`,
     dispatchSecret,
     dispatchEvent: need(
-      ci.on.repository_dispatch.types[0],
-      'ci.yml repository_dispatch type'
+      deploy.on.repository_dispatch.types[0],
+      'deploy.yml repository_dispatch type'
     ),
     publishWorkflowPath: PUBLISH_WORKFLOW_PATH,
     portfolioTopics: Object.keys(TOPIC_TO_IMAGE_SRC)
@@ -269,7 +269,7 @@ function exampleService(ctx: Context): Record<string, unknown> {
 }
 
 function blocks(ctx: Context): Record<string, string> {
-  const { config, ci } = ctx;
+  const { config, publisher } = ctx;
   const vault = need(config.vault, 'vault');
   const v = values(ctx);
   const { role } = jwtRole(ctx);
@@ -400,7 +400,7 @@ function blocks(ctx: Context): Record<string, string> {
     ).trimEnd(),
     workflowCallInputs: table(
       ['Input', 'Required', 'Default', 'Meaning'],
-      Object.entries(ci.on.workflow_call.inputs).map(([name, input]) => [
+      Object.entries(publisher.on.workflow_call.inputs).map(([name, input]) => [
         code(name),
         input.required ? 'yes' : '',
         input.default === undefined ? '' : code(String(input.default)),
@@ -480,7 +480,10 @@ export function renderLlmsTxt(): string {
     config: loadServicesConfig(
       join(ROOT, 'packages/infra/tofu/modules/inventory/inventory.tf.json')
     ),
-    ci: parseYaml(read('.github/workflows/ci.yml')) as CiWorkflow,
+    publisher: parseYaml(
+      read('.github/workflows/publish.yml')
+    ) as PublishWorkflow,
+    deploy: parseYaml(read('.github/workflows/deploy.yml')),
     scripts: (
       JSON.parse(read('package.json')) as { scripts: Record<string, string> }
     ).scripts,

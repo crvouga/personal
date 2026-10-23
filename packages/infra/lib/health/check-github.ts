@@ -14,7 +14,7 @@ const CONCURRENCY = 6;
 const PUBLISHER_PATH = ".github/workflows/publish.yml";
 const DISPATCH_SECRET = "DEPLOY_DISPATCH_TOKEN";
 const MIGRATION_VARIABLE = "TOFU_MIGRATION_READY";
-const PIPELINE_WORKFLOW = "ci.yml";
+const PIPELINE_WORKFLOWS = ["ci.yml", "deploy.yml"];
 
 export type GithubApi = (path: string) => Promise<JsonResponse>;
 
@@ -141,16 +141,17 @@ function checkRuleset(api: GithubApi, infraRepo: string, declared: GithubMergeGa
 }
 
 /** The newest finished non-PR run is the last time production was reconciled. */
-function checkPipeline(api: GithubApi, infraRepo: string, branch: string): Promise<CheckResult> {
-  const name = `pipeline ${PIPELINE_WORKFLOW}`;
+function checkPipeline(api: GithubApi, infraRepo: string, branch: string, workflow: string): Promise<CheckResult> {
+  const name = `pipeline ${workflow}`;
   return guarded(name, async () => {
     const res = await api(
-      `/repos/${infraRepo}/actions/workflows/${PIPELINE_WORKFLOW}/runs?branch=${encodeURIComponent(branch)}&status=completed&per_page=20`,
+      `/repos/${infraRepo}/actions/workflows/${workflow}/runs?branch=${encodeURIComponent(branch)}&status=completed&per_page=20`,
     );
     if (hidden(res.status)) return skip(name, `token may not read workflow runs (HTTP ${res.status})`);
     if (res.status !== 200) return fail(name, `HTTP ${res.status}`);
     const runs = asRecord(res.body)["workflow_runs"];
-    const run = (Array.isArray(runs) ? runs : []).map(asRecord).find((candidate) => candidate["event"] !== "pull_request");
+    const events = workflow === "ci.yml" ? ["push"] : ["schedule", "workflow_dispatch", "repository_dispatch"];
+    const run = (Array.isArray(runs) ? runs : []).map(asRecord).find((candidate) => events.includes(String(candidate["event"])));
     if (!run) return warn(name, `no completed run on ${branch}`);
     const label = `run #${String(run["run_number"])} (${String(run["event"])}, ${String(run["updated_at"])})`;
     if (run["conclusion"] === "success") return pass(name, `${label} succeeded`);
@@ -180,7 +181,7 @@ export async function checkGithub(ctx: HealthContext): Promise<readonly CheckRes
     ...repos.filter((repo) => repo.hostsService || repo.secrets.length > 0).map((repo) => () => checkSecrets(api, repo)),
     () => checkMigrationVariable(api, infraRepo),
     ...(ruleset ? [() => checkRuleset(api, infraRepo, ruleset)] : []),
-    () => checkPipeline(api, infraRepo, workspace.defaultBranch),
+    ...PIPELINE_WORKFLOWS.map((workflow) => () => checkPipeline(api, infraRepo, workspace.defaultBranch, workflow)),
   ];
   return mapLimit(probes, CONCURRENCY, (probe) => probe());
 }

@@ -1221,7 +1221,7 @@
                   "strict_required_status_checks_policy": true,
                   "required_status_checks": [
                     {
-                      "context": "Required",
+                      "context": "Check",
                       "integration_id": 15368
                     },
                     {
@@ -1255,6 +1255,7 @@
         }
       },
       "vault": {
+        "operator_credentials_path": "infra/operator",
         "hostname": "vault.chrisvouga.dev",
         "kv": {
           "mount": "secret",

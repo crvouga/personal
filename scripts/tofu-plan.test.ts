@@ -269,9 +269,13 @@ test('shared action reviews the successful plan and applies it exactly once', ()
   );
   const workflow = parse(
     readFileSync(
-      join(import.meta.dirname, '../.github/workflows/auth-relay-deploy.yml'),
+      join(import.meta.dirname, '../.github/actions/deploy-auth/action.yml'),
       'utf8'
     )
   );
-  expect(workflow.on.push.paths).toContain('scripts/tofu-plan.ts');
+  expect(
+    workflow.runs.steps.some(
+      (step: { uses?: string }) => step.uses === './.github/actions/tofu'
+    )
+  ).toBe(true);
 });

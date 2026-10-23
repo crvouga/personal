@@ -1,0 +1,271 @@
+name: Deploy auth
+description: Build immutable auth images and apply the staged private identity, realm and gateway rollout.
+runs:
+  using: composite
+  steps:
+    - id: flags
+      run: |
+        set -euo pipefail
+        INV=packages/infra/tofu/modules/inventory/inventory.tf.json
+        {
+          echo "enabled=$(jq -r '.locals.inventory.auth_relay.enabled' "${INV}")"
+          echo "live=$(jq -r '.locals.inventory.auth_relay.live' "${INV}")"
+          echo "instances=$(jq -r '.locals.inventory.auth_relay.instances | keys | join(" ")' "${INV}")"
+        } >> "$GITHUB_OUTPUT"
+      shell: bash
+      name: Read rollout settings
+    - id: relay_image
+      uses: docker/build-push-action@v7.2.0
+      with:
+        context: .
+        file: packages/auth-relay/Dockerfile
+        platforms: linux/amd64
+        push: true
+        provenance: false
+        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        tags: |
+          ghcr.io/crvouga/chrisvouga-auth-relay:latest
+          ghcr.io/crvouga/chrisvouga-auth-relay:${{ github.sha }}
+      name: Publish gateway
+    - id: identity_image
+      uses: docker/build-push-action@v7.2.0
+      with:
+        context: packages/auth-relay
+        file: packages/auth-relay/Dockerfile.keycloak
+        platforms: linux/amd64
+        push: true
+        provenance: false
+        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        tags: |
+          ghcr.io/crvouga/chrisvouga-auth-relay-identity:latest
+          ghcr.io/crvouga/chrisvouga-auth-relay-identity:${{ github.sha }}
+      name: Publish identity
+    - id: tunnel_image
+      uses: docker/build-push-action@v7.2.0
+      with:
+        context: packages/auth-relay
+        file: packages/auth-relay/Dockerfile.tunnel
+        platforms: linux/amd64
+        push: true
+        provenance: false
+        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        tags: |
+          ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:latest
+          ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:${{ github.sha }}
+      name: Publish tunnel
+    - name: Require anonymous image pulls
+      run: |
+        set -euo pipefail
+        for image in auth-relay auth-relay-identity auth-relay-tunnel; do
+          token="$(curl -fsS "https://ghcr.io/token?scope=repository:crvouga/chrisvouga-${image}:pull" | jq -r .token)"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" \
+            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json' \
+            "https://ghcr.io/v2/crvouga/chrisvouga-${image}/manifests/${GITHUB_SHA}")"
+          if [ "${code}" != 200 ]; then
+            echo "::error::ghcr.io/crvouga/chrisvouga-${image} is not anonymously pullable (HTTP ${code}). Set the package visibility to public (Package settings → Danger zone); Railway cannot pull private images on this plan."
+            exit 1
+          fi
+        done
+      shell: bash
+    - name: Pin image digests for OpenTofu
+      run: |
+        {
+          echo "TF_VAR_image=ghcr.io/crvouga/chrisvouga-auth-relay@${{ steps.relay_image.outputs.digest }}"
+          echo "TF_VAR_keycloak_image=ghcr.io/crvouga/chrisvouga-auth-relay-identity@${{ steps.identity_image.outputs.digest }}"
+          echo "TF_VAR_tunnel_image=ghcr.io/crvouga/chrisvouga-auth-relay-tunnel@${{ steps.tunnel_image.outputs.digest }}"
+        } >> "$GITHUB_ENV"
+      shell: bash
+    - uses: ./.github/actions/tofu
+      with:
+        root: auth
+        state_key: auth-production
+        mode: prepare
+      env:
+        TF_VAR_instance: production
+      name: ./.github/actions/tofu
+    - name: Check production realm state
+      run: |
+        set -euo pipefail
+        if ! tofu -chdir=packages/infra/tofu/auth state list 2>/dev/null | grep -qx keycloak_realm.broker; then
+          echo "FIRST_DEPLOYMENT=true" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+    - uses: ./.github/actions/tofu
+      with:
+        root: auth
+        state_key: auth-nonproduction
+        mode: prepare
+      env:
+        TF_VAR_instance: nonproduction
+      name: ./.github/actions/tofu
+    - name: Check nonproduction realm state
+      run: |
+        set -euo pipefail
+        if ! tofu -chdir=packages/infra/tofu/auth state list 2>/dev/null | grep -qx keycloak_realm.broker; then
+          echo "FIRST_DEPLOYMENT=true" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+    - uses: hashicorp/vault-action@v4
+      with:
+        url: ${{ env.VAULT_ADDR }}
+        method: jwt
+        path: jwt
+        role: github-actions
+        jwtGithubAudience: ${{ env.VAULT_ADDR }}
+        exportToken: true
+        secrets: |
+          secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | VAULT_PROBE_ACCOUNT_ID ;
+          secret/data/personal/prd GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_PRODUCTION ;
+          secret/data/personal/prd GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_PRODUCTION ;
+          secret/data/personal/dev GOOGLE_OAUTH_CLIENT_ID | GOOGLE_CLIENT_ID_NONPRODUCTION ;
+          secret/data/personal/dev GOOGLE_OAUTH_CLIENT_SECRET | GOOGLE_CLIENT_SECRET_NONPRODUCTION
+      name: Read Vault credentials
+    - uses: ./.github/actions/tofu
+      with:
+        root: auth-hosting
+        mode: prepare
+      name: ./.github/actions/tofu
+    - name: Defer the gateway until its credentials are projected
+      run: |
+        set -euo pipefail
+        if tofu -chdir=packages/infra/tofu/auth-hosting state list 2>/dev/null | grep -q '^module\.broker\['; then
+          echo "TF_VAR_deploy_gateway=true" >> "$GITHUB_ENV"
+        else
+          echo "TF_VAR_deploy_gateway=false" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+    - uses: ./.github/actions/tofu
+      with:
+        root: auth-hosting
+      env:
+        TF_VAR_keycloak_schema_init: ${{ env.FIRST_DEPLOYMENT == 'true' && 'true' || 'false' }}
+      name: ./.github/actions/tofu
+    - name: Wait for the admin API through the tunnel
+      run: |
+        set -euo pipefail
+        tofu -chdir=packages/infra/tofu/foundation init -input=false -reconfigure -lockfile=readonly -backend-config=backend.backend.json > /dev/null
+        tofu -chdir=packages/infra/tofu/foundation output -json auth_admin > /tmp/auth-admin.json
+        for key in $(jq -r 'to_entries[] | .value | .password, .access_client_secret, .tunnel_token' /tmp/auth-admin.json); do echo "::add-mask::${key}"; done
+        for instance in ${{ steps.flags.outputs.instances }}; do
+          url="$(jq -r --arg i "${instance}" '.[$i].url' /tmp/auth-admin.json)"
+          id="$(jq -r --arg i "${instance}" '.[$i].access_client_id' /tmp/auth-admin.json)"
+          secret="$(jq -r --arg i "${instance}" '.[$i].access_client_secret' /tmp/auth-admin.json)"
+          ok=false
+          # First start creates Keycloak's tables; allow 20 minutes. Railway
+          # rolls the new deployment out behind the old one (about two minutes,
+          # then the old container is removed), so the first 200 may still come
+          # from the previous deployment. Require an unbroken run of 200s that
+          # outlasts the rollout.
+          deadline=$((SECONDS + 1200))
+          stable_since=""
+          for attempt in $(seq 1 120); do
+            [ "${SECONDS}" -lt "${deadline}" ] || break
+            code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' \
+              -H "CF-Access-Client-Id: ${id}" -H "CF-Access-Client-Secret: ${secret}" \
+              "${url}/realms/master/.well-known/openid-configuration" || true)"
+            if [ "${code}" = 200 ]; then
+              stable_since="${stable_since:-${SECONDS}}"
+              if [ $((SECONDS - stable_since)) -ge 240 ]; then ok=true; break; fi
+            else
+              stable_since=""
+              echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
+            fi
+            sleep 10
+          done
+          if [ "${ok}" != true ]; then
+            echo "::error::${instance}: Keycloak admin API never became reachable through the Access-protected tunnel."
+            exit 1
+          fi
+        done
+      shell: bash
+    - id: realm_production
+      continue-on-error: true
+      uses: ./.github/actions/tofu
+      with:
+        root: auth
+        state_key: auth-production
+      env:
+        TF_VAR_instance: production
+        TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+        TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
+      name: Apply production realm
+    - name: Retry the production realm with a fresh login
+      uses: ./.github/actions/tofu
+      if: steps.realm_production.outcome == 'failure'
+      with:
+        root: auth
+        state_key: auth-production
+      env:
+        TF_VAR_instance: production
+        TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_PRODUCTION }}
+        TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_PRODUCTION }}
+    - id: realm_nonproduction
+      continue-on-error: true
+      uses: ./.github/actions/tofu
+      with:
+        root: auth
+        state_key: auth-nonproduction
+      env:
+        TF_VAR_instance: nonproduction
+        TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+        TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
+      name: Apply nonproduction realm
+    - name: Retry the nonproduction realm with a fresh login
+      uses: ./.github/actions/tofu
+      if: steps.realm_nonproduction.outcome == 'failure'
+      with:
+        root: auth
+        state_key: auth-nonproduction
+      env:
+        TF_VAR_instance: nonproduction
+        TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
+        TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
+    - uses: ./.github/actions/tofu
+      with:
+        root: vault
+      name: Apply Vault credentials
+    - name: Re-pin Keycloak to schema validation and deploy the gateway
+      run: |
+        echo "TF_VAR_keycloak_schema_init=false" >> "$GITHUB_ENV"
+        echo "TF_VAR_deploy_gateway=true" >> "$GITHUB_ENV"
+      shell: bash
+    - name: Log in to Vault again for the gateway and health checks
+      uses: hashicorp/vault-action@v4
+      with:
+        url: ${{ env.VAULT_ADDR }}
+        method: jwt
+        path: jwt
+        role: github-actions
+        jwtGithubAudience: ${{ env.VAULT_ADDR }}
+        exportToken: true
+    - uses: ./.github/actions/tofu
+      with:
+        root: auth-hosting
+      name: ./.github/actions/tofu
+    - name: Wait for the public gateways
+      if: steps.flags.outputs.live == 'true'
+      run: |
+        set -euo pipefail
+        INV=packages/infra/tofu/modules/inventory/inventory.tf.json
+        needed=6
+        streak=0
+        for attempt in $(seq 1 90); do
+          round=ok
+          for instance in ${{ steps.flags.outputs.instances }}; do
+            host="$(jq -r --arg i "${instance}" '.locals.inventory.auth_relay.instances[$i].hostname' "${INV}")"
+            code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "https://${host}/health/ready" || true)"
+            if [ "${code}" != 200 ]; then
+              echo "${instance}: https://${host}/health/ready not ready (HTTP ${code:-000}), attempt ${attempt}/90"
+              round=bad
+            fi
+          done
+          if [ "${round}" = ok ]; then streak=$((streak + 1)); else streak=0; fi
+          if [ "${streak}" -ge "${needed}" ]; then exit 0; fi
+          sleep 10
+        done
+        echo "::error::The public gateways never stayed ready for ${needed} consecutive checks. Check the Railway custom domain verification, DNS and the gateway and identity logs."
+        exit 1
+      shell: bash
+    - name: Health
+      run: bun run health -- --only auth
+      shell: bash

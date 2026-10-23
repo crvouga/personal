@@ -38,6 +38,10 @@ override_data {
 }
 
 variables {
+  state_access_key   = "test-state-key"
+  state_secret_key   = "test-state-secret"
+  github_token       = "test-github-token"
+  cloudflare_zone_id = "test-zone"
   state_backend = {
     bucket                      = "test-state"
     region                      = "auto"
@@ -61,6 +65,35 @@ variables {
     ci  = "AGE-SECRET-KEY-CI"
     web = "AGE-SECRET-KEY-WEB"
   }
+}
+
+run "operator_credentials" {
+  command = plan
+  assert {
+    condition = vault_kv_secret_v2.operator.name == "infra/operator" && alltrue([
+      jsondecode(vault_kv_secret_v2.operator.data_json).TOFU_STATE_ACCESS_KEY == var.state_access_key,
+      jsondecode(vault_kv_secret_v2.operator.data_json).TOFU_STATE_SECRET_KEY == var.state_secret_key,
+      jsondecode(vault_kv_secret_v2.operator.data_json).TOFU_STATE_PASSPHRASE == var.state_passphrase,
+      jsondecode(vault_kv_secret_v2.operator.data_json).GITHUB_TOKEN == var.github_token,
+    ])
+    error_message = "Existing CI credentials must be projected into the admin-only operator document."
+  }
+  assert {
+    condition = alltrue([for config in ["dev", "prd"] : alltrue([
+      for key in ["TOFU_STATE_ACCESS_KEY", "TOFU_STATE_SECRET_KEY", "TOFU_STATE_PASSPHRASE", "GITHUB_TOKEN"] :
+      !contains(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json)), key)
+      ])]) && alltrue([
+      for policy in ["personal-read", "ci-read", "dev-read"] :
+      !strcontains(vault_policy.this[policy].policy, "secret/data/infra/") && !strcontains(vault_policy.this[policy].policy, "path \"*\"")
+    ])
+    error_message = "Runtime and CI read policies must not expose the operator document or state credentials."
+  }
+}
+
+run "reject_empty_operator_credentials" {
+  command = plan
+  variables { state_access_key = "" }
+  expect_failures = [vault_kv_secret_v2.operator]
 }
 
 run "fleet_api_credentials" {

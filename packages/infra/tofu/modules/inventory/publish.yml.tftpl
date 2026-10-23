@@ -9,13 +9,11 @@ on:
 permissions:
   contents: read
   packages: write
-  id-token: write
-  pull-requests: read
 
 jobs:
 %{ for service in services ~}
   ${service.job_name}:
-    uses: ${infra_repo}/.github/workflows/ci.yml@main
+    uses: ${infra_repo}/.github/workflows/publish.yml@main
     secrets:
       DEPLOY_DISPATCH_TOKEN: $${{ secrets.DEPLOY_DISPATCH_TOKEN }}
       CALLER_GITHUB_TOKEN: $${{ github.token }}

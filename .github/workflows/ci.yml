@@ -1,123 +1,62 @@
-# Production monorepo pipeline; runner-check.yml is a separate opt-in project onboarding entrypoint.
-#
-#   push (main) / production dispatch .... vault-state → vault? → check → publish? → deploy
-#   pull_request / merge_group .......... Required (and Fleet, in fleet.yml) must report
-#   workflow_dispatch ...... manual check / publish / vault rebuild / fleet redeploy
-#   workflow_call .......... sibling app repos publish their image (was publish-image.yml)
-#   repository_dispatch .... sibling publish notify → fleet deploy (deploy-service)
-#
-# Secrets: GitHub holds bootstrap/application secrets; Vault OIDC loads optional integrations and required cache smoke credentials.
-
 name: CI
-run-name: >-
-  CI · ${{
-    inputs.service_id != '' && github.event_name != 'workflow_dispatch' && github.event_name != 'repository_dispatch' && format('publish · {0}', inputs.service_id) ||
-    github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.head_ref) ||
-    github.event_name == 'push' && format('push · {0} · {1}', github.ref_name, github.sha) ||
-    github.event_name == 'schedule' && format('schedule · {0}', github.ref_name) ||
-    github.event_name == 'repository_dispatch' && format('deploy · {0}', github.event.action) ||
-    github.event_name == 'workflow_dispatch' && format('manual · {0}', github.ref_name) ||
-    github.event_name
-  }}
-
-permissions:
-  contents: read
-  id-token: write
-  packages: write
-  pull-requests: read
-
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - '.vscode/**'
-      - '.cursor/**'
-  # Daily portfolio refresh. The site is static, so the GitHub proof data is
-  # frozen at image-build time and would otherwise only move when someone
-  # happens to push. This run refreshes the committed snapshot and rebuilds the
-  # portfolio image (whose build fetches GitHub live), so the heatmap, streak
-  # and contribution totals are never more than a day behind. Nothing else in
-  # the fleet is touched — see publish-plan.
-  schedule:
-    - cron: '0 13 * * *' # 13:00 UTC — early morning in America/Los_Angeles
-  # No paths-ignore on PRs or the merge queue: `Required` must report on
-  # every one. A skipped workflow reports no status and stalls the queue.
-  pull_request:
-  merge_group:
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: Build/push turborepo GHCR image and redeploy
-        type: boolean
-        default: false
-      unseal_only:
-        description: Apply the OpenTofu bootstrap root without rebuilding Vault
-        type: boolean
-        default: false
-      service_id:
-        description: 'Manual fleet redeploy: single service id (empty = all)'
-        required: false
-        type: string
-      image_tag:
-        description: 'Manual fleet redeploy image tag'
-        required: false
-        type: string
-        default: latest
-  repository_dispatch:
-    types:
-      - deploy-service
+    branches:
+      - main
+  pull_request: {}
+  merge_group: {}
+  workflow_dispatch: {}
   workflow_call:
     inputs:
       service_id:
-        description: 'Service id matching OpenTofu inventory (e.g. portfolio, todo-app).'
+        description: Service id matching OpenTofu inventory (e.g. portfolio, todo-app).
         required: true
         type: string
       dockerfile:
-        description: 'Path to Dockerfile relative to context.'
+        description: Path to Dockerfile relative to context.
         required: false
         type: string
         default: ./Dockerfile
       context:
-        description: 'Docker build context.'
+        description: Docker build context.
         required: false
         type: string
         default: .
       image_owner:
-        description: 'ghcr.io owner.'
+        description: ghcr.io owner.
         required: false
         type: string
         default: crvouga
       image_prefix:
-        description: 'GHCR package prefix (from OpenTofu inventory image_prefix).'
+        description: GHCR package prefix (from OpenTofu inventory image_prefix).
         required: false
         type: string
         default: chrisvouga
       infra_github_repo:
-        description: 'Infra repo owner/name for deploy dispatch.'
+        description: Infra repo owner/name for deploy dispatch.
         required: false
         type: string
         default: crvouga/workspace
       notify_deploy:
-        description: 'POST repository_dispatch to infra after push. Set false when chaining deploy.'
+        description: POST repository_dispatch to infra after push. Set false when chaining deploy.
         required: false
         type: boolean
         default: true
     secrets:
       DEPLOY_DISPATCH_TOKEN:
-        description: 'PAT or GITHUB_TOKEN with repo dispatch to the infra repo.'
+        description: PAT or GITHUB_TOKEN with repo dispatch to the infra repo.
         required: false
       CALLER_GITHUB_TOKEN:
-        description: 'Caller workflow github.token — GHCR fallback when no platform publish token is supplied.'
+        description: Caller workflow github.token — GHCR fallback when no platform publish token is supplied.
         required: false
       RAILWAY_TOKEN:
-        description: 'Repo secret — vault bootstrap job only (not passed by callers).'
+        description: Repo secret — vault bootstrap job only (not passed by callers).
         required: false
       CF_API_TOKEN:
-        description: 'Repo secret — vault bootstrap job only (not passed by callers).'
+        description: Repo secret — vault bootstrap job only (not passed by callers).
         required: false
       DB_CONNECTION_URI:
-        description: 'Repo secret — vault bootstrap job only (not passed by callers).'
+        description: Repo secret — vault bootstrap job only (not passed by callers).
         required: false
       PLANETSCALE_SERVICE_TOKEN_ID:
         required: false
@@ -133,306 +72,130 @@ on:
         required: false
       TOFU_VAULT_INPUTS:
         required: false
+      FLEET_ATTIC_TOKEN:
+        required: false
+        description: Only used by native fleet merge-queue runs.
     outputs:
       image_tag:
-        description: 'Image tag pushed (commit SHA).'
+        description: Image tag pushed (commit SHA).
         value: ${{ jobs.publish.outputs.image_tag }}
       service_id:
-        description: 'Service id that was published.'
+        description: Service id that was published.
         value: ${{ jobs.publish.outputs.service_id }}
-
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-env:
-  VAULT_ADDR: https://vault.chrisvouga.dev
-
-  TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
-  AWS_EC2_METADATA_DISABLED: 'true'
-  TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
-  TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
-  TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-  TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
-  TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
-  TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
-  TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-  TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
-  TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
-  TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-  TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
-  TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
-  TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
-
+defaults:
+  run:
+    shell: bash
 jobs:
-  changes:
+  check:
+    name: Check
+    if: inputs.service_id == ''
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    env:
+      TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
+      TURBO_CACHE: local:rw
     outputs:
-      check: ${{ steps.flags.outputs.check }}
-      runner_fleet: ${{ steps.flags.outputs.runner_fleet }}
-      fleet_e2e: ${{ steps.flags.outputs.fleet_e2e }}
-      vault: ${{ steps.flags.outputs.vault }}
-      vault_inputs: ${{ steps.filter.outputs.vault_inputs }}
-      publish: ${{ steps.flags.outputs.publish }}
-      deploy: ${{ steps.flags.outputs.deploy }}
-      portfolio: ${{ steps.flags.outputs.portfolio }}
-      # Called workflows report the caller's event_name, never workflow_call.
-      workflow_call: ${{ steps.flags.outputs.workflow_call }}
+      fleet: ${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v4
+      - name: Check branches
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+          HEAD_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_ref || github.head_ref }}
+        run: |
+          set -euo pipefail
+          test "${BASE_REF#refs/heads/}" = main
+          test "${HEAD_REF#refs/heads/}" != main
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Find affected integrations
         id: filter
-        if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        uses: dorny/paths-filter@v4
         with:
           base: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
           ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
           filters: |
-            check:
-              - 'packages/**'
-              - 'scripts/**'
-              - 'llms.txt'
-              - 'package.json'
-              - 'bun.lock'
-              - 'turbo.json'
-              - 'tsconfig.json'
-              - 'tsconfig.strict.json'
-              - '.prettierrc'
-              - '.prettierignore'
-              - '.github/workflows/ci.yml'
-              - '.github/actions/**'
-            runner_fleet:
+            fleet:
               - 'packages/fleet/**'
-              - '.github/workflows/runner-check.yml'
-              - '.github/workflows/flake-update.yml'
-              - '.github/workflows/ci.yml'
+              - '.github/**'
+              - 'bun.lock'
+            auth:
+              - 'packages/auth-relay/**'
+              - 'packages/infra/tofu/auth*/**'
+              - 'packages/infra/tofu/modules/auth-*/**'
+              - '.github/**'
             fleet_e2e:
               - 'packages/fleet/**'
               - 'packages/fleet-api/**'
               - 'packages/assert/**'
               - 'packages/logger/**'
               - 'bun.lock'
-              - '.github/workflows/ci.yml'
-            vault:
-              - 'packages/vault-service/**'
-            # What can add a required Vault field the TOFU_VAULT_INPUTS secret lacks.
+              - '.github/**'
+            portfolio:
+              - 'packages/portfolio/**'
             vault_inputs:
               - 'packages/infra/tofu/modules/inventory/**'
               - 'packages/infra/tofu/vault/**'
-            portfolio:
-              - 'packages/portfolio/**'
-            publish:
-              - 'packages/9router/**'
-              - 'packages/turborepo-remote-cache/**'
-              - 'packages/portfolio/**'
-              - 'packages/fleet-api/**'
-              - 'packages/assert/**'
-              - 'packages/logger/**'
-              - 'packages/object-store/**'
-              - 'packages/secret-store/**'
-              - 'packages/secret-string/**'
-              - 'packages/vault/**'
-              - 'packages/eslint-rules/package.json'
-              - '.dockerignore'
-              - 'bun.lock'
-              - 'turbo.json'
-              - 'tsconfig.json'
-            deploy:
-              - 'packages/infra/**'
-              - '.github/workflows/ci.yml'
-              - '.github/actions/vault-secrets/**'
-      - id: flags
+      - name: Check that the installer release is complete
+        id: release
+        if: github.event_name == 'push'
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_PUBLISH: ${{ inputs.publish }}
-          INPUT_UNSEAL: ${{ inputs.unseal_only }}
-          INPUT_SERVICE_ID: ${{ inputs.service_id }}
-          FILTER_CHECK: ${{ steps.filter.outputs.check }}
-          FILTER_RUNNER_FLEET: ${{ steps.filter.outputs.runner_fleet }}
-          FILTER_FLEET_E2E: ${{ steps.filter.outputs.fleet_e2e }}
-          FILTER_VAULT: ${{ steps.filter.outputs.vault }}
-          FILTER_PUBLISH: ${{ steps.filter.outputs.publish }}
-          FILTER_DEPLOY: ${{ steps.filter.outputs.deploy }}
-          FILTER_PORTFOLIO: ${{ steps.filter.outputs.portfolio }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          CHECK=false
-          RUNNER_FLEET=false
-          FLEET_E2E=false
-          VAULT=false
-          PUBLISH=false
-          DEPLOY=false
-          PORTFOLIO=false
-          # github.event_name here is the caller's event (push on a sibling
-          # publish). workflow_call is never that value. Sibling publishes are
-          # the only runs that pass service_id outside a manual dispatch.
-          WORKFLOW_CALL=false
-          if [ -n "${INPUT_SERVICE_ID}" ] && \
-             [ "${EVENT_NAME}" != "workflow_dispatch" ] && \
-             [ "${EVENT_NAME}" != "repository_dispatch" ]; then
-            WORKFLOW_CALL=true
-          fi
-
-          if [ "${WORKFLOW_CALL}" = "true" ]; then
-            # Sibling repo publishes its image through this workflow; nothing else runs.
-            PUBLISH=true
-          elif [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            if [ "${INPUT_PUBLISH}" = "true" ]; then
-              CHECK=true
-              PUBLISH=true
-              DEPLOY=true
+          assets=$(gh release view fleet-installer --json assets --jq '.assets[].name') || assets=''
+          for asset in \
+            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.iso.part-000 fleet-node.sh \
+            fleet-installer-windows-x64.exe \
+            fleet-installer-macos-arm64.zip fleet-installer-macos-x64.zip \
+            fleet-installer-linux-arm64.tar.gz fleet-installer-linux-x64.tar.gz; do
+            if ! grep -Fxq "$asset" <<< "$assets"; then
+              echo "Installer release is missing $asset; rebuilding and publishing."
+              echo 'missing=true' >> "$GITHUB_OUTPUT"
+              exit 0
             fi
-            if [ "${INPUT_UNSEAL}" = "true" ]; then
-              VAULT=true
-              DEPLOY=true
-            fi
-            if [ -n "${INPUT_SERVICE_ID}" ]; then
-              DEPLOY=true
-            fi
-            # Manual dispatch with no flags: still allow smoke; no gate jobs
-          elif [ "${EVENT_NAME}" = "schedule" ]; then
-            # Data-freshness run: rebuild and redeploy the portfolio image so it
-            # picks up today's GitHub data. No code changed, so `check` is
-            # skipped (deploy-prepare tolerates that) and publish-plan narrows
-            # the matrix to portfolio alone.
-            PUBLISH=true
-            DEPLOY=true
-            PORTFOLIO=true
-          elif [ "${EVENT_NAME}" = "repository_dispatch" ]; then
-            DEPLOY=true
-          elif [ "${EVENT_NAME}" = "pull_request" ] || [ "${EVENT_NAME}" = "merge_group" ]; then
-            # The queue re-runs the same path filter. It must not publish or deploy.
-            CHECK="${FILTER_CHECK:-false}"
-            RUNNER_FLEET="${FILTER_RUNNER_FLEET:-false}"
-            FLEET_E2E="${FILTER_FLEET_E2E:-false}"
-            PORTFOLIO="${FILTER_PORTFOLIO:-false}"
-          else
-            # push to main
-            CHECK="${FILTER_CHECK:-false}"
-            RUNNER_FLEET="${FILTER_RUNNER_FLEET:-false}"
-            FLEET_E2E="${FILTER_FLEET_E2E:-false}"
-            VAULT="${FILTER_VAULT:-false}"
-            PUBLISH="${FILTER_PUBLISH:-false}"
-            PORTFOLIO="${FILTER_PORTFOLIO:-false}"
-            DEPLOY="${FILTER_DEPLOY:-false}"
-            if [ "${VAULT}" = "true" ] || [ "${PUBLISH}" = "true" ]; then
-              DEPLOY=true
-            fi
-          fi
-
-          {
-            echo "check=${CHECK}"
-            echo "runner_fleet=${RUNNER_FLEET}"
-            echo "fleet_e2e=${FLEET_E2E}"
-            echo "vault=${VAULT}"
-            echo "publish=${PUBLISH}"
-            echo "deploy=${DEPLOY}"
-            echo "portfolio=${PORTFOLIO}"
-            echo "workflow_call=${WORKFLOW_CALL}"
-          } >> "$GITHUB_OUTPUT"
-          echo "flags check=${CHECK} vault=${VAULT} publish=${PUBLISH} deploy=${DEPLOY} portfolio=${PORTFOLIO} workflow_call=${WORKFLOW_CALL}"
-
-  vault-state:
-    if: |
-      github.ref == 'refs/heads/main' &&
-      (
-        github.event_name == 'push' ||
-        github.event_name == 'workflow_dispatch' ||
-        github.event_name == 'repository_dispatch'
-      )
-    runs-on: ubuntu-latest
-    outputs:
-      bootstrap: ${{ steps.health.outputs.bootstrap }}
-    steps:
-      - id: health
-        run: |
-          set -euo pipefail
-          code="$(curl --connect-timeout 5 --max-time 15 -sS -o /dev/null -w '%{http_code}' \
-            "${VAULT_ADDR}/v1/sys/health?standbyok=true&perfstandbyok=true" || true)"
-          case "${code}" in
-            200|429|472|473)
-              echo "Vault is unsealed (HTTP ${code}); bootstrap not required"
-              echo "bootstrap=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Vault requires bootstrap (HTTP ${code:-000}); vault job will deploy and unseal it"
-              echo "bootstrap=true" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
-  # Test the exact adopted Railway project before core checks or image builds.
-  # A targeted refresh-only plan is a read-only credential probe, not an apply.
-  deploy-preflight:
-    needs: [changes, vault-state]
-    if: |
-      always() &&
-      needs.changes.result == 'success' &&
-      needs.changes.outputs.workflow_call != 'true' &&
-      github.ref == 'refs/heads/main' &&
-      (needs.changes.outputs.deploy == 'true' || needs.changes.outputs.vault == 'true' || needs.vault-state.outputs.bootstrap == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - uses: ./.github/actions/tofu
-        with:
-          root: foundation
-          mode: prepare
-      - name: Verify Railway project access before expensive work
-        timeout-minutes: 2
-        run: |
-          set -euo pipefail
-          if ! tofu -chdir=packages/infra/tofu/foundation plan \
-            -refresh-only -target=railway_project.workspace \
-            -input=false -lock=false -parallelism=1 -no-color; then
-            echo '::error title=Deployment preflight failed::Railway project access failed. Check RAILWAY_TOKEN access to the adopted Workspace project. For a rotated token already in Vault, use the Vault inputs fix workflow with from_vault=RAILWAY_TOKEN (review dry_run=true first).'
-            echo '### Deployment blocked before checks and builds' >> "$GITHUB_STEP_SUMMARY"
-            echo 'Railway project access failed. See the preflight diagnostics and repair the managed RAILWAY_TOKEN before rerunning CI.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-  check:
-    needs: [changes, deploy-preflight]
-    if: |
-      always() &&
-      needs.changes.outputs.check == 'true' &&
-      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
-      TURBO_CACHE: local:rw
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      # The deploy's vault plan rejects a TOFU_VAULT_INPUTS secret that lacks a
-      # required field. Fail the change that can introduce one (inventory or the
-      # vault root); elsewhere only warn, so a stale secret does not block
-      # unrelated work, including the change that repairs it.
+          done
+          echo 'missing=false' >> "$GITHUB_OUTPUT"
+      - name: Check commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bunx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+      - name: Check PR title
+        if: github.event_name == 'pull_request'
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Check TOFU_VAULT_INPUTS against the inventory
         env:
-          VAULT_INPUTS_STRICT: ${{ needs.changes.outputs.vault_inputs }}
+          VAULT_INPUTS_STRICT: ${{ steps.filter.outputs.vault_inputs == 'true' }}
+          TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
         run: bun run check:vault-inputs
       - name: Fast repository checks
         run: bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts
       - name: Typecheck and lint packages
         run: bunx turbo run tc lint
-      - uses: opentofu/setup-opentofu@v1
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
-      # The fleet-api tests apply packages/fleet-api/schema.hcl to a throwaway
-      # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
-      # under /usr/lib/postgresql/16/bin).
-      - uses: ariga/setup-atlas@v0
+      - name: Set up Atlas
+        uses: ariga/setup-atlas@v0
       - name: Validate and test OpenTofu
         run: bun run check:infra
       - name: Cache Playwright browsers
@@ -446,678 +209,316 @@ jobs:
           node node_modules/playwright/cli.js install --with-deps chromium
       - name: Test and build packages
         run: bunx turbo run test build
-
-  secret-integrations:
-    needs: [changes, vault]
-    if: always() && needs.changes.outputs.check == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - uses: ./.github/actions/turborepo-vault-secrets
-        with:
-          vault_config: dev
-          optional: 'true'
-      - name: Check optional secret integrations
-        env:
-          CI: true
-          VAULT_CONFIG: dev
-          VAULT_PROJECT: personal
-        run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
-
-  portfolio-health-check:
-    needs: [changes]
-    if: needs.changes.outputs.portfolio == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
       - name: Health-check portfolio public URLs
+        if: steps.filter.outputs.portfolio == 'true'
         run: |
           bun run packages/portfolio/scripts/health-check-urls.ts \
             --timeout-ms 30000 \
             --retries 4 \
             --retry-delay-ms 5000
-
-  # Moves the *committed* fallback forward. The publish job below independently
-  # rebuilds the image (whose build fetches GitHub live), so the live site is
-  # fresh either way; this job exists so the offline snapshot — the thing that
-  # keeps the site up when GitHub is down — cannot quietly rot to months old.
-  #
-  # It lands through a self-merging PR rather than a push, because the `main`
-  # ruleset requires a pull request and has no bypass actors. The branch is a
-  # fixed one, force-pushed onto current main each day, so a day whose CI failed
-  # is corrected by the next run instead of piling up branches.
-  #
-  # DEPLOY_DISPATCH_TOKEN, not GITHUB_TOKEN: a PR opened with the default token
-  # does not trigger `on: pull_request`, so `Required` would never report and
-  # auto-merge would wait forever.
-  #
-  # Deliberately not a dependency of publish: if the GitHub token expires, this
-  # job goes red while the build carries on serving the last good snapshot.
-  # That is the intended split — a visible alarm, not an outage.
-  refresh-github-insights:
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      REFRESH_BRANCH: chore/github-insights-refresh
-      SNAPSHOT: packages/portfolio/src/data/github-insights.json
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-          token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - name: Import Vault secrets
-        uses: ./.github/actions/turborepo-vault-secrets
-        with:
-          vault_config: prd
-          optional: 'true'
-      - name: Refresh GitHub snapshot
-        id: refresh
-        working-directory: packages/portfolio
-        run: bun run refresh-github
-      - name: Open a self-merging PR for the refreshed snapshot
-        if: steps.refresh.outputs.changed == 'true'
+      - name: Test Fleet integration
+        if: steps.filter.outputs.fleet_e2e == 'true'
         env:
-          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-          TITLE: 'chore(portfolio): refresh GitHub insights snapshot'
+          FLEET_E2E_REQUIRED: "1"
         run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -b "${REFRESH_BRANCH}"
-          git add "${SNAPSHOT}"
-          git commit -m "${TITLE}"
-          git push --force origin "${REFRESH_BRANCH}"
-
-          if [ -z "$(gh pr list --head "${REFRESH_BRANCH}" --state open --json number --jq '.[].number')" ]; then
-            gh pr create \
-              --base main \
-              --head "${REFRESH_BRANCH}" \
-              --title "${TITLE}" \
-              --body 'Automated daily refresh of the committed GitHub proof snapshot, the offline fallback rendered when GitHub is unreachable at build time. Opened by the `refresh-github-insights` job in ci.yml.'
-          fi
-          gh pr merge "${REFRESH_BRANCH}" --auto --merge
-
-  commitlint:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
+          bun run --filter @pkgs/fleet-api build:css
+          python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
+          docker build -f packages/fleet-api/Dockerfile -t fleet-api:ci .
+          FLEET_E2E_IMAGE=fleet-api:ci python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
+      - name: Test auth compatibility
+        if: steps.filter.outputs.auth == 'true'
+        run: |
+          docker build -f packages/auth-relay/Dockerfile -t auth-relay-gateway:ci .
+          docker build -f packages/auth-relay/Dockerfile.tunnel -t auth-relay-tunnel:ci packages/auth-relay
+          python3 packages/auth-relay/tests/production-image.py
+          (cd packages/fleet && bunx playwright install --with-deps chromium)
+          bun run auth:test:e2e
+      - name: Read optional integration credentials
+        uses: ./.github/actions/turborepo-vault-secrets
+        continue-on-error: true
         with:
-          fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - name: Lint PR commit messages (Conventional Commits)
+          vault_config: dev
+          optional: "true"
+      - name: Check optional integrations
+        continue-on-error: true
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bunx commitlint --from "${BASE_SHA}" --to "${HEAD_SHA}" --verbose
-
-  pr-title:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    steps:
-      - uses: amannn/action-semantic-pull-request@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  runner-fleet:
-    needs: [changes]
-    if: needs.changes.outputs.runner_fleet == 'true'
+          CI: "true"
+          VAULT_CONFIG: dev
+          VAULT_PROJECT: personal
+        run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
+  nix:
+    name: Test Nix
+    if: needs.check.outputs.fleet == 'true'
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions:
-      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: Validate with pinned ShellCheck and actionlint
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Lint workflows and shell scripts
+        run: nix develop ./packages/fleet --command bash packages/fleet/scripts/lint.sh
+      - name: Test all Nix checks
         working-directory: packages/fleet
-        # Python tests already run in the monorepo check. Only the pinned
-        # validators need a Nix devShell; do not run the full suite twice.
-        run: nix develop --command bash scripts/lint.sh
-
-  # The whole fleet with the real programs at every step: the installer scripts,
-  # the approval workflow script, the node agent, the fleet API on a throwaway
-  # Postgres whose schema Atlas builds, and the dashboard. Run once against the
-  # API as a process and once against the Docker image Railway will run.
-  fleet-e2e:
-    needs: [changes]
-    if: needs.changes.outputs.fleet_e2e == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+        run: |
+          for group in roles runtime lifecycle image; do
+            timeout 12m python3 scripts/ci-checks.py "$group"
+          done
+      - name: Upload fleet-installer
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
         with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - uses: ariga/setup-atlas@v0
-      - name: Build the stylesheet
-        run: bun run --filter @pkgs/fleet-api build:css
-      - name: Full chain, API as a process
-        env:
-          FLEET_E2E_REQUIRED: '1'
-        run: python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
-      - name: Build the API image
-        run: docker build -f packages/fleet-api/Dockerfile -t fleet-api:ci .
-      - name: Full chain, API as the Docker image
-        env:
-          FLEET_E2E_REQUIRED: '1'
-          FLEET_E2E_IMAGE: fleet-api:ci
-        run: python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
-
-  # Required status check for the `main` ruleset (scripts/pr-ready).
-  # Path-filtered jobs may be skipped; anything else must succeed.
-  # The merge queue re-runs this job. commitlint and pr-title stay on the PR.
-  Required:
-    needs: [changes, check, portfolio-health-check, commitlint, pr-title, runner-fleet, fleet-e2e]
-    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+          name: fleet-installer
+          path: packages/fleet/result-iso/iso/fleet-installer.iso
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+  installer:
+    name: Build installer (${{ matrix.os }})
+    if: needs.check.outputs.fleet == 'true'
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
     steps:
-      - name: Verify branches and needed job results
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Wizard tests
+        working-directory: packages/fleet
+        run: python -B -m unittest discover -s tests -p "test_wizard.py" -v
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Install only Fleet browser dependencies
+        run: |
+          bun install --frozen-lockfile --filter '@pkgs/fleet'
+          cd packages/fleet
+          bunx playwright install --with-deps chromium
+      - name: Click through the wizard page in a real browser
+        working-directory: packages/fleet
+        shell: bash
         env:
-          EVENT: ${{ github.event_name }}
-          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
-          HEAD_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_ref || github.head_ref }}
-          RESULTS: ${{ toJSON(needs) }}
+          PYTHON: ${{ steps.python.outputs.python-path }}
+          PLAYWRIGHT_PATH: "@playwright/test"
+        run: node wizard/ui-e2e.cjs
+      - name: Build the installer and run its self-test
+        working-directory: packages/fleet
+        run: |
+          python -m pip install "pyinstaller>=6,<7"
+          python wizard/build.py --version "${{ github.sha }}"
+      - name: Select the packaged installer for browser acceptance
+        working-directory: packages/fleet
+        run: python bdd/packaged.py
+      - name: Gherkin acceptance against the packaged installer
+        working-directory: packages/fleet
+        env:
+          FLEET_BDD_EXPECT_VERSION: ${{ github.sha }}
+          PYTHON: ${{ steps.python.outputs.python-path }}
+        run: bun run test:bdd:local
+      - name: Upload fleet-bdd-${{ matrix.os }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-bdd-${{ matrix.os }}
+          path: |
+            packages/fleet/dist/bdd-report/
+            packages/fleet/dist/bdd-results/
+            packages/fleet/dist/bdd-results.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Set up Nix
+        if: startsWith(matrix.os, 'ubuntu-')
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Native Nix installer and Gherkin acceptance
+        if: startsWith(matrix.os, 'ubuntu-')
+        working-directory: packages/fleet
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
+          FLEET_BDD_EXPECT_VERSION: ${{ github.sha }}
+          FLEET_BDD_OUTPUT_DIR: dist/bdd-native-results
+          PLAYWRIGHT_HTML_OUTPUT_DIR: dist/bdd-native-report
+          PLAYWRIGHT_JSON_OUTPUT_FILE: dist/bdd-native-results.json
+        run: |
+          nix build --no-write-lock-file -o result-native '.#fleet-installer'
+          result-native/bin/fleet-installer --selftest
+          FLEET_BDD_WIZARD="$PWD/result-native/bin/fleet-installer" bun run test:bdd:local
+      - name: Upload fleet-bdd-native-${{ matrix.os }}
+        if: always() && startsWith(matrix.os, 'ubuntu-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-bdd-native-${{ matrix.os }}
+          path: |
+            packages/fleet/dist/bdd-native-report/
+            packages/fleet/dist/bdd-native-results/
+            packages/fleet/dist/bdd-native-results.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload wizard-${{ matrix.os }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wizard-${{ matrix.os }}
+          path: packages/fleet/wizard/dist/*
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    name: Release installer
+    if: needs.check.outputs.fleet == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request'))
+    needs:
+      - check
+      - nix
+      - installer
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Nix
+        if: github.event_name == 'merge_group'
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Push role closures before this commit can reach main
+        if: github.event_name == 'merge_group'
+        working-directory: packages/fleet
+        env:
+          CACHE_URL: ${{ vars.FLEET_CACHE_URL }}
+          CACHE_NAME: ${{ vars.FLEET_CACHE_NAME }}
+          ATTIC_TOKEN: ${{ secrets.FLEET_ATTIC_TOKEN }}
         run: |
           set -euo pipefail
-          base="${BASE_REF#refs/heads/}"
-          head="${HEAD_REF#refs/heads/}"
-          if [ "${base}" != "main" ]; then
-            echo "::error::base must be main, got ${BASE_REF}"
+          if [ -z "${CACHE_URL}" ] || [ -z "${CACHE_NAME}" ] || [ -z "${ATTIC_TOKEN}" ]; then
+            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. A fleet commit cannot merge until the cache push succeeds.' >&2
             exit 1
           fi
-          if [ "${head}" = "main" ]; then
-            echo "::error::head must not be main"
-            exit 1
-          fi
-          bad="$(jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key)=\(.value.result)"' <<< "${RESULTS}")"
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${RESULTS}"
-          if [ -n "${bad}" ]; then
-            echo "::error::required jobs did not succeed: ${bad//$'\n'/, }"
-            exit 1
-          fi
-          # changes always runs. commitlint and pr-title run on the pull request.
-          must_succeed=(changes)
-          if [ "${EVENT}" = "pull_request" ]; then
-            must_succeed+=(commitlint pr-title)
-          fi
-          for job in "${must_succeed[@]}"; do
-            result="$(jq -r --arg job "${job}" '.[$job].result' <<< "${RESULTS}")"
-            if [ "${result}" != "success" ]; then
-              echo "::error::${job} must succeed, got ${result}"
+          for attr in ci web cache netboot devbox; do
+            nix build -o "result-${attr}" ".#${attr}"
+            if [ ! -L "result-${attr}" ] || [ ! -d "result-${attr}" ]; then
+              echo "Fleet cache: missing build result for ${attr}. Rebuild this role before publishing." >&2
               exit 1
             fi
           done
-
-  publish-plan:
-    needs: [changes]
-    if: needs.changes.outputs.publish == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      service_ids: ${{ steps.plan.outputs.service_ids }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        if: needs.changes.outputs.workflow_call != 'true'
-      - run: bun install --frozen-lockfile
-        if: needs.changes.outputs.workflow_call != 'true'
-      - id: plan
+          nix run '.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
+          for attr in ci web cache netboot devbox; do
+            nix run '.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
+          done
+      - name: Download fleet-installer
+        uses: actions/download-artifact@v4
+        with:
+          name: fleet-installer
+          path: installer-artifact
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wizard-*
+          path: wizard-artifacts
+          merge-multiple: true
+      - name: Publish the installer and the one-file node entry
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_CALL: ${{ needs.changes.outputs.workflow_call }}
-          IN_SERVICE_ID: ${{ inputs.service_id }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "${WORKFLOW_CALL}" = "true" ]; then
-            echo "service_ids=[\"${IN_SERVICE_ID}\"]" >> "$GITHUB_OUTPUT"
-          elif [ "${EVENT_NAME}" = "schedule" ]; then
-            # The daily run exists only to refresh portfolio's GitHub data.
-            # Rebuilding the rest of the fleet on a timer would be pure churn.
-            echo 'service_ids=["portfolio"]' >> "$GITHUB_OUTPUT"
+          iso=$(find installer-artifact -type f -name 'fleet-installer.iso' -print -quit)
+          test -n "$iso"
+          # The offline image contains every role and exceeds the 2 GiB asset
+          # limit. Clients assemble verified 1 GiB parts into one local ISO.
+          python3 packages/fleet/scripts/release-image.py "$iso" image-assets
+          cp packages/fleet/scripts/fleet-node.sh fleet-node.sh
+          if gh release view fleet-installer >/dev/null 2>&1; then
+            gh release upload fleet-installer image-assets/*.part-* --clobber
           else
-            echo "service_ids=$(bun run packages/infra/scripts/list-publish-service-ids.ts)" >> "$GITHUB_OUTPUT"
+            gh release create fleet-installer image-assets/*.part-* \
+              --title "Fleet installer" \
+              --notes "Current installer image and the one-file node entry. Replaced when Fleet merges. This release does not expire."
           fi
-
-  publish:
-    needs: [changes, publish-plan, deploy-preflight]
-    if: |
-      always() &&
-      needs.changes.outputs.publish == 'true' &&
-      needs.publish-plan.result == 'success' &&
-      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped')
+          # Publish the manifest after its parts; partial releases fail verification.
+          gh release upload fleet-installer image-assets/*.json image-assets/*.sha256 fleet-node.sh --clobber
+          # The wizard downloads: one per platform. Every one passed its self-test in CI.
+          find wizard-artifacts -type f -exec ls -l {} +
+          count=$(find wizard-artifacts -type f | wc -l)
+          test "$count" -ge 5
+          gh release upload fleet-installer wizard-artifacts/* --clobber
+  fleet:
+    name: Fleet
+    if: always() && inputs.service_id == ''
+    needs:
+      - check
+      - nix
+      - installer
+      - release
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check platform results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          FLEET: ${{ needs.check.outputs.fleet }}
+          RELEASE_REQUIRED: ${{ github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
+          test "$(jq -r '.check.result' <<< "$RESULTS")" = success
+          if [ "$FLEET" != true ]; then exit 0; fi
+          for job in nix installer; do
+            test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
+          done
+          if [ "$RELEASE_REQUIRED" = true ]; then
+            test "$(jq -r '.release.result' <<< "$RESULTS")" = success
+          fi
+  Required:
+    name: Required
+    if: always() && inputs.service_id == '' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    needs:
+      - check
+      - fleet
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check legacy merge status
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success")' <<< "$RESULTS"
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.service_id == ''
+    needs:
+      - check
+      - fleet
     permissions:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        service_id: ${{ fromJson(needs.publish-plan.outputs.service_ids) }}
-    outputs:
-      image_tag: ${{ steps.tag.outputs.image_tag }}
-      service_id: ${{ steps.resolve.outputs.service_id }}
-    steps:
-      - id: tag
-        run: echo "image_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/checkout@v5
-
-      # The publish inputs come from OpenTofu inventory, so the job needs the workspace
-      # toolchain (sibling workflow_call publishes pass their inputs directly).
-      - uses: oven-sh/setup-bun@v2
-        if: needs.changes.outputs.workflow_call != 'true'
-      - run: bun install --frozen-lockfile
-        if: needs.changes.outputs.workflow_call != 'true'
-
-      - name: Resolve build inputs
-        id: resolve
-        env:
-          WORKFLOW_CALL: ${{ needs.changes.outputs.workflow_call }}
-          IN_SERVICE_ID: ${{ inputs.service_id }}
-          IN_DOCKERFILE: ${{ inputs.dockerfile }}
-          IN_CONTEXT: ${{ inputs.context }}
-          IN_OWNER: ${{ inputs.image_owner }}
-          IN_PREFIX: ${{ inputs.image_prefix }}
-          IN_NOTIFY: ${{ inputs.notify_deploy }}
-          MATRIX_SERVICE_ID: ${{ matrix.service_id }}
-        run: |
-          set -euo pipefail
-          if [ "${WORKFLOW_CALL}" = "true" ]; then
-            SID="${IN_SERVICE_ID}"
-            for v in "${SID}" "${IN_DOCKERFILE}" "${IN_CONTEXT}" "${IN_OWNER}" "${IN_PREFIX}"; do
-              if [ -z "${v}" ]; then
-                echo "::error::publish inputs must be non-empty" >&2
-                exit 1
-              fi
-            done
-            {
-              echo "service_id=${SID}"
-              echo "dockerfile=${IN_DOCKERFILE}"
-              echo "context=${IN_CONTEXT}"
-              echo "image_owner=${IN_OWNER}"
-              echo "image_prefix=${IN_PREFIX}"
-              echo "notify_deploy=${IN_NOTIFY}"
-            } >> "$GITHUB_OUTPUT"
-          else
-            SID="${MATRIX_SERVICE_ID}"
-            bun run packages/infra/scripts/print-publish-inputs.ts --id "${SID}" >> "$GITHUB_OUTPUT"
-            echo "service_id=${SID}" >> "$GITHUB_OUTPUT"
-            echo "notify_deploy=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "publish service=${SID}"
-
-      - name: Resolve GHCR credentials
-        id: ghcr_auth
-        env:
-          DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-          CALLER_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Existing packages may be linked to another repository, so the
-          # caller's repository-scoped token cannot necessarily update them.
-          if [ -n "${DISPATCH_TOKEN}" ]; then
-            echo "username=${{ steps.resolve.outputs.image_owner }}" >> "$GITHUB_OUTPUT"
-            echo "password=${DISPATCH_TOKEN}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${CALLER_TOKEN}" ]; then
-            echo "username=${{ github.actor }}" >> "$GITHUB_OUTPUT"
-            echo "password=${CALLER_TOKEN}" >> "$GITHUB_OUTPUT"
-          else
-            echo "username=${{ github.actor }}" >> "$GITHUB_OUTPUT"
-            echo "password=${{ github.token }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Log in to ghcr.io
-        uses: docker/login-action@v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ steps.ghcr_auth.outputs.username }}
-          password: ${{ steps.ghcr_auth.outputs.password }}
-
-      - uses: docker/setup-buildx-action@v4.0.0
-
-      - name: Import Vault secrets (portfolio)
-        if: matrix.service_id == 'portfolio'
-        uses: ./.github/actions/turborepo-vault-secrets
-        with:
-          vault_config: prd
-          optional: 'true'
-
-      - name: Build and push (portfolio)
-        if: matrix.service_id == 'portfolio'
-        uses: docker/build-push-action@v7.2.0
-        with:
-          context: ${{ steps.resolve.outputs.context }}
-          file: ${{ steps.resolve.outputs.dockerfile }}
-          platforms: linux/amd64
-          push: true
-          provenance: false
-          tags: |
-            ghcr.io/${{ steps.resolve.outputs.image_owner }}/${{ steps.resolve.outputs.image_prefix }}-${{ steps.resolve.outputs.service_id }}:latest
-            ghcr.io/${{ steps.resolve.outputs.image_owner }}/${{ steps.resolve.outputs.image_prefix }}-${{ steps.resolve.outputs.service_id }}:${{ github.sha }}
-          secret-envs: |
-            github_token=PORTFOLIO_GITHUB_TOKEN
-
-      - name: Build and push
-        if: matrix.service_id != 'portfolio'
-        uses: docker/build-push-action@v7.2.0
-        with:
-          context: ${{ steps.resolve.outputs.context }}
-          file: ${{ steps.resolve.outputs.dockerfile }}
-          platforms: linux/amd64
-          push: true
-          provenance: false
-          tags: |
-            ghcr.io/${{ steps.resolve.outputs.image_owner }}/${{ steps.resolve.outputs.image_prefix }}-${{ steps.resolve.outputs.service_id }}:latest
-            ghcr.io/${{ steps.resolve.outputs.image_owner }}/${{ steps.resolve.outputs.image_prefix }}-${{ steps.resolve.outputs.service_id }}:${{ github.sha }}
-
-      - name: Notify infra deploy
-        if: steps.resolve.outputs.notify_deploy == 'true'
-        env:
-          DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-          INFRA_REPO: ${{ inputs.infra_github_repo }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DISPATCH_TOKEN}" ]; then
-            echo "ERROR: DEPLOY_DISPATCH_TOKEN is not set on this repo" >&2
-            echo "Apply the OpenTofu foundation root to provision repository dispatch secrets." >&2
-            exit 1
-          fi
-          HTTP=$(curl -sS -o /tmp/dispatch-body.txt -w "%{http_code}" -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${INFRA_REPO}/dispatches" \
-            -d "{\"event_type\":\"deploy-service\",\"client_payload\":{\"id\":\"${{ steps.resolve.outputs.service_id }}\",\"image_tag\":\"${{ github.sha }}\"}}")
-          if [ "${HTTP}" -ge 200 ] && [ "${HTTP}" -lt 300 ]; then
-            echo "Dispatched deploy-service for ${{ steps.resolve.outputs.service_id }}@${{ github.sha }}"
-            exit 0
-          fi
-          echo "Deploy dispatch failed (HTTP ${HTTP}):" >&2
-          cat /tmp/dispatch-body.txt >&2
-          if [ "${HTTP}" = "403" ]; then
-            echo "Set DEPLOY_DISPATCH_TOKEN on this repo (GITHUB_TOKEN_SUPER PAT with repo scope)." >&2
-          fi
-          exit 1
-
-  vault:
-    timeout-minutes: 20
-    needs: [changes, vault-state, deploy-preflight]
-    if: |
-      always() &&
-      needs.deploy-preflight.result == 'success' &&
-      github.ref == 'refs/heads/main' &&
-      (
-        needs.changes.outputs.vault == 'true' ||
-        inputs.unseal_only == true ||
-        needs.vault-state.outputs.bootstrap == 'true'
-      )
-    runs-on: ubuntu-latest
-    concurrency:
-      group: vault-${{ github.ref }}
-      cancel-in-progress: false
-    env:
-      VAULT_ADDR: https://vault.chrisvouga.dev
-      VAULT_HOSTNAME: vault.chrisvouga.dev
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      DB_CONNECTION_URI: ${{ secrets.DB_CONNECTION_URI }}
-      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-      GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-      GITHUB_TOKEN: ${{ github.token }}
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
+  publish:
+    name: Publish
+    if: inputs.service_id != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      service_id: ${{ inputs.service_id }}
+      dockerfile: ${{ inputs.dockerfile }}
+      context: ${{ inputs.context }}
+      image_owner: ${{ inputs.image_owner }}
+      image_prefix: ${{ inputs.image_prefix }}
+      infra_github_repo: ${{ inputs.infra_github_repo }}
+      notify_deploy: ${{ inputs.notify_deploy }}
+    secrets:
       DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-
-      - uses: docker/setup-buildx-action@v4.0.0
-        if: inputs.unseal_only != true
-
-      - name: Log in to ghcr.io
-        if: inputs.unseal_only != true
-        uses: docker/login-action@v4.1.0
-        with:
-          registry: ghcr.io
-          username: crvouga
-          password: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-
-      - name: Build and push
-        if: inputs.unseal_only != true
-        uses: docker/build-push-action@v7.2.0
-        with:
-          context: packages/vault-service
-          file: packages/vault-service/Dockerfile
-          platforms: linux/amd64
-          push: true
-          provenance: false
-          labels: |
-            org.opencontainers.image.source=https://github.com/crvouga/workspace
-            org.opencontainers.image.description=Standalone OpenBao vault for chrisvouga.dev
-          tags: |
-            ghcr.io/crvouga/chrisvouga-vault:latest
-            ghcr.io/crvouga/chrisvouga-vault:${{ github.sha }}
-
-      - uses: ./.github/actions/tofu
-        if: inputs.unseal_only != true
-        with:
-          root: foundation
-          vault_image_tag: ${{ github.sha }}
-      - uses: ./.github/actions/tofu
-        with:
-          root: bootstrap
-      - uses: ./.github/actions/tofu
-        with:
-          root: vault
-      - name: Health-check vault
-        run: bun run health-check --id vault
-
-  # Fleet deploy: resolve → OpenTofu foundation/bootstrap/vault → OpenTofu fleet → health-check-all
-  deploy-prepare:
-    needs: [changes, check, vault, publish, publish-plan, deploy-preflight]
-    if: |
-      always() &&
-      needs.changes.outputs.deploy == 'true' &&
-      needs.deploy-preflight.result == 'success' &&
-      (needs.check.result == 'success' || needs.check.result == 'skipped') &&
-      (needs.vault.result == 'success' || needs.vault.result == 'skipped') &&
-      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
-    runs-on: ubuntu-latest
-    outputs:
-      service_ids: ${{ steps.resolve.outputs.service_ids }}
-      image_tag: ${{ steps.resolve.outputs.image_tag }}
-      redeploy: ${{ steps.resolve.outputs.redeploy }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - id: resolve
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_CALL: ${{ needs.changes.outputs.workflow_call }}
-          CLIENT_ID: ${{ github.event.client_payload.id }}
-          CLIENT_IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
-          INPUT_SERVICE_ID: ${{ inputs.service_id }}
-          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
-          PUBLISH_RESULT: ${{ needs.publish.result }}
-          PUBLISH_TARGETS: ${{ needs.publish-plan.outputs.service_ids }}
-        run: |
-          set -euo pipefail
-          # A monorepo publish in this run redeploys exactly the services it built.
-          if [ "${PUBLISH_RESULT}" = "success" ] && [ "${WORKFLOW_CALL}" != "true" ]; then
-            SERVICE_IDS="${PUBLISH_TARGETS}"
-            TAG="${GITHUB_SHA}"
-            REDEPLOY=true
-          else
-            SID="${CLIENT_ID:-${INPUT_SERVICE_ID:-}}"
-            if [ -n "${SID}" ]; then
-              SERVICE_IDS="$(bun run packages/infra/scripts/list-deploy-service-ids.ts --id "${SID}")"
-            else
-              SERVICE_IDS="$(bun run packages/infra/scripts/list-deploy-service-ids.ts)"
-            fi
-            TAG="${CLIENT_IMAGE_TAG:-${INPUT_IMAGE_TAG:-latest}}"
-            REDEPLOY=false
-            if [ "${EVENT_NAME}" = "repository_dispatch" ] || \
-               [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-              REDEPLOY=true
-            fi
-          fi
-
-          {
-            echo "service_ids=${SERVICE_IDS}"
-            echo "image_tag=${TAG}"
-            echo "redeploy=${REDEPLOY}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Deploy: services=${SERVICE_IDS} image_tag='${TAG}' redeploy=${REDEPLOY}"
-
-  deploy-reconcile:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [deploy-prepare]
-    if: always() && needs.deploy-prepare.result == 'success'
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - uses: ./.github/actions/tofu
-        with:
-          root: foundation
-      - uses: ./.github/actions/tofu
-        with:
-          root: bootstrap
-      - uses: ./.github/actions/tofu
-        with:
-          root: vault
-
-  deploy-railway:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [deploy-prepare, deploy-reconcile]
-    if: always() && needs.deploy-prepare.result == 'success' && needs.deploy-reconcile.result == 'success'
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - uses: ./.github/actions/tofu
-        with:
-          root: fleet
-          service_ids: ${{ needs.deploy-prepare.outputs.service_ids }}
-          image_tag: ${{ needs.deploy-prepare.outputs.redeploy == 'true' && needs.deploy-prepare.outputs.image_tag || '' }}
-
-  health-check-all:
-    runs-on: ubuntu-latest
-    needs: [deploy-prepare, deploy-reconcile, deploy-railway]
-    if: |
-      always() &&
-      needs.deploy-prepare.result == 'success' &&
-      needs.deploy-reconcile.result == 'success' &&
-      (needs.deploy-railway.result == 'success' || needs.deploy-railway.result == 'skipped')
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run packages/infra/scripts/print-platform-env.ts --format github >> "$GITHUB_ENV"
-      - name: Health-check all public services
-        # Always-on services can still return gateway errors during deployment.
-        # Allow two minutes of retries for writer drain, lock handoff and restore.
-        run: bun run health-check --all-public --retries 24 --retry-delay-ms 5000
-
-  smoke:
-    runs-on: ubuntu-latest
-    needs:
-      [
-        changes,
-        vault-state,
-        deploy-preflight,
-        check,
-        vault,
-        publish,
-        deploy-prepare,
-        deploy-reconcile,
-        deploy-railway,
-        health-check-all,
-      ]
-    # Production smoke follows health checks on pushes and production
-    # dispatches; never probe production from PRs or sibling publish calls.
-    # Sibling calls keep the caller's event_name, so use the changes output.
-    if: |
-      always() &&
-      github.event_name != 'pull_request' &&
-      needs.changes.outputs.workflow_call != 'true' &&
-      needs.changes.result == 'success' &&
-      (needs.vault-state.result == 'success' || needs.vault-state.result == 'skipped') &&
-      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped') &&
-      (needs.check.result == 'success' || needs.check.result == 'skipped') &&
-      (needs.vault.result == 'success' || needs.vault.result == 'skipped') &&
-      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
-      (needs.deploy-prepare.result == 'success' || needs.deploy-prepare.result == 'skipped') &&
-      (needs.deploy-reconcile.result == 'success' || needs.deploy-reconcile.result == 'skipped') &&
-      (needs.deploy-railway.result == 'success' || needs.deploy-railway.result == 'skipped') &&
-      (needs.health-check-all.result == 'success' || needs.health-check-all.result == 'skipped')
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - name: Import Vault secrets (prd)
-        uses: ./.github/actions/turborepo-vault-secrets
-        with:
-          vault_config: prd
-      - name: Smoke test remote cache
-        env:
-          CI: true
-          GITHUB_ACTIONS: true
-          VAULT_CONFIG: prd
-          VAULT_PROJECT: personal
-        run: bun run --filter @pkgs/turborepo-remote-cache smoke
-
-  ci-result:
-    name: CI result
-    if: always()
-    needs:
-      [changes, vault-state, deploy-preflight, check, portfolio-health-check, publish-plan, refresh-github-insights, vault, publish, deploy-prepare, deploy-reconcile, deploy-railway, health-check-all, smoke, Required]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Report failed and cancelled stages
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          set -euo pipefail
-          {
-            echo '## CI results'
-            echo
-            echo '| Stage | Result |'
-            echo '| --- | --- |'
-            jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<< "$RESULTS"
-          } >> "$GITHUB_STEP_SUMMARY"
-          bad="$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | "\(.key)=\(.value.result)"' <<< "$RESULTS")"
-          if [ -n "$bad" ]; then
-            echo "::error title=CI failed::${bad//$'\n'/, }. Deployment cannot proceed; open the failed stage for diagnostics."
-            exit 1
-          fi
+      CALLER_GITHUB_TOKEN: ${{ secrets.CALLER_GITHUB_TOKEN }}

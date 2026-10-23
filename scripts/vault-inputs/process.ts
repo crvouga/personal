@@ -16,7 +16,7 @@ export async function run(
     cmd,
     cwd: options.cwd,
     env: { ...process.env, ...options.env },
-    stdin: 'inherit',
+    stdin: options.capture ? 'ignore' : 'inherit',
     stdout: options.capture ? 'pipe' : 'inherit',
     stderr: options.quiet ? 'ignore' : 'inherit',
   });

@@ -1,6 +1,6 @@
 # {{infraRepo}} — shared infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/ci.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: {{siteGuideUrl}}
 
@@ -480,7 +480,7 @@ Caller secrets: `{{dispatchSecret}}` (the OpenTofu-managed platform PAT, used to
 2. It sends `repository_dispatch` `{{dispatchEvent}}` with `{"id": "<id>", "image_tag": "<sha>"}` to `{{infraRepo}}`.
 3. `{{infraRepo}}` CI applies OpenTofu DNS / Railway resources from `OpenTofu inventory`, syncs the declared Vault secrets into the service, deploys the image at that SHA, and health-checks `https://<hostname><health_path>`.
 
-Check it: `gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`, then `curl -fsS https://<hostname><health_path>`. Never redeploy from the Railway dashboard; a human can redeploy with `gh workflow run ci.yml -R {{infraRepo}} -f service_id=<id> -f image_tag=<sha>`.
+Check it: `gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`, then `curl -fsS https://<hostname><health_path>`. Never redeploy from the Railway dashboard; a human can redeploy with `gh workflow run deploy.yml -R {{infraRepo}} -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
 ### Current fleet
 
@@ -496,7 +496,7 @@ Working examples to copy from — each links to its source repo:
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `vault run`: `No value found at {{kvMount}}/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
 | `vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
-| Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run ci.yml -R {{infraRepo}} -f unseal_only=true` |
+| Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R {{infraRepo}} -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: {{vaultAddr}}`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |
 | Turbo: 401 from cache                          | `TURBO_TOKEN` missing or wrong in that environment                                                                             |
@@ -520,13 +520,13 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R {
 4. **Publish workflow.** If the issue says it is not committed yet, `{{script:infra}} apply` generates it (ask the human before pushing to another repo).
 5. **Portfolio.** When the issue asks for a listing, add a `Project` to {{path:packages/portfolio/src/content/projects/entries-part-2.ts}} (main list; append at the end) or {{path:packages/portfolio/src/content/projects/entries-archive.ts}} (archive), following {{path:packages/portfolio/src/content/projects/types.ts}}: `deployment: { t: 'public', url: 'https://<hostname>' }`, `code`, `description`, `topics` from {{path:packages/portfolio/src/content/topic.ts}}, and `imageSrc` / `galleryImageSrc` set to `/<id>-screenshot.optimized.webp`. Once the service is live, the human runs `bun run --filter @pkgs/portfolio gen` locally to capture the screenshot into `assets/` and its optimized derivative into `public/` (Playwright; never in CI) — commit both.
 6. **Regenerate and check.** `{{script:llms:sync}}` (the fleet table changes), then `bun run check`.
-7. **Ship.** Open the PR with `Closes #<issue>` in the body. After merge, watch CI (`gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`), confirm `curl -fsS https://<hostname><health_path>`, and comment the live URL on the issue. If the deploy failed only because the entry was missing, redeploy with `gh workflow run ci.yml -R {{infraRepo}} -f service_id=<id> -f image_tag=<sha>`.
+7. **Ship.** Open the PR with `Closes #<issue>` in the body. After merge, watch CI (`gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`), confirm `curl -fsS https://<hostname><health_path>`, and comment the live URL on the issue. If the deploy failed only because the entry was missing, redeploy with `gh workflow run deploy.yml -R {{infraRepo}} -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
 ---
 
 ## Maintaining this file (agents working inside `{{infraRepo}}`)
 
-`llms.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-txt.template.md}}; values, tables and the publish workflow come from {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}, {{path:.github/workflows/ci.yml}}, {{path:packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts}} and {{path:packages/infra/lib/publish-workflow.ts}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
+`llms.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-txt.template.md}}; values, tables and the publish workflow come from {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}, {{path:.github/workflows/publish.yml}} and {{path:.github/workflows/deploy.yml}}, {{path:packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts}} and {{path:packages/infra/lib/publish-workflow.ts}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
 
 
 ## Shared Google authentication relay (preproduction)
