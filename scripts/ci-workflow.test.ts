@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { parse } from 'yaml';
 const read = (path: string) =>
   parse(readFileSync(join(import.meta.dirname, '..', path), 'utf8'));
@@ -76,6 +77,35 @@ test('deployment requires successful checks on a main push and cannot cancel act
   );
   expect(smoke.with.optional).not.toBe('true');
   expect(steps[index('Smoke test')]['continue-on-error']).not.toBe(true);
+});
+
+test('deployment runs after optional Fleet skips but refuses failed, skipped or cancelled gates', () => {
+  const condition = workflow.jobs.deploy.if;
+  // GitHub otherwise inserts success(), which includes skipped ancestors even
+  // when the direct Check and Fleet gates both succeeded.
+  expect(condition).toContain('!cancelled()');
+  for (const check of ['success', 'failure', 'skipped', 'cancelled'])
+    for (const fleet of ['success', 'failure', 'skipped', 'cancelled'])
+      for (const cancelled of [false, true])
+        for (const event of ['push', 'pull_request', 'workflow_dispatch'])
+          for (const ref of ['refs/heads/main', 'refs/heads/feature'])
+            for (const serviceId of ['', 'portfolio']) {
+              const actual = runInNewContext(condition, {
+                cancelled: () => cancelled,
+                success: () => false,
+                needs: { check: { result: check }, fleet: { result: fleet } },
+                github: { event_name: event, ref },
+                inputs: { service_id: serviceId },
+              });
+              expect(actual).toBe(
+                !cancelled &&
+                  check === 'success' &&
+                  fleet === 'success' &&
+                  event === 'push' &&
+                  ref === 'refs/heads/main' &&
+                  serviceId === ''
+              );
+            }
 });
 
 test('health remains read-only and repair runs only through an explicit main-branch manual task', () => {

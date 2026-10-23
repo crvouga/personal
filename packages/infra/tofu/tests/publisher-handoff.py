@@ -120,6 +120,12 @@ locals {{ application_repositories = jsondecode({json.dumps(json.dumps({"mocking
         retired = (tofu_root / "foundation/retired.tf").read_text()
         handoff = retired[retired.index('moved {\n  from = github_repository_file.publish["mockingbird"]'):]
         (root / "main.tf").write_text(config + resource + "\n" + publisher.replace('{ mockingbird = true }', '{}') + move + "\n" + handoff)
+        # Include the production import configuration: a stale import can point
+        # at the publisher being handed off even when moved/removed are correct.
+        imports = json.loads((tofu_root / "foundation/imports.tf.json").read_text())["import"]
+        (root / "imports.tf.json").write_text(json.dumps({"import": [
+            entry for entry in imports if entry["to"] == 'github_repository_file.publish["mockingbird"]'
+        ]}))
         run(root, "plan", "-input=false", "-out=handoff.tfplan")
         plan = json.loads(run(root, "show", "-json", "handoff.tfplan"))
         changes = {row["address"]: row for row in plan["resource_changes"]}
