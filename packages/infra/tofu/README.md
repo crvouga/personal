@@ -206,12 +206,23 @@ continue to update only the saved Vault inputs.
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
 
-The shared CI OpenTofu action retries planning up to three times only when every
-error is a Cloudflare GET returning HTTP 429 or 5xx. Backoff starts at two minutes
-and doubles, honoring a response's longer `retry_after` up to ten minutes. A
-failed attempt's saved plan is removed. Other errors fail immediately; exhausted
-retries still fail deployment. The successful saved plan is displayed and then
-applied once. Apply failures are never replayed automatically.
+Production CI verifies access to the adopted Railway project with a targeted,
+refresh-only OpenTofu plan before core checks, image builds or Vault deployment.
+The probe cannot apply changes and has a two-minute timeout (five minutes for
+setup plus the probe). Failed preflight blocks publication, deployment and smoke;
+PR checks and sibling image publishing do not need production credentials.
+
+The shared CI OpenTofu action makes at most three plan attempts, retrying only
+when every diagnostic is a recognized temporary read failure: Cloudflare GET
+429/5xx, PostgreSQL connection-slot exhaustion, or a dropped database connection.
+Authorization, configuration, unknown and mixed failures stop after one attempt.
+Backoff starts at 15 seconds and doubles; Cloudflare `retry_after` is honored up
+to two minutes, and a longer hint stops retries. State-lock acquisition waits at
+most 30 seconds. Each failed plan is deleted; only the successful saved plan is
+displayed and applied once. Apply failures are never replayed automatically.
+Terminal plan failures emit a GitHub error annotation and job summary; the CI
+result job lists failed/cancelled stages instead of leaving a chain of skipped
+jobs as the only deployment signal.
 
 ### New application namespace allocation
 

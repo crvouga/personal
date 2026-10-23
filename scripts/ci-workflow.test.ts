@@ -145,3 +145,101 @@ for (const [dispatch, caller, expected] of [
     }
   });
 }
+
+test('production deployment credentials are checked before checks, builds and mutations', () => {
+  const preflight = workflow.jobs['deploy-preflight'];
+  expect(dependencies('deploy-preflight').has('check')).toBe(false);
+  expect(preflight.if).toContain(
+    "needs.changes.outputs.workflow_call != 'true'"
+  );
+  expect(preflight.if).toContain("github.ref == 'refs/heads/main'");
+  expect(preflight['timeout-minutes']).toBe(5);
+  const prepare = preflight.steps.find(
+    (step: { uses?: string }) => step.uses === './.github/actions/tofu'
+  );
+  expect(prepare.with).toEqual({ root: 'foundation', mode: 'prepare' });
+  const probe = preflight.steps.find((step: { run?: string }) =>
+    step.run?.includes('-refresh-only')
+  );
+  expect(probe['timeout-minutes']).toBe(2);
+  expect(probe.run).toContain('-target=railway_project.workspace');
+  expect(probe.run).toContain('-lock=false -parallelism=1');
+  expect(probe.run).not.toMatch(/\bapply\b|\bmutation\b/);
+  for (const name of ['check', 'publish', 'vault', 'deploy-prepare', 'smoke']) {
+    expect(workflow.jobs[name].needs).toContain('deploy-preflight');
+    expect(workflow.jobs[name].if).toContain(
+      "needs.deploy-preflight.result == 'success'"
+    );
+  }
+});
+
+test('CI result fails loudly for failed or cancelled stages and reports their names', () => {
+  const job = workflow.jobs['ci-result'];
+  expect(job.if).toBe('always()');
+  for (const name of [
+    'deploy-preflight',
+    'check',
+    'publish',
+    'deploy-reconcile',
+    'deploy-railway',
+    'smoke',
+  ])
+    expect(job.needs).toContain(name);
+  const step = job.steps[0];
+  const directory = mkdtempSync(join(tmpdir(), 'ci-result-'));
+  try {
+    for (const status of ['success', 'skipped', 'failure', 'cancelled']) {
+      const summary = join(directory, status);
+      const result = Bun.spawnSync(['bash', '-c', step.run], {
+        env: {
+          ...process.env,
+          GITHUB_STEP_SUMMARY: summary,
+          RESULTS: JSON.stringify({ 'deploy-preflight': { result: status } }),
+        },
+      });
+      expect(result.exitCode).toBe(
+        ['failure', 'cancelled'].includes(status) ? 1 : 0
+      );
+      expect(readFileSync(summary, 'utf8')).toContain(
+        `| deploy-preflight | ${status} |`
+      );
+      if (result.exitCode)
+        expect(result.stdout.toString()).toContain(
+          `::error title=CI failed::deploy-preflight=${status}`
+        );
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('cheap validation runs before provider and browser setup without dropping any core checks', () => {
+  const steps = workflow.jobs.check.steps;
+  const position = (name: string) =>
+    steps.findIndex(
+      (step: { name?: string; uses?: string }) =>
+        step.name === name || step.uses === name
+    );
+  expect(position('Fast repository checks')).toBeLessThan(
+    position('opentofu/setup-opentofu@v1')
+  );
+  expect(position('Typecheck and lint packages')).toBeLessThan(
+    position('opentofu/setup-opentofu@v1')
+  );
+  expect(position('Validate and test OpenTofu')).toBeLessThan(
+    position('Install Chromium (portfolio resume PDF)')
+  );
+  const runs = steps.map((step: { run?: string }) => step.run ?? '').join('\n');
+  for (const command of [
+    'bun install --frozen-lockfile',
+    'bun run ci:format',
+    'bun run check:agents',
+    'bun run check:llms',
+    'bun run check:scripts',
+    'bun run check:infra',
+    'bunx turbo run tc lint',
+    'bunx turbo run test build',
+  ])
+    expect(runs).toContain(command);
+  expect(workflow.jobs.check.env.TURBO_CACHE).toBe('local:rw');
+});
