@@ -236,7 +236,8 @@ PR checks and sibling image publishing do not need production credentials.
 
 The shared CI OpenTofu action makes at most three plan attempts, retrying only
 when every diagnostic is a recognized temporary read failure: Cloudflare GET
-429/5xx, PostgreSQL connection-slot exhaustion, or a dropped database connection.
+429/5xx, PostgreSQL connection-slot exhaustion, a dropped database connection,
+or an Atlas inspection TCP read timeout.
 Authorization, configuration, unknown and mixed failures stop after one attempt.
 Backoff starts at 15 seconds and doubles; Cloudflare `retry_after` is honored up
 to two minutes, and a longer hint stops retries. State-lock acquisition waits at
