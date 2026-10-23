@@ -403,6 +403,9 @@ jobs:
       (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
+      TURBO_CACHE: local:rw
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -410,6 +413,28 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      # The deploy's vault plan rejects a TOFU_VAULT_INPUTS secret that lacks a
+      # required field. Fail the change that can introduce one (inventory or the
+      # vault root); elsewhere only warn, so a stale secret does not block
+      # unrelated work, including the change that repairs it.
+      - name: Check TOFU_VAULT_INPUTS against the inventory
+        env:
+          VAULT_INPUTS_STRICT: ${{ needs.changes.outputs.vault_inputs }}
+        run: bun run check:vault-inputs
+      - name: Fast repository checks
+        run: bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts
+      - name: Typecheck and lint packages
+        run: bunx turbo run tc lint
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.13.0
+          tofu_wrapper: false
+      # The fleet-api tests apply packages/fleet-api/schema.hcl to a throwaway
+      # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
+      # under /usr/lib/postgresql/16/bin).
+      - uses: ariga/setup-atlas@v0
+      - name: Validate and test OpenTofu
+        run: bun run check:infra
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -419,27 +444,8 @@ jobs:
         run: |
           cd packages/portfolio
           node node_modules/playwright/cli.js install --with-deps chromium
-      - uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: 1.13.0
-          tofu_wrapper: false
-      # The fleet-api tests apply packages/fleet-api/schema.hcl to a throwaway
-      # PostgreSQL with `atlas schema apply` (ubuntu-latest ships PostgreSQL 16
-      # under /usr/lib/postgresql/16/bin).
-      - uses: ariga/setup-atlas@v0
-      # The deploy's vault plan rejects a TOFU_VAULT_INPUTS secret that lacks a
-      # required field. Fail the change that can introduce one (inventory or the
-      # vault root); elsewhere only warn, so a stale secret does not block
-      # unrelated work, including the change that repairs it.
-      - name: Check TOFU_VAULT_INPUTS against the inventory
-        env:
-          VAULT_INPUTS_STRICT: ${{ needs.changes.outputs.vault_inputs }}
-        run: bun run check:vault-inputs
-      - name: Turbo CI (format, tc, lint, test, build)
-        run: bun run check
-        env:
-          TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
-          TURBO_CACHE: local:rw
+      - name: Test and build packages
+        run: bunx turbo run test build
 
   secret-integrations:
     needs: [changes, vault]

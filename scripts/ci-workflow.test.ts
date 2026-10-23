@@ -212,3 +212,34 @@ test('CI result fails loudly for failed or cancelled stages and reports their na
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('cheap validation runs before provider and browser setup without dropping any core checks', () => {
+  const steps = workflow.jobs.check.steps;
+  const position = (name: string) =>
+    steps.findIndex(
+      (step: { name?: string; uses?: string }) =>
+        step.name === name || step.uses === name
+    );
+  expect(position('Fast repository checks')).toBeLessThan(
+    position('opentofu/setup-opentofu@v1')
+  );
+  expect(position('Typecheck and lint packages')).toBeLessThan(
+    position('opentofu/setup-opentofu@v1')
+  );
+  expect(position('Validate and test OpenTofu')).toBeLessThan(
+    position('Install Chromium (portfolio resume PDF)')
+  );
+  const runs = steps.map((step: { run?: string }) => step.run ?? '').join('\n');
+  for (const command of [
+    'bun install --frozen-lockfile',
+    'bun run ci:format',
+    'bun run check:agents',
+    'bun run check:llms',
+    'bun run check:scripts',
+    'bun run check:infra',
+    'bunx turbo run tc lint',
+    'bunx turbo run test build',
+  ])
+    expect(runs).toContain(command);
+  expect(workflow.jobs.check.env.TURBO_CACHE).toBe('local:rw');
+});
