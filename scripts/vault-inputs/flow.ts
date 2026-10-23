@@ -15,12 +15,12 @@ import {
   legacyPresent,
   parseVaultInputs,
   withFills,
-  TOFU_VAULT_INPUTS_ADDRESS,
   unexpectedChanges,
-  updatesVaultInputs,
+  updatesSecrets,
 } from './model';
 import { confirm } from './prompt';
 import { capture, run } from './process';
+import { repairInputs } from './rotation';
 
 const repo = join(import.meta.dirname, '../..');
 const foundation = join(repo, 'packages/infra/tofu/foundation');
@@ -83,17 +83,32 @@ async function initialize(env: Record<string, string>) {
 async function planAndApply(
   env: Record<string, string>,
   inputsJson: string,
-  { dryRun, unattended }: { dryRun: boolean; unattended: boolean }
+  {
+    dryRun,
+    unattended,
+    fromVault,
+    live,
+  }: {
+    dryRun: boolean;
+    unattended: boolean;
+    fromVault: string[];
+    live: Record<string, string>;
+  }
 ): Promise<boolean> {
   const tofu = (args: string[]) => ['tofu', `-chdir=${foundation}`, ...args];
-  const planEnv = { ...env, TF_VAR_vault_inputs: inputsJson };
+  const { env: planEnv, addresses } = repairInputs(
+    env,
+    inputsJson,
+    fromVault,
+    live
+  );
   try {
     const planned = await run(
       tofu([
         'plan',
         '-input=false',
         '-parallelism=1',
-        `-target=${TOFU_VAULT_INPUTS_ADDRESS}`,
+        ...addresses.map((address) => `-target=${address}`),
         `-out=${PLAN}`,
       ]),
       { env: planEnv }
@@ -104,14 +119,14 @@ async function planAndApply(
     });
     if (!shown) fail('Could not read the saved plan.');
     const plan = JSON.parse(shown);
-    const extra = unexpectedChanges(plan);
+    const extra = unexpectedChanges(plan, addresses);
     if (extra.length) {
       console.log(`\n! The plan also changes:\n  ${extra.join('\n  ')}`);
       if (unattended) fail('Refusing to apply unrelated changes unattended.');
       if (!(await confirm('Apply these as well?', false))) fail('Stopped.');
     }
-    if (!updatesVaultInputs(plan)) {
-      console.log('\n✓ TOFU_VAULT_INPUTS already matches; nothing to apply.');
+    if (!updatesSecrets(plan, addresses)) {
+      console.log('\n✓ Requested secrets already match; nothing to apply.');
       return false;
     }
     if (dryRun) {
@@ -120,9 +135,7 @@ async function planAndApply(
     }
     if (
       !unattended &&
-      !(await confirm(
-        '\nApply this plan (updates the TOFU_VAULT_INPUTS secret)?'
-      ))
+      !(await confirm(`\nApply this plan (updates ${addresses.join(', ')})?`))
     )
       fail('Stopped before apply.');
     const applied = await run(
@@ -194,7 +207,12 @@ export async function fixVaultInputs({
   console.log(`  remove: ${removed.join(', ') || '—'}`);
   if (!(await confirm('Plan this change?'))) fail('Stopped.');
 
-  return planAndApply(env, JSON.stringify(next), { dryRun, unattended: false });
+  return planAndApply(env, JSON.stringify(next), {
+    dryRun,
+    unattended: false,
+    fromVault,
+    live,
+  });
 }
 
 /**
@@ -239,6 +257,8 @@ export async function fixVaultInputsUnattended(
     {
       dryRun,
       unattended: true,
+      fromVault,
+      live,
     }
   );
 }

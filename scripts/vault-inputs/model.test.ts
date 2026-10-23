@@ -10,7 +10,7 @@ import {
   adoptLive,
   TOFU_VAULT_INPUTS_ADDRESS,
   unexpectedChanges,
-  updatesVaultInputs,
+  updatesSecrets,
   withFills,
 } from './model';
 
@@ -106,8 +106,8 @@ test('accepts a plan that only updates the vault inputs secret', () => {
       plan([secret, { address: 'a', change: { actions: ['no-op'] } }])
     )
   ).toEqual([]);
-  expect(updatesVaultInputs(plan([secret]))).toBe(true);
-  expect(updatesVaultInputs(plan([]))).toBe(false);
+  expect(updatesSecrets(plan([secret]))).toBe(true);
+  expect(updatesSecrets(plan([]))).toBe(false);
   expect(unexpectedChanges(plan([secret, other]))).toEqual([
     'railway_service.x: delete + create',
   ]);
@@ -144,6 +144,17 @@ test('adopts live Vault values over existing fields', () => {
     removed: [],
     changed: ['dev.GOOGLE_OAUTH_CLIENT_ID'],
   });
+});
+
+test('explicitly adopts optional manual fields without making them required', () => {
+  const fills = adoptLive(keys, ['OPTIONAL'], { OPTIONAL: 'rotated' });
+  expect(fills).toEqual([
+    { config: 'dev', name: 'OPTIONAL', value: 'rotated' },
+    { config: 'prd', name: 'OPTIONAL', value: 'rotated' },
+  ]);
+  expect(
+    findGaps(base({}, {}), keys).some((gap) => gap.name === 'OPTIONAL')
+  ).toBe(false);
 });
 
 test('refuses to adopt generated, unknown or missing fields', () => {
