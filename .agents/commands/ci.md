@@ -1,166 +1,63 @@
 ---
 name: ci
-description: Run the local check gate, commit and push, then watch every CI job on GitHub Actions and fix failures until the run is green.
+description: Run local checks, publish through a PR, and watch the complete CI run.
 ---
 
 <!-- Canonical file; harness copies are symlinks (`bun run agents:sync`). -->
 
 # Check & CI
 
-End-to-end loop for this monorepo. **Do not stop until every step succeeds.**
-If any step fails, fix it and restart from the failed gate (re-run local checks
-after code fixes).
+Run `bun run check:ci && bun run typecheck`. Fix failures and repeat. Optional
+Vault integrations report unavailable credentials without suppressing core
+formatting, lint, typecheck, test, build or OpenTofu checks.
 
-```
-Local checks → Commit & push → Watch GitHub Actions → Done
-     ↑______________ fix & loop on any failure ______________|
-```
+Use `/pr-ready` to commit, push and land through the protected merge queue.
+Never push main directly, weaken checks, commit secrets or patch dependencies.
 
-## The loop (required order)
+After publishing, watch the complete run for that commit:
 
-### 1. Local checks
-
-```bash
-bun run check:ci && bun run typecheck
+```sh
+bun run gh:ci:watch
+bun run gh:ci:status
+bun run gh:ci:log
 ```
 
-Runs, in order:
+A green local check is not green CI. Main-branch CI includes the called Deploy
+workflow, so keep watching through image publication, OpenTofu and production
+smoke tests. Fix failures locally, rerun checks, commit and publish again.
+Report unavailable credentials or infrastructure access precisely; never turn
+an unavailable check into a pass.
 
-1. `bun install --frozen-lockfile` — lockfile in sync with `package.json`
-2. Attempt a bounded Vault `dev` read; unavailable credentials produce a skip notice.
-3. Run optional secret integration probes; missing, malformed or rejected credentials skip only their dependent checks.
-4. Run `bun check` with local caching — formatting, OpenTofu validation and package checks always run. Portfolio uses its committed snapshot when live credentials are unavailable.
-5. `bun run typecheck` — root `tsc` (includes `packages/workstation`)
+| Workflow     | Responsibility                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| CI           | Check; conditional Nix and installer tests; installer release; Fleet gate; successful main pushes call Deploy |
+| Deploy       | One ordered production job: credential preflight, images, OpenTofu, readiness, smoke                          |
+| Maintenance  | Read-only Health, scheduled Update, explicitly manual Repair                                                  |
+| Publish      | Reusable single-image publisher for application repositories                                                  |
+| Runner check | Reusable project toolchain on trusted runners or hosted fallback                                              |
+| Fleet enroll | Owner-approved issue enrollment with a workflow-bound Vault identity                                          |
 
-CI's independent `secret-integrations` job reports credential issues without blocking `check` or `Required`. Core lint, typecheck, test and build failures remain blocking. Required credentials and smoke checks for the active production deployment still fail that deployment.
+CI runs on every PR and merge-queue entry, including documentation-only
+changes. Check is the main validation status; Fleet covers platform tests and
+required cache/release publication. Required temporarily covers Check and Fleet while
+the OpenTofu-owned ruleset migrates. Remove it only after the live ruleset
+requires Check and Fleet and both have passed in the queue.
 
-**On failure:** fix in the order reported, re-run `bun run check:ci && bun run typecheck`,
-repeat until green. Then go to step 2.
+Optional secret integrations are nonblocking steps in Check. An active
+production deployment still requires its own credentials and smoke test.
 
-| Failure           | Fix                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Lockfile mismatch | `bun install`, then re-check                                                                                        |
-| Prettier          | `bun run format` (or `bunx prettier --write <file>`), then re-check                                                 |
-| `tc`              | Fix TS in the named package (`tsconfig.strict.json` for turborepo + `@pkgs/*` libs; `@pkgs/infra` uses root config) |
-| `lint`            | Package eslint (`--max-warnings 0`); shared rules in `packages/eslint-rules`                                        |
-| `test`            | Fix assertion (`bun test`)                                                                                          |
-| `build`           | `@pkgs/turborepo-remote-cache` is `test -f Dockerfile`; `@pkgs/portfolio` needs `PORTFOLIO_GITHUB_TOKEN` via Vault  |
+Manual production operations use `gh workflow run deploy.yml -f action=<name>`:
+`release` builds local images; `deploy` redeploys an existing image; `auth`
+runs the staged auth rollout; `unseal` applies bootstrap without rebuilding
+Vault; `smoke` only probes the remote cache. Deploy/release accept an optional
+`service_id`; deploy also accepts `image_tag`. Production operations require main.
 
-A green local run is **not** done — local `check` does not cover CI `publish` /
-`vault` / `deploy` (Docker, Railway, DNS).
+Maintenance accepts `task=health|domains|snapshot|dependencies|vault-inputs`.
+Health/domain reporting never applies infrastructure. Secret repair uses the
+existing OpenTofu flow; `dry_run=true` plans without applying and `from_vault`
+selects fields to refresh.
 
-If Vault is down locally, skip `check:ci` and say clearly that Vault-dependent
-gates (secret smoke + portfolio build token) must pass via CI OIDC — then continue
-the loop only for non-secret surfaces you can still exercise.
-
-### 2. Commit & push
-
-Only after local checks are green and the change is good to merge:
-
-1. Inspect: `git status`, `git diff`, `git log --oneline -10`
-2. Stage only intended files — never secrets (`VAULT_TOKEN`, `RAILWAY_TOKEN`, deploy tokens) or generated artifacts
-3. Conventional Commit (subject ≤ 50 chars, lowercase type):
-   - `fix: …` — broken checks / CI
-   - `feat: …` — new behavior
-   - `refactor: …` — non-behavior
-   - `chore: …` — housekeeping  
-     Body only when the why is unclear.
-4. `git add <files> && git commit -m "…"`
-5. `git push` (triggers CI on `main`)
-
-No separate merge — push to `main` **is** the merge. Immediately go to step 3.
-
-If the `main` ruleset is active (`bun run pr:ready ruleset`), direct pushes to
-`main` are rejected — use `/pr-ready` to land the change through a PR instead.
-
-**On failure** (hooks reject commit, push rejected, etc.): fix, re-run local
-checks if code changed, commit again, push again.
-
-### 3. Watch GitHub Actions (all jobs)
-
-```bash
-bun run gh:ci:watch     # block until latest CI run finishes; exit 0 only on success
-bun run gh:ci:status    # recent runs
-bun run gh:ci:log       # failed-step logs if red
-bun run gh:ci           # open Actions in browser
-```
-
-Watch the **full** workflow for the push you just made
-(`changes → vault-state → vault? → check → portfolio-health-check? → publish-plan? → publish? → deploy-prepare → deploy-reconcile → deploy-railway? → health-check-all`), not only the `check` job.
-
-**On failure** (`gh:ci:watch` non-zero):
-
-1. `bun run gh:ci:log` (or `gh run view <id> --log-failed`)
-2. Fix the root cause locally (CI failures count like local failures)
-3. Restart the loop from **step 1** (`check:ci` + typecheck)
-4. Commit, push, `gh:ci:watch` again
-
-**Repeat until the watched run is green.** Never declare done after local green
-or push alone.
-
-| Job / area                 | Typical cause                                             | Where to look                                                                                      |
-| -------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `check` (Vault OIDC)       | Missing/invalid Vault `dev` secrets                       | `vault-secrets-registry.ts`, `check:vault-secrets`                                                 |
-| `publish-plan` / `publish` | `OpenTofu` inventory / Docker / context / `.dockerignore` | `list-publish-service-ids.ts`, `print-publish-inputs.ts`, `packages/*/Dockerfile`, `.dockerignore` |
-| `vault`                    | Image / migrate / unseal                                  | `packages/vault-service/**`                                                                        |
-| `deploy-*`                 | Reconcile / Railway / DNS / health                        | `packages/infra/tofu/modules/inventory/inventory.tf.json`, deploy logs                             |
-| `smoke` (dispatch)         | Prod mid-redeploy                                         | Wait for deploy; smoke waits on `health-check-all` in `ci.yml`                                     |
-
-### 4. Done
-
-Only when:
-
-1. Local `bun run check:ci && bun run typecheck` is green, **and**
-2. Changes are committed and pushed to `main`, **and**
-3. `bun run gh:ci:watch` exited 0 for that push’s CI run.
-
-## Vault-only gates
-
-```bash
-bun run check:vault-secrets        # dev (CI gate)
-bun run check:vault-secrets:prd    # prd (deploy gate)
-```
-
-Needs a Vault session. Registry: `packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts`.
-
-## Helper commands
-
-| Command                       | What it does                            |
-| ----------------------------- | --------------------------------------- |
-| `bun run ci:format`           | `prettier --check .`                    |
-| `bun run ci:install`          | `bun install --frozen-lockfile`         |
-| `bun run tc`                  | `turbo run tc`                          |
-| `bun run typecheck`           | Root `tsc --noEmit`                     |
-| `bun run check:vault-secrets` | Vault `dev`                             |
-| `bun run check:smoke:secrets` | Secret smoke                            |
-| `bun run gh:ci:watch`         | Block until latest CI succeeds or fails |
-| `bun run gh:ci:status`        | List recent CI runs                     |
-| `bun run gh:ci:log`           | Failed-step logs                        |
-
-## CI workflow shape
-
-```
-changes → vault-state → vault? → check → portfolio-health-check? → publish-plan? → publish? → deploy-prepare → deploy-reconcile → deploy-railway? → health-check-all
-```
-
-`.github/workflows/ci.yml` is the **only** workflow. It serves every path:
-
-- `push` on `main` and production dispatches — `vault-state` checks readiness first; if Vault is sealed or unavailable, `vault` deploys and unseals it before checks. PRs never mutate production and use the existing Vault.
-- `workflow_dispatch` — manual `check` / `publish` / vault rebuild / fleet redeploy (`service_id`, `image_tag`)
-- `workflow_call` — sibling repos publish their GHCR image (`service_id`, `dockerfile`, `context`, `image_prefix`); `notify_deploy: true` dispatches the deploy back to infra
-- monorepo pushes publish every service whose `github_repo` is this repo (`publish-plan` → `publish` matrix; currently `portfolio` + `turborepo`) and redeploy exactly those at the pushed SHA
-- `repository_dispatch deploy-service` — sibling publish notify → single-service fleet deploy
-
-Composite actions under `.github/actions/` (`vault-secrets`, `turborepo-vault-secrets`) load Vault secrets via OIDC.
-
-## Hard rules
-
-- Never commit `VAULT_TOKEN`, `RAILWAY_TOKEN`, or deploy tokens.
-- Never disable structural size limits or patch dependencies — refactor instead.
-- Keep `bun.lock` in sync (`bun install` after changing `package.json`).
-- Don’t force-push or amend a pushed commit; create a new commit.
-- **Always:** local checks → commit & push → watch GitHub Actions until green.
-
-## OpenTofu infrastructure
-
-Infrastructure resources are owned exclusively by `packages/infra/tofu`. Validate with `bun run check:infra`. Review plans with `bun run infra plan`, `bun run infra:bootstrap plan`, `bun run infra:vault plan` and `bun run infra:fleet plan`. Import existing resources before applying; see `packages/infra/tofu/README.md`. Apply reviewed saved plans with `-parallelism=1`.
+External callers should use `publish.yml`; the old `ci.yml` publishing
+interface remains compatible. Successful publishers notify `deploy-service`
+with the exact service id and image revision. Application repositories own
+their code and schemas; infrastructure remains exclusively OpenTofu-owned.

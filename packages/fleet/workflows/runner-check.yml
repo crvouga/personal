@@ -1,6 +1,4 @@
 name: Runner check
-run-name: >-
-  Runner check · ${{ github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.head_ref) || format('{0} · {1}', github.repository, github.ref_name) }}
 on:
   workflow_call:
     inputs:
@@ -17,18 +15,18 @@ permissions:
   contents: read
 jobs:
   check:
-    # Fork PRs may use hosted fallback only; pull_request_target never runs on this fleet.
     if: github.event_name != 'pull_request_target' && (inputs.use_github_hosted || (github.event.repository.private && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)))
     runs-on: ${{ inputs.use_github_hosted && 'ubuntu-24.04' || fromJSON('["self-hosted","nixos","ci"]') }}
+    timeout-minutes: 60
     concurrency:
       group: nix-runner-check-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-    timeout-minutes: 60
     steps:
-      # Install only the Nix binary on GitHub-hosted fallback workers; project tools still come from devShell.
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Set up Nix
         if: inputs.use_github_hosted
-      - uses: actions/checkout@v5
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Set fallback cache location
@@ -45,3 +43,4 @@ jobs:
         env:
           CHECK_COMMAND: ${{ inputs.nix_command }}
         run: nix develop --command bash -euo pipefail -c "$CHECK_COMMAND"
+run-name: "Runner check · ${{ github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.head_ref) || format('{0} · {1}', github.repository, github.ref_name) }}"

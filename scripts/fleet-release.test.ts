@@ -6,7 +6,7 @@ import { parse } from 'yaml';
 
 const root = join(import.meta.dirname, '..');
 const workflow = parse(
-  readFileSync(join(root, '.github/workflows/fleet.yml'), 'utf8')
+  readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
 );
 const assets = [
   'fleet-installer.iso.parts.json',
@@ -23,7 +23,7 @@ const assets = [
 function releaseMissing(names: readonly string[], exitCode = 0) {
   const directory = mkdtempSync(join(tmpdir(), 'fleet-release-'));
   const output = join(directory, 'output');
-  const step = workflow.jobs.changes.steps.find(
+  const step = workflow.jobs.check.steps.find(
     (candidate: { id?: string }) => candidate.id === 'release'
   );
   try {
@@ -50,14 +50,14 @@ function releaseMissing(names: readonly string[], exitCode = 0) {
 
 test('a missing release requests a full fleet rebuild on main pushes', () => {
   expect(releaseMissing([], 1)).toBe('missing=true');
-  const recovery = workflow.jobs.changes.steps.find(
+  const recovery = workflow.jobs.check.steps.find(
     (step: { id?: string }) => step.id === 'release'
   );
   expect(recovery.if).toBe("github.event_name == 'push'");
-  expect(workflow.jobs.changes.outputs.fleet).toBe(
-    "${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' }}"
+  expect(workflow.jobs.check.outputs.fleet).toBe(
+    "${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' || github.event_name == 'workflow_dispatch' }}"
   );
-  expect(workflow.jobs.publish.needs).toEqual(['changes', 'check', 'wizard']);
+  expect(workflow.jobs.release.needs).toEqual(['check', 'nix', 'installer']);
 });
 
 for (const asset of assets) {
@@ -70,28 +70,22 @@ for (const asset of assets) {
 
 test('a complete release preserves the normal path filter', () => {
   expect(releaseMissing(assets)).toBe('missing=false');
-  expect(
-    readFileSync(join(root, 'packages/fleet/workflows/fleet.yml'), 'utf8')
-  ).toBe(readFileSync(join(root, '.github/workflows/fleet.yml'), 'utf8'));
 });
 
-test('the parallel check matrix covers all scheduler groups and gates publication', () => {
-  expect(workflow.jobs.check.strategy.matrix.group).toEqual([
-    'roles',
-    'runtime',
-    'lifecycle',
-    'image',
-  ]);
-  expect(workflow.jobs.check.strategy['fail-fast']).toBe(false);
-  expect(workflow.jobs.check['timeout-minutes']).toBe(12);
-  expect(workflow.jobs.gate.needs).toContain('check');
-  expect(workflow.jobs.publish.needs).toContain('check');
-  const upload = workflow.jobs.check.steps.find(
+test('all scheduler groups run sequentially before publishing the ISO', () => {
+  const job = workflow.jobs.nix;
+  expect(job.strategy).toBeUndefined();
+  expect(
+    job.steps.find((step: { run?: string }) =>
+      step.run?.includes('ci-checks.py')
+    ).run
+  ).toContain('for group in roles runtime lifecycle image');
+  expect(workflow.jobs.fleet.needs).toContain('nix');
+  expect(workflow.jobs.release.needs).toContain('nix');
+  const upload = job.steps.find(
     (step: { uses?: string }) => step.uses === 'actions/upload-artifact@v4'
   );
-  expect(upload.if).toBe(
-    "matrix.group == 'image' && github.event_name != 'pull_request'"
-  );
+  expect(upload.if).toBe("github.event_name != 'pull_request'");
   expect(upload.with['compression-level']).toBe(0);
 });
 
@@ -102,21 +96,55 @@ for (const event of [
   'workflow_dispatch',
 ]) {
   test(`${event} gate refuses failed, cancelled, or skipped check groups`, () => {
-    const step = workflow.jobs.gate.steps[0];
+    const step = workflow.jobs.fleet.steps[0];
     for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
       const gate = Bun.spawnSync(['bash', '-c', step.run], {
         env: {
           ...process.env,
-          EVENT: event,
-          CHANGES: 'success',
+          RELEASE_REQUIRED: String(event !== 'pull_request'),
           FLEET: 'true',
-          CHECK: result,
-          WIZARD: 'success',
-          CACHE: 'success',
-          PUBLISH: 'success',
+          RESULTS: JSON.stringify({
+            check: { result: 'success' },
+            nix: { result },
+            installer: { result: 'success' },
+            release: { result: 'success' },
+          }),
         },
       });
       expect(gate.exitCode).toBe(result === 'success' ? 0 : 1);
     }
   });
 }
+
+test('the Fleet gate rejects every failed required stage and permits an unaffected change', () => {
+  const run = (results: Record<string, { result: string }>, affected = true) =>
+    Bun.spawnSync(['bash', '-c', workflow.jobs.fleet.steps[0].run], {
+      env: {
+        ...process.env,
+        RESULTS: JSON.stringify(results),
+        FLEET: String(affected),
+        RELEASE_REQUIRED: 'true',
+      },
+    }).exitCode;
+  for (const name of ['check', 'nix', 'installer', 'release'])
+    for (const result of ['failure', 'cancelled', 'skipped']) {
+      const results = Object.fromEntries(
+        ['check', 'nix', 'installer', 'release'].map((key) => [
+          key,
+          { result: key === name ? result : 'success' },
+        ])
+      );
+      expect(run(results)).toBe(1);
+    }
+  expect(
+    run(
+      {
+        check: { result: 'success' },
+        nix: { result: 'skipped' },
+        installer: { result: 'skipped' },
+        release: { result: 'skipped' },
+      },
+      false
+    )
+  ).toBe(0);
+});

@@ -132,7 +132,7 @@ Hardware replacement and cleaning, cabling, and one-time firmware settings (Secu
 
 ## Day to day
 
-Git is the only control surface. Open a pull request; `Required` and `Fleet` pass on GitHub-hosted runners; the merge lands on `main`; nodes poll `main` and switch only to a system that is already in the binary cache. A bad change is a revert pull request. `fleet-node status` on a node is read-only. See [operations](docs/runbook.md).
+Git is the only control surface. Open a pull request; `Check` and `Fleet` pass on GitHub-hosted runners; the merge lands on `main`; nodes poll `main` and switch only to a system that is already in the binary cache. A bad change is a revert pull request. `fleet-node status` on a node is read-only. See [operations](docs/runbook.md).
 
 ## NixOS installs and hard reinstalls
 

@@ -7,11 +7,12 @@ import { parse } from 'yaml';
 // so these catch wiring mistakes in a pull request instead of after the merge.
 const root = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
-const workflow = parse(read('.github/workflows/auth-relay-deploy.yml'));
+const workflow = parse(read('.github/workflows/deploy.yml'));
+const action = parse(read('.github/actions/deploy-auth/action.yml'));
 const inventory = JSON.parse(
   read('packages/infra/tofu/modules/inventory/inventory.tf.json')
 ).locals.inventory;
-const steps: Array<Record<string, any>> = workflow.jobs.deploy.steps;
+const steps: Array<Record<string, any>> = action.runs.steps;
 
 const vaultAction = steps.find((step) =>
   String(step.uses ?? '').startsWith('hashicorp/vault-action')
@@ -34,7 +35,7 @@ function githubEnvWrites(): Set<string> {
 
 test('every env expression refers to a variable the workflow defines', () => {
   const defined = new Set([
-    ...Object.keys(workflow.env),
+    ...Object.keys(workflow.jobs.deploy.env),
     ...vaultExports.keys(),
     ...githubEnvWrites(),
     // Written as a multi-line heredoc-free block by the pin step.
@@ -43,7 +44,9 @@ test('every env expression refers to a variable the workflow defines', () => {
     'TF_VAR_tunnel_image',
   ]);
   const used = [
-    ...JSON.stringify(workflow).matchAll(/env\.([A-Za-z_][A-Za-z0-9_]*)/g),
+    ...JSON.stringify(action).matchAll(
+      /\$\{\{\s*env\.([A-Za-z_][A-Za-z0-9_]*)/g
+    ),
   ].map((match) => match[1]);
   expect(used.length).toBeGreaterThan(0);
   for (const name of used) expect(defined.has(name)).toBe(true);

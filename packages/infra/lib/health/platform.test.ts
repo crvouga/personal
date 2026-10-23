@@ -168,6 +168,7 @@ describe("github", () => {
     },
     [`${GITHUB}/repos/acme/workspace/actions/variables/TOFU_MIGRATION_READY`]: { body: { value: "true" } },
     [`${GITHUB}/repos/acme/workspace/rulesets`]: { body: [{ name: "main", enforcement: "active" }] },
+    [`${GITHUB}/repos/acme/workspace/actions/workflows/deploy.yml/runs`]: { body: { workflow_runs: [{ event: "workflow_dispatch", conclusion: "success", run_number: 1, updated_at: "2026-10-10T00:00:00Z" }] } },
     [`${GITHUB}/repos/acme/workspace/actions/workflows/ci.yml/runs`]: {
       body: {
         workflow_runs: [
@@ -182,6 +183,21 @@ describe("github", () => {
     const results = await checkGithub(fakeContext({ fetch: fakeFetch(routes) }));
     expect(statuses(results)).toEqual(["pass"]);
     expect(results.find((result) => result.name === "pipeline ci.yml")!.detail).toContain("run #8");
+  });
+
+  test("manual Deploy failures remain visible when main CI is green", async () => {
+    const results = await checkGithub(fakeContext({ fetch: fakeFetch({ ...routes,
+      [`${GITHUB}/repos/acme/workspace/actions/workflows/deploy.yml/runs`]: { body: { workflow_runs: [{ event: "workflow_dispatch", conclusion: "failure", run_number: 2, html_url: "https://example/deploy/2" }] } },
+    }) }));
+    expect(statusOf(results, "pipeline ci.yml")).toBe("pass");
+    expect(statusOf(results, "pipeline deploy.yml")).toBe("fail");
+  });
+
+  test("merge queue and validation-only dispatches do not count as production CI", async () => {
+    const results = await checkGithub(fakeContext({ fetch: fakeFetch({ ...routes,
+      [`${GITHUB}/repos/acme/workspace/actions/workflows/ci.yml/runs`]: { body: { workflow_runs: [{ event: "merge_group", conclusion: "success" }, { event: "workflow_dispatch", conclusion: "success" }] } },
+    }) }));
+    expect(statusOf(results, "pipeline ci.yml")).toBe("warn");
   });
 
   test("publisher probes follow the repository's declared workflow path", async () => {

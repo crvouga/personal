@@ -2,7 +2,10 @@
 import { confirm } from './prompt';
 import { capture, run } from './process';
 
-export async function rerunFailedCi(infraRepo: string): Promise<void> {
+export async function rerunFailedCi(
+  infraRepo: string,
+  workflow: 'ci.yml' | 'deploy.yml' = 'ci.yml'
+): Promise<void> {
   const out = await capture([
     'gh',
     'run',
@@ -10,7 +13,8 @@ export async function rerunFailedCi(infraRepo: string): Promise<void> {
     '--repo',
     infraRepo,
     '--workflow',
-    'ci.yml',
+    workflow,
+    ...(workflow === 'ci.yml' ? ['--event', 'push'] : []),
     '--branch',
     'main',
     '--limit',
@@ -20,7 +24,9 @@ export async function rerunFailedCi(infraRepo: string): Promise<void> {
   ]);
   const latest = out ? JSON.parse(out)[0] : undefined;
   if (!latest || latest.conclusion !== 'failure') {
-    console.log('Latest CI run on main is not failed; nothing to re-run.');
+    console.log(
+      `Latest ${workflow} run on main is not failed; nothing to re-run.`
+    );
     return;
   }
   if (!(await confirm(`Re-run failed jobs of "${latest.displayTitle}"?`)))
@@ -31,7 +37,7 @@ export async function rerunFailedCi(infraRepo: string): Promise<void> {
     await run(['gh', 'run', 'watch', id, '--repo', infraRepo, '--exit-status']);
 }
 
-export const VAULT_FIX_WORKFLOW = 'vault-inputs-fix.yml';
+export const VAULT_FIX_WORKFLOW = 'maintenance.yml';
 
 /**
  * Dispatches the repair workflow, which sees the repo secrets that no API will
@@ -52,6 +58,8 @@ export async function repairInActions(
     infraRepo,
     '--ref',
     'main',
+    '-f',
+    'task=vault-inputs',
     ...(fromVault.length ? ['-f', `from_vault=${fromVault.join(',')}`] : []),
   ]);
   if (dispatched.code !== 0) return false;

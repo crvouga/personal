@@ -3,138 +3,128 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
+const read = (path: string) =>
+  parse(readFileSync(join(import.meta.dirname, '..', path), 'utf8'));
+const workflow = read('.github/workflows/ci.yml');
+const deploy = read('.github/workflows/deploy.yml');
+const publish = read('.github/workflows/publish.yml');
+const maintenance = read('.github/workflows/maintenance.yml');
 
-const workflow = parse(
-  readFileSync(join(import.meta.dirname, '../.github/workflows/ci.yml'), 'utf8')
-);
+test('PR and merge queue checks always report, including documentation-only changes', () => {
+  expect(workflow.on.pull_request).toEqual({});
+  expect(workflow.on.merge_group).toEqual({});
+  expect(workflow.jobs.check.name).toBe('Check');
+  expect(workflow.jobs.check.if).toBe("inputs.service_id == ''");
+  expect(workflow.jobs.fleet.if).toContain('always()');
+  expect(workflow.jobs.check.needs).toBeUndefined();
+});
 
-function changeFlags(event: string, serviceId: string, changed: boolean) {
-  const directory = mkdtempSync(join(tmpdir(), 'ci-flags-'));
-  const output = join(directory, 'output');
-  const step = workflow.jobs.changes.steps.find(
-    (candidate: { id?: string }) => candidate.id === 'flags'
+test('sibling callers only publish, forwarding the existing inputs and outputs', () => {
+  expect(workflow.jobs.publish.if).toBe("inputs.service_id != ''");
+  expect(workflow.jobs.publish.uses).toBe('./.github/workflows/publish.yml');
+  for (const key of Object.keys(publish.on.workflow_call.inputs))
+    expect(workflow.jobs.publish.with[key]).toBe('${{ inputs.' + key + ' }}');
+  expect(workflow.on.workflow_call.outputs).toEqual(
+    publish.on.workflow_call.outputs
   );
-  try {
-    const result = Bun.spawnSync(['bash', '-c', step.run], {
-      env: {
-        ...process.env,
-        ...Object.fromEntries(Object.keys(step.env).map((key) => [key, ''])),
-        EVENT_NAME: event,
-        INPUT_SERVICE_ID: serviceId,
-        FILTER_CHECK: String(changed),
-        FILTER_RUNNER_FLEET: String(changed),
-        FILTER_FLEET_E2E: String(changed),
-        GITHUB_OUTPUT: output,
-      },
-    });
-    expect(result.exitCode).toBe(0);
-    return Object.fromEntries(
-      readFileSync(output, 'utf8')
-        .trim()
-        .split('\n')
-        .map((line) => line.split('='))
-    );
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
+  expect(JSON.stringify(publish.jobs)).not.toMatch(
+    /setup-bun|actions\/tofu|deploy-auth|vault-secrets/
+  );
+});
 
-test('sibling publishing cannot schedule workspace fleet checks from caller paths', () => {
-  const outputs = workflow.jobs.changes.outputs;
-  expect(outputs.runner_fleet).toBe('${{ steps.flags.outputs.runner_fleet }}');
-  expect(outputs.fleet_e2e).toBe('${{ steps.flags.outputs.fleet_e2e }}');
-  expect(changeFlags('push', 'mockingbird-docs', true)).toMatchObject({
-    workflow_call: 'true',
-    publish: 'true',
-    check: 'false',
-    runner_fleet: 'false',
-    fleet_e2e: 'false',
+test('optional integrations cannot suppress core checks or require production credentials', () => {
+  const optional = workflow.jobs.check.steps.filter((s: { name: string }) =>
+    /optional/i.test(s.name)
+  );
+  expect(optional).toHaveLength(2);
+  for (const step of optional) expect(step['continue-on-error']).toBe(true);
+  expect(optional[0].with.optional).toBe('true');
+  expect(JSON.stringify(workflow.jobs.check.env)).not.toContain('secrets.');
+});
+
+test('deployment requires successful checks on a main push and cannot cancel active mutations', () => {
+  expect(workflow.jobs.deploy.needs).toEqual(['check', 'fleet']);
+  expect(workflow.jobs.deploy.if).toContain("github.event_name == 'push'");
+  expect(workflow.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
+  expect(deploy.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
+  expect(deploy.jobs.deploy.concurrency).toEqual({
+    group: 'production',
+    'cancel-in-progress': false,
   });
-});
-
-for (const event of ['push', 'pull_request', 'merge_group']) {
-  test(`${event} preserves native fleet path filters`, () => {
-    for (const changed of [true, false]) {
-      expect(changeFlags(event, '', changed)).toMatchObject({
-        workflow_call: 'false',
-        check: String(changed),
-        runner_fleet: String(changed),
-        fleet_e2e: String(changed),
-      });
-    }
-  });
-}
-
-function dependencies(name: string, visited = new Set<string>()): Set<string> {
-  for (const needed of workflow.jobs[name].needs ?? []) {
-    if (!visited.has(needed)) {
-      visited.add(needed);
-      dependencies(needed, visited);
-    }
-  }
-  return visited;
-}
-
-test('optional credential failures cannot suppress core checks or block Required', () => {
-  expect(dependencies('check').has('vault')).toBe(false);
-  expect(dependencies('Required').has('secret-integrations')).toBe(false);
-  expect(workflow.jobs['secret-integrations']['continue-on-error']).toBe(true);
-});
-
-test('active cache deployment smoke still requires its own credential groups', () => {
-  const imports = workflow.jobs.smoke.steps.find(
-    (step: { uses?: string }) =>
-      step.uses === './.github/actions/turborepo-vault-secrets'
+  const steps = deploy.jobs.deploy.steps;
+  const index = (name: string) =>
+    steps.findIndex((s: { name: string }) => s.name === name);
+  expect(index('Check deployment credentials')).toBeLessThan(
+    index('Publish Vault')
   );
-  expect(imports).toBeDefined();
-  expect(imports.with.optional).not.toBe('true');
-  expect(workflow.jobs.smoke['continue-on-error']).not.toBe(true);
+  expect(index('Check deployment credentials')).toBeLessThan(
+    index('Apply foundation')
+  );
+  expect(index('Apply foundation')).toBeLessThan(index('Apply bootstrap'));
+  expect(index('Apply bootstrap')).toBeLessThan(index('Deploy auth'));
+  expect(index('Deploy auth')).toBeLessThan(index('Apply vault'));
+  expect(index('Publish service images')).toBeLessThan(
+    index('Deploy services')
+  );
+  expect(index('Deploy services')).toBeLessThan(index('Check public services'));
+  expect(index('Check public services')).toBeLessThan(index('Smoke test'));
+  const probe = steps[index('Check deployment credentials')];
+  expect(probe.run).toContain('-refresh-only');
+  expect(probe.run).toContain('-lock=false -parallelism=1');
+  const smoke = steps.find(
+    (s: { name: string }) => s.name === 'Read smoke test credentials'
+  );
+  expect(smoke.with.optional).not.toBe('true');
+  expect(steps[index('Smoke test')]['continue-on-error']).not.toBe(true);
 });
 
-test('the health workflow prepares OpenTofu roots read-only and can never apply', () => {
-  const read = (path: string) =>
-    parse(readFileSync(join(import.meta.dirname, '..', path), 'utf8'));
-  const health = read('.github/workflows/infra-health.yml');
-  const prepared = health.jobs.health.steps.filter(
-    (step: { uses?: string }) => step.uses === './.github/actions/tofu'
+test('health remains read-only and repair runs only through an explicit main-branch manual task', () => {
+  const health = maintenance.jobs.health;
+  const prepared = health.steps.filter(
+    (s: { uses?: string }) => s.uses === './.github/actions/tofu'
   );
-  expect(
-    prepared.map((step: { with: { root: string } }) => step.with.root)
-  ).toEqual(['foundation', 'bootstrap', 'vault', 'fleet']);
+  expect(prepared.map((s: { with: { root: string } }) => s.with.root)).toEqual([
+    'foundation',
+    'bootstrap',
+    'vault',
+    'fleet',
+  ]);
   for (const step of prepared) expect(step.with.mode).toBe('prepare');
-  expect(JSON.stringify(health.jobs)).not.toMatch(/\bapply\b/);
-
-  const action = read('.github/actions/tofu/action.yml');
-  for (const name of ['Plan', 'Apply']) {
-    const step = action.runs.steps.find(
-      (candidate: { name?: string }) => candidate.name === name
-    );
-    expect(step.if).toBe("inputs.mode == 'apply'");
-  }
+  expect(JSON.stringify(health)).not.toMatch(/\bapply\b/);
+  expect(maintenance.jobs.repair.if).toBe(
+    "github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' && github.ref == 'refs/heads/main'"
+  );
+  expect(maintenance.jobs.repair.concurrency).toEqual(
+    deploy.jobs.deploy.concurrency
+  );
+  for (const name of ['Plan', 'Apply'])
+    expect(
+      read('.github/actions/tofu/action.yml').runs.steps.find(
+        (s: { name: string }) => s.name === name
+      ).if
+    ).toBe("inputs.mode == 'apply'");
 });
 
 for (const [dispatch, caller, expected] of [
   ['platform-token', 'caller-token', 'platform-token'],
   ['', 'caller-token', 'caller-token'],
   ['', '', 'workflow-token'],
-]) {
-  test(`sibling GHCR publish selects ${expected}`, () => {
-    const directory = mkdtempSync(join(tmpdir(), 'ci-ghcr-auth-'));
+])
+  test(`publishing selects ${expected}`, () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ci-auth-'));
     const output = join(directory, 'output');
-    const step = workflow.jobs.publish.steps.find(
-      (candidate: { id?: string }) => candidate.id === 'ghcr_auth'
-    );
-    const script = step.run
-      .replaceAll('${{ steps.resolve.outputs.image_owner }}', 'crvouga')
-      .replaceAll('${{ github.actor }}', 'caller-actor')
-      .replaceAll('${{ github.token }}', 'workflow-token');
     try {
-      const result = Bun.spawnSync(['bash', '-c', script], {
+      const step = publish.jobs.publish.steps.find(
+        (s: { id?: string }) => s.id === 'ghcr_auth'
+      );
+      const result = Bun.spawnSync(['bash', '-c', step.run], {
         env: {
           ...process.env,
-          GITHUB_REPOSITORY: 'crvouga/pickflix-v1',
           DISPATCH_TOKEN: dispatch!,
           CALLER_TOKEN: caller!,
+          WORKFLOW_TOKEN: 'workflow-token',
+          IMAGE_OWNER: 'crvouga',
+          ACTOR: 'caller',
           GITHUB_OUTPUT: output,
         },
       });
@@ -144,94 +134,11 @@ for (const [dispatch, caller, expected] of [
       rmSync(directory, { recursive: true, force: true });
     }
   });
-}
 
-test('production deployment credentials are checked before checks, builds and mutations', () => {
-  const preflight = workflow.jobs['deploy-preflight'];
-  expect(dependencies('deploy-preflight').has('check')).toBe(false);
-  expect(preflight.if).toContain(
-    "needs.changes.outputs.workflow_call != 'true'"
-  );
-  expect(preflight.if).toContain("github.ref == 'refs/heads/main'");
-  expect(preflight['timeout-minutes']).toBe(5);
-  const prepare = preflight.steps.find(
-    (step: { uses?: string }) => step.uses === './.github/actions/tofu'
-  );
-  expect(prepare.with).toEqual({ root: 'foundation', mode: 'prepare' });
-  const probe = preflight.steps.find((step: { run?: string }) =>
-    step.run?.includes('-refresh-only')
-  );
-  expect(probe['timeout-minutes']).toBe(2);
-  expect(probe.run).toContain('-target=railway_project.workspace');
-  expect(probe.run).toContain('-lock=false -parallelism=1');
-  expect(probe.run).not.toMatch(/\bapply\b|\bmutation\b/);
-  for (const name of ['check', 'publish', 'vault', 'deploy-prepare', 'smoke']) {
-    expect(workflow.jobs[name].needs).toContain('deploy-preflight');
-    expect(workflow.jobs[name].if).toContain(
-      "needs.deploy-preflight.result == 'success'"
-    );
-  }
-});
-
-test('CI result fails loudly for failed or cancelled stages and reports their names', () => {
-  const job = workflow.jobs['ci-result'];
-  expect(job.if).toBe('always()');
-  for (const name of [
-    'deploy-preflight',
-    'check',
-    'publish',
-    'deploy-reconcile',
-    'deploy-railway',
-    'smoke',
-  ])
-    expect(job.needs).toContain(name);
-  const step = job.steps[0];
-  const directory = mkdtempSync(join(tmpdir(), 'ci-result-'));
-  try {
-    for (const status of ['success', 'skipped', 'failure', 'cancelled']) {
-      const summary = join(directory, status);
-      const result = Bun.spawnSync(['bash', '-c', step.run], {
-        env: {
-          ...process.env,
-          GITHUB_STEP_SUMMARY: summary,
-          RESULTS: JSON.stringify({ 'deploy-preflight': { result: status } }),
-        },
-      });
-      expect(result.exitCode).toBe(
-        ['failure', 'cancelled'].includes(status) ? 1 : 0
-      );
-      expect(readFileSync(summary, 'utf8')).toContain(
-        `| deploy-preflight | ${status} |`
-      );
-      if (result.exitCode)
-        expect(result.stdout.toString()).toContain(
-          `::error title=CI failed::deploy-preflight=${status}`
-        );
-    }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test('cheap validation runs before provider and browser setup without dropping any core checks', () => {
+test('all core gates run before specialized integration checks', () => {
   const steps = workflow.jobs.check.steps;
-  const position = (name: string) =>
-    steps.findIndex(
-      (step: { name?: string; uses?: string }) =>
-        step.name === name || step.uses === name
-    );
-  expect(position('Fast repository checks')).toBeLessThan(
-    position('opentofu/setup-opentofu@v1')
-  );
-  expect(position('Typecheck and lint packages')).toBeLessThan(
-    position('opentofu/setup-opentofu@v1')
-  );
-  expect(position('Validate and test OpenTofu')).toBeLessThan(
-    position('Install Chromium (portfolio resume PDF)')
-  );
-  const runs = steps.map((step: { run?: string }) => step.run ?? '').join('\n');
+  const runs = steps.map((s: { run?: string }) => s.run ?? '').join('\n');
   for (const command of [
-    'bun install --frozen-lockfile',
     'bun run ci:format',
     'bun run check:agents',
     'bun run check:llms',
@@ -241,5 +148,71 @@ test('cheap validation runs before provider and browser setup without dropping a
     'bunx turbo run test build',
   ])
     expect(runs).toContain(command);
+  expect(read('.github/actions/setup/action.yml').runs.steps.at(-1).run).toBe(
+    'bun install --frozen-lockfile'
+  );
   expect(workflow.jobs.check.env.TURBO_CACHE).toBe('local:rw');
+});
+
+test('the transitional Required status preserves all validation until the live ruleset migrates', () => {
+  expect(workflow.jobs.Required.needs).toEqual(['check', 'fleet']);
+  const script = workflow.jobs.Required.steps[0].run;
+  for (const result of ['failure', 'cancelled', 'skipped', 'success']) {
+    const actual = Bun.spawnSync(['bash', '-c', script], {
+      env: {
+        ...process.env,
+        RESULTS: JSON.stringify({
+          check: { result: 'success' },
+          fleet: { result },
+        }),
+      },
+    });
+    expect(actual.exitCode).toBe(result === 'success' ? 0 : 1);
+  }
+});
+
+test('validation preserves the protected main branch constraints', () => {
+  const script = workflow.jobs.check.steps.find(
+    (step: { name: string }) => step.name === 'Check branches'
+  ).run;
+  for (const [base, head, expected] of [
+    ['main', 'feature', 0],
+    ['refs/heads/main', 'refs/heads/gh-readonly-queue/main/pr-1', 0],
+    ['other', 'feature', 1],
+    ['main', 'main', 1],
+  ]) {
+    expect(
+      Bun.spawnSync(['bash', '-c', script], {
+        env: { ...process.env, BASE_REF: String(base), HEAD_REF: String(head) },
+      }).exitCode
+    ).toBe(Number(expected));
+  }
+});
+
+test('reusable publisher rejects empty build inputs before authenticating', () => {
+  const script = publish.jobs.publish.steps.find(
+    (step: { name: string }) => step.name === 'Check inputs'
+  ).run;
+  const valid = {
+    service_id: 'service',
+    dockerfile: 'Dockerfile',
+    context: '.',
+    image_owner: 'owner',
+    image_prefix: 'prefix',
+  };
+  for (const field of Object.keys(valid)) {
+    expect(
+      Bun.spawnSync(['bash', '-c', script], {
+        env: {
+          ...process.env,
+          BUILD_INPUTS: JSON.stringify({ ...valid, [field]: '' }),
+        },
+      }).exitCode
+    ).not.toBe(0);
+  }
+  expect(
+    Bun.spawnSync(['bash', '-c', script], {
+      env: { ...process.env, BUILD_INPUTS: JSON.stringify(valid) },
+    }).exitCode
+  ).toBe(0);
 });

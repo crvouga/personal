@@ -33,11 +33,10 @@ GitHub outage).
 
 ## Repo facts
 
-- Bun + Turborepo monorepo. Trunk is `main`. The pull request workflow is
-  `.github/workflows/ci.yml` (`infra-health.yml` is a scheduled read-only
-  report that never runs on PRs). On pull requests it runs `changes`, `check`,
-  `portfolio-health-check` (portfolio changes only), `commitlint`, `pr-title`,
-  and the aggregator **`Required`** — the only required status check.
+- Bun + Turborepo monorepo. Trunk is `main`. CI always reports `Check` and
+  `Fleet` on PRs and merge-queue entries. `Required` temporarily covers
+  `Check` and `Fleet` while the OpenTofu-owned ruleset migrates; inspect the live ruleset
+  rather than assuming the migration has been applied.
 - Full local gate: `bun run check`. With Vault (portfolio build needs
   `PORTFOLIO_GITHUB_TOKEN`): `bun run check:ci`. Focused package checks:
   `bun run --filter @pkgs/<name> tc|lint|test|build`.
@@ -117,13 +116,13 @@ Run `bun run pr:ready checks`.
 <pkg> lint|tc|test|build`, `bun run check`), fix it, commit and publish (step
   3), then run `checks` again. If the same check fails twice, read the full log
   (`--tail 1000`) and reproduce it locally before pushing again.
-- `Required` fails whenever any job it needs failed — fix that job, not
-  `Required`.
+- Fix the failing validation or platform job. `Fleet` reports its platform
+  dependencies; the temporary `Required` status covers `Check` and `Fleet`.
 
 ### 7. Land
 
 Run `bun run pr:ready merge --auto`. GitHub merges with a merge commit once
-`Required` is green.
+the live required checks are green.
 
 ### 8. Report
 

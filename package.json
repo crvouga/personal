@@ -25,7 +25,7 @@
     "gh:ci": "open https://github.com/crvouga/workspace/actions/workflows/ci.yml",
     "gh:ci:log": "gh run view \"$(gh run list --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')\" --log-failed",
     "gh:ci:status": "gh run list --workflow ci.yml --limit 3",
-    "gh:ci:watch": "gh run watch \"$(gh run list --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')\" --exit-status",
+    "gh:ci:watch": "bun scripts/ci/watch.ts",
     "health": "bun run packages/infra/scripts/health.ts",
     "health:fix": "bun scripts/health-fix.ts",
     "domains": "bun run packages/infra/scripts/domains.ts",
@@ -60,7 +60,9 @@
     "infra:auth-hosting": "tofu -chdir=packages/infra/tofu/auth-hosting",
     "auth:setup": "bun scripts/auth-setup.ts",
     "auth:test": "bun run --cwd packages/auth-relay test",
-    "auth:test:e2e": "python3 -B packages/auth-relay/tests/run.py"
+    "auth:test:e2e": "python3 -B packages/auth-relay/tests/run.py",
+    "gh:deploy:status": "gh run list --workflow deploy.yml --limit 3",
+    "gh:maintenance:status": "gh run list --workflow maintenance.yml --limit 3"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",

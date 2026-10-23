@@ -31,10 +31,20 @@ export function fixers(settings: FixSettings): Fixer[] {
     },
     {
       id: 'ci-rerun',
-      title: 'Re-run the failed CI run on main',
+      title: 'Re-run failed CI or Deploy jobs on main',
       handles: ({ group, check, status }) =>
-        status === 'fail' && group === 'github' && check.startsWith('pipeline'),
-      run: () => rerunFailedCi(infraRepo),
+        status === 'fail' &&
+        group === 'github' &&
+        ['pipeline ci.yml', 'pipeline deploy.yml'].includes(check),
+      run: async (findings) => {
+        const workflows = new Set(
+          findings.map(({ check }) =>
+            check === 'pipeline deploy.yml' ? 'deploy.yml' : 'ci.yml'
+          )
+        );
+        for (const workflow of workflows)
+          await rerunFailedCi(infraRepo, workflow);
+      },
     },
   ];
 }

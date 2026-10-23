@@ -17,11 +17,9 @@ rm -f "$rebuilt"
 python3 -m py_compile wizard/*.py
 if command -v node >/dev/null 2>&1; then node --check wizard/ui-e2e.cjs; fi
 cmp workflows/runner-check.yml ../../.github/workflows/runner-check.yml
-cmp workflows/fleet.yml ../../.github/workflows/fleet.yml
-cmp workflows/flake-update.yml ../../.github/workflows/flake-update.yml
 cmp workflows/fleet-enroll.yml ../../.github/workflows/fleet-enroll.yml
 if command -v actionlint >/dev/null 2>&1; then
-  actionlint -config-file actionlint.yaml workflows/*.yml ../../.github/workflows/runner-check.yml
+  actionlint -config-file actionlint.yaml workflows/*.yml ../../.github/workflows/*.yml
 else
   echo 'actionlint unavailable; run the pinned Nix devShell checks on Linux'
 fi

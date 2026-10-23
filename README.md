@@ -25,7 +25,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `workstation`                                                                              | Portable local machine configuration; `ws` dashboard                      |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 
-The single [CI workflow](.github/workflows/ci.yml) validates, builds images, applies OpenTofu and probes production health. Sibling repositories call its `workflow_call` image publisher and dispatch image revisions back to this repository. OpenTofu manages their publisher files and dispatch secrets.
+[CI](.github/workflows/ci.yml) validates every PR and merge-queue entry, runs the required platform tests, and calls [Deploy](.github/workflows/deploy.yml) after successful main-branch checks. Deploy builds images, applies OpenTofu in order and probes production. [Maintenance](.github/workflows/maintenance.yml) handles health reports, snapshot/dependency update PRs and manual secret repair. Sibling repositories use [Publish](.github/workflows/publish.yml); the old CI publishing interface stays compatible. Runner check and Fleet enroll retain their separate trust boundaries. OpenTofu owns publisher files, dispatch secrets and the required-check ruleset.
 
 The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and fleet hosting. The portfolio publishes it at [www.chrisvouga.dev/llms.txt](https://www.chrisvouga.dev/llms.txt) with an identical `/llm.txt` alias. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
 
@@ -64,4 +64,4 @@ bun run health --json                # machine-readable
 
 It is read-only: probes, reads and unlocked plans. A check that cannot run (no `vault login`, no `gh auth login`, root not initialized) reports `SKIP` with the reason and never counts as a pass. The exit code is 1 on any failure; `--strict` also fails on warnings and skips.
 
-The [Infra health workflow](.github/workflows/infra-health.yml) runs the full report, including drift, every day and on demand (`gh workflow run infra-health.yml`); its job summary is the same report. `bun run health-check` remains the narrower post-deploy URL probe used inside CI.
+The read-only Health job in [Maintenance](.github/workflows/maintenance.yml) runs the full report, including drift, every day and on demand (`gh workflow run maintenance.yml -f task=health`); its job summary is the same report. `bun run health-check` remains the narrower post-deploy URL probe used inside CI.

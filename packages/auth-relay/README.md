@@ -14,7 +14,7 @@ console/manager credentials and `AUTH_RELAY_DATABASE_URL`; the launcher maps the
 latter to `AUTH_DATABASE_URL` and selects the environment's setup token.
 
 **The managed relay is deployed** at `auth.chrisvouga.dev` (production) and
-`auth-dev.chrisvouga.dev` (nonproduction) once the Auth relay deploy workflow has
+`auth-dev.chrisvouga.dev` (nonproduction) once the Deploy workflow (auth operation) has
 applied the `live` stage. If infrastructure, Vault projection or Google setup is
 missing, local managed startup reports the exact missing Vault fields and fails.
 `bun run health -- --only auth` checks those credential prerequisites and probes

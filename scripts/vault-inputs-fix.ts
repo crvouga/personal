@@ -5,7 +5,7 @@
 // the failed CI run and the health report. OpenTofu stays the only writer; this
 // script never calls a provider API or sets a secret itself.
 //
-// It first offers to run in GitHub Actions (vault-inputs-fix.yml), which can
+// It first offers to run in GitHub Actions (maintenance.yml, task=vault-inputs), which can
 // read the repo secrets this terminal cannot, and only prompts for whatever the
 // workflow could not fill. `--ci` is that workflow's entry point.
 //

@@ -65,7 +65,7 @@ A failed pull leaves the running generation in place. A switch that cannot reach
 
 ## Checks, the merge queue, and rollback
 
-The workflow is `.github/workflows/fleet.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
+The workflow is `.github/workflows/ci.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
 
 - A pull request that touches this package runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, `devbox`, and the installer. `ci-gpu` is not in that build.
 - The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
@@ -74,9 +74,9 @@ The workflow is `.github/workflows/fleet.yml`. It runs on GitHub-hosted `ubuntu-
 
 A rollback is a revert pull request. It uses the same checks and the same queue. The previous systems are already in the cache, so nodes converge by substituting. systemd-boot keeps 8 generations. If SSH is gone, pick an older generation from the console. Nothing force-pushes `main`.
 
-The `main` ruleset (pull request, `Required`, `Fleet`, merge queue, no force-push) is declared in OpenTofu. This package does not apply it. Apply a reviewed plan from `packages/infra`.
+The `main` ruleset (pull request, `Check`, `Fleet`, merge queue, no force-push) is declared in OpenTofu. This package does not apply it. Apply a reviewed plan from `packages/infra`.
 
-Once a week, `.github/workflows/flake-update.yml` opens or updates one pull request that only changes `packages/fleet/flake.lock`. That pull request uses this same path. It does not push `main`.
+Once a week, `.github/workflows/maintenance.yml` opens or updates one pull request that only changes `packages/fleet/flake.lock`. That pull request uses this same path. It does not push `main`.
 
 ## CI health
 
