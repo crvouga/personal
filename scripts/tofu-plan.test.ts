@@ -30,13 +30,13 @@ function failure(status = 504, method = 'GET') {
 test('Cloudflare GET 429 and 5xx diagnostics retry with bounded backoff', () => {
   for (const status of [429, 500, 502, 503, 504]) {
     expect(retryDelay(failure(status), 0)).toBe(120_000);
-    expect(retryDelay(failure(status), 1)).toBe(240_000);
+    expect(retryDelay(failure(status), 1)).toBe(120_000);
   }
   const result = failure();
   result.errors[0]!.detail = result.errors[0]!.detail.replace('120', '700');
   expect(retryDelay(result, 0)).toBeNull();
-  result.errors[0]!.detail = result.errors[0]!.detail.replaceAll('700', '300');
-  expect(retryDelay(result, 0)).toBe(300_000);
+  result.errors[0]!.detail = result.errors[0]!.detail.replaceAll('700', '90');
+  expect(retryDelay(result, 0)).toBe(90_000);
 });
 
 test('Atlas inspection refused for lack of connection slots retries', () => {
@@ -47,10 +47,10 @@ test('Atlas inspection refused for lack of connection slots retries', () => {
   });
   const slots =
     'Unable to inspect, got error: Error: postgres: querying system variables: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)';
-  expect(retryDelay(refused(slots), 0)).toBe(60_000);
-  expect(retryDelay(refused(slots), 1)).toBe(120_000);
+  expect(retryDelay(refused(slots), 0)).toBe(15_000);
+  expect(retryDelay(refused(slots), 1)).toBe(30_000);
   expect(retryDelay(refused('pq: sorry, too many clients already'), 0)).toBe(
-    60_000
+    15_000
   );
   expect(
     retryDelay(
@@ -60,7 +60,7 @@ test('Atlas inspection refused for lack of connection slots retries', () => {
       ),
       0
     )
-  ).toBe(60_000);
+  ).toBe(15_000);
   expect(
     retryDelay(
       refused(
@@ -69,11 +69,10 @@ test('Atlas inspection refused for lack of connection slots retries', () => {
       ),
       0
     )
-  ).toBe(60_000);
-  // Any other failure is retried too: a plan only reads, so replaying it is safe.
-  expect(retryDelay(refused('pq: password authentication failed'), 0)).toBe(
-    60_000
-  );
+  ).toBe(15_000);
+  expect(
+    retryDelay(refused('pq: password authentication failed'), 0)
+  ).toBeNull();
 });
 
 test('real process output recovers from HTTP errors and rejects malformed diagnostics', () => {
@@ -129,7 +128,7 @@ test('real process output recovers from HTTP errors and rejects malformed diagno
         commands.every(
           (command) =>
             command ===
-            `-chdir=${directory} plan -json -input=false -lock-timeout=15m -parallelism=1 -out=apply.tfplan`
+            `-chdir=${directory} plan -json -input=false -lock-timeout=30s -parallelism=1 -out=apply.tfplan`
         )
       ).toBe(true);
       expect(existsSync(join(directory, 'apply.tfplan'))).toBe(!malformed);
@@ -152,28 +151,34 @@ const slotsFailure = () => ({
   ],
 });
 
-test('every failed plan retries; only unparseable output and over-long waits stop', () => {
+test('permanent, mixed, empty and unknown errors fail without retrying', () => {
   for (const status of [400, 401, 403, 404, 409, 422])
-    expect(retryDelay(failure(status), 0)).toBe(60_000);
+    expect(retryDelay(failure(status), 0)).toBeNull();
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'])
-    expect(retryDelay(failure(504, method), 0)).toBe(60_000);
-  // A transient hint outranks a permanent-looking error beside it.
+    expect(retryDelay(failure(504, method), 0)).toBeNull();
   const transient = failure();
   expect(
     retryDelay(
       { ...transient, errors: [...transient.errors, failure(403).errors[0]!] },
       0
     )
-  ).toBe(120_000);
-  expect(retryDelay({ ...transient, errors: [] }, 0)).toBe(60_000);
+  ).toBeNull();
+  expect(retryDelay({ ...transient, errors: [] }, 0)).toBeNull();
   expect(retryDelay({ ...transient, valid: false }, 0)).toBeNull();
-  // Backoff is bounded, never an unbounded deployment wait.
-  expect(retryDelay(slotsFailure(), 3)).toBe(480_000);
-  expect(retryDelay(slotsFailure(), 4)).toBeNull();
-  expect(retryDelay(failure(), 3)).toBeNull();
+  expect(
+    retryDelay(
+      {
+        ...transient,
+        errors: [
+          { severity: 'error', summary: 'Invalid configuration', detail: '' },
+        ],
+      },
+      0
+    )
+  ).toBeNull();
 });
 
-test('planning retries five times and discards every failed saved plan', async () => {
+test('planning retries at most three times and discards every failed saved plan', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-retry-'));
   const savedPlan = join(directory, 'apply.tfplan');
   try {
@@ -187,7 +192,7 @@ test('planning retries five times and discards every failed saved plan', async (
           expect(existsSync(savedPlan)).toBe(false);
           attempts++;
           writeFileSync(savedPlan, `attempt ${attempts}`);
-          return succeeds && attempts === 5
+          return succeeds && attempts === 3
             ? { code: 0, errors: [], valid: true }
             : slotsFailure();
         },
@@ -196,11 +201,11 @@ test('planning retries five times and discards every failed saved plan', async (
           waits.push(delay);
         }
       );
-      expect(attempts).toBe(5);
-      expect(waits).toEqual([60_000, 120_000, 240_000, 480_000]);
+      expect(attempts).toBe(3);
+      expect(waits).toEqual([15_000, 30_000]);
       expect(code).toBe(succeeds ? 0 : 1);
       expect(existsSync(savedPlan)).toBe(succeeds);
-      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 5');
+      if (succeeds) expect(readFileSync(savedPlan, 'utf8')).toBe('attempt 3');
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -228,7 +233,7 @@ test('unparseable output stops immediately and preserves its exit status', async
   }
 });
 
-test('a permanent error is retried, then reported with its exit status', async () => {
+test('a permanent error fails on the first attempt with its exit status', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-final-'));
   try {
     let attempts = 0;
@@ -241,7 +246,7 @@ test('a permanent error is retried, then reported with its exit status', async (
       async () => {}
     );
     expect(code).toBe(7);
-    expect(attempts).toBe(5);
+    expect(attempts).toBe(1);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

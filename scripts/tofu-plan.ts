@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs';
+import { appendFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 type Diagnostic = {
@@ -9,36 +9,59 @@ type Diagnostic = {
 };
 type PlanResult = { code: number; errors: Diagnostic[]; valid: boolean };
 
-// `tofu plan` only reads: it never mutates infrastructure, and Apply consumes
-// the saved plan exactly once. Replaying it is therefore always safe, so every
-// failed plan is retried instead of matching an ever-growing list of transient
-// error strings (Postgres connection slots exhausted by the services sharing
-// the cluster, Railway read blips, Cloudflare 5xx...). A permanent error simply
-// fails the same way on the last attempt and is what the job reports.
-function readRetrySeconds(error: Diagnostic, attempt: number): number {
-  const backoff = 60 * 2 ** attempt;
+// Retry only known temporary read failures. Authorization, configuration and
+// mixed/unknown diagnostics need intervention, not another full state refresh.
+function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
+  const backoff = 15 * 2 ** attempt;
+  const text = `${error.summary} ${error.detail}`;
+  if (
+    /not authorized|unauthorized|forbidden|permission denied|authentication failed|invalid (?:token|credentials)/i.test(
+      text
+    )
+  )
+    return null;
   const request = /^GET\s+"https:\/\/[^\"]+":\s*(\d{3})\b/.exec(error.detail);
   const status = Number(request?.[1]);
   if (
-    !error.address?.startsWith('cloudflare_') ||
-    error.summary !== 'failed to make http request' ||
-    !(status === 429 || (status >= 500 && status <= 599))
+    error.address?.startsWith('cloudflare_') &&
+    error.summary === 'failed to make http request' &&
+    (status === 429 || (status >= 500 && status <= 599))
+  ) {
+    const retryAfter = /"retry_after"\s*:\s*(\d+)/.exec(error.detail);
+    return Math.max(backoff, Number(retryAfter?.[1] ?? 0));
+  }
+  if (
+    /remaining connection slots|too many clients|\b53300\b|driver: bad connection/i.test(
+      text
+    )
   )
     return backoff;
-  // Honour the provider's own hint for how long to stay away.
-  const retryAfter = /"retry_after"\s*:\s*(\d+)/.exec(error.detail);
-  return Math.max(120 * 2 ** attempt, Number(retryAfter?.[1] ?? 0));
+  return null;
 }
 
 export function retryDelay(result: PlanResult, attempt: number): number | null {
-  // Unparseable output means the diagnostics cannot be trusted.
-  if (!result.valid) return null;
-  const seconds = Math.max(
-    60 * 2 ** attempt,
-    ...result.errors.map((error) => readRetrySeconds(error, attempt))
-  );
-  // Do not turn an upstream outage into an unbounded deployment wait.
-  return seconds <= 600 ? seconds * 1000 : null;
+  if (!result.valid || result.errors.length === 0) return null;
+  const delays = result.errors.map((error) => readRetrySeconds(error, attempt));
+  if (delays.some((delay) => delay === null)) return null;
+  const seconds = Math.max(...(delays as number[]));
+  return seconds <= 120 ? seconds * 1000 : null;
+}
+
+function reportFailure(
+  root: string,
+  result: PlanResult,
+  attempts: number
+): void {
+  const message = `OpenTofu ${root} plan failed after ${attempts} attempt(s); no plan will be applied.`;
+  const summaries = result.errors.map((error) => error.summary).join('; ');
+  const escape = (text: string) =>
+    text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+  console.error(`::error title=OpenTofu plan failed::${escape(message)}`);
+  if (process.env.GITHUB_STEP_SUMMARY)
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      `\n### OpenTofu plan failed\n\n${message}\n\n${summaries || 'See the plan log for diagnostics.'}\n`
+    );
 }
 
 async function plan(root: string): Promise<PlanResult> {
@@ -49,7 +72,7 @@ async function plan(root: string): Promise<PlanResult> {
       'plan',
       '-json',
       '-input=false',
-      '-lock-timeout=15m',
+      '-lock-timeout=30s',
       '-parallelism=1',
       '-out=apply.tfplan',
     ],
@@ -93,7 +116,7 @@ async function plan(root: string): Promise<PlanResult> {
   return { code: await child.exited, errors, valid };
 }
 
-const ATTEMPTS = 5;
+const ATTEMPTS = 3;
 
 export async function planWithRetry(
   root: string,
@@ -107,7 +130,10 @@ export async function planWithRetry(
     if (result.code === 0) return 0;
     rmSync(savedPlan, { force: true });
     const delay = retryDelay(result, attempt);
-    if (attempt === ATTEMPTS - 1 || delay === null) return result.code;
+    if (attempt === ATTEMPTS - 1 || delay === null) {
+      reportFailure(root, result, attempt + 1);
+      return result.code;
+    }
     console.log(
       `Plan failed; retrying plan ${attempt + 2}/${ATTEMPTS} in ${delay / 1000}s.`
     );

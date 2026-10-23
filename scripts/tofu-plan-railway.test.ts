@@ -34,23 +34,19 @@ const atlas = {
     'Unable to generate migration plan, got error: Error: postgres: querying schemas: pq: remaining connection slots are reserved for roles with the SUPERUSER attribute (53300)',
 };
 
-test('recorded Railway and PostgreSQL deploy failures retry with bounded backoff', () => {
+test('recorded Railway authorization errors fail immediately, including mixed failures', () => {
   for (const errors of [
     [railway],
     [project],
     [slots, railway],
     [project, atlas],
     [slots, railway, project, atlas],
-  ]) {
-    expect(retryDelay(failure(errors), 0)).toBe(60_000);
-    expect(retryDelay(failure(errors), 1)).toBe(120_000);
-    expect(retryDelay(failure(errors), 2)).toBe(240_000);
-    expect(retryDelay(failure(errors), 3)).toBe(480_000);
-    expect(retryDelay(failure(errors), 4)).toBeNull();
-  }
+  ])
+    expect(retryDelay(failure(errors), 0)).toBeNull();
+  expect(retryDelay(failure([slots, atlas]), 0)).toBe(15_000);
 });
 
-test('the recorded deploy failure retries the plan process and retains only its successful plan', () => {
+test('temporary database failures retry the process and retain only its successful plan', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tofu-railway-'));
   const attempts = join(directory, 'attempts');
   const runner = join(directory, 'runner.ts');
@@ -60,7 +56,7 @@ test('the recorded deploy failure retries the plan process and retains only its 
       `import { planWithRetry } from ${JSON.stringify(join(import.meta.dirname, 'tofu-plan.ts'))};
       process.exitCode = await planWithRetry(process.env.TEST_ROOT!, undefined, async ms => console.log('wait=' + ms));`
     );
-    const diagnostics = [slots, railway].map((diagnostic) =>
+    const diagnostics = [slots, atlas].map((diagnostic) =>
       JSON.stringify({ type: 'diagnostic', diagnostic })
     );
     writeFileSync(
@@ -87,14 +83,14 @@ test('the recorded deploy failure retries the plan process and retains only its 
       timeout: 5_000,
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString()).toContain('wait=60000');
+    expect(result.stdout.toString()).toContain('wait=15000');
     expect(readFileSync(join(directory, 'apply.tfplan'), 'utf8')).toBe(
       'complete\n'
     );
     const commands = readFileSync(attempts, 'utf8').trim().split('\n');
     expect(commands).toEqual(
       Array(2).fill(
-        `-chdir=${directory} plan -json -input=false -lock-timeout=15m -parallelism=1 -out=apply.tfplan`
+        `-chdir=${directory} plan -json -input=false -lock-timeout=30s -parallelism=1 -out=apply.tfplan`
       )
     );
   } finally {

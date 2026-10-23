@@ -350,7 +350,7 @@ jobs:
       - id: health
         run: |
           set -euo pipefail
-          code="$(curl -sS -o /dev/null -w '%{http_code}' \
+          code="$(curl --connect-timeout 5 --max-time 15 -sS -o /dev/null -w '%{http_code}' \
             "${VAULT_ADDR}/v1/sys/health?standbyok=true&perfstandbyok=true" || true)"
           case "${code}" in
             200|429|472|473)
@@ -363,11 +363,44 @@ jobs:
               ;;
           esac
 
-  check:
-    needs: [changes]
+  # Test the exact adopted Railway project before core checks or image builds.
+  # A targeted refresh-only plan is a read-only credential probe, not an apply.
+  deploy-preflight:
+    needs: [changes, vault-state]
     if: |
       always() &&
-      needs.changes.outputs.check == 'true'
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.workflow_call != 'true' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.deploy == 'true' || needs.changes.outputs.vault == 'true' || needs.vault-state.outputs.bootstrap == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Verify Railway project access before expensive work
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if ! tofu -chdir=packages/infra/tofu/foundation plan \
+            -refresh-only -target=railway_project.workspace \
+            -input=false -lock=false -parallelism=1 -no-color; then
+            echo '::error title=Deployment preflight failed::Railway project access failed. Check RAILWAY_TOKEN access to the adopted Workspace project. For a rotated token already in Vault, use the Vault inputs fix workflow with from_vault=RAILWAY_TOKEN (review dry_run=true first).'
+            echo '### Deployment blocked before checks and builds' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Railway project access failed. See the preflight diagnostics and repair the managed RAILWAY_TOKEN before rerunning CI.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+  check:
+    needs: [changes, deploy-preflight]
+    if: |
+      always() &&
+      needs.changes.outputs.check == 'true' &&
+      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -662,11 +695,12 @@ jobs:
           fi
 
   publish:
-    needs: [changes, publish-plan]
+    needs: [changes, publish-plan, deploy-preflight]
     if: |
       always() &&
       needs.changes.outputs.publish == 'true' &&
-      needs.publish-plan.result == 'success'
+      needs.publish-plan.result == 'success' &&
+      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -823,9 +857,11 @@ jobs:
           exit 1
 
   vault:
-    needs: [changes, vault-state]
+    timeout-minutes: 20
+    needs: [changes, vault-state, deploy-preflight]
     if: |
       always() &&
+      needs.deploy-preflight.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       (
         needs.changes.outputs.vault == 'true' ||
@@ -894,10 +930,11 @@ jobs:
 
   # Fleet deploy: resolve → OpenTofu foundation/bootstrap/vault → OpenTofu fleet → health-check-all
   deploy-prepare:
-    needs: [changes, check, vault, publish, publish-plan]
+    needs: [changes, check, vault, publish, publish-plan, deploy-preflight]
     if: |
       always() &&
       needs.changes.outputs.deploy == 'true' &&
+      needs.deploy-preflight.result == 'success' &&
       (needs.check.result == 'success' || needs.check.result == 'skipped') &&
       (needs.vault.result == 'success' || needs.vault.result == 'skipped') &&
       (needs.publish.result == 'success' || needs.publish.result == 'skipped')
@@ -951,6 +988,7 @@ jobs:
 
   deploy-reconcile:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [deploy-prepare]
     if: always() && needs.deploy-prepare.result == 'success'
     steps:
@@ -969,6 +1007,7 @@ jobs:
 
   deploy-railway:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [deploy-prepare, deploy-reconcile]
     if: always() && needs.deploy-prepare.result == 'success' && needs.deploy-reconcile.result == 'success'
     steps:
@@ -1005,6 +1044,7 @@ jobs:
       [
         changes,
         vault-state,
+        deploy-preflight,
         check,
         vault,
         publish,
@@ -1022,6 +1062,7 @@ jobs:
       needs.changes.outputs.workflow_call != 'true' &&
       needs.changes.result == 'success' &&
       (needs.vault-state.result == 'success' || needs.vault-state.result == 'skipped') &&
+      (needs.deploy-preflight.result == 'success' || needs.deploy-preflight.result == 'skipped') &&
       (needs.check.result == 'success' || needs.check.result == 'skipped') &&
       (needs.vault.result == 'success' || needs.vault.result == 'skipped') &&
       (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
@@ -1048,3 +1089,29 @@ jobs:
           VAULT_CONFIG: prd
           VAULT_PROJECT: personal
         run: bun run --filter @pkgs/turborepo-remote-cache smoke
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs:
+      [changes, deploy-preflight, check, portfolio-health-check, vault, publish, deploy-prepare, deploy-reconcile, deploy-railway, health-check-all, smoke, Required]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report failed and cancelled stages
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## CI results'
+            echo
+            echo '| Stage | Result |'
+            echo '| --- | --- |'
+            jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<< "$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad="$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | "\(.key)=\(.value.result)"' <<< "$RESULTS")"
+          if [ -n "$bad" ]; then
+            echo "::error title=CI failed::${bad//$'\n'/, }. Deployment cannot proceed; open the failed stage for diagnostics."
+            exit 1
+          fi
