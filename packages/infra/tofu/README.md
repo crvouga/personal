@@ -91,6 +91,26 @@ Cloudflare 5.26.0 also cannot import `cloudflare_zone_dns_settings`. Its initial
 
 The Postgres branch is `PS_5_AWS_ARM` in `us-east` on PostgreSQL 18 with `replicas = 0`: one primary and no replicas, the cheapest single-node network-attached size. The published PlanetScale provider creates that database from `planetscale_postgres_branch` and reports the replica count, but it does not send a replica count on create. PlanetScale then defaults the branch to two replicas. The branch postcondition rejects any other count before the connection URI is published. Resize the existing branch to the inventory count; replacing it creates the default count again. The role inherits `postgres` so Atlas and the applications can keep creating schemas. Direct connections use `sslmode=require`. `DB_CONNECTION_URI` and `DATABASE_URL` are the same URL; the Vault entrypoint and the Atlas schema resource add `search_path=secret_store` themselves.
 
+## Administrative CLI credentials
+
+The Vault root publishes `secret/infra/operator` from the existing CI bootstrap
+environment. This document contains the state access key, state decryption
+passphrase and deployment GitHub credential needed by `bun run vault:edit`.
+It is outside `personal/*`: only the administrator policy can read it;
+application and CI read policies cannot. Never copy it into runtime secret maps.
+GitHub retains the independent bootstrap credentials for recovery when Vault is
+unavailable. No new keys or state encryption material are generated for this
+projection.
+
+After `vault login` as an administrator, the editor loads infrastructure
+credentials automatically and prompts only for selected secret changes and saved
+plan approval. Missing operator setup produces a single actionable error, never
+a prompt for R2 credentials. The same automatic resolution serves `vault:fix`.
+Deploy the Vault root through CI once to establish the document; subsequent
+Vault applies keep it current. `bun run health --only vault` checks its presence
+and required fields when the caller has admin access; restricted tokens skip
+that check.
+
 ## Public image pulls
 
 All container images must be public and anonymously pullable. The inventory

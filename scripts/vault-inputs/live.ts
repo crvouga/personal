@@ -25,13 +25,16 @@ const strings = (data: Record<string, unknown>) =>
 // GitHub Actions has a token in VAULT_TOKEN (vault-action) but no `vault` CLI.
 async function readOverHttp(
   token: string,
-  config: string
+  path: string
 ): Promise<Record<string, string> | undefined> {
-  const { mount, project } = inventory.vault.kv;
+  const { mount } = inventory.vault.kv;
   try {
     const response = await fetch(
-      `https://${inventory.vault.hostname}/v1/${mount}/data/${project}/${config}`,
-      { headers: { 'X-Vault-Token': token } }
+      `https://${inventory.vault.hostname}/v1/${mount}/data/${path}`,
+      {
+        headers: { 'X-Vault-Token': token },
+        signal: AbortSignal.timeout(10_000),
+      }
     );
     if (!response.ok) return undefined;
     const body = (await response.json()) as {
@@ -43,22 +46,21 @@ async function readOverHttp(
   }
 }
 
-export async function readLiveVault(
-  config = 'prd'
+export async function readVaultDocument(
+  path: string
 ): Promise<Record<string, string> | undefined> {
   const token = process.env['VAULT_TOKEN'];
-  if (token) return readOverHttp(token, config);
-  const { mount, project } = inventory.vault.kv;
+  if (token) return readOverHttp(token, path);
+  const { mount } = inventory.vault.kv;
   const out = await capture(
-    [
-      'vault',
-      'kv',
-      'get',
-      `-mount=${mount}`,
-      '-format=json',
-      `${project}/${config}`,
-    ],
-    { env: { VAULT_ADDR: `https://${inventory.vault.hostname}` } }
+    ['vault', 'kv', 'get', `-mount=${mount}`, '-format=json', path],
+    {
+      env: {
+        VAULT_ADDR: `https://${inventory.vault.hostname}`,
+        VAULT_CLIENT_TIMEOUT: '10s',
+        VAULT_MAX_RETRIES: '0',
+      },
+    }
   );
   if (!out) return undefined;
   try {
@@ -66,4 +68,12 @@ export async function readLiveVault(
   } catch {
     return undefined;
   }
+}
+
+export function readLiveVault(config = 'prd') {
+  return readVaultDocument(`${inventory.vault.kv.project}/${config}`);
+}
+
+export function readOperatorVault() {
+  return readVaultDocument(inventory.vault.operator_credentials_path);
 }

@@ -161,6 +161,7 @@ export type VaultKvKeySpec = {
 };
 
 export type VaultConfig = {
+  readonly operator_credentials_path?: string;
   readonly hostname?: string;
   readonly kv: VaultKvConfig;
   readonly init?: VaultInitConfig;

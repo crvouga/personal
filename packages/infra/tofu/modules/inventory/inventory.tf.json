@@ -1255,6 +1255,7 @@
         }
       },
       "vault": {
+        "operator_credentials_path": "infra/operator",
         "hostname": "vault.chrisvouga.dev",
         "kv": {
           "mount": "secret",

@@ -33,6 +33,44 @@ Local setup: install [mise](https://mise.jdx.dev/), then `mise install` from the
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
+## Update secrets
+
+```bash
+bun run vault:edit             # interactive secret editor
+bun run vault:edit --google    # Google client ID and secret together
+bun run vault:edit --dry-run   # review plans without applying
+bun run vault:edit --demo      # explore with synthetic data; no live connections
+```
+
+Choose production, development or both, then enter hidden values. The editor
+offers registered operator-supplied keys, searchable by name or consuming app.
+Enter keeps the existing value in each environment. The review shows key names
+and whether each value will be added, replaced or synchronized; values stay hidden.
+
+The editor preserves the complete managed input maps, administrator passwords and
+fleet keys. It saves the persistent deployment inputs through the foundation
+OpenTofu root, then updates Vault. Google changes also update the selected relay
+instances directly through the auth root; the screen shows the exact Google
+redirect URIs. Other applications that load secrets at startup need a subsequent
+deployment. Production provider-token changes also update their managed CI copy.
+
+Run from an interactive terminal with the pinned tools (`mise install`) and
+`vault login` as an administrator. State and deployment credentials load
+automatically from the OpenTofu-managed, admin-only `secret/infra/operator`
+document. The editor never asks for R2 keys, state encryption material or provider
+credentials. Application and CI read tokens cannot access that document. If its
+setup is missing, the command stops with a setup error; deploy the Vault OpenTofu
+root through CI, which already has the bootstrap credentials, then retry.
+Every apply requires approval of a saved plan. The editor refuses missing adopted
+resources, replacements, deletions and unselected field changes. Temporary inputs
+are private to the run and removed on exit. Cancelling during an apply does not
+roll back completed operations; after a partial failure, re-run with the same
+values to finish synchronization. `--dry-run` still needs state/provider access;
+`--demo` needs none.
+
+Use `bun run vault:fix` to repair missing deployment inputs. `vault:secrets` remains
+the lower-level complete-map renderer, rather than an editor for individual keys.
+
 ## Infra health
 
 All 14 domain registrations remain at Squarespace. The Cloudflare migration is cancelled; the four existing Cloudflare DNS zones are preserved. `bun domains inventory` and `bun domains discover` provide read-only observations. See the [cancellation record](packages/infra/docs/domain-migration.md) for cleanup evidence and the accepted unused-domain DNSSEC setting.
