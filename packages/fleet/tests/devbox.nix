@@ -25,8 +25,6 @@ in pkgs.testers.runNixOSTest {
     };
   };
   testScript = ''
-    # SSH must not read the test driver's command/completion stream.
-    ssh = "ssh -n -T -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/devbox-test-key dev@localhost"
     machine.start(allow_reboot=True)
     machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("sshd.service")
