@@ -192,6 +192,16 @@ Optional credential-dependent integration checks report `SKIP` for missing, malf
 
 The credentials that let OpenTofu reach each provider, the state-encryption passphrase and the initial state-backend credentials are bootstrap trust anchors. They must be supplied from outside the state they unlock. Scoped credentials created after that boundary—including state and object-store tokens—are OpenTofu resources.
 
+To adopt a rotated Railway account token already stored in Vault, run the
+**Vault inputs fix** workflow on `main` with `from_vault=RAILWAY_TOKEN`.
+Use `dry_run=true` first to review the saved-plan changes, then run with
+`dry_run=false` to apply. This explicitly adopts the production Vault token into
+both saved Vault input documents and the `RAILWAY_TOKEN` Actions secret through
+OpenTofu. Other input fields are preserved, and unattended runs refuse unrelated
+changes or secret replacements. The workflow uses CI's existing state credentials;
+no local state passphrase is needed. Other fields selected through `--from-vault`
+continue to update only the saved Vault inputs.
+
 `bun run health --drift` reports drift without applying anything: it runs `tofu plan -lock=false -detailed-exitcode` in every initialized root (one with `backend.backend.json` and its inputs, as in the migration steps above), prints only the addresses that would change, and writes no plan file. It needs the deployed `vault_image_tag` and `image_tags`; when `TF_VAR_vault_image_tag` / `TF_VAR_image_tags` are unset it reads them from `tofu output`. CI's [Infra health workflow](../../../.github/workflows/infra-health.yml) does this daily through the tofu action's `prepare` mode, which initializes a root and stops before planning or applying.
 
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.

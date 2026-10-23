@@ -13,6 +13,8 @@
 //
 // `--from-vault` overwrites existing fields with the live Vault's values (e.g.
 // after rotating the Google OAuth client there) instead of only filling blanks.
+// Selecting RAILWAY_TOKEN also rotates its bootstrap Actions secret through
+// the same saved OpenTofu plan, so CI uses the new token on subsequent runs.
 import { readFileSync } from 'node:fs';
 import { rerunFailedCi } from './vault-inputs/ci';
 import {

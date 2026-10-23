@@ -63,18 +63,25 @@ export function parseVaultInputs(text: string): VaultInputs {
   };
 }
 
-/** Fields an operator must supply: not generated, derived or overridable. */
-export function requiredManualKeys(keys: KvKey[], config: Config): string[] {
+/** Fields an operator may supply: not generated, derived or overridable. */
+function manualKeys(keys: KvKey[], config: Config): string[] {
   return keys
     .filter(
       (key) =>
-        key.required &&
         !key.generated &&
         key.configs.includes(config) &&
         !isDerived(key.name) &&
         !overridable(key.name)
     )
     .map((key) => key.name);
+}
+
+/** Fields an operator must supply. Optional fields do not create gaps. */
+export function requiredManualKeys(keys: KvKey[], config: Config): string[] {
+  return manualKeys(
+    keys.filter((key) => key.required),
+    config
+  );
 }
 
 const filled = (value: string | undefined): value is string =>
@@ -92,7 +99,7 @@ export function adoptLive(
 ): Fill[] {
   return names.flatMap((name) => {
     const configs = CONFIGS.filter((config) =>
-      requiredManualKeys(keys, config).includes(name)
+      manualKeys(keys, config).includes(name)
     );
     if (!configs.length)
       throw new Error(`${name} is not an operator-supplied vault field`);
@@ -224,7 +231,10 @@ export function inputsFromState(state: unknown): string | undefined {
 }
 
 /** Plan changes other than the one this command exists to make. */
-export function unexpectedChanges(plan: unknown): string[] {
+export function unexpectedChanges(
+  plan: unknown,
+  addresses: readonly string[] = [TOFU_VAULT_INPUTS_ADDRESS]
+): string[] {
   const changes =
     isRecord(plan) && Array.isArray(plan['resource_changes'])
       ? plan['resource_changes']
@@ -233,13 +243,20 @@ export function unexpectedChanges(plan: unknown): string[] {
     if (!isRecord(entry) || !isRecord(entry['change'])) return [];
     const actions = (entry['change']['actions'] as string[] | undefined) ?? [];
     const quiet = actions.every((a) => a === 'no-op' || a === 'read');
-    return quiet || entry['address'] === TOFU_VAULT_INPUTS_ADDRESS
+    const expected =
+      addresses.includes(String(entry['address'])) &&
+      actions.length === 1 &&
+      actions[0] === 'update';
+    return quiet || expected
       ? []
       : [`${String(entry['address'])}: ${actions.join(' + ')}`];
   });
 }
 
-export function updatesVaultInputs(plan: unknown): boolean {
+export function updatesSecrets(
+  plan: unknown,
+  addresses: readonly string[] = [TOFU_VAULT_INPUTS_ADDRESS]
+): boolean {
   const changes =
     isRecord(plan) && Array.isArray(plan['resource_changes'])
       ? plan['resource_changes']
@@ -247,7 +264,7 @@ export function updatesVaultInputs(plan: unknown): boolean {
   return changes.some(
     (entry) =>
       isRecord(entry) &&
-      entry['address'] === TOFU_VAULT_INPUTS_ADDRESS &&
+      addresses.includes(String(entry['address'])) &&
       isRecord(entry['change']) &&
       Array.isArray(entry['change']['actions']) &&
       entry['change']['actions'].includes('update')
