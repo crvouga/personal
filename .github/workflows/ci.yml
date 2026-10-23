@@ -1100,7 +1100,7 @@ jobs:
     name: CI result
     if: always()
     needs:
-      [changes, deploy-preflight, check, portfolio-health-check, vault, publish, deploy-prepare, deploy-reconcile, deploy-railway, health-check-all, smoke, Required]
+      [changes, vault-state, deploy-preflight, check, portfolio-health-check, publish-plan, refresh-github-insights, vault, publish, deploy-prepare, deploy-reconcile, deploy-railway, health-check-all, smoke, Required]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
