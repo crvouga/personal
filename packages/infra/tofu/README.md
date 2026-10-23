@@ -179,7 +179,9 @@ repository policy. Keep application behavior out of platform resource logic.
 
 Set `managed_publisher = false` in a repository's inventory entry when it owns
 its publisher. The repository can still call the shared image build/deploy
-workflow. `required_status_checks` declares default-branch checks generically.
+workflow. `required_status_checks` declares default-branch checks generically;
+`status_check_integrations` overrides the GitHub Actions integration ID per check
+when another GitHub App supplies a status.
 Vault registry entries with `generated = true` receive independent generated
 secrets in their declared `configs`; their values survive resource renames.
 
@@ -194,6 +196,11 @@ The branch ruleset and generated credentials move to generic resource addresses;
 review the saved plans to confirm no table destruction, credential rotation,
 workflow overwrite or branch protection removal.
 
+Mockingbird also owns its protected publisher. Its `removed` block forgets the
+platform file resource without rewriting or deleting the live workflow. Its
+existing ruleset moves to the generic resource address with Commitlint, Check
+and GitGuardian still required, including GitGuardian's original integration ID.
+
 ## Normal operations
 
 `bun run infra`, `infra:bootstrap`, `infra:vault`, `infra:fleet` and `infra:state` forward arguments directly to OpenTofu. Review with `plan`; apply the reviewed saved plan. Stateful resources use `prevent_destroy`; decommissioning requires an explicit reviewed OpenTofu change, never an API deletion script.
@@ -202,7 +209,7 @@ CI uses [.github/actions/tofu](../../../.github/actions/tofu/action.yml) for ini
 
 GitHub publisher files are `github_repository_file` resources rendered from [the shared template](modules/inventory/publish.yml.tftpl). The integration guide renders that same template. Resource edits, new hosting entries and secret values all go through OpenTofu.
 
-The foundation root is authoritative for every platform repository's configurable GitHub control plane. Every repository has managed metadata and features, default branch, Actions policy and default workflow-token permissions, security scanning, vulnerability alerts and Dependabot security updates. The workspace repository additionally owns its ruleset, collaborators, issue labels, Actions secrets and Actions variables. The `main` ruleset requires a pull request, the `Check` and `Fleet` checks (the temporary `Required` compatibility status stays until migration is verified), and a merge queue whose method is `MERGE`. Direct pushes and force pushes stay refused. Git history, pull requests, issues, workflow runs, releases, packages and artifacts are application or collaboration data rather than infrastructure resources.
+The foundation root is authoritative for every platform repository's configurable GitHub control plane. Every repository has managed metadata and features, default branch, Actions policy and default workflow-token permissions, security scanning, vulnerability alerts and Dependabot security updates. The workspace repository additionally owns its ruleset, collaborators, issue labels, Actions secrets and Actions variables. The `main` ruleset requires a pull request, the `Check` and `Fleet` checks (the temporary `Required` compatibility status stays until migration is verified). This personally owned repository cannot use GitHub merge queues, which require an organization owner. The optional queue block is emitted only when declared in the inventory; required checks remain strict and merges use merge commits. Direct pushes and force pushes stay refused. Git history, pull requests, issues, workflow runs, releases, packages and artifacts are application or collaboration data rather than infrastructure resources.
 
 The pinned GitHub 6.13.0 provider exposes non-provider secret patterns in its schema but does not send or read that setting. It is deliberately omitted from desired settings until a provider supports its full lifecycle; declaring it produces perpetual drift. Secret scanning and push protection remain explicitly managed. Railway environment reads include both environment and project IDs so the GraphQL provider can preserve every mutation input across refreshes.
 

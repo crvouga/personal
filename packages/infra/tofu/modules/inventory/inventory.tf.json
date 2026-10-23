@@ -930,7 +930,16 @@
               "JUNCTION_API_KEY",
               "PADDLE_API_KEY",
               "STRIPE_SECRET_KEY"
-            ]
+            ],
+            "managed_publisher": false,
+            "required_status_checks": [
+              "Commitlint",
+              "Check",
+              "GitGuardian Security Checks"
+            ],
+            "status_check_integrations": {
+              "GitGuardian Security Checks": 46505
+            }
           },
           "moviefinder.app-clojurescript": {
             "description": null,
@@ -1229,18 +1238,6 @@
                       "integration_id": 15368
                     }
                   ]
-                }
-              },
-              {
-                "type": "merge_queue",
-                "parameters": {
-                  "check_response_timeout_minutes": 360,
-                  "grouping_strategy": "ALLGREEN",
-                  "max_entries_to_build": 2,
-                  "max_entries_to_merge": 2,
-                  "merge_method": "MERGE",
-                  "min_entries_to_merge": 1,
-                  "min_entries_to_merge_wait_minutes": 5
                 }
               },
               {
