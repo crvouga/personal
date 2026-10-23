@@ -202,3 +202,15 @@ test('the CI Vault role can describe its own token when the gateway is live', ()
     /path "auth\/token\/lookup-self" \{\s*capabilities = \["read"\]/
   );
 });
+
+test('staged auth populates Vault setup credentials before its health check', () => {
+  const vault = steps.findIndex((step) => step.with?.root === 'vault');
+  const health = steps.findIndex((step) => step.name === 'Health');
+  expect(vault).toBeGreaterThan(-1);
+  expect(steps[vault].if).toBeUndefined();
+  expect(vault).toBeLessThan(health);
+  const parentVault = workflow.jobs.deploy.steps.find(
+    (step: { name?: string }) => step.name === 'Apply vault'
+  );
+  expect(parentVault.if).toContain("steps.plan.outputs.auth != 'true'");
+});

@@ -145,7 +145,7 @@ jobs:
         if: steps.plan.outputs.auth == 'true'
         uses: ./.github/actions/deploy-auth
       - name: Apply vault
-        if: steps.plan.outputs.apply == 'true'
+        if: steps.plan.outputs.apply == 'true' && steps.plan.outputs.auth != 'true'
         uses: ./.github/actions/tofu
         with:
           root: vault

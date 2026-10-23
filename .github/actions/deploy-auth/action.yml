@@ -221,10 +221,9 @@ runs:
         TF_VAR_google_client_id: ${{ env.GOOGLE_CLIENT_ID_NONPRODUCTION }}
         TF_VAR_google_client_secret: ${{ env.GOOGLE_CLIENT_SECRET_NONPRODUCTION }}
     - uses: ./.github/actions/tofu
-      if: steps.flags.outputs.live == 'true'
       with:
         root: vault
-      name: ./.github/actions/tofu
+      name: Apply Vault credentials
     - name: Re-pin Keycloak to schema validation and deploy the gateway
       run: |
         echo "TF_VAR_keycloak_schema_init=false" >> "$GITHUB_ENV"
