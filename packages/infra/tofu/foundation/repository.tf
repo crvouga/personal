@@ -232,44 +232,9 @@ resource "github_repository_environment" "application" {
   lifecycle { prevent_destroy = true }
 }
 
-resource "github_repository_ruleset" "mockingbird_main" {
-  repository  = github_repository.application["mockingbird"].name
-  name        = "Protect main"
-  target      = "branch"
-  enforcement = "active"
-  conditions {
-    ref_name {
-      include = ["refs/heads/main"]
-      exclude = []
-    }
-  }
-  rules {
-    deletion         = true
-    non_fast_forward = true
-    pull_request {
-      allowed_merge_methods             = ["merge"]
-      dismiss_stale_reviews_on_push     = false
-      require_code_owner_review         = false
-      require_last_push_approval        = false
-      required_approving_review_count   = 0
-      required_review_thread_resolution = false
-    }
-    required_status_checks {
-      strict_required_status_checks_policy = true
-      required_check {
-        context        = "Commitlint"
-        integration_id = 15368
-      }
-      required_check {
-        context        = "Check"
-        integration_id = 15368
-      }
-      required_check {
-        context        = "GitGuardian Security Checks"
-        integration_id = 46505
-      }
-    }
-  }
+moved {
+  from = github_repository_ruleset.mockingbird_main
+  to   = github_repository_ruleset.application_default_branch["mockingbird"]
 }
 
 moved {
@@ -306,7 +271,7 @@ resource "github_repository_ruleset" "application_default_branch" {
         for_each = each.value.required_status_checks
         content {
           context        = required_check.value
-          integration_id = 15368
+          integration_id = lookup(try(each.value.status_check_integrations, {}), required_check.value, 15368)
         }
       }
     }
@@ -377,7 +342,7 @@ import {
   id       = "${each.value.repository}:${each.value.name}"
 }
 import {
-  to = github_repository_ruleset.mockingbird_main
+  to = github_repository_ruleset.application_default_branch["mockingbird"]
   id = "mockingbird:23647164"
 }
 
@@ -500,15 +465,18 @@ resource "github_repository_ruleset" "main" {
         }
       }
     }
-    # MERGE keeps the merge_group SHA. That is the SHA pushed to the binary cache.
-    merge_queue {
-      check_response_timeout_minutes    = local.mq_rule.check_response_timeout_minutes
-      grouping_strategy                 = local.mq_rule.grouping_strategy
-      max_entries_to_build              = local.mq_rule.max_entries_to_build
-      max_entries_to_merge              = local.mq_rule.max_entries_to_merge
-      merge_method                      = local.mq_rule.merge_method
-      min_entries_to_merge              = local.mq_rule.min_entries_to_merge
-      min_entries_to_merge_wait_minutes = local.mq_rule.min_entries_to_merge_wait_minutes
+    # GitHub supports merge queues only for organization-owned repositories.
+    dynamic "merge_queue" {
+      for_each = local.mq_rule == null ? [] : [local.mq_rule]
+      content {
+        check_response_timeout_minutes    = merge_queue.value.check_response_timeout_minutes
+        grouping_strategy                 = merge_queue.value.grouping_strategy
+        max_entries_to_build              = merge_queue.value.max_entries_to_build
+        max_entries_to_merge              = merge_queue.value.max_entries_to_merge
+        merge_method                      = merge_queue.value.merge_method
+        min_entries_to_merge              = merge_queue.value.min_entries_to_merge
+        min_entries_to_merge_wait_minutes = merge_queue.value.min_entries_to_merge_wait_minutes
+      }
     }
   }
 }

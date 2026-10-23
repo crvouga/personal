@@ -134,6 +134,34 @@ run "application_owned_publisher" {
   }
 }
 
+run "personal_repository_merge_gate" {
+  command = plan
+  assert {
+    condition     = length(one(github_repository_ruleset.main.rules).merge_queue) == 0
+    error_message = "GitHub rejects merge queues for personally owned repositories."
+  }
+  assert {
+    condition     = one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check", "Fleet"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["merge"])
+    error_message = "The supported merge gate must still require up-to-date Check and Fleet results and a merge-commit PR."
+  }
+}
+
+run "protected_publisher_handoff" {
+  command = plan
+  assert {
+    condition     = !contains(keys(github_repository_file.publish), "mockingbird")
+    error_message = "The platform must not write Mockingbird's protected publisher directly."
+  }
+  assert {
+    condition = alltrue([for check in one(github_repository_ruleset.application_default_branch["mockingbird"].rules).required_status_checks[0].required_check : check.integration_id == {
+      Commitlint                    = 15368
+      Check                         = 15368
+      "GitGuardian Security Checks" = 46505
+    }[check.context]]) && length(one(github_repository_ruleset.application_default_branch["mockingbird"].rules).required_status_checks[0].required_check) == 3
+    error_message = "The ownership handoff must preserve all three existing checks and their original GitHub Apps."
+  }
+}
+
 run "application_namespace_allocation_is_opt_in" {
   command = plan
   assert {

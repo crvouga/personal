@@ -33,3 +33,14 @@ removed {
   from = github_repository_file.application_owned_publisher
   lifecycle { destroy = false }
 }
+
+# Protected application repositories own publisher changes through their PRs.
+# Forget the old platform resource without deleting or rewriting the live file.
+moved {
+  from = github_repository_file.publish["mockingbird"]
+  to   = github_repository_file.application_owned_publishers["mockingbird"]
+}
+removed {
+  from = github_repository_file.application_owned_publishers
+  lifecycle { destroy = false }
+}

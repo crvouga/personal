@@ -36,6 +36,13 @@ function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
     )
   )
     return backoff;
+  if (
+    /^(Atlas Plan Error|Inspect Error)$/.test(error.summary) &&
+    /\bread tcp [^\r\n]+->[^\r\n]+: read: (connection timed out|i\/o timeout)\b/.test(
+      error.detail
+    )
+  )
+    return backoff;
   return null;
 }
 

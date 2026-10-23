@@ -21,6 +21,7 @@ python3 tests/bootstrap.py
 python3 tests/railway-settings.py
 python3 tests/registry-credentials.py
 python3 tests/foundation-controls.py
+python3 tests/publisher-handoff.py
 python3 tests/foundation.py
 python3 tests/vault.py
 python3 tests/auth-hosting.py
