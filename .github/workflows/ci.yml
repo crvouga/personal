@@ -494,7 +494,7 @@ jobs:
         run: jq -e 'all(.[]; .result == "success")' <<< "$RESULTS"
   deploy:
     name: Deploy
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.service_id == ''
+    if: "!cancelled() && needs.check.result == 'success' && needs.fleet.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.service_id == ''"
     needs:
       - check
       - fleet

@@ -117,10 +117,6 @@
       "id": "zones/83db052d18159889dd290724ac7d52d9/242468406a594f919a70a41bf3291d80"
     },
     {
-      "to": "github_repository_file.publish[\"mockingbird\"]",
-      "id": "mockingbird:.github/workflows/publish.yml:main"
-    },
-    {
       "to": "github_repository_file.publish[\"violets-garden\"]",
       "id": "violets-garden:.github/workflows/publish.yml:main"
     },
