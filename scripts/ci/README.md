@@ -95,8 +95,15 @@ use setup-python's pip cache.
 Each package lane restores `.turbo` from earlier runs, then always invokes Turbo.
 Turbo decides reuse from task inputs and dependency hashes. Successful task
 entries are saved even when a different task fails, so retries retain valid work. Shared ESLint rules
-and strict TypeScript settings invalidate task results; Fleet and infrastructure
+invalidate every lint task without discarding unrelated compiler, test or build
+results. Strict TypeScript settings remain shared inputs; Fleet and infrastructure
 checks also track the repository files they inspect outside their package.
+Inventory and publisher-template inputs are scoped to their actual consumers:
+infrastructure, Fleet, auth relay, password manager, portfolio and the cache
+server. New filesystem consumers must declare these inputs in their package
+Turbo configuration. Real Turbo planner tests verify that both inventory and
+template edits invalidate every current reader, while unrelated package results
+remain reusable. The same tests ensure shared lint-rule edits reach every linter.
 Generated browser bundles and portfolio builds declare their `dist` outputs so
 cache hits restore usable artifacts. Fleet API tests explicitly depend on their
 asset build, avoiding cold-checkout races. External integration probes always run when

@@ -6,10 +6,7 @@
     "bun.lock",
     "tsconfig.json",
     "package.json",
-    "packages/infra/tofu/modules/inventory/inventory.tf.json",
-    "packages/infra/tofu/modules/inventory/publish.yml.tftpl",
     "tsconfig.strict.json",
-    "packages/eslint-rules/**",
     ".nvmrc"
   ],
   "globalPassThroughEnv": ["CLOUDFLARE_*", "VAULT_*", "TURBO_*", "DEPLOY_*"],
@@ -32,7 +29,7 @@
     },
     "lint": {
       "dependsOn": ["^tc"],
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/eslint-rules/**"],
       "outputLogs": "new-only",
       "outputs": []
     },

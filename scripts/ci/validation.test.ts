@@ -111,7 +111,9 @@ test('restored task results are validated by Turbo and never skip the package co
     ).with.key
   ).toContain('${{ matrix.group }}');
   const config = JSON.parse(readFileSync(join(root, 'turbo.json'), 'utf8'));
-  expect(config.globalDependencies).toContain('packages/eslint-rules/**');
+  expect(config.tasks.lint.inputs).toContain(
+    '$TURBO_ROOT$/packages/eslint-rules/**'
+  );
   expect(config.globalDependencies).toContain('tsconfig.strict.json');
   for (const task of ['tc', 'lint'])
     expect(config.tasks[task].inputs).toContain('$TURBO_DEFAULT$');
