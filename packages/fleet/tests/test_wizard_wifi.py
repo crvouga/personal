@@ -229,7 +229,7 @@ class WifiTransferTests(unittest.TestCase):
         self.assertEqual(sum("--wait" in call.args[0] for call in run.call_args_list), 3)
 
     def test_simulated_installs_never_read_the_host_wifi_password(self):
-        for seam in ("FLEET_DISKS_FILE", "FLEET_WINDOWS_TARGET", "FLEET_ALLOW_UNPRIVILEGED", "FLEET_DD", "FLEET_LSBLK", "FLEET_DISKUTIL", "FLEET_POWERSHELL"):
+        for seam in ("FLEET_DISKS_FILE", "FLEET_WINDOWS_TARGET", "FLEET_WRITE_TARGET", "FLEET_ALLOW_UNPRIVILEGED", "FLEET_DD", "FLEET_LSBLK", "FLEET_DISKUTIL", "FLEET_POWERSHELL"):
             with mock.patch.dict(os.environ, {seam: "test"}), mock.patch.object(wifi_capture, "capture") as capture:
                 self.assertIsNone(wifi.discover("Windows"))
                 capture.assert_not_called()

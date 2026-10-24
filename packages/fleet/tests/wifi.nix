@@ -15,7 +15,7 @@ in pkgs.testers.runNixOSTest {
     # qemu-vm disables wireless with mkVMOverride (priority 10), even when
     # mac80211_hwsim supplies real simulated radios. Restore NM's supplicant.
     networking.wireless.enable = lib.mkOverride 0 true;
-    virtualisation = { memorySize = 1536; cores = 2; vlans = [ ]; };
+    virtualisation = { memorySize = 1536; cores = 1; graphics = false; vlans = [ ]; };
     boot.kernelModules = [ "mac80211_hwsim" ];
     boot.extraModprobeConfig = "options mac80211_hwsim radios=2";
     environment.systemPackages = [ pkgs.iw pkgs.networkmanager pkgs.iproute2 ];
