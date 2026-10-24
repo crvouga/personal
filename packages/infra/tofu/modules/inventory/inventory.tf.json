@@ -2325,7 +2325,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fleet_cache": {
+        "signing_key_fingerprint": "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc"
+      }
     }
   }
 }

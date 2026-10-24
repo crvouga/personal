@@ -316,3 +316,11 @@ for rotation, apply its reviewed saved plan, then update the existing runtime gr
 fingerprint. Omission from the complete input map is blocked by KV destroy
 protection; revoke runtime access first and treat permanent removal as a separately
 reviewed infrastructure change. See [agent onboarding](../../auth-relay/README.md#agent-registration).
+
+The Fleet cache publisher uses the existing isolated `secret/fleet-cache/publisher`
+signing key, originally generated through OpenTofu. Its public fingerprint is pinned
+in inventory. Import blocks adopt the publisher document, policy and both exact-ref
+JWT roles without rotating the key. Missing or mismatched signing material fails
+closed. The bootstrap state has encrypted local and state-bucket backups; staged
+publisher records stay outside the older main state until this configuration is
+adopted, so an ordinary deployment of older code cannot destroy them.

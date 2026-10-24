@@ -1,11 +1,19 @@
-mock_provider "vault" {}
+mock_provider "vault" {
+  mock_data "vault_kv_secret_v2" {
+    defaults = { data = { NIX_CACHE_PRIVATE_KEY_PEM = "mock-existing-key" } }
+  }
+}
 mock_provider "random" {}
-mock_provider "tls" {}
+mock_provider "tls" {
+  mock_data "tls_public_key" {
+    defaults = { public_key_fingerprint_sha256 = "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc" }
+  }
+}
 
 run "fleet_cache_signing_is_isolated_and_ci_refs_are_bound" {
   command = plan
   assert {
-    condition = (tls_private_key.fleet_cache.algorithm == "ED25519" &&
+    condition = (data.tls_public_key.fleet_cache.public_key_fingerprint_sha256 == module.inventory.config.fleet_cache.signing_key_fingerprint &&
       vault_kv_secret_v2.fleet_cache_publisher.name == "fleet-cache/publisher" &&
       vault_policy.fleet_cache_publisher.policy == "path \"secret/data/fleet-cache/publisher\" {\n  capabilities = [\"read\"]\n}\n" &&
       vault_jwt_auth_backend_role.fleet_cache_publisher.bound_claims.ref == "refs/heads/main" &&
@@ -22,6 +30,15 @@ run "fleet_cache_signing_is_isolated_and_ci_refs_are_bound" {
     ])
     error_message = "Shared CI/runtime policies must not expose Fleet signing credentials."
   }
+}
+
+run "reject_changed_fleet_cache_signing_identity" {
+  command = plan
+  override_data {
+    target = data.tls_public_key.fleet_cache
+    values = { public_key_fingerprint_sha256 = "SHA256:unexpected-key" }
+  }
+  expect_failures = [vault_kv_secret_v2.fleet_cache_publisher]
 }
 
 run "reject_unsafe_auth_agent_id" {

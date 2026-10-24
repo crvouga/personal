@@ -1,23 +1,32 @@
-# A cloud-hosted signed cache is independent of every physical Fleet node.
-# This key is generated only by OpenTofu and persists in encrypted state and an
-# isolated Vault document. Runtime services receive no signing credential.
-resource "tls_private_key" "fleet_cache" {
-  algorithm = "ED25519"
-  lifecycle { prevent_destroy = true }
+# The signing key was bootstrapped once through OpenTofu. Preserve the live
+# isolated document during adoption; never generate a replacement on state loss.
+data "vault_kv_secret_v2" "fleet_cache_signing" {
+  mount = local.vault.kv.mount
+  name  = "fleet-cache/publisher"
+}
+
+data "tls_public_key" "fleet_cache" {
+  private_key_pem = data.vault_kv_secret_v2.fleet_cache_signing.data["NIX_CACHE_PRIVATE_KEY_PEM"]
 }
 
 resource "vault_kv_secret_v2" "fleet_cache_publisher" {
   mount = vault_mount.secret.path
   name  = "fleet-cache/publisher"
   data_json = jsonencode({
-    NIX_CACHE_PRIVATE_KEY_PEM = tls_private_key.fleet_cache.private_key_pem_pkcs8
+    NIX_CACHE_PRIVATE_KEY_PEM = data.vault_kv_secret_v2.fleet_cache_signing.data["NIX_CACHE_PRIVATE_KEY_PEM"]
     S3_ENDPOINT               = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
     S3_REGION                 = "auto"
     S3_BUCKET                 = data.terraform_remote_state.foundation.outputs.buckets.production
     S3_ACCESS_KEY_ID          = data.terraform_remote_state.foundation.outputs.r2_access_key_id
     S3_SECRET_ACCESS_KEY      = data.terraform_remote_state.foundation.outputs.r2_secret_access_key
   })
-  lifecycle { prevent_destroy = true }
+  lifecycle {
+    prevent_destroy = true
+    precondition {
+      condition     = data.tls_public_key.fleet_cache.public_key_fingerprint_sha256 == local.config.fleet_cache.signing_key_fingerprint
+      error_message = "Fleet cache signing key differs from the pinned identity. Restore the existing key; do not rotate it implicitly."
+    }
+  }
 }
 
 resource "vault_policy" "fleet_cache_publisher" {
@@ -49,5 +58,5 @@ resource "vault_jwt_auth_backend_role" "fleet_cache_publisher" {
 
 output "fleet_cache_public_key_pem" {
   description = "Public Ed25519 key only; convert to the Nix name:base64 form when pinning the cache."
-  value       = tls_private_key.fleet_cache.public_key_pem
+  value       = data.tls_public_key.fleet_cache.public_key_pem
 }
