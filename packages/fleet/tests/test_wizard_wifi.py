@@ -37,6 +37,8 @@ class WifiTransferTests(unittest.TestCase):
             live, profile = root / "live.json", root / "profile.nmconnection"
             wifi.write_private(live, wifi.encode(NETWORK))
             with mock.patch.object(wifi, "LIVE", live), mock.patch.object(wifi, "PROFILE", profile), mock.patch.object(
+                wifi, "read_private", return_value=NETWORK
+            ), mock.patch.object(
                 wifi.subprocess, "run", side_effect=subprocess.TimeoutExpired("nmcli", 20)
             ), mock.patch.object(wifi, "ready") as connect:
                 with self.assertRaises(wifi.NetworkUnavailable):
