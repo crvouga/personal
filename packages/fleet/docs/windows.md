@@ -1,12 +1,35 @@
 # Converting a Windows computer in place
 
-This is the exact experience of turning a running Windows PC into a fleet node, what each step does, how to take it back, and what to do when something stops half way.
+Open the Windows installer, choose **Turn THIS computer into a node → CI**
+(or another role), and confirm the disk it names. Accept the administrator
+prompt and approve the GitHub page when it opens. The installer handles the
+checks, download, free-space preparation, partitioning, boot setup and restart.
+You do not need Git Bash, PowerShell commands, a separate doctor run or a plan.
+
+Before confirming, back up the files you want to keep and save your BitLocker
+recovery key on another device. Installation erases the entire internal disk.
+Keep power and wired Ethernet connected. If a firmware setting needs changing,
+the installer names it; Secure Boot must be disabled because the loader is
+unsigned. The installer cannot make a backup without a destination or operate
+your PC's firmware settings for you.
+
+If Windows initially cannot shrink enough, the wizard consolidates free space
+once and measures again. It does not delete your files or restore points, or
+disable encryption, hibernation or the page file to make room. If that is not
+enough, it stops before partitioning and offers the USB route. Transient network
+failures retry automatically up to three attempts. Reloading the browser
+reconnects to the current installation; it never repeats your erase approval.
 
 **Honesty first.** The author has never run this on a real Windows computer. What has been checked without one: every PowerShell script is parsed by the real PowerShell parser and run against stand-in cmdlets; the UEFI boot option is compared byte for byte with a layout worked out by hand from the UEFI specification; every step and every undo is tested against a model of Windows. What has _not_ been checked: that Windows' own storage tools, `bcdedit`, `mountvol`, the firmware of your particular PC and the unsigned GRUB behave as expected. Try it on a spare machine first, with everything on it backed up.
 
-## Before you try it on a real machine
+<details>
+<summary>Advanced reference: checks, boot internals and recovery</summary>
 
-Do all of these. Each one removes a way this can go wrong.
+## Checks the installer performs
+
+This is a troubleshooting reference, not a list of commands you must run.
+The wizard performs software checks automatically. Backups, cabling and any
+required firmware change still need the person at the computer.
 
 - [ ] **Back up what you care about to another computer or drive.** The installer erases the whole disk (Windows, your files, the recovery partition, everything). Do not rely on this program to keep any of it.
 - [ ] **Save the BitLocker recovery key** if BitLocker or "Device encryption" is on (Settings > Privacy & security > Device encryption, or <https://account.microsoft.com/devices/recoverykey>). Turning Secure Boot off, which this needs, can make Windows ask for the key, and so can a conversion that stops half way.
@@ -15,10 +38,10 @@ Do all of these. Each one removes a way this can go wrong.
 - [ ] **Unplug other drives and USB sticks.** The installer refuses to guess between two internal disks, and an external disk can look internal to Windows.
 - [ ] **Turn Secure Boot off.** The installer's boot loader is not signed. Run `shutdown /r /fw` in an administrator window, open the firmware's Boot or Security page, set Secure Boot to Disabled, save, and start Windows again. (`msinfo32` shows "Secure Boot State: Off" when it worked.)
 - [ ] **UEFI and GPT.** In `msinfo32`, "BIOS Mode" must say UEFI. In Disk Management, the disk's Properties > Volumes must say "GUID Partition Table (GPT)". A legacy-BIOS or MBR disk cannot convert; make an install USB instead (`fleet-node.sh flash`, or the wizard's USB option).
-- [ ] **Enough RAM.** The installer image is copied whole into memory and the installer then needs room of its own: **the image size plus 2 GiB**. With the 8 GiB image estimate that is 10 GiB. The check names the exact figure. A USB install cannot help, because it boots the same image into RAM too.
+- [ ] **Enough RAM.** The installer image is copied whole into memory and the installer then needs room of its own: **the image size plus 2 GiB**. The check uses the current release size and names the exact figure. A USB install cannot help, because it boots the same image into RAM too.
 - [ ] **Free space on C:** Windows has to be able to give up the image size plus 64 MiB from the end of `C:`, and the download sits on `C:` meanwhile, so the early check asks for both. If it says `C:` cannot shrink enough, see "C: will not shrink" below.
 - [ ] **Run it as an administrator**: the wizard asks for permission by itself (UAC). For `fleet-node.sh`, open Git Bash with **Run as administrator**.
-- [ ] **Read the plan first**: `bash fleet-node.sh ci --plan` (use your role) or `bash fleet-node.sh doctor ci`. It prints the checks and then the exact steps with this machine's sizes, and changes nothing.
+- [ ] **Optional CLI diagnostics**: `bash fleet-node.sh ci --plan` or `bash fleet-node.sh doctor ci`. The wizard already performs its own checks and disk review; neither command is required.
 
 ## What you will see
 
@@ -154,3 +177,5 @@ Not verified, and the first places to look if it fails on real hardware:
 4. That `Resize-Partition`, `New-Partition` and the raw write behave on your disk (BitLocker, dynamic disks, RST/VMD, 4Kn drives, vendor drivers).
 5. That `mountvol /S` mounts the EFI partition Windows booted from, and that `Get-Partition -DriveLetter` sees it afterwards.
 6. That the installer's initrd, booted this way, mounts the partition by its label and copies it to RAM.
+
+</details>

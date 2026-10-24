@@ -23,6 +23,7 @@ import bootstrap  # noqa: F401
 import decide
 import elevate
 import imaging
+import preparation
 
 try:
     from _version import VERSION
@@ -85,6 +86,7 @@ class Job:
         self.message = ""
         self.log = []
         self.result = None
+        self.mode = None
         self.cancel = threading.Event()
         self.lock = threading.Lock()
 
@@ -116,7 +118,7 @@ class Job:
 
     def snapshot(self):
         with self.lock:
-            return {"state": self.state, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
+            return {"state": self.state, "mode": self.mode, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
 
 
 class Wizard:
@@ -154,7 +156,8 @@ class Wizard:
         if decide.machine_arch() not in decide.X86:
             reasons.append(f"This computer is {decide.machine_arch()}. Nodes are x86_64 UEFI machines, so this one can make a USB for another computer but cannot become a node.")
         if self.os_name == "Linux" and not (shutil.which(decide.os_boot_tool("Linux")) or os.path.isfile(decide.os_boot_tool("Linux"))):
-            reasons.append("kexec is not installed here. Install kexec-tools, or make an install USB.")
+            if not preparation.linux_boot_commands():
+                reasons.append("The Linux boot tool cannot be prepared automatically on this system. Make an install USB instead.")
         if not internal["ok"]:
             reasons.append(internal["next"].replace("Next: ", "", 1).replace(" Nothing was written.", ""))
         return reasons
@@ -218,14 +221,14 @@ class Wizard:
             findings = decide.preflight(self.os_name, role, "install", token, directory, need_root=False, ssh_key=ssh_key,
                                         auto_enroll=decide.enroll_enabled(), disk_path=internal["path"],
                                         iso_path=imaging.cache_dir(self.os_name) / "fleet-installer.iso")
+            findings = preparation.review_findings(self.os_name, findings)
             erase, disk_id, target = internal["plain"], internal["disk_id"], internal["path"]
             summary = f"This erases {internal['plain']}, including this computer's operating system and every file on it, and installs a {ROLE_INFO[role][0]}."
             if reinstall:
                 summary = "Hard reinstall: replace the existing installation, even if it already has this role. " + summary
             if self.os_name == "Windows":
-                summary += (" Until it restarts, Windows is only prepared: C: is shrunk by the installer's size, the installer is written into a new partition and read back, "
-                            "and the computer is told to start it once. If any step fails, everything is put back and Windows starts as before. "
-                            "Save the BitLocker recovery key and plug in the power first; `fleet-node.sh ROLE --plan` prints the exact steps and sizes.")
+                summary += " Windows preparation, boot setup and restart are automatic. Back up your files and save your BitLocker recovery key on another device before continuing."
+            summary += " The installer will prepare the required tools, repeat its checks, install and restart automatically."
         problems = [item for item in findings if item["status"] == "fail"]
         plan = {
             "id": secrets.token_hex(8), "mode": mode, "role": role, "reinstall": reinstall, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
@@ -252,6 +255,7 @@ class Wizard:
             decide.invariant(body.get("disk_id") == plan["disk_id"], "the acknowledged disk is not the planned disk", "Review the plan again.")
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"), "a job is already running")
             self.job = Job()
+            self.job.mode = plan["mode"]
             self.job.move("downloading")
             job = self.job
             self.plan = None  # acknowledgement is single-use, even if the run fails
@@ -262,12 +266,12 @@ class Wizard:
         try:
             iso_url, sum_url = installer_urls()
             job.note("Looking up the installer checksum")
-            sha = imaging.fetch_checksum(sum_url)
+            sha = imaging.retry(lambda: imaging.fetch_checksum(sum_url), job.note, job.cancel.is_set)
             target = imaging.cache_dir(self.os_name) / "fleet-installer.iso"
             job.note("Downloading the installer", 0)
             imaging.download(iso_url, target, sha,
                              lambda done, total: job.note("", int(done * 100 / total) if total else None),
-                             cancel=job.cancel.is_set)
+                             cancel=job.cancel.is_set, retry_note=job.note)
             job.note("Download verified", 100)
             if plan["mode"] == "here" and not plan["token"] and decide.enroll_enabled():
                 plan = self.enroll(job, plan)

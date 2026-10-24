@@ -94,6 +94,9 @@ resource "keycloak_oidc_identity_provider" "mock" {
   validate_signature = true
   disable_user_info  = true
   default_scopes     = "openid email profile"
-  trust_email        = true
-  store_token        = false
+  extra_config = {
+    prompt = "select_account"
+  }
+  trust_email = true
+  store_token = false
 }

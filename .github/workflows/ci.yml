@@ -299,7 +299,7 @@ jobs:
           python-version: "3.12"
       - name: Wizard tests
         working-directory: packages/fleet
-        run: python -B -m unittest discover -s tests -p "test_wizard.py" -v
+        run: python -B -m unittest discover -s tests -p "test_wizard*.py" -v
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:

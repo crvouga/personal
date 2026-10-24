@@ -50,14 +50,16 @@ export function deploymentPlan(config: InfraConfig, request: Request) {
     automatic &&
     (changed(/^packages\/vault-service\//) || !!request.recoverVault);
   const authChanged = changed(
-    /^packages\/auth-relay\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/|^scripts\/(ci\/|tofu-plan\.ts)/
+    /^packages\/auth-relay\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/|^scripts\/(ci\/|(?:tofu|atlas)-plan\.ts)/
   );
   const auth =
     !!config.auth_relay?.enabled &&
     (action === 'auth' || (automatic && authChanged));
   const infrastructure =
     automatic &&
-    changed(/^packages\/infra\/|^\.github\/|^scripts\/(ci\/|tofu-plan\.ts)/);
+    changed(
+      /^packages\/infra\/|^\.github\/|^scripts\/(ci\/|(?:tofu|atlas)-plan\.ts)/
+    );
   const apply =
     build ||
     vault ||

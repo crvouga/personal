@@ -44,6 +44,11 @@ resource "keycloak_oidc_google_identity_provider" "google" {
   client_secret  = var.google_client_secret
   default_scopes = "openid email profile"
   store_token    = false
+  # Google supports select_account, not OIDC's login prompt. The gateway forces
+  # broker reauthentication; this independent upstream prompt always shows Google.
+  extra_config = {
+    prompt = "select_account"
+  }
   # Preserve Google's verified-email assertion for email-based application access.
   # This does not auto-link accounts; the confirmation flow below remains intact.
   trust_email = true

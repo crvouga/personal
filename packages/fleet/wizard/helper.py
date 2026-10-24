@@ -20,6 +20,7 @@ import bootstrap  # noqa: F401
 import decide
 import imaging
 import leases
+import preparation
 
 ACTIONS = ("write-usb", "install-here")
 TOKEN_RE = decide.ENROLL_RE
@@ -176,13 +177,22 @@ def install_here(request, progress):
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))
     decide.invariant(chosen["disk_id"] == request.get("disk_id"), "the internal disk is not the one that was chosen", "Disks changed. Run the wizard again.")
     found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
-    problems = [item for item in found if item["status"] == "fail"]
+    actions = preparation.automatic(os_name, found)
+    problems = [item for item in found if item["status"] == "fail" and item["name"] not in actions]
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
     reinstall = request.get("reinstall", False)
     decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
     if not reinstall and decide.installed_for(role, directory):
         return f"This computer is already installed as {role}. Nothing was changed."
     with leases.DeviceLease(chosen["path"]):
+        again = decide.choose_disk(os_name, "install")
+        decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before preparation", "Review the disk again.")
+        if preparation.run(os_name, found, progress):
+            found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
+            problems = [item for item in found if item["status"] == "fail"]
+            decide.invariant(not problems, "automatic preparation could not make this computer ready",
+                             "No partition or boot entry was changed. Make an install USB instead, or resolve the remaining check and reopen the installer.",
+                             failed=[item["detail"] for item in problems])
         # The handoff image is shared state too: a second helper must not
         # replace it while the first is loading its kernel or restarting.
         if os_name == "Windows":

@@ -1,5 +1,11 @@
 # Steps that stay manual
 
+For the normal installation, use the [wizard](installer.md): open it, choose
+the role and confirm the exact disk. It performs its checks and available
+preparation automatically. The CLI commands below are an alternative for
+agents, headless machines and troubleshooting; they are not extra steps for
+someone already using the wizard.
+
 After a node has booted into its role, the only manual tasks are physical: replace hardware, clean it, and the one-time BIOS setup below. A step that seems to need a person at a running node is a bug. Fix it in code. SSH is read-only emergency access. No changes are ever made over SSH.
 
 These bring-up steps happen once, before the node is polling `main`. They are not how a running node is changed.
