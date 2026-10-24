@@ -269,14 +269,13 @@ jobs:
         run: bun scripts/ci/browser-plan.ts
       - name: Install Chromium (portfolio resume PDF and browser contracts)
         if: matrix.task == 'tests' && steps.browsers.outputs.install == 'true'
-        run: |
-          installed=''
-          for package in packages/portfolio/node_modules/playwright packages/fleet/node_modules/@playwright/test packages/fleet-api/node_modules/@playwright/test packages/password-manager/node_modules/playwright; do
-            version=$(node -p "require('./${package}/package.json').version")
-            case " $installed " in *" $version "*) continue ;; esac
-            node "$package/cli.js" install --with-deps --only-shell chromium
-            installed+=" $version"
-          done
+        uses: ./.github/actions/browsers
+        with:
+          packages: >-
+            packages/portfolio/node_modules/playwright
+            packages/fleet/node_modules/@playwright/test
+            packages/fleet-api/node_modules/@playwright/test
+            packages/password-manager/node_modules/playwright
       - name: Test and build packages
         if: matrix.task == 'tests'
         run: bunx turbo run test build
@@ -413,7 +412,9 @@ jobs:
           pull: true
       - name: Install Chromium
         if: matrix.suite == 'compatibility'
-        run: node packages/fleet/node_modules/@playwright/test/cli.js install --with-deps --only-shell chromium
+        uses: ./.github/actions/browsers
+        with:
+          packages: packages/fleet/node_modules/@playwright/test
       - name: Test auth compatibility
         if: matrix.suite == 'compatibility'
         env:
@@ -593,16 +594,11 @@ jobs:
           restore-keys: |
             bun-1.3.11-${{ runner.os }}-${{ runner.arch }}-
       - name: Install only Fleet browser dependencies
-        run: |
-          bun install --frozen-lockfile --filter '@pkgs/fleet'
-          cd packages/fleet
-          # Windows' --with-deps enables Media Foundation (minutes of setup).
-          # These contracts use headless Chromium and no system media codecs.
-          if [ "$RUNNER_OS" = Linux ]; then
-            bunx playwright install --with-deps --only-shell chromium
-          else
-            bunx playwright install --only-shell chromium
-          fi
+        run: bun install --frozen-lockfile --filter '@pkgs/fleet'
+      - name: Install Chromium
+        uses: ./.github/actions/browsers
+        with:
+          packages: packages/fleet/node_modules/@playwright/test
       - name: Set up Nix
         if: startsWith(matrix.os, 'ubuntu-')
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24

@@ -121,8 +121,12 @@ test('headless installer contracts avoid Windows media feature setup', () => {
   const install = jobs.installer.steps.find(
     (step: any) => step.name === 'Install only Fleet browser dependencies'
   );
-  expect(install.run).toContain('if [ "$RUNNER_OS" = Linux ]');
-  expect(install.run).toContain('playwright install --only-shell chromium');
+  expect(
+    jobs.installer.steps.some(
+      (step: any) => step.uses === './.github/actions/browsers'
+    )
+  ).toBe(true);
+  expect(install.run).not.toContain('--with-deps');
   expect(jobs.installer.strategy.matrix.os).toHaveLength(5);
 });
 

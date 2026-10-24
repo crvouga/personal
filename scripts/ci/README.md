@@ -41,8 +41,11 @@ short change plan. They never wait for the aggregate Check job.
   module and class fixtures stay together. Batches interleave files to avoid
   leaving a long suite at the end. HTTP fixtures poll every 10 ms, and the quit
   contract joins the stopped server instead of waiting for a 20-second client
-  timeout. Only Linux installs system browser
-  dependencies; every platform installs the headless Chromium shell.
+  timeout. Every platform installs the headless Chromium shell and validates a real
+  browser launch and render. Linux installs OS libraries only if that probe
+  identifies missing libraries, avoiding unconditional package-manager updates.
+  Headless downloads are cached by OS, architecture and required version set;
+  different version sets cannot win an incomplete immutable cache key.
 
 Check aggregates all core lanes. A conditional lane may skip only when its filter
 is explicitly false. Failure, cancellation, missing filters and unexpected skips
@@ -165,3 +168,8 @@ and the shared installer deduplicates equal Playwright versions across all four
 browser consumers. Each database lane installs its own Atlas/OpenTofu tools.
 Windows fixture cleanup terminates the entire PyInstaller child process tree and
 waits for stream closure before removing temporary DLLs.
+
+Parallel USB scenarios use distinct simulated device paths and serials, including
+Windows' global named-device mutex namespace. Tests still exercise the actual
+device-lock safety check. A terminal installer error fails the browser scenario
+promptly instead of spending the whole success timeout waiting for another screen.
