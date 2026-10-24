@@ -71,4 +71,9 @@ test('signing is pinned, timestamped and has no long-lived credential input', ()
   );
   expect(config.run).toContain('FLEET-SIGNING-NOT-CONFIGURED');
   expect(config.run).toContain('fleet_windows_signing');
+  expect(job.env.FLEET_WINDOWS_SIGNING).toBe(
+    '${{ vars.FLEET_WINDOWS_SIGNING }}'
+  );
+  expect(config.run).toContain('$env:FLEET_WINDOWS_SIGNING | ConvertFrom-Json');
+  expect(config.run).toContain('$config.$name -cne $desired.$name');
 });

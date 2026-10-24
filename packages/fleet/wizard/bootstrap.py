@@ -7,6 +7,7 @@ packaged build decide.py sits beside the other modules and imports normally.
 import importlib.util
 import sys
 from pathlib import Path
+import fleet_tls
 
 HERE = Path(__file__).resolve().parent
 
@@ -27,4 +28,5 @@ def load():
     return decide
 
 
+fleet_tls.configure()
 load()

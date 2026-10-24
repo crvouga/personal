@@ -62,12 +62,12 @@ test('distributed OpenTofu groups cover exactly the full local suite', () => {
   ]);
   expect(
     groups.filter((command) => command.endsWith(' validate'))
-  ).toHaveLength(8);
+  ).toHaveLength(9);
   expect(
     groups.filter(
       (command) => command.endsWith(' test') && command.startsWith('tofu')
     )
-  ).toHaveLength(5);
+  ).toHaveLength(6);
   for (const init of groups.filter((command) => command.includes(' init ')))
     expect(init).toContain('-backend=false -input=false');
 }, 15_000);

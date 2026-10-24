@@ -58,6 +58,11 @@ const when = (group: string, pattern: RegExp, text: string): Advice => ({
 
 export const ADVICE: Advice[] = [
   when(
+    'windows-signing',
+    /./,
+    'Use packages/fleet/docs/windows-signing.md: authenticate Azure, complete the personal identity check if pending, then review and apply a saved plan through bun run infra:signing. Do not create signing resources in the dashboard.'
+  ),
+  when(
     'storage',
     /Fleet Nix cache/,
     'Inspect the Fleet cache workflow on main. Signing credentials are owned by the Vault OpenTofu root; the HTTP route deploys with turborepo-remote-cache. Rerun the failed workflow after the dependency is repaired. No physical cache node or node terminal command is required.'

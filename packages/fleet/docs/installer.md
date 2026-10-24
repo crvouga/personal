@@ -97,6 +97,15 @@ verification first.
 
 ## 2. Open it
 
+Frozen downloads include a public CA bundle in addition to the operating
+system's trusted roots. Each packaged build must verify HTTPS to GitHub, its
+API and its release CDN before publication. A certificate failure stops the
+download; verification is never disabled. If an older build reports
+`CERTIFICATE_VERIFY_FAILED` / `unable to get local issuer certificate`, download
+the latest installer. If it persists, check Windows Update, the computer's clock
+and any organization-managed HTTPS inspection. This is separate from publisher
+signing and SmartScreen reputation.
+
 The currently published Windows and macOS downloads are unsigned. Warnings
 can recur with each release; the installer cannot dismiss a browser or operating
 system block before it runs.

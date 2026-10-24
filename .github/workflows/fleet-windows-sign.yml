@@ -21,6 +21,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
       SOURCE_RUN: ${{ github.event.workflow_run.id }}
+      FLEET_WINDOWS_SIGNING: ${{ vars.FLEET_WINDOWS_SIGNING }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,7 +49,16 @@ jobs:
         shell: pwsh
         run: |
           $inventory = Get-Content packages/infra/tofu/modules/inventory/inventory.tf.json -Raw | ConvertFrom-Json
-          $config = $inventory.locals.inventory.fleet_windows_signing
+          $desired = $inventory.locals.inventory.fleet_windows_signing
+          if (-not $desired.enabled -or [string]::IsNullOrWhiteSpace($env:FLEET_WINDOWS_SIGNING)) {
+            throw 'FLEET-SIGNING-NOT-CONFIGURED: complete the signing OpenTofu root and Microsoft identity validation. See packages/fleet/docs/windows-signing.md.'
+          }
+          $config = $env:FLEET_WINDOWS_SIGNING | ConvertFrom-Json
+          foreach ($name in @('tenant_id', 'subscription_id', 'account', 'profile')) {
+            if ($config.$name -cne $desired.$name) {
+              throw 'FLEET-SIGNING-CONFIG: published signing configuration does not match canonical inventory. Apply the reviewed signing OpenTofu plan.'
+            }
+          }
           foreach ($name in @('client_id', 'tenant_id', 'subscription_id', 'endpoint', 'account', 'profile', 'publisher')) {
             if ($null -eq $config -or [string]::IsNullOrWhiteSpace($config.$name)) {
               throw 'FLEET-SIGNING-NOT-CONFIGURED: verified publisher identity is unavailable. See packages/fleet/docs/windows-signing.md. No unsigned Windows installer will be published.'

@@ -179,7 +179,9 @@
             '<p class="fail">The installer download cannot be reached: ' +
             esc(s.release.error) +
             '</p>' +
-            "<p>Check this computer's internet connection. If the network is fine, the installer has not been published yet.</p>" +
+            '<p>' +
+            esc(s.release.advice) +
+            '</p>' +
             '<button onclick="start()">Try again</button>';
           return show(h);
         }

@@ -12,7 +12,8 @@ import { fail, pass, skip, type CheckResult } from "./report.js";
 import { missingFrom } from "./targets.js";
 
 export const DRIFT_ROOTS = ["foundation", "bootstrap", "vault", "fleet"] as const;
-type Root = (typeof DRIFT_ROOTS)[number];
+type Root = (typeof DRIFT_ROOTS)[number] | 'signing';
+const driftRoots = (ctx: HealthContext): readonly Root[] => ctx.config.fleet_windows_signing?.enabled ? [...DRIFT_ROOTS, 'signing'] : DRIFT_ROOTS;
 
 const TOFU_DIR = "packages/infra/tofu";
 const BACKEND_FILE = "backend.backend.json";
@@ -116,7 +117,8 @@ async function planRoot(ctx: HealthContext, root: Root): Promise<CheckResult> {
 /** Every root's state object exists in the R2 state bucket. */
 async function checkStateBucket(ctx: HealthContext): Promise<CheckResult> {
   const name = "state bucket";
-  const backendPath = DRIFT_ROOTS.map((root) => join(ctx.repoRoot, TOFU_DIR, root, BACKEND_FILE)).find(ctx.fileExists);
+  const roots = driftRoots(ctx);
+  const backendPath = roots.map((root) => join(ctx.repoRoot, TOFU_DIR, root, BACKEND_FILE)).find(ctx.fileExists);
   const accessKeyId = ctx.env["AWS_ACCESS_KEY_ID"];
   const secretAccessKey = ctx.env["AWS_SECRET_ACCESS_KEY"];
   if (!backendPath || !accessKeyId || !secretAccessKey) {
@@ -135,9 +137,9 @@ async function checkStateBucket(ctx: HealthContext): Promise<CheckResult> {
       },
       1000,
     );
-    const missing = missingFrom(DRIFT_ROOTS.map((root) => `${root}.tfstate`), keys);
+    const missing = missingFrom(roots.map((root) => `${root}.tfstate`), keys);
     return missing.length === 0
-      ? pass(name, `${bucket} holds state for ${DRIFT_ROOTS.join(", ")}`)
+      ? pass(name, `${bucket} holds state for ${roots.join(", ")}`)
       : fail(name, `${bucket} is missing ${missing.join(", ")}`);
   } catch (err) {
     return fail(name, errorMessage(err));
@@ -147,13 +149,13 @@ async function checkStateBucket(ctx: HealthContext): Promise<CheckResult> {
 export async function checkDrift(ctx: HealthContext): Promise<readonly CheckResult[]> {
   const stateBucket = await checkStateBucket(ctx);
   if (!ctx.options.drift) {
-    return [stateBucket, skip("plan", `not requested: pass --drift to run \`tofu plan\` in ${DRIFT_ROOTS.join(", ")}`)];
+    return [stateBucket, skip("plan", `not requested: pass --drift to run \`tofu plan\` in ${driftRoots(ctx).join(", ")}`)];
   }
   const version = await ctx.run("tofu", ["version"], { timeoutMs: 30_000 });
   if (version.code !== 0) return [stateBucket, skip("plan", "OpenTofu is not installed")];
 
   // Railway provider operations must not overlap, so roots plan one at a time.
   const plans: CheckResult[] = [];
-  for (const root of DRIFT_ROOTS) plans.push(await planRoot(ctx, root));
+  for (const root of driftRoots(ctx)) plans.push(await planRoot(ctx, root));
   return [stateBucket, ...plans];
 }

@@ -2326,7 +2326,17 @@
           ]
         }
       ],
-      "fleet_windows_signing": null,
+      "fleet_windows_signing": {
+        "enabled": true,
+        "subscription_id": "ec5b738b-49cb-46dd-8f23-82505a63b5ef",
+        "tenant_id": "11a45a90-b0b7-45ea-a1b4-8f9172c33b6b",
+        "operator_object_id": "ebffe2db-696f-49d8-a475-0bf1e8fbe416",
+        "resource_group": "fleet-windows-signing",
+        "location": "eastus",
+        "account": "crvougafleet",
+        "profile": "fleet-installer",
+        "identity_validation_id": null
+      },
       "fleet_cache": {
         "signing_key_fingerprint": "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc"
       }
