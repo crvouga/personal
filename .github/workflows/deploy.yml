@@ -95,16 +95,7 @@ jobs:
       - name: Check deployment credentials
         if: steps.plan.outputs.apply == 'true'
         timeout-minutes: 2
-        run: |
-          set -euo pipefail
-          if ! tofu -chdir=packages/infra/tofu/foundation plan \
-            -refresh-only -target=railway_project.workspace \
-            -input=false -lock=false -parallelism=1 -no-color; then
-            echo '::error title=Deployment preflight failed::Railway project access failed. Check RAILWAY_TOKEN access to the adopted Workspace project. For a rotated token already in Vault, use the Maintenance workflow (task=vault-inputs) with from_vault=RAILWAY_TOKEN (review dry_run=true first).'
-            echo '### Deployment blocked before builds' >> "$GITHUB_STEP_SUMMARY"
-            echo 'Railway project access failed. See the preflight diagnostics and repair the managed RAILWAY_TOKEN before rerunning CI.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+        run: bun scripts/ci/deploy-preflight.ts
       - name: Set up Docker
         if: steps.plan.outputs.build == 'true' || steps.plan.outputs.vault == 'true' || steps.plan.outputs.auth == 'true'
         uses: docker/setup-buildx-action@v4.0.0

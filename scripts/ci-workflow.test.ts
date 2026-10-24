@@ -70,8 +70,9 @@ test('deployment requires successful checks on a main push and cannot cancel act
   expect(index('Deploy services')).toBeLessThan(index('Check public services'));
   expect(index('Check public services')).toBeLessThan(index('Smoke test'));
   const probe = steps[index('Check deployment credentials')];
-  expect(probe.run).toContain('-refresh-only');
-  expect(probe.run).toContain('-lock=false -parallelism=1');
+  expect(probe.run).toBe('bun scripts/ci/deploy-preflight.ts');
+  expect(probe['timeout-minutes']).toBe(2);
+  expect(probe.if).toBe("steps.plan.outputs.apply == 'true'");
   const smoke = steps.find(
     (s: { name: string }) => s.name === 'Read smoke test credentials'
   );
