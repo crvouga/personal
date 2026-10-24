@@ -88,6 +88,7 @@ class Job:
         self.log = []
         self.result = None
         self.mode = None
+        self.step = None
         self.cancel = threading.Event()
         self.lock = threading.Lock()
 
@@ -108,9 +109,12 @@ class Job:
                              "Wait for the result. Do not unplug the disk while it is being written.")
             self.cancel.set()
 
-    def note(self, message, percent=None):
+    def note(self, message, percent=None, step=None):
         with self.lock:
+            if step:
+                self.step = step
             if message:
+                message = decide.redact(str(message))
                 self.message = message
                 self.log.append(message)
                 del self.log[:-200]
@@ -119,7 +123,7 @@ class Job:
 
     def snapshot(self):
         with self.lock:
-            return {"state": self.state, "mode": self.mode, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
+            return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
 
 
 class Wizard:
@@ -275,13 +279,20 @@ class Wizard:
         try:
             iso_url, sum_url = installer_urls()
             job.note("Looking up the installer checksum")
-            sha = imaging.retry(lambda: imaging.fetch_checksum(sum_url), job.note, job.cancel.is_set)
+            def release():
+                checksum = imaging.fetch_checksum(sum_url)
+                if plan['mode'] == 'here':
+                    decide.check_release_readiness(plan['role'], checksum, iso_url)
+                return checksum
+            sha = imaging.retry(release, job.note, job.cancel.is_set)
             target = imaging.cache_dir(self.os_name) / "fleet-installer.iso"
             job.note("Downloading the installer", 0)
             imaging.download(iso_url, target, sha,
                              lambda done, total: job.note("", int(done * 100 / total) if total else None),
                              cancel=job.cancel.is_set, retry_note=job.note)
             job.note("Download verified", 100)
+            if plan["mode"] == "here":
+                decide.check_installer_readiness(target, plan["role"])
             if plan["mode"] == "here" and not plan["token"] and decide.enroll_enabled():
                 plan = self.enroll(job, plan)
             job.move("working")
@@ -326,11 +337,11 @@ class Wizard:
             while process.poll() is None:
                 rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
                 for row in rows:
-                    job.note(row.get("message", ""), row.get("percent"))
+                    job.note(row.get("message", ""), row.get("percent"), row.get("step"))
                 time.sleep(0.25)
             rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
             for row in rows:
-                job.note(row.get("message", ""), row.get("percent"))
+                job.note(row.get("message", ""), row.get("percent"), row.get("step"))
             result_file = scratch / "result.json"
             if not result_file.is_file():
                 return self.fail(job, f"The privileged step ended without a result (exit code {process.returncode}). The permission prompt was probably declined.",

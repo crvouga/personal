@@ -37,6 +37,7 @@ if HERE not in sys.path:
 
 import cattle  # noqa: E402  (sibling module; the Nix derivation puts all three scripts together)
 import fleetconf  # noqa: E402
+import node_readiness  # noqa: E402
 
 VERSION = "1"
 DEFAULT_INTERVAL = 60
@@ -318,6 +319,7 @@ class Agent:
             "id": machine_id,
             "role": role,
             "hostname": hostname,
+            "runner_prefix": node.get("runner_prefix") or hostname,
             "capabilities": capabilities,
             "arch": node.get("arch") or None,
         }
@@ -394,6 +396,8 @@ class Agent:
     def rollback_reason(self):
         text = read_text(self.paths.run / "health-failure", 8192)
         if text is None:
+            text = read_text(self.paths.state.parent / "sync/health-failure", 8192)
+        if text is None:
             return None
         lines = [line for line in text.splitlines() if not re.match(r"^(mode|previous|toplevel)=", line)]
         mode = next((line.split("=", 1)[1] for line in text.splitlines() if line.startswith("mode=")), "switch")
@@ -427,7 +431,9 @@ class Agent:
             mode, reason = failure
             signature = hashlib.sha256(f"{mode}\n{reason}".encode()).hexdigest()[:16]
             if reported.get("rollback") != signature:
-                events.append({"kind": "rollback", "severity": "error", "message": f"sync rolled back ({mode}): {reason}"})
+                rolled_back = mode in ("boot", "switch")
+                events.append({"kind": "rollback" if rolled_back else "update-failed", "severity": "error",
+                    "message": f"sync {'rolled back' if rolled_back else 'failed'} ({mode}): {reason}"})
                 update["rollback"] = signature
         else:
             update.pop("rollback", None)
@@ -491,12 +497,14 @@ class Agent:
             },
             "addresses": self.addresses(),
             "sync": {
-                "rolledBack": failure is not None,
+                "rolledBack": failure is not None and failure[0] in ("boot", "switch"),
                 "healthFailure": clip(redact(failure[1], [self.secret or ""]), 300) if failure else None,
                 "paused": self.settings.get("sync.paused") is True,
             },
             "failedUnits": self.failed_units(),
             "runners": self.runners(identity),
+            "readiness": {"issues": [clip(redact(item, [self.secret or "", self._token() or ""]), 500)
+                for item in node_readiness.issues(self.paths, identity, self.command, self._token(), self.settings)]},
             "agent": {"version": VERSION, "configRevision": self.config_revision},
             "events": events,
         }
@@ -670,7 +678,8 @@ class Agent:
                     marker.unlink()
                 elif self.launch("fleet-config-resume", [self.paths.resume]):
                     self.log("runners enabled by configuration; resuming")
-                    marker.unlink()
+                    # Keep the marker until a later cycle observes that resume
+                    # actually removed the drain gate. Launching is not success.
 
     def apply_capacity(self, outcome):
         pending = (self.paths.run / "capacity-pending").exists()

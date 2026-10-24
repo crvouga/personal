@@ -646,7 +646,8 @@ class NodeEntryTests(unittest.TestCase):
         self.assertIn("/set {11111111-2222-3333-4444-555555555555} path \\EFI\\fleet\\grubx64.efi", bcd)
         self.assertIn("/set {fwbootmgr} bootsequence {11111111-2222-3333-4444-555555555555}", bcd)
         self.assertRegex(self.shutdown_log.read_text(), r"^/r /t 15")
-        self.assertIn("role=ci\n", (self.state / "installed").read_text())
+        self.assertIn("role=ci\n", (self.state / "handoff").read_text())
+        self.assertFalse((self.state / "installed").exists())
 
     def test_windows_passes_the_enrollment_token_to_the_installer_not_to_the_output(self):
         token = self.root / "token"
@@ -754,7 +755,8 @@ class NodeEntryTests(unittest.TestCase):
         self.assertNotIn("/addfirst", self.bcd_log.read_text(), "the installer must never be first in the normal boot order")
         self.assertRegex(self.shutdown_log.read_text(), r"^/r /t 15")
         self.assertFalse((self.state / "fleet-installer.iso").exists(), "the downloaded copy is removed once it is written and read back")
-        self.assertIn("role=ci\n", (self.state / "installed").read_text())
+        self.assertIn("role=ci\n", (self.state / "handoff").read_text())
+        self.assertFalse((self.state / "installed").exists())
 
     def test_bcdedit_refusing_is_survived_by_the_firmware_variables(self):
         (self.root / "bcd-reject").write_text("")
@@ -1194,7 +1196,7 @@ class NodeEntryTests(unittest.TestCase):
         for role in ("ci", "web", "cache", "netboot", "devbox"):
             with self.subTest(role=role):
                 self.boot_log.unlink(missing_ok=True)
-                marker = self.state / "installed"
+                marker = self.state / "handoff"
                 marker.unlink(missing_ok=True)
                 env = dict(self.env)
                 if role == "devbox":
@@ -1209,7 +1211,8 @@ class NodeEntryTests(unittest.TestCase):
                 self.assertNotIn("/dev/", text)
                 body = marker.read_text()
                 self.assertIn(f"role={role}\n", body)
-                self.assertIn("status=installed\n", body)
+                self.assertIn("status=staged\n", body)
+                self.assertFalse((self.state / "installed").exists())
                 self.assertNotIn("hostname=", body)
                 self.assertNotIn("/dev/", body)
                 boot = self.boot_log.read_text()
@@ -1227,6 +1230,10 @@ class NodeEntryTests(unittest.TestCase):
     def test_second_install_does_not_wipe_and_a_mismatch_leaves_the_marker(self):
         first = self.run_entry(["ci"], confirm_line("ci"))
         self.assertEqual(first.returncode, 0, first.stderr)
+        # Only the live installer, after nixos-install succeeds, creates this.
+        # A reboot handoff alone must not suppress recovery/retry on the source OS.
+        self.assertFalse((self.state / "installed").exists())
+        (self.state / "installed").write_text("role=ci\nstatus=installed\n")
         marker = (self.state / "installed").read_bytes()
         boots = self.boot_log.read_text()
         second = self.run_entry(["ci"], confirm_line("ci"))
@@ -1614,7 +1621,7 @@ class NodeEntryTests(unittest.TestCase):
         ):
             with self.subTest(os_name=os_name):
                 self._write_scenario("happy")
-                marker = self.state / "installed"
+                marker = self.state / "handoff"
                 marker.unlink(missing_ok=True)
                 own = self.root / f"boot-{os_name}"
                 other = self.root / f"other-{os_name}"

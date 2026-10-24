@@ -36,6 +36,7 @@ import imaging  # noqa: E402
 import leases  # noqa: E402
 import main as wizard_main  # noqa: E402
 import server  # noqa: E402
+import iso_fixture  # noqa: E402
 
 INTERNAL = {
     "path": "/dev/nvme0n1", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
@@ -811,7 +812,9 @@ class WindowsHereTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             iso = root / "fleet-installer.iso"
-            iso.write_bytes(make_iso(fill=3))
+            tree = iso_fixture.installer_tree()
+            tree['fleet-readiness.json'] = b'{"version":1,"roles":{"ci":{"blocked":[]}}}'
+            iso.write_bytes(iso_fixture.build(tree))
             sha = imaging.sha256_of(iso)
             disk = {"path": "\\\\.\\PHYSICALDRIVE0", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
                     "mounted": True, "whole": True, "size": 10**12, "model": "SSD", "serial": "S1"}

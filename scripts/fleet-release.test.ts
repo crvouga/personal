@@ -11,6 +11,7 @@ const workflow = parse(
 const assets = [
   'fleet-installer.iso.parts.json',
   'fleet-installer.iso.sha256',
+  'fleet-installer.readiness.json',
   'fleet-installer.iso.part-000',
   'fleet-node.sh',
   'fleet-installer-windows-x64.exe',

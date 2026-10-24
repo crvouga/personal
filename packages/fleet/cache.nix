@@ -2,6 +2,7 @@
 let shared = import ./settings/shared.nix;
 in {
   role = "cache";
+  bootstrap.providesCache = true;
   flakeAttr = "cache";
   inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache reboot capacity drift disk monitoring reinstall fleetApi;
   rotateAgeKey = false;

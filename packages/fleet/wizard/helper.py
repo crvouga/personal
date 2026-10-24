@@ -180,6 +180,7 @@ def install_here(request, progress):
     token = request.get("token") or None
     decide.invariant(token is None or TOKEN_RE.fullmatch(str(token)) is not None, "the enrollment token is malformed")
     iso, sha = verified_iso(request, progress)
+    decide.check_installer_readiness(iso, role)
     directory = decide.state_dir()
     chosen = decide.choose_disk(os_name, "install")
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))

@@ -3,6 +3,7 @@ terraform {
   required_providers {
     vault  = { source = "hashicorp/vault", version = "= 5.12.0" }
     random = { source = "hashicorp/random", version = "= 3.8.1" }
+    tls    = { source = "hashicorp/tls", version = "= 4.1.0" }
   }
   backend "s3" {}
   encryption {

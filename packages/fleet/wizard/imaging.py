@@ -36,6 +36,8 @@ def _noop(*_args):
 
 def transient(error):
     """Retry network interruptions, never disk errors or integrity failures."""
+    if isinstance(error, decide.ReleaseChanging):
+        return True
     if isinstance(error, urllib.error.HTTPError):
         return error.code in (408, 429) or 500 <= error.code <= 599
     if isinstance(error, urllib.error.URLError):
@@ -59,7 +61,7 @@ def retry(action, note=_noop, cancel=None):
             if attempt == 2 or not transient(exc):
                 raise
             note(f"The network interrupted the download. Retrying automatically ({attempt + 2}/3).")
-            until = time.monotonic() + 0.5 * (attempt + 1)
+            until = time.monotonic() + (2 if isinstance(exc, decide.ReleaseChanging) else 0.5) * (attempt + 1)
             while time.monotonic() < until:
                 if cancel and cancel():
                     raise Cancelled()

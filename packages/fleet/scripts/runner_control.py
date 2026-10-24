@@ -1,4 +1,7 @@
-"""Root-only GitHub App operations; never log credentials or API response bodies."""
+"""Root-only GitHub App operations; never log credentials or API response bodies.
+
+The filename must not be token.py: that shadows Python's standard token module.
+"""
 import json
 import os
 import sys
@@ -7,6 +10,10 @@ import urllib.error
 import urllib.request
 import urllib.parse
 import jwt
+
+
+class GitHubUnavailable(RuntimeError):
+    """Temporary transport, throttling, or server failure; no private body."""
 
 
 def request(method, path, token, payload=None):
@@ -18,7 +25,12 @@ def request(method, path, token, payload=None):
         with urllib.request.urlopen(req, timeout=30) as response:
             return None if response.status == 204 else json.load(response)
     except urllib.error.HTTPError as error:
+        throttled = error.code == 403 and (error.headers.get('Retry-After') or error.headers.get('X-RateLimit-Remaining') == '0')
+        if error.code in (408, 429) or error.code >= 500 or throttled:
+            raise GitHubUnavailable('GitHub is temporarily unavailable') from None
         raise RuntimeError("GitHub API returned HTTP " + str(error.code)) from None
+    except (urllib.error.URLError, OSError):
+        raise GitHubUnavailable('GitHub could not be reached') from None
 
 
 def app_token(app, installation, key_path):
@@ -62,6 +74,12 @@ def main():
         raise ValueError("Configure App identifiers and registration scope")
     access = app_token(app, installation, key_path)
     prefix = ("/orgs/" if scope == "organization" else "/repos/") + target + "/actions/runners"
+    if mode == "status":
+        if len(args) != 1:
+            raise ValueError("runner status requires the node hostname")
+        runners = matching_runners(args[0], list_runners(scope, target, access))
+        print(json.dumps({"registered": len(runners), "online": sum(r.get("status") == "online" for r in runners)}))
+        return
     if mode == "register":
         if len(args) != 1:
             raise ValueError("registration output path is required")
@@ -118,6 +136,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except GitHubUnavailable:
+        print('FLEET_GITHUB_UNAVAILABLE: retry the bounded GitHub operation after connectivity or throttling recovers.', file=sys.stderr)
+        sys.exit(75)
     except Exception as error:
         print("Fleet GitHub operation failed: " + type(error).__name__, file=sys.stderr)
         sys.exit(1)

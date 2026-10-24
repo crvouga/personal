@@ -59,7 +59,7 @@ When('I confirm the erase and install', async ({ page }) => {
 
 Then('the wizard reports a verified installation', async ({ page }) => {
   await expect(
-    page.getByRole('heading', { name: 'Done', exact: true })
+    page.getByRole('heading', { name: 'USB ready', exact: true })
   ).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(/start it from the stick/)).toBeVisible();
 });

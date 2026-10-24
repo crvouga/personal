@@ -49,6 +49,7 @@ in pkgs.testers.runNixOSTest {
       # writeShellScriptBin is /bin/sh. compgen is bash-only, and a missing
       # command here was ignored, so a busy slot still looked drained.
       drainProvider = pkgs.writeShellScriptBin "runner-control" ''
+        [ ! -e /run/fleet/remote-drain-failed ] || exit 75
         for busy in /run/fleet/*/busy; do
           [ -e "$busy" ] && exit 1
         done
@@ -106,6 +107,27 @@ in pkgs.testers.runNixOSTest {
     machine.fail("fleet-drain 30")
     machine.succeed("systemctl is-active --quiet github-runner-slot-1.service")
     machine.succeed("rm /run/fleet/slot-1/busy; fleet-resume")
+    machine.wait_for_unit("github-runner-slot-1.service")
+    # Expired GitHub credentials must not block an OS repair. The local gate
+    # still protects running jobs when remote label removal is unavailable.
+    machine.succeed("touch /run/fleet/remote-drain-failed /run/fleet/slot-1/busy")
+    machine.fail("fleet-drain 1")
+    machine.succeed("systemctl is-active --quiet github-runner-slot-1.service")
+    machine.succeed("rm /run/fleet/slot-1/busy; fleet-drain 10")
+    machine.fail("systemctl is-active --quiet github-runner-slot-1.service")
+    machine.succeed("rm /run/fleet/remote-drain-failed; fleet-resume")
+    machine.wait_for_unit("github-runner-slot-1.service")
+    # A oneshot is activating while ExecStart runs. Resume must respect that
+    # state, then recover a stale lease after the interrupted updater stops.
+    machine.succeed("systemctl stop fleet-sync.timer fleet-sync.service; mkdir -p /run/systemd/system/fleet-sync.service.d")
+    machine.succeed("printf '[Service]\\nExecStart=\\nExecStart=${pkgs.coreutils}/bin/sleep infinity\\n' > /run/systemd/system/fleet-sync.service.d/test.conf; systemctl daemon-reload; systemctl --no-block start fleet-sync.service")
+    machine.wait_until_succeeds("test $(systemctl show --property=ActiveState --value fleet-sync.service) = activating")
+    machine.succeed("touch /run/fleet/draining /run/fleet/update-draining")
+    machine.fail("fleet-resume")
+    machine.succeed("test -e /run/fleet/draining && test -e /run/fleet/update-draining")
+    machine.succeed("systemctl stop fleet-sync.service; fleet-resume")
+    machine.succeed("test ! -e /run/fleet/draining && test ! -e /run/fleet/update-draining")
+    machine.succeed("rm /run/systemd/system/fleet-sync.service.d/test.conf; systemctl daemon-reload")
     machine.fail("grep -F cache.invalid /etc/nix/nix.conf")
   '';
 }

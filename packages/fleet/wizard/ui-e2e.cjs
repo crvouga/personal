@@ -143,7 +143,7 @@ async function main() {
       await page.locator('#ack').check();
       await page.getByRole('button', { name: 'Erase and install' }).click();
       await page
-        .getByRole('heading', { name: 'Done' })
+        .getByRole('heading', { name: 'USB ready' })
         .waitFor({ timeout: 60000 });
       assert.ok(
         (await page.locator('body').innerText()).includes(

@@ -1,4 +1,7 @@
 import importlib.util
+import contextlib
+import io
+import json
 import sys
 import tempfile
 import types
@@ -6,13 +9,38 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("token", Path(__file__).parents[1] / "scripts/token.py")
+spec = importlib.util.spec_from_file_location("runner_control", Path(__file__).parents[1] / "scripts/runner_control.py")
 token = importlib.util.module_from_spec(spec)
 with patch.dict(sys.modules, {"jwt": types.SimpleNamespace(encode=lambda *a, **k: "signed-jwt")}):
     spec.loader.exec_module(token)
 
 
 class TokenTests(unittest.TestCase):
+    def test_transport_throttling_and_server_errors_are_temporary_but_auth_denial_is_not(self):
+        for status in (403, 408, 429, 503):
+            error = token.urllib.error.HTTPError('https://api.github.invalid', status, 'fixture', {}, None)
+            expected = RuntimeError if status == 403 else token.GitHubUnavailable
+            with self.subTest(status=status), patch.object(token.urllib.request, 'urlopen', side_effect=error):
+                with self.assertRaises(expected):
+                    token.request('GET', '/fixture', 'fixture-token')
+        error = token.urllib.error.HTTPError('https://api.github.invalid', 403, 'fixture', {'X-RateLimit-Remaining': '0'}, None)
+        with patch.object(token.urllib.request, 'urlopen', side_effect=error), self.assertRaises(token.GitHubUnavailable):
+            token.request('GET', '/fixture', 'fixture-token')
+
+    def test_status_is_read_only_and_counts_only_this_full_node_prefix(self):
+        prefix = 'ci-aaaa-' + '1' * 32
+        runners = [{'name': prefix + '-slot-1', 'status': 'online'},
+                   {'name': prefix + '-slot-2', 'status': 'offline'},
+                   {'name': 'ci-aaaa-' + '2' * 32 + '-slot-1', 'status': 'online'}]
+        output = io.StringIO()
+        with patch.object(token, 'app_token', return_value='fixture'), \
+                patch.object(token, 'request', return_value={'runners': runners}) as request, \
+                patch.object(sys, 'argv', ['runner-control', 'status', 'repository', 'example/private', '1', '2', 'key', prefix]), \
+                contextlib.redirect_stdout(output):
+            token.main()
+        self.assertEqual(json.loads(output.getvalue()), {'registered': 2, 'online': 1})
+        self.assertTrue(all(call.args[0] == 'GET' for call in request.call_args_list))
+
     def test_registration_token_is_written_atomically_without_stdout(self):
         for scope, target, prefix in (("organization", "private-org", "/orgs/"), ("repository", "owner/private", "/repos/")):
             with self.subTest(scope=scope), tempfile.TemporaryDirectory() as temp:

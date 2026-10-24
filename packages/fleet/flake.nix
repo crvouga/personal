@@ -53,6 +53,14 @@
             installDisk
           ];
           isoImage.contents = [{
+            source = pkgs.writeText "fleet-readiness.json" (builtins.toJSON {
+              version = 1;
+              roles = builtins.mapAttrs (_: host: {
+                blocked = (builtins.fromJSON host.config.environment.etc."fleet/bootstrap.json".text).installBlocked;
+              }) { inherit ci web cache netboot devbox; };
+            });
+            target = "/fleet-readiness.json";
+          } {
             source = pkgs.writeText "fleet-install-manifest" ''
               ci ${ci.config.system.build.toplevel}
               web ${web.config.system.build.toplevel}

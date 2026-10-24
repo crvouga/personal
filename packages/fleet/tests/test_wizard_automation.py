@@ -23,6 +23,7 @@ import elevate  # noqa: E402
 import helper  # noqa: E402
 import imaging  # noqa: E402
 import preparation  # noqa: E402
+import iso_fixture  # noqa: E402
 
 
 def failed(name):
@@ -103,7 +104,9 @@ class HelperPreparationTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.iso = self.root / "image.iso"
-        self.iso.write_bytes(b"verified test image")
+        tree = iso_fixture.installer_tree()
+        tree['fleet-readiness.json'] = b'{"version":1,"roles":{"ci":{"blocked":[]}}}'
+        self.iso.write_bytes(iso_fixture.build(tree))
         self.chosen = {"ok": True, "disk_id": "original", "path": "/dev/test"}
         self.request = {"role": "ci", "iso": str(self.iso), "sha256": imaging.sha256_of(self.iso), "disk_id": "original"}
         patches = (

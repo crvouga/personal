@@ -30,6 +30,7 @@ class SyncTests(unittest.TestCase):
         self.flake.mkdir(parents=True)
         self.bin = self.root / "bin"
         self.bin.mkdir()
+        write_executable(self.bin / "timeout", "#!/bin/bash\nshift\nexec \"$@\"\n")
         self.log = self.root / "actions"
         self.nix_log = self.root / "nix-args"
         self.profile = self.root / "profile"
@@ -45,34 +46,39 @@ class SyncTests(unittest.TestCase):
             jobs=""
             prev=""
             flake=""
+            if [ "$1 $2" = 'store verify' ]; then exit 1; fi
             for arg in "$@"; do
               if [ "$prev" = "--max-jobs" ]; then jobs=$arg; fi
               prev=$arg
               case "$arg" in
-                path:*) flake=$arg ;;
+                git+file:*) flake=$arg ;;
               esac
             done
             if [ "$jobs" != 0 ]; then
               echo 'local build refused' >&2
               exit 2
             fi
-            checkout=''${{flake#path:}}
-            checkout=''${{checkout%%#*}}
+            checkout=''${{flake#git+file://}}
+            checkout=''${{checkout%%\?*}}/packages/fleet
             if [ -f "$checkout/NOT_IN_CACHE" ]; then
               echo 'not in cache' >&2
               exit 1
             fi
             rev=$(git -C "$checkout" rev-parse HEAD)
-            work=$(mktemp -d)
+            work={self.root}/closures/$rev
             mkdir -p "$work/bin"
+            if [ -f "$checkout/bootstrap.json" ]; then
+              mkdir -p "$work/etc/fleet"
+              cp "$checkout/bootstrap.json" "$work/etc/fleet/bootstrap.json"
+            fi
             if [ -f "$checkout/KERNEL_CHANGE" ]; then
               printf 'changed-%s\\n' "$rev" > "$work/kernel-src"
             else
               printf 'same\\n' > "$work/kernel-src"
             fi
-            ln -s "$work/kernel-src" "$work/kernel"
-            ln -s "$work/kernel-src" "$work/initrd"
-            ln -s "$work/kernel-src" "$work/kernel-modules"
+            ln -sf "$work/kernel-src" "$work/kernel"
+            ln -sf "$work/kernel-src" "$work/initrd"
+            ln -sf "$work/kernel-src" "$work/kernel-modules"
             printf '%s\\n' "$rev" > "$work/commit"
             cat > "$work/bin/switch-to-configuration" <<'EOF'
             #!/bin/bash
@@ -110,6 +116,7 @@ class SyncTests(unittest.TestCase):
             printf '%s\\n' sleep >> {self.log}
             exit 0
             """)
+        write_executable(self.bin / "resume", f"#!/bin/bash\nprintf '%s\\n' resume >> {self.log}\n")
         write_executable(self.bin / "cattle", """\
             #!/bin/bash
             if [ "${1:-}" = print-id ]; then
@@ -167,6 +174,7 @@ class SyncTests(unittest.TestCase):
             "FLAKE_DIR=packages/fleet",
             f"DELAY_MAX={delay}",
             f"DRAIN_COMMAND={self.bin}/drain",
+            f"RESUME_COMMAND={self.bin}/resume",
             "DRAIN_TIMEOUT=5",
             f"CACHE_URL={cache}",
             "GIT_KEY=",
@@ -227,6 +235,51 @@ class SyncTests(unittest.TestCase):
         expected = self._git(["-C", str(self.origin), "rev-parse", "HEAD"]).stdout.strip()
         self.assertEqual(applied, expected)
         self.assertEqual(self.actions(), ["switch"])
+        args = self.nix_log.read_text()
+        self.assertIn("git+file://", args)
+        self.assertIn("rev=" + expected, args)
+        self.assertIn("&dir=packages/fleet#", args)
+
+    def test_same_revision_does_not_switch_services_twice(self):
+        self.commit("marker")
+        self.assertEqual(self.run_sync().returncode, 0)
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions(), ["switch"])
+        self.assertIn("already running revision", result.stdout)
+
+    def test_failed_reboot_request_rolls_back_and_resumes_runners(self):
+        self.commit("good")
+        self.assertEqual(self.run_sync().returncode, 0)
+        previous = self.profile.resolve()
+        self.seed_booted()
+        self.commit("KERNEL_CHANGE", "1")
+        write_executable(self.bin / "systemctl", "#!/bin/bash\nexit 1\n")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.profile.resolve(), previous)
+        self.assertEqual(self.actions()[-1], "resume")
+        self.assertFalse((self.root / 'update-draining').exists())
+        self.assertTrue((self.root / 'agent-drained').exists())
+        self.assertIn("reboot request failed", (self.root / "health-failure").read_text())
+
+    def test_new_generation_must_verify_its_own_cache_url_and_signing_key_or_roll_back(self):
+        self.commit('good')
+        self.assertEqual(self.run_sync().returncode, 0)
+        previous = self.profile.resolve()
+        key = 'new-cache:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+        self.commit('bootstrap.json', json.dumps({'cacheUrl': 'https://new-cache.invalid/fleet', 'cachePublicKey': key}))
+        self.env.pop('FLEET_HEALTH')
+        self.env['PYTHON'] = sys.executable
+        write_executable(self.bin / 'curl', '#!/bin/sh\nexit 0\n')
+        self.env['FLEET_CURL'] = str(self.bin / 'curl')
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.profile.resolve(), previous)
+        command = next(line for line in self.nix_log.read_text().splitlines() if line.startswith('store verify'))
+        self.assertIn('--store https://new-cache.invalid/fleet', command)
+        self.assertIn('--no-contents', command)
+        self.assertIn('--option trusted-public-keys ' + key, command)
 
     def test_failed_drain_does_not_reboot(self):
         self.commit("marker")
@@ -237,7 +290,7 @@ class SyncTests(unittest.TestCase):
         (self.root / "fail-drain").write_text("1")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.actions(), ["drain"])
+        self.assertEqual(self.actions(), ["drain", "resume"])
         self.assertFalse(any(line == "boot" for line in self.actions()))
 
     def test_reboot_drains_then_waits(self):
@@ -249,7 +302,7 @@ class SyncTests(unittest.TestCase):
         self.write_env(cache="https://cache.invalid/fleet", delay="30")
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
+        self.assertEqual(self.actions(), ["sleep", "drain", "boot", "reboot"])
 
     def test_follow_up_commit_switches(self):
         self.commit("first")
@@ -301,6 +354,7 @@ class SyncTests(unittest.TestCase):
         self.assertNotIn("reboot", self.actions())
         self.assertEqual(self.actions().count("boot"), 2)
         self.assertIn("drain", self.actions())
+        self.assertEqual(self.actions()[-1], "resume")
 
     def test_health_failure_without_a_previous_generation_exits(self):
         self.commit("only")
@@ -416,7 +470,7 @@ class SyncTests(unittest.TestCase):
                 self.configure(content)
                 result = self.run_sync()
                 self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.actions(), ["switch"] * 4)
+        self.assertEqual(self.actions(), ["switch"])
         write_executable(self.bin / "broken-fleetconf", """\
             #!/bin/bash
             echo 'boom' >&2
@@ -426,7 +480,7 @@ class SyncTests(unittest.TestCase):
         self.env.pop("FLEET_CONFIG")
         self.log.write_text("")
         self.assertEqual(self.run_sync().returncode, 0)
-        self.assertEqual(self.actions(), ["switch"])
+        self.assertEqual(self.actions(), [])
         del self.env["FLEETCONF"]
         self.assertEqual(self.run_sync().returncode, 0)
 
@@ -444,7 +498,7 @@ class SyncTests(unittest.TestCase):
         self.configure({"reboot": {"enabled": True}})
         self.log.write_text("")
         self.assertEqual(self.run_sync().returncode, 0)
-        self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
+        self.assertEqual(self.actions(), ["sleep", "drain", "boot", "reboot"])
 
     def test_a_sync_with_no_kernel_change_clears_the_pending_marker(self):
         self.commit("marker")
@@ -479,7 +533,7 @@ class SyncTests(unittest.TestCase):
         self.write_env(cache="https://cache.invalid/fleet", delay="0")
         self.configure({"reboot": {"delayMaxSeconds": 45}})
         self.assertEqual(self.run_sync().returncode, 0)
-        self.assertEqual(self.actions(), ["drain", "sleep", "boot", "reboot"])
+        self.assertEqual(self.actions(), ["sleep", "drain", "boot", "reboot"])
 
     def seed_booted(self):
         kernel = self.root / "old-kernel"

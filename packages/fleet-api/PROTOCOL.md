@@ -28,6 +28,24 @@ Base URL: `https://fleet.chrisvouga.dev`. All bodies are JSON (`Content-Type: ap
 
 ## Node endpoints
 
+### `POST /v1/enrollment/check` (role credential)
+
+Read-only, rate limited like registration. Send `{ "role": "ci", "roleToken": "..." }`
+over HTTPS. `200 { "ok": true, "role": "ci" }` proves the credential matches
+Fleet's automatic-approval configuration. Invalid credentials return `401`;
+malformed input returns `400`. No node, secret or event is created. The live
+installer additionally registers the actual hardware and requires `approved`
+before erasing; an explicitly rejected identity cannot silently proceed.
+
+The optional heartbeat `readiness` object contains up to 12 public diagnostic
+issues, each at most 500 characters. Missing means unknown, not ready. An empty
+list means the installed agent verified the update timer and current revision's
+cache/sync check, recovery credential, and (for CI) GitHub runner availability.
+The console combines it with current membership/connectivity and failed units;
+an online heartbeat alone does not establish readiness. Bootstrap reports use
+the same protocol and private node credential, copied into the installed system,
+with a nonempty installation issue until the installed agent takes over.
+
 ### `POST /v1/nodes/register` (no credential)
 
 Rate limited per address. Idempotent: calling it again for the same id replaces the stored secret hash (a reinstall has a new secret).
@@ -76,6 +94,7 @@ Body: `HeartbeatBody` (`src/types.ts`). Send every `heartbeat.intervalSeconds` (
   "addresses": ["192.168.1.20"],
   "sync": { "rolledBack": false, "healthFailure": null, "paused": false },
   "failedUnits": [],
+  "readiness": { "issues": [] },
   "runners": { "slots": 4, "busy": 1 },
   "agent": { "version": "1", "configRevision": "0123456789abcdef" },
   "events": [{ "kind": "boot", "severity": "info", "message": "node started" }]

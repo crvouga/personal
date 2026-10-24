@@ -58,6 +58,11 @@ const when = (group: string, pattern: RegExp, text: string): Advice => ({
 
 export const ADVICE: Advice[] = [
   when(
+    'storage',
+    /Fleet Nix cache/,
+    'Inspect the Fleet cache workflow on main. Signing credentials are owned by the Vault OpenTofu root; the HTTP route deploys with turborepo-remote-cache. Rerun the failed workflow after the dependency is repaired. No physical cache node or node terminal command is required.'
+  ),
+  when(
     'vault',
     /operator credentials/,
     'Publish the admin-only operator document through a reviewed Vault OpenTofu apply in CI. Existing CI supplies the state and deployment credentials; do not enter them into the secret editor or personal runtime secrets.'

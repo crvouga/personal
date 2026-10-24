@@ -776,6 +776,11 @@ class ConfigTests(AgentCase):
         self.api.values = {"runners": {"cordoned": False}}
         worker.cycle()
         self.assertEqual(self.run_stub.matching("systemd-run")[-1][-1], "/test/fleet-resume")
+        self.assertTrue((self.node.run / "agent-drained").exists())
+        # A successful launch can still fail later. Retain the recovery intent
+        # until a later heartbeat observes the gate actually gone.
+        (self.node.run / "draining").unlink()
+        worker.cycle()
         self.assertFalse((self.node.run / "agent-drained").exists())
 
     def test_disabled_runners_drain_too_and_a_drain_the_agent_did_not_start_is_left_alone(self):

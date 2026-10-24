@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "wizard"))
 import bootstrap  # noqa: E402,F401
 import decide  # noqa: E402
 import imaging  # noqa: E402
+import iso_fixture
 
 spec = importlib.util.spec_from_file_location("release_image", ROOT / "scripts/release-image.py")
 release_image = importlib.util.module_from_spec(spec)
@@ -25,8 +26,9 @@ class ReleaseImageTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.source = self.root / "source.iso"
-        image = bytearray(b"x" * 98304)
-        image[decide.ISO_MAGIC_OFFSET:decide.ISO_MAGIC_OFFSET + 5] = b"CD001"
+        tree = iso_fixture.installer_tree()
+        tree['fleet-readiness.json'] = json.dumps({'version': 1, 'roles': {role: {'blocked': []} for role in decide.ROLES}}).encode()
+        image = iso_fixture.build(tree).ljust(98304, b'x')
         self.source.write_bytes(image)
         self.release = self.root / "release"
         self.manifest = release_image.package_image(self.source, self.release, 20000)
@@ -37,6 +39,7 @@ class ReleaseImageTests(unittest.TestCase):
         self.assertEqual([part["size"] for part in self.manifest["parts"]], [20000] * 4 + [18304])
         self.assertEqual(self.manifest["sha256"], decide.file_sha256(self.source))
         self.assertEqual(release_image.PART_SIZE, 1024 ** 3)
+        self.assertEqual(json.loads((self.release / 'fleet-installer.readiness.json').read_text())['imageSha256'], self.manifest['sha256'])
         for bad in (0, -1, 2 * 1024 ** 3):
             with self.assertRaises(ValueError):
                 release_image.package_image(self.source, self.release, bad)

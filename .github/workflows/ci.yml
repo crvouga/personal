@@ -169,7 +169,7 @@ jobs:
           set -euo pipefail
           assets=$(gh release view fleet-installer --json assets --jq '.assets[].name') || assets=''
           for asset in \
-            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.iso.part-000 fleet-node.sh \
+            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.readiness.json fleet-installer.iso.part-000 fleet-node.sh \
             fleet-installer-windows-x64.exe \
             fleet-installer-macos-arm64.zip fleet-installer-macos-x64.zip \
             fleet-installer-linux-arm64.tar.gz fleet-installer-linux-x64.tar.gz; do
@@ -656,36 +656,17 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Set up Nix
-        if: github.event_name == 'merge_group'
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
-      - name: Push role closures before this commit can reach main
-        if: github.event_name == 'merge_group'
+      - name: Verify signed cache publication before releasing this exact revision
         working-directory: packages/fleet
         env:
-          CACHE_URL: ${{ vars.FLEET_CACHE_URL }}
-          CACHE_NAME: ${{ vars.FLEET_CACHE_NAME }}
-          ATTIC_TOKEN: ${{ secrets.FLEET_ATTIC_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CACHE_URL}" ] || [ -z "${CACHE_NAME}" ] || [ -z "${ATTIC_TOKEN}" ]; then
-            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. A fleet commit cannot merge until the cache push succeeds.' >&2
-            exit 1
-          fi
-          for attr in ci web cache netboot devbox; do
-            nix build -o "result-${attr}" ".#${attr}"
-            if [ ! -L "result-${attr}" ] || [ ! -d "result-${attr}" ]; then
-              echo "Fleet cache: missing build result for ${attr}. Rebuild this role before publishing." >&2
-              exit 1
-            fi
-          done
-          nix run '.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
-          for attr in ci web cache netboot devbox; do
-            nix run '.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
-          done
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-cache.py
       - name: Download fleet-installer
         uses: actions/download-artifact@v4
         with:

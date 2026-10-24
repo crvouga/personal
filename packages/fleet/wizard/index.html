@@ -61,7 +61,8 @@
         token: '',
         plan: null,
         sshKey: '',
-        sawWorking: false,
+        sawReboot: false,
+        lastJob: null,
         wifi: null,
       };
       const app = document.getElementById('app');
@@ -138,7 +139,8 @@
       }
 
       async function start(resume = false) {
-        state.sawWorking = false;
+        state.sawReboot = false;
+        state.lastJob = null;
         state.mode = null;
         state.plan = null;
         show('<p>Looking at this computer…</p>');
@@ -147,7 +149,8 @@
             const job = await api('/api/job');
             if (job.state !== 'idle') {
               state.mode = job.mode;
-              state.sawWorking = job.state === 'working';
+              state.sawReboot = job.step === 'reboot';
+              state.lastJob = job;
               return progress();
             }
           }
@@ -464,14 +467,21 @@
         try {
           j = await api('/api/job');
         } catch (e) {
-          if (state.mode === 'here' && state.sawWorking)
+          if (state.mode === 'here' && state.sawReboot)
             return show(
-              '<h2>Restarting</h2><p>This computer is restarting into the installer. This page stops responding now; that is expected. ' +
-                'The installer erases the disk and installs by itself, then restarts into the new node. It takes several minutes and needs nothing from you.</p>'
+              '<h2>Waiting for the new node</h2><p>The connection closed during restart. Installation is not yet confirmed. Fleet will show the node after it boots and reports.</p>' +
+                '<p><a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Monitor in Fleet</a></p>' +
+                diagnostics(state.lastJob)
             );
-          return show(problem(e));
+          return show(
+            '<h2 class="fail">Connection lost — installation is not confirmed</h2>' +
+              problem(e) +
+              diagnostics(state.lastJob) +
+              '<button onclick="progress()">Reconnect to this job</button>'
+          );
         }
-        if (j.state === 'working') state.sawWorking = true;
+        state.lastJob = j;
+        if (j.step === 'reboot') state.sawReboot = true;
         if (
           j.state === 'done' ||
           j.state === 'failed' ||
@@ -503,7 +513,17 @@
         const r = j.result || {};
         let h;
         if (j.state === 'done') {
-          h = '<h2 class="ok">Done</h2><p>' + esc(r.message) + '</p>';
+          h =
+            '<h2 class="ok">' +
+            (state.mode === 'here'
+              ? 'Restart scheduled — Fleet confirmation pending'
+              : 'USB ready') +
+            '</h2><p>' +
+            esc(r.message) +
+            '</p>';
+          if (state.mode === 'here')
+            h +=
+              '<p><a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Monitor in Fleet</a></p>';
           if (state.mode === 'usb')
             h +=
               '<h2>Next</h2><ol><li>Plug the stick into the new computer and start it from the stick (usually F12, F11, Esc or Option at power-on).</li>' +
@@ -519,8 +539,43 @@
             (r.fix ? '<p>' + esc(r.fix) + '</p>' : '');
         }
         if (r.log) h += '<p><small>Log: ' + esc(r.log) + '</small></p>';
+        h += diagnostics(j);
         h += '<button onclick="start()">Start over</button>';
         show(h);
+      }
+      function diagnostics(j) {
+        const r = j?.result || {};
+        const report = [
+          'Fleet installer diagnostic',
+          'Version: ' + (j?.version || state.scan?.version || 'unknown'),
+          'System: ' +
+            (state.scan?.os || 'unknown') +
+            ' / ' +
+            (state.scan?.arch || 'unknown'),
+          'Mode: ' + state.mode,
+          'State: ' + (j?.state || 'connection lost'),
+          'Step: ' + (j?.step || 'unknown'),
+          'Result: ' + (r.message || j?.message || 'No final result received'),
+          'Next: ' +
+            (r.fix ||
+              'Check this node in Fleet. Do not repeat an erase while a disk operation is still running.'),
+          'Log: ' + (r.log || 'unavailable'),
+          ...(j?.log || []),
+        ].join('\n');
+        return (
+          '<details><summary>Error details for support or an LLM</summary><textarea id="diagnostic-report" readonly rows="12">' +
+          esc(report) +
+          '</textarea><p><button onclick="copyDiagnostic()">Copy diagnostic report</button></p></details>'
+        );
+      }
+      async function copyDiagnostic() {
+        const input = document.getElementById('diagnostic-report');
+        input.select();
+        try {
+          await navigator.clipboard.writeText(input.value);
+        } catch (_) {
+          document.execCommand('copy');
+        }
       }
       start(true);
     </script>

@@ -2935,6 +2935,48 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     return 0
 #
 #
+# class ReleaseChanging(RuntimeError):
+#     """Only the release metadata is inconsistent during publication, not image bytes."""
+#
+#
+# def check_release_readiness(role, expected_sha, iso_url):
+#     if wifi_module().simulated():
+#         return
+#     url = iso_url.rsplit('/', 1)[0] + '/fleet-installer.readiness.json'
+#     with urllib.request.urlopen(url, timeout=10) as response:
+#         raw = response.read(65537)
+#     invariant(len(raw) <= 65536, 'the release readiness manifest is too large')
+#     try:
+#         document = json.loads(raw)
+#         invariant(document['version'] == 1, 'the release readiness version is unsupported')
+#         blocked = document['roles'][role]['blocked']
+#         invariant(isinstance(blocked, list) and all(isinstance(value, str) for value in blocked), 'the release readiness checks are malformed')
+#         if document['imageSha256'] != expected_sha:
+#             raise ReleaseChanging('The installer release is being updated; waiting for matching metadata before downloading.')
+#     except (KeyError, ValueError, TypeError):
+#         invariant(False, 'FLEET_RELEASE_READINESS_INVALID: publish a complete current installer release')
+#     invariant(not blocked, 'FLEET_PLATFORM_NOT_READY: ' + '; '.join(blocked),
+#               'The platform administrator must resolve the configuration errors and publish the installer. No image was downloaded and nothing was erased.')
+#
+#
+# def check_installer_readiness(iso, role):
+#     if wifi_module().simulated():
+#         return
+#     try:
+#         with Path(iso).open("rb") as handle:
+#             raw = _iso_bytes(handle, _iso_index(handle), "fleet-readiness.json")
+#         invariant(len(raw) <= 65536, "the installer readiness manifest is too large")
+#         manifest = json.loads(raw)
+#         invariant(manifest.get("version") == 1, "the installer readiness manifest has an unsupported version")
+#         blocked = manifest["roles"][role]["blocked"]
+#         invariant(isinstance(blocked, list) and all(isinstance(item, str) for item in blocked), "the installer readiness checks are malformed")
+#     except (OSError, ValueError, KeyError, TypeError, AttributeError):
+#         invariant(False, "FLEET_INSTALLER_READINESS_MISSING: this image cannot prove it can join and update",
+#                   "Download the current Fleet installer. Nothing was erased.")
+#     invariant(not blocked, "FLEET_PLATFORM_NOT_READY: " + "; ".join(blocked),
+#               "The platform administrator must resolve these Fleet configuration errors and publish a new installer. Reopen the wizard afterward. Nothing was erased.")
+#
+#
 # def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None, wifi=None):
 #     """The point of no return, shared by the command line and the wizard. On a
 #     real machine kexec does not come back; the marker is for the test seam."""
@@ -2943,18 +2985,48 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     invariant(os.path.isfile(iso) and os.path.getsize(iso) > 0, "perform_install needs the verified installer image", iso=str(iso))
 #     # Read credentials before withdrawing a runner or changing partitions.
 #     network = wifi_profile(os_name, wifi)
+#     check_installer_readiness(iso, role)
 #     handoff = {"wifi": network} if network is not None else {}
-#     retire_runner_for_install(directory)
-#     if os_name == "Windows":
-#         staged = stage_windows(role, str(iso), token, vault, chosen, on_progress, **handoff)
-#     else:
-#         staged = stage_reboot(os_name, role, str(iso), token, vault, **handoff)
-#     if staged != 0:
-#         return staged
+#     previously_withdrawn = bool(checked_marker(directory, "withdrawn"))
+#     started = False
+#     try:
+#         retire_runner_for_install(directory)
+#         restore_ci = not previously_withdrawn and bool(checked_marker(directory, "withdrawn"))
+#         write_text(Path(directory) / "handoff", f"role={role}\ndisk={chosen['disk_id']}\nstatus=staged\nrestore_ci={int(restore_ci)}\n")
+#         if os_name == "Windows":
+#             staged = stage_windows(role, str(iso), token, vault, chosen, on_progress, **handoff)
+#         else:
+#             staged = stage_reboot(os_name, role, str(iso), token, vault, **handoff)
+#         if staged != 0:
+#             return staged
+#         started = True
+#     finally:
+#         if not started:
+#             (Path(directory) / "handoff").unlink(missing_ok=True)
+#         if not started and not previously_withdrawn and checked_marker(directory, "withdrawn"):
+#             # Staging failed before the live installer could erase anything.
+#             # Undo only this reinstall's withdrawal; intentional removals stay.
+#             (Path(directory) / "withdrawn").unlink()
+#             root = Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet"))
+#             write_text(root / "agent-drained", "recover failed reinstall\n")
+#             resume = os.environ.get("FLEET_RESUME") or (None if wifi_module().simulated() else shutil.which("fleet-resume"))
+#             if resume and run_logged([resume]).returncode == 0:
+#                 (root / "agent-drained").unlink(missing_ok=True)
+#                 log("failed handoff: previous CI node resumed")
+#             else:
+#                 log("FLEET_RECOVERY_PENDING: the fleet agent will retry runner recovery after the failed handoff", "ERROR")
 #     say(f"FLEET-WIPE role={role}")
-#     write_text(Path(directory) / "installed", f"role={role}\ndisk={chosen['disk_id']}\nstatus=installed\n")
-#     say(f"Installed role {role}. The hostname is chosen from the hardware id when the machine boots.")
+#     say(f"Installer staged for {role}; joining Fleet is confirmed only after the new node boots and reports.")
 #     return 0
+#
+#
+# def runner_name_prefix():
+#     override = os.environ.get("FLEET_HOSTNAME")
+#     node = read_kv(Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet")) / "node")
+#     value = override or node.get("runner_prefix") or _run(["hostname"]).strip()
+#     invariant(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}", value) is not None,
+#               "the CI node has no safe runner identity", "Wait for node identity to initialize before retrying.")
+#     return value
 #
 #
 # def retire_runner_for_install(directory):
@@ -2974,7 +3046,7 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #             runner = read_kv(os.environ.get("FLEET_RUNNER_CONF", "/etc/fleet/runner.conf"))
 #             invariant(credential_ready(key, runner), "cannot withdraw this CI node with its current credential",
 #                       "Restore the CI role's GitHub App credential before reinstalling. Nothing was erased.")
-#             host = os.environ.get("FLEET_HOSTNAME") or _run(["hostname"]).strip()
+#             host = runner_name_prefix()
 #             invariant(bool(host), "the CI node has no hostname to withdraw")
 #             code = call_runner("withdraw", runner, key, host)
 #             invariant(code == 0, "the CI node could not be withdrawn before reinstalling", "Check GitHub connectivity and the CI credential, then try again. Nothing was erased.", code=code)
@@ -3045,12 +3117,7 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     if plan["stop_job"]:
 #         return fail("Next: refusing to stop a running job. Leave this machine on.", 1)
 #     if plan["action"] in ("hold", "withdraw"):
-#         host = os.environ.get("FLEET_HOSTNAME")
-#         if not host:
-#             try:
-#                 host = _run(["hostname"]).strip()
-#             except (OSError, RuntimeError):
-#                 return fail("Next: this machine has no hostname to withdraw. Nothing was stopped. Run this program again on the node.")
+#         host = runner_name_prefix()
 #         code = call_runner(plan["action"], runner, key_path, host)
 #         if code != 0:
 #             return fail("Next: the runner could not be withdrawn with the credential already on this machine. Nothing was stopped. Run this program again.", code)
