@@ -59,7 +59,9 @@ class SealTest(unittest.TestCase):
     def test_only_the_recipient_can_open_it(self):
         private, public = decide.new_keypair()
         blob = decide.seal(b"hvs.wrapped-token", public)
-        self.assertNotIn("hvs", blob)
+        # Random base64 can coincidentally contain a three-letter prefix.
+        # Check the actual sealed bytes for the complete plaintext instead.
+        self.assertNotIn(b"hvs.wrapped-token", decide._unb64(blob))
         self.assertEqual(decide.open_sealed(blob, private), b"hvs.wrapped-token")
         other, _ = decide.new_keypair()
         self.assertIsNone(decide.open_sealed(blob, other))
