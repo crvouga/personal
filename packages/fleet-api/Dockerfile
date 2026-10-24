@@ -2,7 +2,7 @@
 
 # The fleet API: Hono on Bun, raw SQL against the shared Postgres (schema
 # `fleet` only), with a React/Mantine client console and offline fallback CSS.
-FROM oven/bun:1.3.11 AS build
+FROM oven/bun:1.3.11 AS manifests
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -23,7 +23,11 @@ COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
-RUN bun install --frozen-lockfile
+FROM manifests AS production-dependencies
+RUN bun install --frozen-lockfile --filter @pkgs/fleet-api --production
+
+FROM manifests AS build
+RUN bun install --frozen-lockfile --filter @pkgs/fleet-api
 
 COPY tsconfig.json tsconfig.strict.json turbo.json ./
 COPY packages/assert ./packages/assert
@@ -40,9 +44,18 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-COPY --from=build /app /app
-
-RUN chown -R bun:bun /app
+# Keep only production dependencies and runtime source/assets. Test tooling and
+# browser/compiler packages remain in the build stage.
+COPY --chown=bun:bun --from=production-dependencies /app /app
+COPY --chown=bun:bun --from=build /app/tsconfig.strict.json ./
+COPY --chown=bun:bun --from=build /app/packages/assert/src ./packages/assert/src
+COPY --chown=bun:bun --from=build /app/packages/logger/src ./packages/logger/src
+COPY --chown=bun:bun --from=build /app/packages/admin-ui/src ./packages/admin-ui/src
+COPY --chown=bun:bun --from=build /app/packages/fleet-api/src ./packages/fleet-api/src
+COPY --chown=bun:bun --from=build /app/packages/fleet-api/dist ./packages/fleet-api/dist
+COPY --chown=bun:bun --from=build /app/packages/fleet-api/tsconfig.json ./packages/fleet-api/
+COPY --chown=bun:bun --from=build /app/packages/fleet-api/schema.hcl ./packages/fleet-api/
+RUN chown bun:bun /app
 
 # Bun takes the JSX settings (hono/jsx) from the tsconfig in the working
 # directory, not from the one beside each file, so run from the package.

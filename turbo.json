@@ -7,7 +7,9 @@
     "tsconfig.json",
     "package.json",
     "packages/infra/tofu/modules/inventory/inventory.tf.json",
-    "packages/infra/tofu/modules/inventory/publish.yml.tftpl"
+    "packages/infra/tofu/modules/inventory/publish.yml.tftpl",
+    "tsconfig.strict.json",
+    "packages/eslint-rules/**"
   ],
   "globalPassThroughEnv": ["CLOUDFLARE_*", "VAULT_*", "TURBO_*", "DEPLOY_*"],
   "tasks": {
@@ -23,23 +25,13 @@
     },
     "tc": {
       "dependsOn": ["^tc"],
-      "inputs": [
-        "**/*.ts",
-        "**/*.tsx",
-        "tsconfig.json",
-        "../../tsconfig.strict.json"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"],
       "outputLogs": "new-only",
       "outputs": []
     },
     "lint": {
       "dependsOn": ["^tc"],
-      "inputs": [
-        "**/*.ts",
-        "**/*.tsx",
-        "eslint.config.js",
-        "eslint.config.cjs"
-      ],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "new-only",
       "outputs": []
     },

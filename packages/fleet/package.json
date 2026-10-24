@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "lint": "bash scripts/lint.sh && bun run lint:bdd",
-    "test": "python3 -B -m unittest discover -s tests -p \"test_*.py\"",
+    "test": "python3 -B tests/run.py",
     "check": "bun run lint && bun run test",
     "check:nix": "nix flake check path:. --system x86_64-linux -L",
     "test:bdd": "bddgen && playwright test",

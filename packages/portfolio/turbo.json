@@ -3,40 +3,17 @@
   "extends": ["//"],
   "tasks": {
     "tc": {
-      "inputs": [
-        "src/**",
-        "projects.ts",
-        "tsconfig.json",
-        "astro.config.mjs",
-        "package.json",
-        "../../tsconfig.strict.json"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"]
     },
     "lint": {
-      "inputs": [
-        "src/**",
-        "scripts/**",
-        "test/**",
-        "projects.ts",
-        "eslint.config.cjs",
-        "astro.config.mjs",
-        "package.json"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"]
     },
     "test": {
-      "inputs": ["src/**", "projects.ts", "public/**", "package.json"]
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"]
     },
     "build": {
-      "inputs": [
-        "src/**",
-        "scripts/**",
-        "projects.ts",
-        "public/**",
-        "package.json",
-        "Dockerfile",
-        "astro.config.mjs"
-      ],
-      "outputs": []
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"],
+      "outputs": ["dist/**"]
     }
   }
 }

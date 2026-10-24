@@ -7,6 +7,7 @@ Disks are described by a JSON file and the "USB stick" is an ordinary file.
 """
 
 import hashlib
+import http.client
 import base64
 import json
 import os
@@ -388,7 +389,8 @@ class WizardCase(unittest.TestCase):
         self.wizard = server.Wizard(os_name)
         self.httpd = server.serve(self.wizard)
         self.port = self.httpd.server_address[1]
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.server_thread = threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        self.server_thread.start()
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
 
@@ -841,9 +843,15 @@ class WindowsHereTests(unittest.TestCase):
 class QuitServerTests(WizardCase):
     def test_quit_stops_the_server(self):
         self.assertEqual(self.call("POST", "/api/quit", {})[0], 200)
-        time.sleep(0.5)
-        with self.assertRaises(OSError):
-            wizard_main.call(self.port, self.wizard.secret, "GET", "/api/scan")
+        self.server_thread.join(timeout=2)
+        self.assertFalse(self.server_thread.is_alive(), "quit did not stop the HTTP server")
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=0.25)
+        try:
+            with self.assertRaises(OSError):
+                connection.request("GET", "/api/scan", headers={"X-Fleet-Token": self.wizard.secret})
+                connection.getresponse()
+        finally:
+            connection.close()
 
 
 class InstallHereTests(WizardCase):

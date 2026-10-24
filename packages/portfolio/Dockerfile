@@ -28,12 +28,12 @@ COPY packages/vault/package.json ./packages/vault/
 COPY packages/workstation/package.json ./packages/workstation/
 COPY packages/9router/package.json ./packages/9router/
 
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --filter @pkgs/portfolio
 
 # Matches the lockfile's Playwright version, and is cached with it: this layer
 # only rebuilds when dependencies change, not when content does.
 RUN cd packages/portfolio \
-  && node node_modules/playwright/cli.js install --with-deps chromium
+  && node node_modules/playwright/cli.js install --with-deps --only-shell chromium
 
 COPY packages/portfolio ./packages/portfolio
 

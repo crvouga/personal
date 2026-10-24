@@ -14,7 +14,7 @@ class _Server:
     def __init__(self, handler):
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         self.http.owner = self
-        self.thread = threading.Thread(target=self.http.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.http.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
 
     @property

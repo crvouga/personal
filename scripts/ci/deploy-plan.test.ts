@@ -35,7 +35,7 @@ for (const service of local)
       apply: true,
       build: true,
       services: true,
-      service_ids: local.map((s) => s.id),
+      service_ids: [service.id],
       image_tag: request.sha,
     });
   });
@@ -188,4 +188,29 @@ test('manual smoke remains read-only', () => {
     services: false,
     smoke: true,
   });
+});
+
+test('CI-only edits do not roll the identity service; auth runtime dependencies do', () => {
+  const enabled = {
+    ...config,
+    auth_relay: { ...config.auth_relay!, enabled: true },
+  };
+  for (const path of [
+    '.github/workflows/ci.yml',
+    'scripts/ci/browser-plan.ts',
+    'scripts/ci/format-cache.test.ts',
+  ])
+    expect(deploymentPlan(enabled, { ...request, paths: [path] }).auth).toBe(
+      false
+    );
+  for (const path of [
+    'packages/admin-ui/src/theme.ts',
+    'packages/logger/src/index.ts',
+    'bun.lock',
+    '.github/actions/deploy-auth/action.yml',
+    '.github/workflows/deploy.yml',
+  ])
+    expect(deploymentPlan(enabled, { ...request, paths: [path] }).auth).toBe(
+      true
+    );
 });

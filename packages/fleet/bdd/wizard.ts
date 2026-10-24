@@ -53,6 +53,9 @@ export async function startWizard(
   await usbDisks(directory);
   const extra = await options.prepare?.(directory);
   const env: NodeJS.ProcessEnv = {
+    TMPDIR: directory,
+    TEMP: directory,
+    TMP: directory,
     FLEET_STATE: join(directory, 'state'),
     FLEET_CACHE: join(directory, 'cache'),
     FLEET_ELEVATE: 'none',

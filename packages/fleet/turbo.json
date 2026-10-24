@@ -2,11 +2,11 @@
   "extends": ["//"],
   "tasks": {
     "lint": {
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.github/**"],
       "outputs": []
     },
     "test": {
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.github/**"],
       "outputs": []
     }
   }

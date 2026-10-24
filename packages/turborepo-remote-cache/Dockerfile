@@ -21,7 +21,7 @@ COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
 
 COPY tsconfig.json turbo.json ./
 COPY packages/turborepo-remote-cache ./packages/turborepo-remote-cache
@@ -38,9 +38,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-COPY --from=build /app /app
-
-RUN chown -R bun:bun /app
+COPY --chown=bun:bun --from=build /app /app
+RUN chown bun:bun /app
 
 EXPOSE 8080
 

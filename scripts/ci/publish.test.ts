@@ -1,7 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { imageBuilds, publishImages } from './publish';
 import {
   loadServicesConfig,
   deployableServices,
@@ -13,49 +11,91 @@ const ids = deployableServices(config)
   .slice(0, 2)
   .map((s) => s.id);
 
-for (const fail of [false, true])
-  test(`serial image publishing ${fail ? 'stops on a failed build' : 'tags the exact revision without exposing its secret'}`, () => {
-    const directory = mkdtempSync(join(tmpdir(), 'publish-'));
-    const log = join(directory, 'commands');
-    try {
-      writeFileSync(
-        join(directory, 'docker'),
-        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$PUBLISH_LOG"\nexit "$PUBLISH_EXIT"\n',
-        { mode: 0o700 }
-      );
-      const result = Bun.spawnSync(
-        [process.execPath, join(import.meta.dirname, 'publish.ts')],
-        {
-          env: {
-            ...process.env,
-            PATH: `${directory}:${process.env.PATH}`,
-            PUBLISH_LOG: log,
-            PUBLISH_EXIT: fail ? '1' : '0',
-            SERVICE_IDS: JSON.stringify(ids),
-            GITHUB_SHA: 'fixture-revision',
-            PORTFOLIO_GITHUB_TOKEN: 'fixture-private-token',
-          },
-        }
-      );
-      expect(result.exitCode === 0).toBe(!fail);
-      const lines = readFileSync(log, 'utf8').trim().split('\n');
-      expect(lines).toHaveLength(fail ? 1 : ids.length);
-      lines.forEach((line, index) => {
-        expect(line).toContain(`${ids[index]}:fixture-revision`);
-        expect(line).toContain(`${ids[index]}:latest`);
-        expect(line).toContain(
-          '--platform linux/amd64 --push --provenance=false'
-        );
-        expect(
-          line.includes('id=github_token,env=PORTFOLIO_GITHUB_TOKEN')
-        ).toBe(
-          config.services
-            .find((s) => s.id === ids[index])
-            ?.secrets?.some((s) => s.name === 'PORTFOLIO_GITHUB_TOKEN') ?? false
-        );
-        expect(line).not.toContain('fixture-private-token');
-      });
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
+test('all image inputs validate before any build starts and select isolated cache tags', () => {
+  expect(() =>
+    imageBuilds(config, [...ids, 'missing-service'], 'revision')
+  ).toThrow('not locally publishable');
+  expect(() => imageBuilds(config, [ids[0]!, ids[0]!], 'revision')).toThrow(
+    'distinct'
+  );
+  expect(() => imageBuilds(config, ids, 'bad\nrevision')).toThrow(
+    'Invalid image revision'
+  );
+  const builds = imageBuilds(config, ids, 'fixture-revision');
+  for (const build of builds) {
+    expect(build.args.join(' ')).toContain(
+      '--platform linux/amd64 --push --provenance=false --pull'
+    );
+    expect(build.args.join(' ')).toContain(`${build.id}:latest`);
+    expect(build.args.join(' ')).toContain(`${build.id}:fixture-revision`);
+    expect(build.args.join(' ')).toContain(
+      `${build.id}:buildcache,mode=max,ignore-error=true`
+    );
+    expect(build.args).not.toContain('--no-cache');
+  }
+  expect(
+    imageBuilds(config, ids, 'revision', true).every((build) =>
+      build.args.includes('--no-cache')
+    )
+  ).toBe(true);
+});
+
+test('publishing overlaps two builds and waits for both to finish', async () => {
+  const builds = imageBuilds(config, ids, 'revision');
+  const started: string[] = [];
+  const completed: string[] = [];
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
   });
+  await publishImages(builds, async ({ id }) => {
+    started.push(id);
+    if (started.length === 2) release();
+    await ready;
+    completed.push(id);
+  });
+  expect(started).toEqual(ids);
+  expect(completed.sort()).toEqual([...ids].sort());
+});
+
+test('publication failures stop queued builds, await active work and fail deployment', async () => {
+  const builds = [
+    ...imageBuilds(config, ids, 'revision'),
+    { id: 'must-not-start', args: [] },
+  ];
+  const started: string[] = [];
+  let finished = false;
+  await expect(
+    publishImages(builds, async ({ id }) => {
+      started.push(id);
+      if (id === ids[0]) throw new Error('fixture failure');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      finished = true;
+    })
+  ).rejects.toThrow('deployment cannot continue');
+  expect(started).toEqual(ids);
+  expect(finished).toBe(true);
+});
+
+test('build credentials use a secret mount and never enter Docker arguments', () => {
+  const original = process.env.PORTFOLIO_GITHUB_TOKEN;
+  try {
+    process.env.PORTFOLIO_GITHUB_TOKEN = 'fixture-private-token';
+    const builds = imageBuilds(config, ids, 'revision');
+    for (const build of builds) {
+      expect(build.args.join(' ')).not.toContain('fixture-private-token');
+      const usesSecret =
+        config.services
+          .find((service) => service.id === build.id)
+          ?.secrets?.some(
+            (secret) => secret.name === 'PORTFOLIO_GITHUB_TOKEN'
+          ) ?? false;
+      expect(
+        build.args.includes('id=github_token,env=PORTFOLIO_GITHUB_TOKEN')
+      ).toBe(usesSecret);
+    }
+  } finally {
+    if (original === undefined) delete process.env.PORTFOLIO_GITHUB_TOKEN;
+    else process.env.PORTFOLIO_GITHUB_TOKEN = original;
+  }
+});

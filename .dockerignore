@@ -19,3 +19,10 @@ packages/workstation/*
 packages/vault-service
 packages/eslint-rules
 packages/portfolio/assets
+
+# Local validation/download caches never belong in build contexts.
+.cache
+.ci
+__pycache__
+.pytest_cache
+.test-python

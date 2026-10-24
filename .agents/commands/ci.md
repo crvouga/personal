@@ -43,7 +43,7 @@ required cache/release publication. Required temporarily covers Check and Fleet 
 the OpenTofu-owned ruleset migrates. Remove it only after the live ruleset
 requires Check and Fleet and both have passed in the queue.
 
-Optional secret integrations are nonblocking steps in Check. An active
+Optional secret integrations run in their own nonblocking job. An active
 production deployment still requires its own credentials and smoke test.
 
 Manual production operations use `gh workflow run deploy.yml -f action=<name>`:
