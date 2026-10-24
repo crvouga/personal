@@ -14,10 +14,8 @@ Always exits 0 after writing the result, so the workflow can post either line.
 import os
 import sys
 
-# scripts/ holds a token.py (the GitHub App helper). Python puts a script's own
-# directory first on sys.path, where it would shadow the standard `token`
-# module that tokenize, linecache and traceback import. Remove it before
-# anything else is imported, so `python3 scripts/enroll.py` works as written.
+# Keep standard-library imports isolated from repository helper modules.
+# A former token.py shadowed the stdlib module through tokenize/traceback.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:] = [entry for entry in sys.path if os.path.abspath(entry or ".") != _HERE]
 

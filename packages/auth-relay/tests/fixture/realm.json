@@ -25,6 +25,7 @@
         "useJwksUrl": "true",
         "disableUserInfo": "true",
         "defaultScope": "openid email profile",
+        "prompt": "select_account",
         "syncMode": "IMPORT",
         "clientAuthMethod": "client_secret_post"
       }

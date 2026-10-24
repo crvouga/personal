@@ -15,9 +15,9 @@ test('PR and merge queue checks always report, including documentation-only chan
   expect(workflow.on.pull_request).toEqual({});
   expect(workflow.on.merge_group).toEqual({});
   expect(workflow.jobs.check.name).toBe('Check');
-  expect(workflow.jobs.check.if).toBe("inputs.service_id == ''");
+  expect(workflow.jobs.check.if).toBe("always() && inputs.service_id == ''");
   expect(workflow.jobs.fleet.if).toContain('always()');
-  expect(workflow.jobs.check.needs).toBeUndefined();
+  expect(workflow.jobs.changes.needs).toBeUndefined();
 });
 
 test('sibling callers only publish, forwarding the existing inputs and outputs', () => {
@@ -34,13 +34,13 @@ test('sibling callers only publish, forwarding the existing inputs and outputs',
 });
 
 test('optional integrations cannot suppress core checks or require production credentials', () => {
-  const optional = workflow.jobs.check.steps.filter((s: { name: string }) =>
+  const optional = workflow.jobs.optional.steps.filter((s: { name: string }) =>
     /optional/i.test(s.name)
   );
   expect(optional).toHaveLength(2);
   for (const step of optional) expect(step['continue-on-error']).toBe(true);
   expect(optional[0].with.optional).toBe('true');
-  expect(JSON.stringify(workflow.jobs.check.env)).not.toContain('secrets.');
+  expect(JSON.stringify(workflow.jobs.packages.env)).not.toContain('secrets.');
 });
 
 test('deployment requires successful checks on a main push and cannot cancel active mutations', () => {
@@ -166,15 +166,17 @@ for (const [dispatch, caller, expected] of [
     }
   });
 
-test('all core gates run before specialized integration checks', () => {
-  const steps = workflow.jobs.check.steps;
+test('all core gates are retained across independent validation jobs', () => {
+  const steps = Object.values(workflow.jobs).flatMap(
+    (job: any) => job.steps ?? []
+  );
   const runs = steps.map((s: { run?: string }) => s.run ?? '').join('\n');
   for (const command of [
     'bun run ci:format',
     'bun run check:agents',
     'bun run check:llms',
     'bun run check:scripts',
-    'bun run check:infra',
+    'bash packages/infra/tofu/check.sh',
     'bunx turbo run tc lint',
     'bunx turbo run test build',
   ])
@@ -182,7 +184,7 @@ test('all core gates run before specialized integration checks', () => {
   expect(read('.github/actions/setup/action.yml').runs.steps.at(-1).run).toBe(
     'bun install --frozen-lockfile'
   );
-  expect(workflow.jobs.check.env.TURBO_CACHE).toBe('local:rw');
+  expect(workflow.jobs.packages.env.TURBO_CACHE).toBe('local:rw');
 });
 
 test('the transitional Required status preserves all validation until the live ruleset migrates', () => {
@@ -203,7 +205,7 @@ test('the transitional Required status preserves all validation until the live r
 });
 
 test('validation preserves the protected main branch constraints', () => {
-  const script = workflow.jobs.check.steps.find(
+  const script = workflow.jobs.repository.steps.find(
     (step: { name: string }) => step.name === 'Check branches'
   ).run;
   for (const [base, head, expected] of [

@@ -35,6 +35,7 @@ in {
     CACHE_URL=${lib.escapeShellArg (if settings.binaryCache.url == null then "" else settings.binaryCache.url)}
     DELAY_MAX=${toString settings.reboot.delayMaxSeconds}
     DRAIN_COMMAND=${lib.escapeShellArg settings.reboot.drainCommand}
+    RESUME_COMMAND=${lib.escapeShellArg (settings.reboot.resumeCommand or "")}
     DRAIN_TIMEOUT=${toString settings.reboot.drainTimeoutSeconds}
     GIT_KEY=${lib.escapeShellArg gitKey}
     GIT_TOKEN=${lib.escapeShellArg gitToken}
@@ -67,7 +68,7 @@ in {
   systemd.timers.fleet-sync = lib.mkIf timerOn {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnBootSec = "2min";
+      OnBootSec = "15s";
       OnUnitActiveSec = "${toString repo.pollSeconds}s";
       Persistent = true;
       RandomizedDelaySec = "30s";

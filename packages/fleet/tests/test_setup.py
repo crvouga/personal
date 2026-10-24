@@ -72,7 +72,7 @@ class FakeGitHub:
                 self.send({}, 404)
 
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self.http.serve_forever, daemon=True).start()
+        threading.Thread(target=self.http.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
 
     @property
     def url(self):
@@ -274,7 +274,7 @@ class SetupFlowTest(unittest.TestCase):
         flow = {"state": "right", "code": None, "done": threading.Event(), "page": b"x"}
         server = setup.LoopbackServer(("127.0.0.1", 0), setup.Flow)
         server.flow = flow
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
         self.addCleanup(server.shutdown)
         port = server.server_address[1]
         try:
@@ -298,7 +298,7 @@ class SetupFlowTest(unittest.TestCase):
                 "page": setup.form_page("User", "crvouga", state, document)}
         server = setup.LoopbackServer(("127.0.0.1", 0), setup.Flow)
         server.flow = flow
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         url = f"http://127.0.0.1:{server.server_address[1]}/"

@@ -35,9 +35,9 @@ export function deploymentPlan(config: InfraConfig, request: Request) {
     throw new Error('deploy-service requires a service id');
   const changed = (pattern: RegExp) => paths.some((p) => pattern.test(p));
   const shared = changed(
-    /^(bun\.lock|package\.json|turbo\.json|tsconfig(?:\.strict)?\.json|\.dockerignore)$|^packages\/(assert|logger|object-store|secret-store|secret-string|vault)\//
+    /^(bun\.lock|package\.json|turbo\.json|tsconfig(?:\.strict)?\.json|\.dockerignore)$|^packages\/(admin-ui|assert|logger|object-store|secret-store|secret-string|vault)\//
   );
-  const imageChanged = local.some((s) => {
+  const affected = local.filter((s) => {
     const directory = s.dockerfile?.slice(0, s.dockerfile.lastIndexOf('/') + 1);
     return directory && paths.some((p) => p.startsWith(directory));
   });
@@ -45,19 +45,21 @@ export function deploymentPlan(config: InfraConfig, request: Request) {
   const build =
     event === 'schedule' ||
     action === 'release' ||
-    (automatic && (shared || imageChanged));
+    (automatic && (shared || affected.length > 0));
   const vault =
     automatic &&
     (changed(/^packages\/vault-service\//) || !!request.recoverVault);
   const authChanged = changed(
-    /^packages\/auth-relay\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/|^scripts\/(ci\/|tofu-plan\.ts)/
+    /^(bun\.lock|package\.json|tsconfig(?:\.strict)?\.json|\.dockerignore)$|^packages\/(auth-relay|admin-ui|assert|logger)\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/(actions\/(deploy-auth|tofu)\/|workflows\/deploy\.yml$)|^scripts\/(ci\/(deploy-plan|deploy-preflight|auth-readiness)\.ts$|(?:tofu|atlas)-plan\.ts$)/
   );
   const auth =
     !!config.auth_relay?.enabled &&
     (action === 'auth' || (automatic && authChanged));
   const infrastructure =
     automatic &&
-    changed(/^packages\/infra\/|^\.github\/|^scripts\/(ci\/|tofu-plan\.ts)/);
+    changed(
+      /^packages\/infra\/|^\.github\/|^scripts\/(ci\/|(?:tofu|atlas)-plan\.ts)/
+    );
   const apply =
     build ||
     vault ||
@@ -65,7 +67,7 @@ export function deploymentPlan(config: InfraConfig, request: Request) {
     infrastructure ||
     action === 'deploy' ||
     action === 'unseal';
-  let targets = build ? local : services;
+  let targets = build ? (automatic && !shared ? affected : local) : services;
   if (event === 'schedule') targets = local.filter((s) => s.id === 'portfolio');
   else if (serviceId) targets = targets.filter((s) => s.id === serviceId);
   if (build && !targets.length)

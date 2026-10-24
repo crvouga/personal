@@ -6,7 +6,7 @@ in {
   inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache capacity drift disk monitoring reinstall fleetApi;
   # Set true only in the commit that adds the sops secret age-key-next.
   rotateAgeKey = false;
-  reboot = shared.reboot // { drainCommand = "fleet-drain"; };
+  reboot = shared.reboot // { drainCommand = "fleet-drain"; resumeCommand = "fleet-resume"; };
   # One data file for bootstrap registration. Runtime repository assignments
   # can override this through the fleet API's Postgres-backed settings.
   github = builtins.fromJSON (builtins.readFile ./settings/github.json);

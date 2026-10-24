@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe } from 'bun:test';
+import { beforeAll, beforeEach, describe } from 'bun:test';
 
 import type { PgStore } from '../../src/db/pg-store';
 
@@ -29,9 +29,6 @@ export function describeStore(
         });
         beforeEach(async () => {
           await database().reset();
-        });
-        afterAll(async () => {
-          await handle?.close();
         });
         body(() => {
           if (handle === null) throw new Error('store is not ready');

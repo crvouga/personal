@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Caller removes custom scheduler labels through GitHub's API before this script
-# waits. Thus new jobs cannot be assigned while current jobs finish.
+# Close local admission first. Attempt GitHub label removal, but an expired
+# credential must not prevent the OS update that repairs it. The local gate and
+# busy markers are authoritative for whether stopping listeners is safe.
 timeout="${1:-7200}"
 [[ "$timeout" =~ ^[0-9]+$ ]] || { echo 'timeout must be seconds' >&2; exit 2; }
 install -d -m 0755 /run/fleet
@@ -10,9 +11,12 @@ exec 9>/run/fleet/gate
 flock 9
 touch /run/fleet/draining
 flock -u 9
-host="$(hostname)"
+host=""
+if [ -r /run/fleet/node ]; then
+  host=$(awk -F= '$1 == "runner_prefix" { print $2 }' /run/fleet/node)
+fi
+host=${host:-$(hostname)}
 end=$((SECONDS + timeout))
-matched=0
 result=0
 drain_one() {
   local remaining
@@ -27,8 +31,8 @@ drain_one() {
 read -r -a targets <<< "$FLEET_TARGETS"
 for target in "${targets[@]}"; do
   drain_one "$FLEET_SCOPE" "$target"
-  if (( result == 0 )); then matched=1
-  elif (( result != 3 )); then exit "$result"
+  if (( result != 0 && result != 3 )); then
+    echo "FLEET_GITHUB_DRAIN_DEGRADED: remote drain failed (exit $result); waiting for local jobs behind the closed admission gate" >&2
   fi
 done
 # Repositories the fleet API assigned to slots (recorded at registration in
@@ -42,16 +46,30 @@ for used in /run/fleet/assign-used/*; do
   [[ "$repo" =~ $repo_pattern ]] || continue
   if [ "$FLEET_SCOPE" = repository ] && [[ " $FLEET_TARGETS " == *" $repo "* ]]; then continue; fi
   drain_one repository "$repo"
-  if (( result == 0 )); then matched=1
-  elif (( result != 3 )); then echo "drain: repository $repo could not be checked (exit $result); using the local job markers" >&2
+  if (( result != 0 && result != 3 )); then echo "drain: repository $repo could not be checked (exit $result); using the local job markers" >&2
   fi
 done
-(( matched == 1 )) || { echo 'No fleet runners found in GitHub; refusing to stop services.' >&2; exit 1; }
-# A running job is a file under /run/fleet/<slot>/busy. Wait for the last one.
-while compgen -G '/run/fleet/*/busy' > /dev/null; do
+# A running job is a file under /run/fleet/<slot>/busy. Minimal Nix Bash does
+# not include the readline-dependent compgen builtin.
+has_busy_jobs() {
+  local marker
+  for marker in /run/fleet/*/busy; do
+    [ ! -e "$marker" ] || return 0
+  done
+  return 1
+}
+while true; do
+  flock 9
+  if ! has_busy_jobs; then
+    read -r -a runner_units <<< "$FLEET_UNITS"
+    systemctl stop "${runner_units[@]}"
+    flock -u 9
+    break
+  fi
+  flock -u 9
   (( SECONDS < end )) || { echo 'Drain timed out; runner labels remain removed.' >&2; exit 1; }
-  sleep 5
+  remaining=$((end - SECONDS))
+  if (( remaining > 5 )); then remaining=5; fi
+  sleep "$remaining"
 done
-read -r -a runner_units <<< "$FLEET_UNITS"
-systemctl stop "${runner_units[@]}"
 echo "All runners drained and stopped. /run/fleet/draining remains until fleet-resume."

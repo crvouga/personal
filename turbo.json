@@ -6,8 +6,8 @@
     "bun.lock",
     "tsconfig.json",
     "package.json",
-    "packages/infra/tofu/modules/inventory/inventory.tf.json",
-    "packages/infra/tofu/modules/inventory/publish.yml.tftpl"
+    "tsconfig.strict.json",
+    ".nvmrc"
   ],
   "globalPassThroughEnv": ["CLOUDFLARE_*", "VAULT_*", "TURBO_*", "DEPLOY_*"],
   "tasks": {
@@ -23,23 +23,13 @@
     },
     "tc": {
       "dependsOn": ["^tc"],
-      "inputs": [
-        "**/*.ts",
-        "**/*.tsx",
-        "tsconfig.json",
-        "../../tsconfig.strict.json"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", "../../tsconfig.strict.json"],
       "outputLogs": "new-only",
       "outputs": []
     },
     "lint": {
       "dependsOn": ["^tc"],
-      "inputs": [
-        "**/*.ts",
-        "**/*.tsx",
-        "eslint.config.js",
-        "eslint.config.cjs"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/eslint-rules/**"],
       "outputLogs": "new-only",
       "outputs": []
     },
@@ -61,5 +51,6 @@
       "outputs": [],
       "outputLogs": "new-only"
     }
-  }
+  },
+  "globalEnv": ["ImageOS"]
 }

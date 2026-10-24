@@ -1,2 +1,3 @@
-FROM auth-relay-test:local
+ARG AUTH_TEST_BASE=auth-relay-test:local
+FROM ${AUTH_TEST_BASE}
 COPY --chown=keycloak:keycloak fixture/ /opt/keycloak/data/import/

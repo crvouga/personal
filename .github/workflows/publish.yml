@@ -110,6 +110,9 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
+          pull: true
+          cache-from: type=registry,ref=ghcr.io/${{ inputs.image_owner }}/${{ inputs.image_prefix }}-${{ inputs.service_id }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ inputs.image_owner }}/${{ inputs.image_prefix }}-${{ inputs.service_id }}:buildcache,mode=max,ignore-error=true
           tags: |
             ghcr.io/${{ inputs.image_owner }}/${{ inputs.image_prefix }}-${{ inputs.service_id }}:latest
             ghcr.io/${{ inputs.image_owner }}/${{ inputs.image_prefix }}-${{ inputs.service_id }}:${{ github.sha }}

@@ -14,9 +14,22 @@ fi
 log=${FLEET_INSTALL_LOG:-/run/fleet-install.log}
 note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$log" 2>/dev/null || true; }
 set -E
+report_pid=""
+stop_reporter() {
+  if [ -n "$report_pid" ]; then
+    kill "$report_pid" 2>/dev/null || true
+    wait "$report_pid" 2>/dev/null || true
+    report_pid=""
+  fi
+}
 on_error() {
+  stop_reporter
+  printf 'FLEET_INSTALL_FAILED: installer exited %s at line %s. Disk work may have started; check Fleet installation events.\n' "$1" "$2" > "$log.diagnostic"
   note "FAIL exit $1 at line $2: $3"
   printf 'FLEET-FAIL fleet-install stopped at line %s (exit %s): %s\nLog: %s\n' "$2" "$1" "$3" "$log" >&2
+  if [ -n "${toplevel:-}" ] && [ -n "${api_token_file:-}" ] && command -v fleet-bootstrap-report >/dev/null 2>&1; then
+    fleet-bootstrap-report "$toplevel" "$role" "$api_token_file" "FLEET_INSTALL_FAILED: installer exited $1 at line $2. Review this node's installation event and copy its diagnostic report." || true
+  fi
 }
 trap 'on_error $? $LINENO "$BASH_COMMAND"' ERR
 
@@ -75,6 +88,7 @@ key_dir=${FLEET_KEY_DIR:-}
 mounted_key=0
 verified_age_key=""
 cleanup() {
+  stop_reporter
   if [ -n "$verified_age_key" ]; then
     rm -f "$verified_age_key"
   fi
@@ -136,6 +150,18 @@ cmdline_value() {
 }
 
 enrolled=""
+# Connect with the carried profile before consuming a one-time token or wiping
+# anything. The helper never prints passwords or places them in arguments.
+if command -v fleet-wifi-ready >/dev/null 2>&1; then
+  note 'checking automatic Wi-Fi connection before installation'
+  if fleet-wifi-ready; then
+    note 'Wi-Fi preflight ready'
+  else
+    network_status=$?
+    note "network preflight exited $network_status; no disk changes"
+    exit "$network_status"
+  fi
+fi
 # Prove SSH access before consuming a token or touching a disk. This public
 # key is carried by kexec, a FLEET-KEY volume, or the console for a USB boot.
 devbox_key_file=""
@@ -275,6 +301,26 @@ if [ -n "$source_age_key" ]; then
   fi
 fi
 
+if command -v fleet-bootstrap-ready >/dev/null 2>&1; then
+  note 'checking platform configuration, role secrets, GitHub registration and automatic Fleet approval before disk changes'
+  if fleet-bootstrap-ready "$toplevel" "$role" "$verified_age_key" "$api_token_file" 2> "$log.diagnostic"; then
+    rm -f "$log.diagnostic"
+    note 'integration preflight passed'
+    if command -v fleet-bootstrap-report >/dev/null 2>&1; then
+      fleet-bootstrap-report "$toplevel" "$role" "$api_token_file" 'installation in progress' "$$" &
+      report_pid=$!
+    fi
+  else
+    status=$?
+    # The preflight helper emits public error codes only, never decrypted
+    # values. Retain its bounded diagnostic for the offline QR and log.
+    head -c 2048 "$log.diagnostic" >&2
+    head -c 2048 "$log.diagnostic" >> "$log"
+    note "integration preflight exited $status; no disk changes"
+    exit "$status"
+  fi
+fi
+
 device=$("$select_disk")
 [[ "$device" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]] || {
   echo 'select-disk returned an unexpected path' >&2
@@ -307,9 +353,15 @@ else
   }
 fi
 
+touch "${FLEET_INSTALL_LOG:-/run/fleet-install.log}.erasing"
 note "partitioning with disko"
 "$disko"
 note "disko done"
+
+if command -v fleet-wifi-persist >/dev/null 2>&1; then
+  fleet-wifi-persist "$mnt"
+  note 'private Wi-Fi settings preserved for first boot'
+fi
 
 if [ "$role" = devbox ]; then
   install -d -m 0700 "$mnt/nix/fleet-state/devbox"
@@ -362,6 +414,16 @@ if [ -s "$api_token_file" ]; then
     note 'fleet API role token: ignored (not a valid token)'
   fi
   unset api_token
+fi
+
+node_secret=${FLEET_ENROLLED_DIR:-/run/fleet-enrolled}/$role.agent/node.secret
+if [ -f "$node_secret" ]; then
+  install -d -m 0700 "$mnt/nix/fleet-state/agent"
+  install -m 0600 "$node_secret" "$mnt/nix/fleet-state/agent/node.secret"
+  cmp -s "$node_secret" "$mnt/nix/fleet-state/agent/node.secret" || {
+    echo 'FLEET-FAIL: the Fleet registration credential did not read back correctly.' >&2
+    exit 1
+  }
 fi
 
 ssh_dir=$mnt/nix/fleet-state/ssh

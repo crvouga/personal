@@ -82,12 +82,18 @@ export function useDatabase(): () => TestDatabase {
       sql,
       newStore(options = {}) {
         const db = createDb({ url, prepare: options.prepare ?? true });
-        closers.push(() => db.close());
-        return { store: new PgStore(db), close: () => db.close() };
+        // Some tests release their store early; fixture cleanup must await
+        // that same close, never ask the driver to close the pool twice.
+        let closing: Promise<void> | undefined;
+        const close = () => (closing ??= db.close());
+        closers.push(close);
+        return { store: new PgStore(db), close };
       },
       async reset() {
+        // One atomic statement: never leave a partial reset or depend on
+        // multi-result protocol draining before the next test acquires a pool.
         await sql.unsafe(
-          'delete from fleet.login_transactions; delete from fleet.browser_sessions; delete from fleet.access_audit; delete from fleet.allowed_emails; delete from fleet.events; delete from fleet.settings_history; delete from fleet.settings; delete from fleet.nodes'
+          'truncate fleet.login_transactions, fleet.browser_sessions, fleet.access_audit, fleet.allowed_emails, fleet.events, fleet.heartbeats, fleet.settings_history, fleet.settings, fleet.nodes'
         );
       },
     };

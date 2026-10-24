@@ -6,6 +6,7 @@ const ha: Assert = hotAssert();
 
 const ARTIFACT_CONTENT_TYPE = 'application/octet-stream';
 const TAG_SUFFIX = '.tag';
+const ARTIFACT_HASH = /^[A-Za-z0-9_-]{1,256}$/;
 
 function tagKey(hash: string): string {
   assert.nonEmptyString(hash, 'tagKey requires non-empty hash');
@@ -52,6 +53,14 @@ async function readTag(
 export function createArtifactsApp(store: ObjectStore): Hono {
   assert.defined(store, 'createArtifactsApp requires object store');
   const app = new Hono();
+  app.use('/v8/artifacts/:hash', async (c, next) => {
+    const hash = c.req.param('hash');
+    if (!hash || !ARTIFACT_HASH.test(hash)) {
+      return c.json({ error: 'Invalid artifact hash' }, 400);
+    }
+    await next();
+    return undefined;
+  });
 
   app.get('/v8/artifacts/status', (c) =>
     c.json({ status: 'enabled' as const })
@@ -150,7 +159,8 @@ function parseHashList(body: unknown): string[] {
     throw new Error('POST /v8/artifacts body must be a JSON array of hashes');
   }
   const result = body.filter(
-    (item): item is string => typeof item === 'string'
+    (item): item is string =>
+      typeof item === 'string' && ARTIFACT_HASH.test(item)
   );
   assert.array(result, 'parseHashList result must be an array');
   return result;

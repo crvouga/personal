@@ -16,7 +16,7 @@
     "check:smoke:secrets": "vault run --config dev -- bun run --filter @pkgs/turborepo-remote-cache smoke:secrets",
     "check:vault-secrets": "vault run --config dev -- bun run --filter @pkgs/turborepo-remote-cache check:vault-secrets",
     "check:vault-secrets:prd": "vault run --config prd -- bun run --filter @pkgs/turborepo-remote-cache check:vault-secrets",
-    "ci:format": "prettier --check .",
+    "ci:format": "prettier --check . --cache --cache-strategy content --cache-location .cache/prettier",
     "ci:install": "bun install --frozen-lockfile",
     "deploy": "bun run infra:fleet apply",
     "dev": "VAULT_CONFIG=${VAULT_CONFIG:-dev} turbo run dev --ui=tui --env-mode=loose --continue=always",
@@ -90,7 +90,7 @@
     "typescript-eslint": "catalog:",
     "yaml": "catalog:"
   },
-  "packageManager": "bun@1.3.11",
+  "packageManager": "bun@1.4.4",
   "engines": {
     "node": ">=22"
   },

@@ -2,6 +2,7 @@
   # Every closure can start this many slots. Boot starts only the count
   # cattle.py writes to /run/fleet/slot-count for the live CPU and RAM.
   slots = settings.capacity.slotMax;
+  tools = import ./fleet-tools.nix { inherit lib pkgs; };
   ids = map (n: "slot-${toString n}") (lib.range 1 slots);
   # The NixOS module applies `pkg.override { nodeRuntimes }`.
   # writeShellScriptBin has no override. callPackage supplies one, and the
@@ -11,6 +12,12 @@
     real=${pkgs.github-runner.override { inherit nodeRuntimes; }}/bin/Runner.Listener
     if [ "''${1:-}" != configure ]; then
       exec "$real" "$@"
+    fi
+    if [ -r /run/fleet/node ]; then
+      prefix=$(${pkgs.gawk}/bin/awk -F= '$1 == "runner_prefix" { print $2 }' /run/fleet/node)
+      if [[ "$prefix" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]+$ ]] && [ -n "''${FLEET_SLOT:-}" ]; then
+        export ACTIONS_RUNNER_INPUT_NAME="$prefix-$FLEET_SLOT"
+      fi
     fi
     extra=""
     if [ -s /run/fleet/runner-labels ]; then
@@ -75,10 +82,10 @@
   scopeFor = n: if settings.github.scope == "organization" then settings.github.organization
     else builtins.elemAt settings.github.repositories (lib.mod (n - 1) (builtins.length settings.github.repositories));
   token = if registrationProvider != null then registrationProvider else pkgs.writeScript "fleet-token" ''#!${pkgs.python3.withPackages (p: [ p.pyjwt p.cryptography ])}/bin/python3
-${builtins.readFile ../scripts/token.py}
+${builtins.readFile ../scripts/runner_control.py}
 '';
   control = if drainProvider != null then drainProvider else pkgs.writeScriptBin "runner-control" ''#!${pkgs.python3.withPackages (p: [ p.pyjwt p.cryptography ])}/bin/python3
-${builtins.readFile ../scripts/token.py}
+${builtins.readFile ../scripts/runner_control.py}
 '';
   # Registration pre-start for one slot. The fleet API may assign the slot a
   # repository (runners.repositories -> /run/fleet/assign/<slot>); the
@@ -110,7 +117,7 @@ ${builtins.readFile ../scripts/token.py}
   targets = if settings.github.scope == "organization" then [ settings.github.organization ] else settings.github.repositories;
   drain = pkgs.writeShellApplication {
     name = "fleet-drain";
-    runtimeInputs = with pkgs; [ systemd coreutils util-linux control ];
+    runtimeInputs = with pkgs; [ systemd coreutils util-linux gawk control ];
     text = ''
       export FLEET_SCOPE=${lib.escapeShellArg settings.github.scope}
       export FLEET_TARGETS=${lib.escapeShellArg (lib.concatStringsSep " " targets)}
@@ -122,30 +129,11 @@ ${builtins.readFile ../scripts/token.py}
   };
   resume = pkgs.writeShellApplication {
     name = "fleet-resume";
-    runtimeInputs = with pkgs; [ systemd coreutils ];
+    runtimeInputs = with pkgs; [ systemd coreutils util-linux ];
     text = ''
-      rm -f /run/fleet/draining
-      rm -f /run/systemd/system/github-runner-*.service.d/drain.conf
-      systemctl daemon-reload
-      count=$(tr -d '[:space:]' < /run/fleet/slot-count)
-      case "$count" in
-        ""|*[!0-9]*) echo 'slot count is not a number' >&2; exit 1 ;;
-      esac
-      units=()
-      n=1
-      while [ "$n" -le "$count" ]; do
-        units+=("github-runner-slot-$n.service")
-        n=$((n + 1))
-      done
-      # systemd 260 ResetFailedUnit refuses a unit that is not loaded. A clean
-      # stop plus daemon-reload unloads these units, and an unloaded unit cannot
-      # be failed. A unit that hit its start limit stays loaded and failed.
-      for unit in "''${units[@]}"; do
-        if systemctl is-failed --quiet "$unit"; then
-          systemctl reset-failed "$unit"
-        fi
-      done
-      systemctl start "''${units[@]}"
+      export FLEETCONF=${tools.fleetconf}/bin/fleetconf
+      export FLEET_SLOT_MAX=${toString slots}
+      ${builtins.readFile ../scripts/resume.sh}
     '';
   };
   hooks = event: pkgs.writeShellScript "fleet-job-${event}" (if event == "started" then ''
@@ -217,6 +205,9 @@ in {
       Restart = lib.mkForce "always";
       RestartSec = "15s";
       UMask = lib.mkForce "0077";
+      # ExecStopPost runs after the listener's control group has stopped. A
+      # crash must not leave a phantom busy job blocking every later drain.
+      ExecStopPost = "${pkgs.coreutils}/bin/rm -f /run/fleet/${id}/busy";
       ReadWritePaths = [ "/nix/ci-cache/${id}" "/run/fleet/${id}" ]
         ++ lib.optional settings.containers "/run/user/${toString (2000 + lib.lists.findFirstIndex (x: x == id) 0 ids)}";
       # Rootless Podman requires namespaces and mounts; enabled only explicitly.

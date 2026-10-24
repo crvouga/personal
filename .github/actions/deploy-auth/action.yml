@@ -1,5 +1,9 @@
 name: Deploy auth
 description: Build immutable auth images and apply the staged private identity, realm and gateway rollout.
+inputs:
+  foundation_changes:
+    description: Changed addresses from the preceding reviewed foundation plan; absent evidence retains full readiness windows.
+    default: ''
 runs:
   using: composite
   steps:
@@ -22,6 +26,9 @@ runs:
         platforms: linux/amd64
         push: true
         provenance: false
+        pull: true
+        cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay:buildcache
+        cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay:buildcache,mode=max,ignore-error=true
         labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay:latest
@@ -35,6 +42,9 @@ runs:
         platforms: linux/amd64
         push: true
         provenance: false
+        pull: true
+        cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-identity:buildcache
+        cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-identity:buildcache,mode=max,ignore-error=true
         labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay-identity:latest
@@ -48,6 +58,9 @@ runs:
         platforms: linux/amd64
         push: true
         provenance: false
+        pull: true
+        cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:buildcache
+        cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:buildcache,mode=max,ignore-error=true
         labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:latest
@@ -135,6 +148,7 @@ runs:
         fi
       shell: bash
     - uses: ./.github/actions/tofu
+      id: hosting
       with:
         root: auth-hosting
       env:
@@ -146,37 +160,12 @@ runs:
         tofu -chdir=packages/infra/tofu/foundation init -input=false -reconfigure -lockfile=readonly -backend-config=backend.backend.json > /dev/null
         tofu -chdir=packages/infra/tofu/foundation output -json auth_admin > /tmp/auth-admin.json
         for key in $(jq -r 'to_entries[] | .value | .password, .access_client_secret, .tunnel_token' /tmp/auth-admin.json); do echo "::add-mask::${key}"; done
-        for instance in ${{ steps.flags.outputs.instances }}; do
-          url="$(jq -r --arg i "${instance}" '.[$i].url' /tmp/auth-admin.json)"
-          id="$(jq -r --arg i "${instance}" '.[$i].access_client_id' /tmp/auth-admin.json)"
-          secret="$(jq -r --arg i "${instance}" '.[$i].access_client_secret' /tmp/auth-admin.json)"
-          ok=false
-          # First start creates Keycloak's tables; allow 20 minutes. Railway
-          # rolls the new deployment out behind the old one (about two minutes,
-          # then the old container is removed), so the first 200 may still come
-          # from the previous deployment. Require an unbroken run of 200s that
-          # outlasts the rollout.
-          deadline=$((SECONDS + 1200))
-          stable_since=""
-          for attempt in $(seq 1 120); do
-            [ "${SECONDS}" -lt "${deadline}" ] || break
-            code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' \
-              -H "CF-Access-Client-Id: ${id}" -H "CF-Access-Client-Secret: ${secret}" \
-              "${url}/realms/master/.well-known/openid-configuration" || true)"
-            if [ "${code}" = 200 ]; then
-              stable_since="${stable_since:-${SECONDS}}"
-              if [ $((SECONDS - stable_since)) -ge 240 ]; then ok=true; break; fi
-            else
-              stable_since=""
-              echo "${instance}: admin API not ready (HTTP ${code:-000}), attempt ${attempt}/120"
-            fi
-            sleep 10
-          done
-          if [ "${ok}" != true ]; then
-            echo "::error::${instance}: Keycloak admin API never became reachable through the Access-protected tunnel."
-            exit 1
-          fi
-        done
+        bun scripts/ci/auth-readiness.ts
+      env:
+        ADMIN_INSTANCES: ${{ steps.flags.outputs.instances }}
+        AUTH_HOSTING_CHANGES: ${{ steps.hosting.outputs.changed_resources }}
+        AUTH_FIRST_DEPLOYMENT: ${{ env.FIRST_DEPLOYMENT || 'false' }}
+        AUTH_FOUNDATION_CHANGES: ${{ inputs.foundation_changes }}
       shell: bash
     - id: realm_production
       continue-on-error: true

@@ -4,18 +4,34 @@ in {
   imports = [
     ./disks/internal.nix
     ./hardware/generic.nix
+    ./wifi.nix
     ./capabilities/high-mem.nix
     ./identity.nix
     ./sync.nix
     ./revision.nix
     ./drift.nix
     ./agent.nix
+    ./onboarding.nix
+    ./boot-health.nix
   ];
   # The module system ignores `revision ? null` and throws if the argument is
   # absent. Tests omit it. The flake passes the real commit via specialArgs,
   # which wins over this default.
   _module.args.revision = lib.mkDefault "unknown";
   system.stateVersion = "26.05";
+  systemd.services.fleet-recover-handoff = {
+    description = "Recover the original node after an installer boot falls back";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "node-identity.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
+    unitConfig.ConditionPathExists = "/nix/fleet-state/handoff";
+    path = [ pkgs.python3 pkgs.coreutils ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.bash}/bin/bash ${../scripts/recover-handoff.sh}";
+      Environment = "FLEET_RESUME=/run/current-system/sw/bin/fleet-resume";
+    };
+  };
   boot.loader.timeout = 5;
   boot.loader.systemd-boot.enable = true;
   boot.loader.systemd-boot.configurationLimit = settings.bootGenerationLimit;

@@ -125,7 +125,8 @@ export function fakeFetch(routes: Routes, seen: string[] = []): typeof fetch {
     if (route instanceof Error) throw route;
     // A null-body status (a HEAD answer or redirect) cannot carry a body.
     const status = route.status ?? 200;
-    const body = status === 204 || status === 304 || (status >= 300 && status < 400) ? null : JSON.stringify(route.body ?? {});
+    const body = status === 204 || status === 304 || (status >= 300 && status < 400) ? null :
+      route.headers?.['content-type'] === 'text/plain' && typeof route.body === 'string' ? route.body : JSON.stringify(route.body ?? {});
     return new Response(body, { status, headers: route.headers ?? {} });
   }) as typeof fetch;
 }

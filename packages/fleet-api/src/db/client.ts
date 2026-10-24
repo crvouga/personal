@@ -21,6 +21,11 @@ const MAX_LIFETIME_SECONDS = 30 * 60;
  * Nothing here sets search_path: every statement names its schema.
  */
 export function createDb(options: DbOptions): Db {
+  if (!Bun.semver.satisfies(Bun.version, '>=1.4.0')) {
+    throw new Error(
+      `FLEET_DATABASE_RUNTIME_UNSUPPORTED: Bun ${Bun.version} is below the supported SQL runtime; use the repository-pinned Bun 1.4.4 or newer.`
+    );
+  }
   return new SQL({
     url: options.url,
     max: options.max ?? POOL_SIZE,

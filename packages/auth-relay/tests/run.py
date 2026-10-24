@@ -27,8 +27,13 @@ for port in [3000, 5173, int(os.environ.get('AUTH_TEST_PORT_C', '8080')), 3443, 
 try:
     run('bun', 'run', '--cwd', 'packages/auth-relay', 'build')
     run(*COMPOSE, 'down', '--volumes')
-    run('docker', 'build', '--build-arg', 'KC_CACHE=ispn', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', 'auth-relay-test:local', 'packages/auth-relay')
-    run(*COMPOSE, 'build', 'broker', 'mock')
+    if os.environ.get('AUTH_TEST_PREBUILT') == '1':
+        # CI's Bake graph builds these exact sources with persistent caches.
+        # Missing images are an error, never an implicit fixture fallback.
+        run('docker', 'image', 'inspect', '--format', '{{.Id}}', 'auth-relay-test:local', 'auth-relay-fixture:local', 'auth-relay-mock:local')
+    else:
+        run('docker', 'build', '--build-arg', 'KC_CACHE=ispn', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', 'auth-relay-test:local', 'packages/auth-relay')
+        run(*COMPOSE, 'build', 'broker', 'mock')
     run(*COMPOSE, 'up', '-d', '--wait', '--wait-timeout', '180')
     for port in (18080, 18081):
         deadline = time.monotonic() + 180

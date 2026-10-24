@@ -93,6 +93,13 @@ const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
 const page = await context.newPage();
 const consumers: ReturnType<typeof Bun.serve>[] = [];
+async function signIn(page: import('@playwright/test').Page, url: string) {
+  const upstream = page.waitForRequest('http://localhost:8090/authorize?*');
+  await page.goto(url);
+  const request = new URL((await upstream).url());
+  assert.equal(request.searchParams.get('prompt'), 'select_account');
+  assert.equal(request.searchParams.has('login_hint'), false);
+}
 async function api(path: string, method = 'GET', body?: unknown) {
   return page.evaluate(
     async ({ path, method, body }) => {
@@ -112,7 +119,10 @@ async function api(path: string, method = 'GET', body?: unknown) {
 }
 try {
   assert.equal((await fetch('http://localhost:19080/api/clients')).status, 401);
-  await page.goto('http://localhost:19080/auth/login');
+  await signIn(page, 'http://localhost:19080/auth/login');
+  await page.waitForURL('http://localhost:19080/', { timeout: 30000 });
+  // Keep all broker cookies: a second sign-in must still reach the upstream.
+  await signIn(page, 'http://localhost:19080/auth/login');
   await page.waitForURL('http://localhost:19080/', { timeout: 30000 });
   assert.equal((await api('/api/clients')).status, 403);
   assert.equal((await api('/api/agent-grants')).status, 403);
@@ -184,7 +194,9 @@ try {
   const clientA = await consumer(config.issuer, id, portA);
   consumers.push(clientA);
   const applicationPage = await context.newPage();
-  await applicationPage.goto(`http://localhost:${portA}/login`);
+  await signIn(applicationPage, `http://localhost:${portA}/login`);
+  await applicationPage.waitForURL('**/private');
+  await signIn(applicationPage, `http://localhost:${portA}/login`);
   await applicationPage.waitForURL('**/private');
   assert.equal(await applicationPage.textContent('body'), 'authenticated');
   await server.stop(true);

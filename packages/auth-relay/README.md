@@ -215,6 +215,12 @@ OIDC_SCOPES=openid email profile
 
 Configure discovery at `${OIDC_ISSUER}/.well-known/openid-configuration`, `response_type=code`, public client authentication (`token_endpoint_auth_method=none`), mandatory S256 PKCE, random state and nonce, and optional `kc_idp_hint=google`. This works for browser apps and SSR libraries supporting public PKCE clients. Confidential consuming clients, refresh/password/implicit grants, native clients and iframe silent renew are outside the initial profile. The browser-only token endpoint supports the registered exact origin through Keycloak's CORS policy; the management API has no cross-origin access.
 
+Every new authorization through the relay opens Google's account chooser, including
+repeat sign-ins with an existing broker session. The gateway forces broker
+reauthentication and removes account hints; the Google provider sends
+`prompt=select_account`. Applications need no extra parameters. Existing application
+sessions continue according to the application's own session policy.
+
 Bind each transaction to its client, exact callback, browser, state, nonce and verifier. Keep separate transactions per tab, expire after ten minutes, consume once, and never retry an authorization-code exchange after an error or timeout. Validate token signature, issuer, audience, nonce and expiry. Identify people by `(iss, sub)`, not email; do not link accounts by email automatically. Cache JWKS with bounded freshness and refresh once for unknown key IDs. Never bypass authentication during an outage.
 
 Each application creates its own session and owns permissions/user data. SSR cookies should be host-only, HttpOnly, Secure and SameSite=Lax over HTTPS. Use top-level GET redirects, not shared cookies or cross-site iframes. Existing application sessions can continue during a relay outage according to local session policy; no live broker lookup is required on each page. **Localhost cookies are shared across ports:** namespace session and transaction cookies per project AND running instance. Browser-only clients should use per-tab transaction storage and avoid persistent token storage or token-bearing URLs.

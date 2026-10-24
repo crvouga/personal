@@ -6,6 +6,7 @@ first deployment (create tables) and every later one (validate them).
 """
 from pathlib import Path
 import subprocess
+import os
 import time
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -51,7 +52,10 @@ def wait_for(path, seconds=240):
 try:
     cleanup()
     # Same build arguments as the deploy workflow: none, so the local cache is used.
-    docker('build', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', IMAGE, 'packages/auth-relay')
+    if os.environ.get('AUTH_PRODUCTION_PREBUILT') == '1':
+        docker('image', 'inspect', '--format', '{{.Id}}', IMAGE)
+    else:
+        docker('build', '-f', 'packages/auth-relay/Dockerfile.keycloak', '-t', IMAGE, 'packages/auth-relay')
     docker('network', 'create', NET)
     docker('run', '-d', '--name', DB, '--network', NET, '-e', 'POSTGRES_DB=keycloak', '-e', 'POSTGRES_USER=keycloak',
            '-e', 'POSTGRES_PASSWORD=test-only', '--health-cmd', 'pg_isready -U keycloak', '--health-interval', '2s', 'postgres:18.1-alpine')

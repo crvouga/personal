@@ -19,6 +19,10 @@ inputs:
   mode:
     default: apply
     description: apply plans and applies; prepare only initializes and resolves inputs, for read-only drift checks.
+outputs:
+  changed_resources:
+    description: JSON addresses of managed resources changed by the reviewed saved plan; empty for prepare mode.
+    value: ${{ steps.plan.outputs.changed_resources }}
 runs:
   using: composite
   steps:
@@ -29,12 +33,24 @@ runs:
           echo "::error::Import and verify every OpenTofu root before enabling TOFU_MIGRATION_READY."
           exit 1
         fi
+    - name: Check installed OpenTofu
+      id: toolchain
+      shell: bash
+      run: |
+        if command -v tofu >/dev/null && [ "$(tofu version -json | jq -r .terraform_version)" = 1.13.0 ]; then
+          echo 'tofu_ready=true' >> "$GITHUB_OUTPUT"
+        fi
     - uses: opentofu/setup-opentofu@v1
+      if: steps.toolchain.outputs.tofu_ready != 'true'
       with:
         tofu_version: 1.13.0
         tofu_wrapper: false
     - uses: ariga/setup-atlas@v0
+      if: inputs.root == 'foundation' && env.CI_ATLAS_READY != 'true'
+    - name: Remember Atlas setup for this job
       if: inputs.root == 'foundation'
+      shell: bash
+      run: echo 'CI_ATLAS_READY=true' >> "$GITHUB_ENV"
     - name: Configure backend and inputs
       shell: bash
       env:
@@ -135,6 +151,7 @@ runs:
           echo "Auth relay schemas are disabled or already managed."
         fi
     - name: Plan
+      id: plan
       if: inputs.mode == 'apply'
       shell: bash
       env:
@@ -143,6 +160,10 @@ runs:
       run: |
         bun scripts/tofu-plan.ts
         tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -no-color apply.tfplan
+        # Export addresses only; plan values can contain credentials.
+        changed=$(tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -json apply.tfplan | jq -c \
+          '[.resource_changes[]? | select(.mode == "managed" and .change.actions != ["no-op"]) | .address]')
+        echo "changed_resources=${changed}" >> "$GITHUB_OUTPUT"
     - name: Apply
       if: inputs.mode == 'apply'
       shell: bash

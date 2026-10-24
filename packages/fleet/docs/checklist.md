@@ -1,5 +1,11 @@
 # Steps that stay manual
 
+For the normal installation, use the [wizard](installer.md): open it, choose
+the role and confirm the exact disk. It performs its checks and available
+preparation automatically. The CLI commands below are an alternative for
+agents, headless machines and troubleshooting; they are not extra steps for
+someone already using the wizard.
+
 After a node has booted into its role, the only manual tasks are physical: replace hardware, clean it, and the one-time BIOS setup below. A step that seems to need a person at a running node is a bug. Fix it in code. SSH is read-only emergency access. No changes are ever made over SSH.
 
 These bring-up steps happen once, before the node is polling `main`. They are not how a running node is changed.
@@ -8,7 +14,7 @@ Complete the [readiness gates](readiness.md) before using this checklist. A
 successful install alone does not prove runner registration, enrollment,
 monitoring or cached updates work.
 
-1. Rack the machine and cable power and a wired Ethernet port. Do not record a name or a MAC into git. Another machine of the same role is another install, not a host file.
+1. Connect power and provide Wi-Fi settings through the installer, or connect Ethernet. Saved personal Wi-Fi is carried over automatically when the source OS permits it. Do not record a name or a MAC into git. Another machine of the same role is another install, not a host file.
 2. Firmware, once: disable Secure Boot. lanzaboote is not wired up; it is a later option if Secure Boot has to stay on. On a machine that runs Windows, `shutdown /r /fw` opens the firmware screen; the installer's check names this when Secure Boot is on. Enable UEFI USB boot and network boot. Set the boot order to network, then the internal disk. Enable power-on after AC loss when the firmware offers it. Do not change this order per machine later. A reinstall flag in git does not install a node: the netboot host does not serve an image that can finish an install.
 3. On the machine itself, download one file and run it. Nix, a git checkout, `just`, and a second computer are not required.
 

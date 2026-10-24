@@ -3,7 +3,14 @@ import type { FleetEntry } from './fleet-data';
 
 export type AttentionLevel = 'error' | 'warn' | 'info';
 export type AttentionCode =
-  'offline' | 'stale' | 'rollback' | 'units' | 'disk' | 'pending';
+  | 'offline'
+  | 'stale'
+  | 'rollback'
+  | 'units'
+  | 'disk'
+  | 'pending'
+  | 'readiness'
+  | 'update';
 
 export interface AttentionItem {
   readonly entry: FleetEntry;
@@ -41,9 +48,12 @@ function connectivity(entry: FleetEntry): AttentionItem | null {
   return null;
 }
 
-function problems(entry: FleetEntry): AttentionItem[] {
+function updateProblems(entry: FleetEntry): AttentionItem[] {
   const { facts } = entry;
   const found: AttentionItem[] = [];
+  for (const issue of facts.readinessIssues ?? []) {
+    found.push(item(entry, 'error', 'readiness', issue));
+  }
   if (facts.rolledBack) {
     const why = facts.healthFailure === null ? '' : `: ${facts.healthFailure}`;
     found.push(
@@ -55,6 +65,22 @@ function problems(entry: FleetEntry): AttentionItem[] {
       )
     );
   }
+  if (facts.healthFailure && !facts.rolledBack) {
+    found.push(
+      item(
+        entry,
+        'error',
+        'update',
+        `Automatic update failed: ${facts.healthFailure}`
+      )
+    );
+  }
+  return found;
+}
+
+function problems(entry: FleetEntry): AttentionItem[] {
+  const { facts } = entry;
+  const found = updateProblems(entry);
   if (facts.failedUnits.length > 0) {
     const shown = facts.failedUnits.slice(0, MAX_UNITS_SHOWN).join(', ');
     const more = facts.failedUnits.length - MAX_UNITS_SHOWN;

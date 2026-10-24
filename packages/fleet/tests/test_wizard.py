@@ -7,6 +7,7 @@ Disks are described by a JSON file and the "USB stick" is an ordinary file.
 """
 
 import hashlib
+import http.client
 import base64
 import json
 import os
@@ -35,13 +36,16 @@ import imaging  # noqa: E402
 import leases  # noqa: E402
 import main as wizard_main  # noqa: E402
 import server  # noqa: E402
+import iso_fixture  # noqa: E402
 
+# Windows device mutexes are global even when every write is a fixture.
+# Give independent test processes distinct fake devices; retain real locking.
 INTERNAL = {
-    "path": "/dev/nvme0n1", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
+    "path": f"/dev/fleet-test-internal-{os.getpid()}", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
     "mounted": True, "whole": True, "size": 500 * 10**9, "model": "Samsung SSD 980", "serial": "S5",
 }
 USB = {
-    "path": "/dev/sdb", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
+    "path": f"/dev/fleet-test-usb-{os.getpid()}", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
     "mounted": False, "whole": True, "size": 8 * 10**9, "model": "Flash", "serial": "U1",
 }
 USB_OTHER = dict(USB, serial="U2", path="/dev/sdc")
@@ -337,7 +341,7 @@ class InvariantTests(unittest.TestCase):
     def test_a_mounted_internal_disk_is_the_running_system_and_is_eligible(self):
         chosen = decide.plan_disks([INTERNAL, USB], "install")
         self.assertTrue(chosen["ok"], chosen)
-        self.assertEqual(chosen["path"], "/dev/nvme0n1")
+        self.assertEqual(chosen["path"], INTERNAL["path"])
         self.assertIsNone(decide.install_block(INTERNAL))
         for refused in (USB, dict(INTERNAL, rm=True), dict(INTERNAL, hotplug=True)):
             self.assertIsNotNone(decide.install_block(refused))
@@ -388,7 +392,8 @@ class WizardCase(unittest.TestCase):
         self.wizard = server.Wizard(os_name)
         self.httpd = server.serve(self.wizard)
         self.port = self.httpd.server_address[1]
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.server_thread = threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        self.server_thread.start()
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
 
@@ -422,6 +427,23 @@ class WizardCase(unittest.TestCase):
 
 
 class ServerTests(WizardCase):
+    def test_wifi_plan_keeps_password_private_and_usb_handoff_reads_back(self):
+        import fleet_wifi
+        network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": True}
+        self.disks.write_text(json.dumps([INTERNAL, {**USB, "size": self.target.stat().st_size}]))
+        _status, scan = self.call("GET", "/api/scan")
+        status, plan = self.call("POST", "/api/plan", {"mode": "usb", "disk_id": scan["usb"][0]["id"], "wifi": network})
+        self.assertEqual(status, 200)
+        self.assertNotIn("wifi", plan)
+        self.assertNotIn(network["password"], json.dumps(plan))
+        self.assertIn("Keep this USB private", plan["summary"])
+        self.run_plan(plan)
+        job = self.wait_job()
+        self.assertEqual(job["state"], "done", job)
+        self.assertEqual(fleet_wifi.read_trailer(self.target), network)
+        self.assertNotIn(network["password"], json.dumps(job))
+        self.assertNotIn(network["password"], Path(decide.LOG["path"]).read_text())
+
     def test_duplicate_disk_identifiers_cannot_pick_a_target_silently(self):
         self.disks.write_text(json.dumps([USB, dict(USB, path="/dev/sdc")]))
         status, body = self.usb_plan()
@@ -657,9 +679,9 @@ class ServerTests(WizardCase):
         gate = threading.Event()
         real = imaging.download
 
-        def slow(url, dest, sha, progress=None, cancel=None):
+        def slow(url, dest, sha, progress=None, cancel=None, **kwargs):
             gate.wait(5)
-            return real(url, dest, sha, progress, cancel)
+            return real(url, dest, sha, progress, cancel, **kwargs)
 
         with mock.patch.object(imaging, "download", slow):
             _status, plan = self.usb_plan()
@@ -674,9 +696,9 @@ class ServerTests(WizardCase):
         gate = threading.Event()
         real = imaging.download
 
-        def slow(url, dest, sha, progress=None, cancel=None):
+        def slow(url, dest, sha, progress=None, cancel=None, **kwargs):
             gate.wait(5)
-            return real(url, dest, sha, progress, cancel)
+            return real(url, dest, sha, progress, cancel, **kwargs)
 
         with mock.patch.object(imaging, "download", slow):
             _status, plan = self.usb_plan()
@@ -792,7 +814,9 @@ class WindowsHereTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             iso = root / "fleet-installer.iso"
-            iso.write_bytes(make_iso(fill=3))
+            tree = iso_fixture.installer_tree()
+            tree['fleet-readiness.json'] = b'{"version":1,"roles":{"ci":{"blocked":[]}}}'
+            iso.write_bytes(iso_fixture.build(tree))
             sha = imaging.sha256_of(iso)
             disk = {"path": "\\\\.\\PHYSICALDRIVE0", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
                     "mounted": True, "whole": True, "size": 10**12, "model": "SSD", "serial": "S1"}
@@ -824,9 +848,15 @@ class WindowsHereTests(unittest.TestCase):
 class QuitServerTests(WizardCase):
     def test_quit_stops_the_server(self):
         self.assertEqual(self.call("POST", "/api/quit", {})[0], 200)
-        time.sleep(0.5)
-        with self.assertRaises(OSError):
-            wizard_main.call(self.port, self.wizard.secret, "GET", "/api/scan")
+        self.server_thread.join(timeout=2)
+        self.assertFalse(self.server_thread.is_alive(), "quit did not stop the HTTP server")
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=0.25)
+        try:
+            with self.assertRaises(OSError):
+                connection.request("GET", "/api/scan", headers={"X-Fleet-Token": self.wizard.secret})
+                connection.getresponse()
+        finally:
+            connection.close()
 
 
 class InstallHereTests(WizardCase):

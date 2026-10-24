@@ -48,12 +48,12 @@ Feature: Hard reinstall an existing NixOS fleet node safely
     Then the wizard refuses the changed internal disk
     And no boot handoff or runner withdrawal occurred
 
-  Scenario: A failed handoff leaves the node recoverable without admitting new jobs
+  Scenario: A failed handoff restores the unchanged source node automatically
     Given I open an idle existing NixOS "ci" node
     When I arrange for the boot handoff to fail
     And I review a hard reinstall of its current role
     And I confirm the erase and install
-    Then the failed handoff leaves the CI node withdrawn
+    Then the failed handoff restores the CI node and exposes copyable diagnostics
     When I restore the boot handoff and retry the hard reinstall
     Then the verified installer is handed off for the same role
-    And the CI runner was withdrawn only once
+    And the CI runner was withdrawn once per actual attempt
