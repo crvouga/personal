@@ -225,7 +225,8 @@ test('formatting cache keeps the full check and scopes reuse to the lock and for
   expect(cache.with.path).toBe('.cache/prettier');
   for (const key of ['key', 'restore-keys']) {
     expect(cache.with[key]).toContain('bun.lock');
-    expect(cache.with[key]).toContain('**/.prettier*');
+    expect(cache.with[key]).toContain('packages/*/.prettier*');
+    expect(cache.with[key]).not.toContain('**/');
     expect(cache.with[key]).toContain('package.json');
   }
 });

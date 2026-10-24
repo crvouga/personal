@@ -228,9 +228,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/prettier
-          key: prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '**/.prettier*', '**/prettier.config.*', '.editorconfig', 'package.json') }}-${{ github.sha }}
+          key: prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '.prettier*', 'prettier.config.*', '.editorconfig', 'package.json', 'packages/*/.prettier*', 'packages/*/prettier.config.*', 'packages/*/package.json') }}-${{ github.sha }}
           restore-keys: |
-            prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '**/.prettier*', '**/prettier.config.*', '.editorconfig', 'package.json') }}-
+            prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '.prettier*', 'prettier.config.*', '.editorconfig', 'package.json', 'packages/*/.prettier*', 'packages/*/prettier.config.*', 'packages/*/package.json') }}-
       - name: Fast repository checks
         run: bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts
   packages:
@@ -466,7 +466,7 @@ jobs:
     name: Check
     if: always() && inputs.service_id == ''
     needs: [changes, repository, packages, infra, fleet_e2e, auth, portfolio_urls]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     outputs:
       fleet: ${{ needs.changes.outputs.fleet }}
@@ -734,7 +734,7 @@ jobs:
       - nix
       - installer
       - release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
       - name: Check platform results
@@ -771,7 +771,7 @@ jobs:
     needs:
       - check
       - fleet
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
       - name: Check legacy merge status

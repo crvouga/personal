@@ -9,7 +9,14 @@ took approximately 24½ minutes: Check took 736 seconds, then Nix took another
 725 seconds. Installer builds also started only after Check completed. Another
 [baseline](https://github.com/crvouga/workspace/actions/runs/40117121865) spent
 roughly three minutes enabling Windows Media Foundation during Playwright setup.
-These are historical measurements, not measurements of the new pipeline.
+
+The first complete [overhauled PR run](https://github.com/crvouga/workspace/actions/runs/40133151595)
+passed in **4 minutes 18 seconds**, measured from workflow creation to completion:
+approximately **82% less elapsed time** than the 24½-minute baseline. Check
+completed after 3 minutes 5 seconds; Nix image construction was the final build
+lane. All selected integration checks, four Nix groups and five native installer
+platforms passed. This run had warm package/image caches and actual Nix builds;
+it is not a cold-cache guarantee. Hosted queues and changed inputs affect timing.
 
 ## Scheduling and gates
 
@@ -47,6 +54,8 @@ short change plan. They never wait for the aggregate Check job.
   Headless downloads are cached by OS, architecture and required version set;
   different version sets cannot win an incomplete immutable cache key.
 
+The three status-only gates use lightweight container runners with Bash and jq.
+Builds and tests retain full runners, including KVM for NixOS VMs.
 Check aggregates all core lanes. A conditional lane may skip only when its filter
 is explicitly false. Failure, cancellation, missing filters and unexpected skips
 fail the gate. Fleet also requires successful Nix/installer matrices and any
@@ -72,7 +81,10 @@ Formatting reuses Prettier's content-validated cache across checkouts. The GitHu
 cache key includes the frozen dependency lock and formatter configuration; the
 Prettier CLI still runs and verifies changed content, resolved options and its
 own tool version. Regression tests confirm edits and configuration changes cannot
-reuse a stale formatting pass.
+reuse a stale formatting pass. Cache-key globs cover root and flat-workspace
+configuration without recursively walking installed dependencies. The previous
+recursive key scan cost 16 seconds before restore and 17 seconds before save in
+the measured run; the bounded scan took 0.11 seconds locally.
 
 Bun download caches are partitioned by OS, architecture, tool version and lockfile.
 Every install still uses the frozen lockfile. Installer Python build dependencies
@@ -114,7 +126,17 @@ unchanged successes can be reused on the repair run. Cache keys include commit
 and attempt so immutable partial caches can advance to complete results.
 Malformed or incompatible
 records cause a rebuild. Logs identify every reused check and its original commit.
-This avoids transferring multi-gigabyte Nix stores for unchanged test results.
+These records can avoid building or fetching VM closures for unchanged tests.
+
+A shared Nix store cache also retains pinned dependencies. All four Nix groups
+can restore it; only roles saves it, avoiding four large duplicate archives.
+The immutable key includes the runner platform, pinned Nix installer and
+`flake.lock`, rather than creating a new store archive for every commit. Garbage
+collection targets 4 GiB before saving (live output roots remain protected).
+Only `/nix` is cached. Nix still evaluates the current Git revision and builds
+its exact derivations, including changed role and image outputs; a cache miss
+falls back to normal downloads and builds. No external service or credentials
+are needed.
 
 Role closures and installer images always materialize their actual outputs, even
 with warm caches. Full flake validation remains mandatory. Manual workflow runs
