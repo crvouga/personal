@@ -19,6 +19,7 @@ import { PageHeading } from '@pkgs/admin-ui/components';
 import {
   INSTALLERS,
   INSTALLER_RELEASE,
+  WINDOWS_DOWNLOAD_GUIDE,
   installerUrl,
 } from '../ui/lib/installers';
 import { detectedPlatform, type PlatformHints } from './platform';
@@ -122,17 +123,18 @@ function Downloads() {
         <Alert color="yellow" title="If Microsoft Edge blocks the download">
           Edge may say the installer “isn’t commonly downloaded.” New or
           unsigned Windows downloads may not have established publisher
-          reputation. The wizard cannot fix a browser block before it starts.
+          reputation. Compare the download’s SHA-256 with the release before
+          opening it. The wizard cannot fix a browser block before it starts.
           Keep Windows protection enabled. If your organization blocks
           unrecognized apps, use another permitted computer to make installer
           USB media or contact its administrator.
           <Anchor
-            href="https://github.com/crvouga/workspace/issues/130"
+            href={WINDOWS_DOWNLOAD_GUIDE}
             target="_blank"
             rel="noopener noreferrer"
             ml="xs"
           >
-            Windows signing status
+            Windows download and verification guide
           </Anchor>
         </Alert>
       )}

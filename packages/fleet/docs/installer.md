@@ -107,7 +107,8 @@ wizard has started or found a problem with your machine. Keep SmartScreen and
 antivirus enabled. On a personally managed machine, Edge may offer **Keep** and
 **Show more > Keep anyway** after you inspect the exact download source. Only
 continue if you trust this repository and intend to run its current unsigned
-build. An organization can prohibit this entirely; the installer cannot override
+build. [Verify the downloaded file](#windows-download-verification) before
+opening it. An organization can prohibit this entirely; the installer cannot override
 that policy. Another permitted Windows, Linux or macOS computer can prepare
 installer USB media without running the blocked download on the target.
 
@@ -123,6 +124,49 @@ Platform launch behavior:
 - **Linux:** `tar xzf fleet-installer-linux-*.tar.gz && ./fleet-installer`.
 
 A page opens in your browser. If it does not, copy the address the program printed (it starts with `http://127.0.0.1:`) into a browser on the same computer. The page only answers that computer.
+
+### Windows download verification
+
+After keeping the download in Edge, leave it closed. In PowerShell, compare its
+size and SHA-256 with GitHub's metadata for the exact asset in this repository's
+release. This only reads the file; it does not run or unblock it. Change `$file`
+if your Downloads folder is elsewhere or Edge renamed the file.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$file = Join-Path $env:USERPROFILE 'Downloads\fleet-installer-windows-x64.exe'
+$release = Invoke-RestMethod 'https://api.github.com/repos/crvouga/workspace/releases/tags/fleet-installer'
+$assets = @($release.assets | Where-Object { $_.name -eq 'fleet-installer-windows-x64.exe' })
+if ($assets.Count -ne 1 -or $assets[0].digest -notmatch '^sha256:[0-9a-fA-F]{64}$') {
+    throw 'The release has no unique Windows installer with a SHA-256 digest. Stop and report it.'
+}
+$asset = $assets[0]
+$actual = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+if ((Get-Item -LiteralPath $file).Length -ne $asset.size -or "sha256:$actual" -ne $asset.digest) {
+    throw 'The download does not match the current release. Do not run it; download it again from the release page.'
+}
+Write-Output 'The file matches the current GitHub release. This is an integrity check, not publisher verification.'
+```
+
+The rolling release may change between downloading and checking; a mismatch is
+always a reason to stop and fetch the current file. A matching hash proves only
+that your file matches this repository's release, not that it is safe or signed.
+The public GitHub API can also rate-limit requests; a failed check is not a pass.
+Do not use the ISO's `.sha256` file to verify the Windows EXE: they are different
+downloads.
+
+On Windows, inspect the publisher separately:
+
+```powershell
+Get-AuthenticodeSignature -LiteralPath $file | Format-List Status, StatusMessage, SignerCertificate
+```
+
+The current unsigned build reports `NotSigned`. A future signed release must
+report `Valid` and the expected verified publisher documented in
+[signing operations](windows-signing.md). Neither an integrity match nor a valid
+signature guarantees SmartScreen reputation. Only proceed with a build you
+trust and that your computer's policy permits. If Edge reports malware or a
+signature is invalid, stop rather than using the reputation-warning instructions.
 
 ## 3. Answer the questions
 
