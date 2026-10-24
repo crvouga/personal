@@ -245,7 +245,9 @@ describe.skipIf(!databaseAvailable)(
           );
           await realisticFlow(createHarness(store), store);
         } finally {
-          await close();
+          const closing = close();
+          expect(close()).toBe(closing);
+          await closing;
         }
 
         try {
