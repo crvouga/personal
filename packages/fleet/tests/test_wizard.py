@@ -657,9 +657,9 @@ class ServerTests(WizardCase):
         gate = threading.Event()
         real = imaging.download
 
-        def slow(url, dest, sha, progress=None, cancel=None):
+        def slow(url, dest, sha, progress=None, cancel=None, **kwargs):
             gate.wait(5)
-            return real(url, dest, sha, progress, cancel)
+            return real(url, dest, sha, progress, cancel, **kwargs)
 
         with mock.patch.object(imaging, "download", slow):
             _status, plan = self.usb_plan()
@@ -674,9 +674,9 @@ class ServerTests(WizardCase):
         gate = threading.Event()
         real = imaging.download
 
-        def slow(url, dest, sha, progress=None, cancel=None):
+        def slow(url, dest, sha, progress=None, cancel=None, **kwargs):
             gate.wait(5)
-            return real(url, dest, sha, progress, cancel)
+            return real(url, dest, sha, progress, cancel, **kwargs)
 
         with mock.patch.object(imaging, "download", slow):
             _status, plan = self.usb_plan()

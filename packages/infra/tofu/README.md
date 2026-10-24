@@ -247,6 +247,12 @@ The shared CI OpenTofu action makes at most three plan attempts, retrying only
 when every diagnostic is a recognized temporary read failure: Cloudflare GET
 429/5xx, PostgreSQL connection-slot exhaustion, a dropped database connection,
 or an Atlas inspection TCP read timeout.
+During planning only, a temporary PATH adapter bounds each Atlas schema
+inspection and apply/clean dry-run to two minutes. Its explicit timeout
+diagnostic uses the same bounded plan retry policy, avoiding the operating
+system's roughly 17-minute dead-connection wait observed in CI. Other Atlas
+commands, including real schema applies, keep their original behavior. The
+adapter is removed when planning exits and is never used by the apply step.
 Authorization, configuration, unknown and mixed failures stop after one attempt.
 Backoff starts at 15 seconds and doubles; Cloudflare `retry_after` is honored up
 to two minutes, and a longer hint stops retries. State-lock acquisition waits at

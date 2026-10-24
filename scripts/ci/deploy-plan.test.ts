@@ -55,6 +55,18 @@ test('infrastructure changes preserve existing application image revisions', () 
   ).toMatchObject({ apply: true, build: false, services: true, image_tag: '' });
 });
 
+test.each(['scripts/tofu-plan.ts', 'scripts/atlas-plan.ts'])(
+  '%s changes exercise infrastructure and enabled auth planning',
+  (path) => {
+    expect(
+      deploymentPlan(
+        { ...config, auth_relay: { ...config.auth_relay!, enabled: true } },
+        { ...request, paths: [path] }
+      )
+    ).toMatchObject({ apply: true, auth: true, build: false });
+  }
+);
+
 test('scheduled refresh only rebuilds and deploys portfolio', () => {
   expect(
     deploymentPlan(config, { ...request, event: 'schedule' })

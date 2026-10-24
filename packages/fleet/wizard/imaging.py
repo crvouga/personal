@@ -5,10 +5,14 @@ curl, bash, or anything else being installed. Every step states what it
 expects with `invariant`, so a corrupt download, a short write, or a bad
 read-back stops the program with the values needed to diagnose it.
 """
+import errno
 import hashlib
+import http.client
 import os
 import re
+import socket
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +32,38 @@ class Cancelled(Exception):
 
 def _noop(*_args):
     return None
+
+
+def transient(error):
+    """Retry network interruptions, never disk errors or integrity failures."""
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (408, 429) or 500 <= error.code <= 599
+    if isinstance(error, urllib.error.URLError):
+        return isinstance(error.reason, BaseException) and transient(error.reason)
+    if isinstance(error, socket.gaierror):
+        return error.errno == socket.EAI_AGAIN
+    if isinstance(error, (TimeoutError, ConnectionError, http.client.IncompleteRead)):
+        return True
+    if isinstance(error, OSError):
+        return error.errno in (errno.ECONNRESET, errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ENETUNREACH, errno.EHOSTUNREACH)
+    return error.__cause__ is not None and transient(error.__cause__)
+
+
+def retry(action, note=_noop, cancel=None):
+    for attempt in range(3):
+        if cancel and cancel():
+            raise Cancelled()
+        try:
+            return action()
+        except (RuntimeError, OSError, http.client.IncompleteRead) as exc:
+            if attempt == 2 or not transient(exc):
+                raise
+            note(f"The network interrupted the download. Retrying automatically ({attempt + 2}/3).")
+            until = time.monotonic() + 0.5 * (attempt + 1)
+            while time.monotonic() < until:
+                if cancel and cancel():
+                    raise Cancelled()
+                time.sleep(0.1)
 
 
 def open_url(url, headers=None):
@@ -86,7 +122,11 @@ def sha256_of(path, progress=_noop, cancel=None):
     return digest.hexdigest()
 
 
-def download(url, dest, expected_sha256, progress=_noop, cancel=None):
+def download(url, dest, expected_sha256, progress=_noop, cancel=None, retry_note=_noop):
+    return retry(lambda: _download_once(url, dest, expected_sha256, progress, cancel), retry_note, cancel)
+
+
+def _download_once(url, dest, expected_sha256, progress=_noop, cancel=None):
     """Fetch url to dest. dest only ever holds a complete, verified image."""
     expected = expected_sha256.lower()
     decide.invariant(SHA_RE.match(expected) is not None, "download was given a malformed sha256", sha=expected_sha256)
@@ -106,7 +146,9 @@ def download(url, dest, expected_sha256, progress=_noop, cancel=None):
     try:
         try:
             reply = open_url(url)
-        except (urllib.error.URLError, OSError):
+        except (urllib.error.URLError, OSError) as exc:
+            if transient(exc):
+                raise
             reply = None
         with open(staged, "wb") as out:
             if reply is None:
@@ -127,10 +169,12 @@ def download(url, dest, expected_sha256, progress=_noop, cancel=None):
                         digest.update(block)
                         written += len(block)
                         progress(written, total)
+                    if total and written < total:
+                        raise http.client.IncompleteRead(b"", total - written)
                 assembled_sha = digest.hexdigest()
             out.flush()
             os.fsync(out.fileno())
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, http.client.IncompleteRead) as exc:
         staged.unlink(missing_ok=True)
         raise RuntimeError(f"the download from {url} failed after {written} bytes: {exc}") from exc
     except Cancelled:

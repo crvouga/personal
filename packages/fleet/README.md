@@ -44,6 +44,13 @@ boot into the role; the hostname is  <role>-<4 hex>
 CI: register GitHub runners with the GitHub App; every role: poll main
 ```
 
+The wizard also installs missing Linux boot tools on supported distributions,
+attempts Windows free-space consolidation when needed, retries temporary
+download failures, and reconnects to an active job after a browser reload.
+There is no separate doctor/plan step for a person using the wizard. See the
+[cross-platform installer guide](docs/installer.md) for automatic preparation
+and the physical or firmware steps that still require a person.
+
 On a `ci` machine the runners appear in GitHub on their own. On every machine `fleet-node status` answers whether it came up. Nothing was typed into the machine except the role.
 
 Windows needs two things the installer cannot change from inside Windows: **Secure Boot off** (the installer is not signed; `doctor` says so and gives the one command that opens the firmware screen) and a UEFI/GPT disk. Both are checked first, before anything is changed.

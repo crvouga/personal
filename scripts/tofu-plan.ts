@@ -1,5 +1,6 @@
 import { appendFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { atlasPlanEnvironment, ATLAS_PLAN_TIMEOUT } from './atlas-plan';
 
 type Diagnostic = {
   severity: string;
@@ -20,6 +21,11 @@ function readRetrySeconds(error: Diagnostic, attempt: number): number | null {
     )
   )
     return null;
+  if (
+    /^(Atlas Plan Error|Inspect Error)$/.test(error.summary) &&
+    error.detail.includes(ATLAS_PLAN_TIMEOUT)
+  )
+    return backoff;
   const request = /^GET\s+"https:\/\/[^\"]+":\s*(\d{3})\b/.exec(error.detail);
   const status = Number(request?.[1]);
   if (
@@ -72,55 +78,60 @@ function reportFailure(
 }
 
 async function plan(root: string): Promise<PlanResult> {
-  const child = Bun.spawn(
-    [
-      'tofu',
-      `-chdir=${root}`,
-      'plan',
-      '-json',
-      '-input=false',
-      '-lock-timeout=30s',
-      '-parallelism=1',
-      '-out=apply.tfplan',
-    ],
-    { stdin: 'ignore', stdout: 'pipe', stderr: 'inherit' }
-  );
-  const errors: Diagnostic[] = [];
-  let valid = true;
-  const display = (line: string) => {
-    if (!line.trim()) return;
-    try {
-      const event = JSON.parse(line);
-      if (event.type === 'diagnostic') {
-        const diagnostic: Diagnostic = event.diagnostic;
-        if (
-          !diagnostic ||
-          typeof diagnostic.severity !== 'string' ||
-          typeof diagnostic.summary !== 'string' ||
-          typeof diagnostic.detail !== 'string'
-        )
-          throw new Error('Malformed OpenTofu diagnostic');
-        console.log(`${diagnostic.severity}: ${diagnostic.summary}`);
-        console.log(diagnostic.detail);
-        if (diagnostic.severity === 'error') errors.push(diagnostic);
-      } else if (typeof event['@message'] === 'string') {
-        console.log(event['@message']);
+  const atlas = atlasPlanEnvironment();
+  try {
+    const child = Bun.spawn(
+      [
+        'tofu',
+        `-chdir=${root}`,
+        'plan',
+        '-json',
+        '-input=false',
+        '-lock-timeout=30s',
+        '-parallelism=1',
+        '-out=apply.tfplan',
+      ],
+      { env: atlas.env, stdin: 'ignore', stdout: 'pipe', stderr: 'inherit' }
+    );
+    const errors: Diagnostic[] = [];
+    let valid = true;
+    const display = (line: string) => {
+      if (!line.trim()) return;
+      try {
+        const event = JSON.parse(line);
+        if (event.type === 'diagnostic') {
+          const diagnostic: Diagnostic = event.diagnostic;
+          if (
+            !diagnostic ||
+            typeof diagnostic.severity !== 'string' ||
+            typeof diagnostic.summary !== 'string' ||
+            typeof diagnostic.detail !== 'string'
+          )
+            throw new Error('Malformed OpenTofu diagnostic');
+          console.log(`${diagnostic.severity}: ${diagnostic.summary}`);
+          console.log(diagnostic.detail);
+          if (diagnostic.severity === 'error') errors.push(diagnostic);
+        } else if (typeof event['@message'] === 'string') {
+          console.log(event['@message']);
+        }
+      } catch {
+        valid = false;
+        console.log(line);
       }
-    } catch {
-      valid = false;
-      console.log(line);
+    };
+    const decoder = new TextDecoder();
+    let pending = '';
+    for await (const chunk of child.stdout) {
+      pending += decoder.decode(chunk, { stream: true });
+      const lines = pending.split('\n');
+      pending = lines.pop()!;
+      for (const line of lines) display(line);
     }
-  };
-  const decoder = new TextDecoder();
-  let pending = '';
-  for await (const chunk of child.stdout) {
-    pending += decoder.decode(chunk, { stream: true });
-    const lines = pending.split('\n');
-    pending = lines.pop()!;
-    for (const line of lines) display(line);
+    display(pending + decoder.decode());
+    return { code: await child.exited, errors, valid };
+  } finally {
+    atlas.cleanup();
   }
-  display(pending + decoder.decode());
-  return { code: await child.exited, errors, valid };
 }
 
 const ATTEMPTS = 3;

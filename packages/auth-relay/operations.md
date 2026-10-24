@@ -92,6 +92,32 @@ usage. PostgreSQL `53300` (remaining slots reserved for superusers) means databa
 capacity is exhausted, not that a Google email lacks permission. Do not seed an
 operator or retry a consumed authorization code to recover from it.
 
+The identity image sets
+`KC_SPI_USER_SESSIONS__INFINISPAN__SESSION_EXPIRATION_PERIOD=900` (15 minutes).
+Keycloak 26.8.1 defaults to 180 seconds and scans 64 session buckets per realm,
+even when no sessions have expired. The longer interval reduces scheduled
+cleanup scans by 80% for this small shared database. It delays deletion of
+expired rows and the associated cleanup events; it does not extend session
+idle/max lifetimes, which Keycloak validates when sessions are used. See the
+[pinned cleanup implementation](https://github.com/keycloak/keycloak/blob/26.8.1/model/infinispan/src/main/java/org/keycloak/models/sessions/infinispan/InfinispanUserSessionProviderFactory.java)
+and [request-time validation](https://github.com/keycloak/keycloak/blob/26.8.1/services/src/main/java/org/keycloak/services/managers/AuthenticationManager.java).
+After deploying the rebuilt identity image, compare query counts over a full
+day and monitor expired-row backlog and cleanup duration. Higher session churn
+may warrant a shorter interval.
+
+## Account selection
+
+Every new browser authorization must reach Google's account chooser. The gateway
+sets `prompt=login` and `kc_idp_hint=google` on the authorization endpoint and removes
+`login_hint` / `id_token_hint`, preventing broker SSO from choosing the previous
+identity. The OpenTofu-owned Google provider separately fixes its upstream prompt
+to `select_account`, which Google supports ([Google's OIDC parameters](https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters)).
+Ship the provider setting through the reviewed auth-root plan before deploying
+the gateway change; Google does not document support for `prompt=login`.
+This applies to console and consuming applications; established application
+sessions retain their own lifecycle. Verify repeated sign-in with one and multiple
+Google accounts in the same browser during live acceptance.
+
 ## Verified email claims
 
 Fleet authorizes only verified Google emails. The Google provider enables
