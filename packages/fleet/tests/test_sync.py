@@ -85,6 +85,9 @@ class SyncTests(unittest.TestCase):
             printf '%s\\n' "$1" >> {self.log}
             EOF
             chmod +x "$work/bin/switch-to-configuration"
+            if [ -f "$checkout/FAIL_ACTIVATION" ]; then
+              printf 'exit 7\\n' >> "$work/bin/switch-to-configuration"
+            fi
             printf '%s\\n' "$work"
             """)
         write_executable(self.bin / "nix-env", f"""\
@@ -262,6 +265,29 @@ class SyncTests(unittest.TestCase):
         self.assertFalse((self.root / 'update-draining').exists())
         self.assertTrue((self.root / 'agent-drained').exists())
         self.assertIn("reboot request failed", (self.root / "health-failure").read_text())
+
+    def test_activation_errors_restore_the_previous_generation_before_any_health_probe(self):
+        self.commit('good')
+        self.assertEqual(self.run_sync().returncode, 0)
+        previous = self.profile.resolve()
+        self.commit('FAIL_ACTIVATION')
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.profile.resolve(), previous)
+        report = (self.root / 'health-failure').read_text()
+        self.assertIn('mode=switch', report)
+        self.assertIn('FLEET_ACTIVATION_FAILED', report)
+
+    def test_failed_rollback_is_reported_as_failure_instead_of_a_successful_rollback(self):
+        self.commit('good')
+        self.assertEqual(self.run_sync().returncode, 0)
+        previous = self.profile.resolve()
+        with (previous / 'bin/switch-to-configuration').open('a') as stream:
+            stream.write('exit 9\n')
+        self.commit('FAIL_ACTIVATION')
+        self.assertNotEqual(self.run_sync().returncode, 0)
+        self.assertIn('mode=rollback-failed', (self.root / 'health-failure').read_text())
+        self.assertIn('FLEET_ROLLBACK_FAILED', (self.root / 'health-failure').read_text())
 
     def test_new_generation_must_verify_its_own_cache_url_and_signing_key_or_roll_back(self):
         self.commit('good')

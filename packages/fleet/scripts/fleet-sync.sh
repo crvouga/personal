@@ -184,8 +184,12 @@ if [ -n "$previous" ] && { [[ "$previous" == /nix/store/* ]] || [ -n "${FLEET_GC
 fi
 
 apply() {
-  "$nix_env" -p "$profile" --set "$toplevel"
-  "$toplevel/bin/switch-to-configuration" "$1"
+  if ! "$nix_env" -p "$profile" --set "$toplevel"; then
+    rollback "$1" 'FLEET_PROFILE_FAILED: could not select the requested generation'
+  fi
+  if ! "$toplevel/bin/switch-to-configuration" "$1"; then
+    rollback "$1" 'FLEET_ACTIVATION_FAILED: generation activation failed before health verification'
+  fi
 }
 
 # FLEET_HEALTH replaces the probes in tests. The default probes are the
@@ -245,8 +249,7 @@ report_failure() {
     printf '%s\n' "$reason"
   } > "$report_path"
   cp "$report_path" "$state_dir/health-failure"
-  # TODO: central monitoring does not exist. The failed unit and this file
-  # are the report. monitoring.pushUrl is not read. Do not invent a collector.
+  # The node agent reports this safe persisted failure through the Fleet API.
 }
 
 clear_failure() {
@@ -256,14 +259,18 @@ clear_failure() {
 rollback() {
   local mode=$1
   local reason=$2
-  echo 'sync: health check failed; rolling back to the previous generation' >&2
+  echo 'sync: update failed; rolling back to the previous generation' >&2
   printf '%s\n' "$reason" >&2
-  report_failure "$mode" "$reason"
+  report_failure rollback-pending "$reason"
   if [ -n "$previous" ] && [ "$previous" != "$toplevel" ] && [ -x "$previous/bin/switch-to-configuration" ]; then
-    "$nix_env" -p "$profile" --set "$previous"
-    "$previous/bin/switch-to-configuration" "$mode"
+    if "$nix_env" -p "$profile" --set "$previous" && "$previous/bin/switch-to-configuration" "$mode"; then
+      report_failure "$mode" "$reason"
+    else
+      report_failure rollback-failed "FLEET_ROLLBACK_FAILED: $reason; restoring the previous generation also failed. Automatic sync will retry."
+    fi
   else
     echo 'sync: no previous generation to restore' >&2
+    report_failure rollback-failed "FLEET_ROLLBACK_UNAVAILABLE: $reason; no previous generation can be restored. Automatic sync will retry."
   fi
   exit 1
 }
@@ -279,7 +286,9 @@ guard() {
   clear_failure
 }
 
-if [ "$need_reboot" -eq 0 ] && [ "$previous" = "$toplevel" ]; then
+if [ "$need_reboot" -eq 0 ] && [ "$previous" = "$toplevel" ] \
+  && [ "$(cat "$state_dir/last-success" 2>/dev/null || true)" = "$revision" ] \
+  && [ ! -e "$state_dir/health-failure" ]; then
   failure_reason='the running revision could not verify GitHub/cache connectivity or the update timer'
   health_check || exit 1
   clear_failure
