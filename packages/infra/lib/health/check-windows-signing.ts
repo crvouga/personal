@@ -10,11 +10,14 @@ export async function checkWindowsSigning(ctx: HealthContext): Promise<readonly 
   try {
     const auth = await ctx.run('az', [
       'account', 'get-access-token', '--subscription', config.subscription_id,
-      '--tenant', config.tenant_id, '--resource', 'https://management.azure.com/',
-      '--query', 'accessToken', '--output', 'tsv',
+      '--resource', 'https://management.azure.com/', '--output', 'json',
     ], { timeoutMs: ctx.options.timeoutMs });
     if (auth.code !== 0 || !auth.stdout.trim()) return [skip('publisher enrollment', 'Azure read credentials unavailable; sign in with the Azure CLI')];
-    token = auth.stdout.trim();
+    const credential = asRecord(JSON.parse(auth.stdout));
+    if (credential['tenant'] !== config.tenant_id || typeof credential['accessToken'] !== 'string' || !credential['accessToken']) {
+      return [skip('publisher enrollment', 'Azure credential is missing or belongs to a different tenant')];
+    }
+    token = credential['accessToken'];
   } catch {
     return [skip('publisher enrollment', 'Azure CLI/read credentials unavailable')];
   }
@@ -34,7 +37,7 @@ export async function checkWindowsSigning(ctx: HealthContext): Promise<readonly 
     const properties = asRecord(body['properties']);
     const valid = response.status === 200 && properties['provisioningState'] === 'Succeeded' &&
       (target.name === 'signing account'
-        ? asRecord(body['sku'])['name'] === 'Basic' && String(body['location']).replace(/\s/g, '').toLowerCase() === config.location
+        ? asRecord(properties['sku'])['name'] === 'Basic' && String(body['location']).replace(/\s/g, '').toLowerCase() === config.location
         : properties['profileType'] === 'PublicTrust' && properties['status'] === 'Active' && properties['identityValidationId'] === config.identity_validation_id);
     results.push(valid ? pass(target.name, 'Azure resource matches inventory and is ready') : fail(target.name, `Azure resource is missing, not ready or differs from inventory (HTTP ${response.status}); review the signing OpenTofu plan`));
   }

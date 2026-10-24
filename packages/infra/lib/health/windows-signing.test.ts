@@ -17,14 +17,15 @@ function context(profileStatus = 'Active') {
     run: async (command: string, args: readonly string[]) => {
       expect(command).toBe('az');
       expect(args.slice(0, 2)).toEqual(['account', 'get-access-token']);
-      return { code: 0, stdout: 'test-reader-token', stderr: '' };
+      expect(args).not.toContain('--tenant');
+      return { code: 0, stdout: JSON.stringify({ tenant: signing.tenant_id, accessToken: 'test-reader-token' }), stderr: '' };
     },
     fetch: (async (url, options) => {
       expect(options?.method).toBe('GET');
       const profile = String(url).includes('/certificateProfiles/');
       return Response.json(profile ? {
         properties: { provisioningState: 'Succeeded', status: profileStatus, profileType: 'PublicTrust', identityValidationId: signing.identity_validation_id },
-      } : { location: 'eastus', sku: { name: 'Basic' }, properties: { provisioningState: 'Succeeded' } });
+      } : { location: 'eastus', properties: { sku: { name: 'Basic' }, provisioningState: 'Succeeded' } });
     }) as typeof fetch,
   };
 }

@@ -18,6 +18,7 @@ fi
 if [[ "$group" = all || "$group" = modules ]]; then
   tofu -chdir=modules/inventory init -backend=false -input=false
   tofu -chdir=modules/inventory test
+  tofu -chdir=signing init -backend=false -input=false -lockfile=readonly
   tofu -chdir=signing test
   for module in railway-service auth-identity-service auth-realm-management auth-client; do
     tofu -chdir="modules/$module" init -backend=false -input=false -lockfile=readonly
