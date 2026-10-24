@@ -1,6 +1,79 @@
 # Fleet installer (the wizard)
 
-Download it, open it, answer the questions. Windows, macOS and ordinary Linux need no Python or Nix installation. On NixOS, use the native launcher below.
+Download it, open it, choose what to install and confirm the disk. Accept the
+operating system's permission prompt and, for in-place installation, approve
+the GitHub page that opens. Preparation, downloads, verification and installation
+then run automatically. No separate doctor command or manual setup checklist
+is required. Windows, macOS and ordinary Linux need no Python or Nix installation.
+On an existing fleet node, run `fleet-installer`; on other NixOS machines, use
+the native launcher below.
+
+**Before confirming an internal disk:** back up the files you want to keep to
+another device, save any BitLocker recovery key there, and connect power and
+a working Wi-Fi or Ethernet network. Installation erases the whole disk. A USB operation erases only
+the USB disk you review; booting it on a target later erases that target's disk.
+
+## Wi-Fi installation
+
+Wi-Fi works through the download, reboot into the live installer, and the
+installed node. The launcher carries the currently connected personal Wi-Fi
+profile from Windows or NetworkManager on Linux. A macOS USB creator can read
+its saved network from the system Keychain when macOS permits access. If the
+OS cannot release a reusable password, expand **Use a different Wi-Fi network**
+and enter the network once. This also selects a different target network, a
+hidden SSID, or WPA3 Personal. The default remains automatic detection.
+
+The privileged helper reads the saved password; it is never returned by the
+plan API, logged, put in shell arguments, or added to a kernel command line or
+the Nix store. In-place conversion uses a private supplemental initramfs. USB
+creation writes a checksummed, read-back-verified Wi-Fi handoff outside the ISO
+filesystem. **Keep a prepared USB private: it contains a reusable network
+password.** Creating a new USB without Wi-Fi settings clears an old handoff.
+
+The live installer connects and checks DNS/TLS before consuming an enrollment
+token or erasing the internal disk. A temporary outage makes it wait and retry
+automatically. Disk/install failures are not retried automatically. The profile
+is stored root-only under `/nix/fleet-state/network`, restored before
+NetworkManager starts on every boot, and reconnects automatically when the
+access point returns. It is not bound to an interface name or MAC address.
+Wired networking remains available as a fallback.
+
+Supported automatic networks use DHCP and open, WPA/WPA2 Personal, or WPA3
+Personal authentication. Enterprise/802.1X certificates, WEP, captive portals,
+and adapters without a driver/firmware in the pinned Linux system are not
+silently guessed or treated as working. A Wi-Fi-only install waits before
+wiping if it cannot connect. A Wi-Fi network/password cannot be invented when
+neither the source OS nor the person supplies it. PXE firmware/network boot
+remains a wired facility; USB and in-place installation support Wi-Fi.
+
+Software tests cover transfer, credential privacy, corruption, readiness and
+reboot preparation. The `wifi-vm` check uses simulated radios with real
+NetworkManager, hostapd and DHCP/DNS to exercise connection, AP loss and reboot.
+This does not certify a particular physical Wi-Fi adapter or Windows firmware.
+
+## What happens automatically
+
+| Platform                           | The installer handles                                                                                                            | What still needs a person                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Windows x64                        | Hardware/storage checks, one free-space consolidation attempt if needed, verified image, boot setup, restart, NixOS installation | OS permission, GitHub approval, disk confirmation; Secure Boot off if enabled                      |
+| Linux x64                          | Checks, missing `kexec-tools` installation through apt/dnf/zypper/pacman, verified image, kexec, NixOS installation              | OS permission, GitHub approval, disk confirmation; unsupported filesystems or firmware require USB |
+| NixOS x64                          | Native dependencies are bundled; checks, verified image, kexec and installation                                                  | OS permission, GitHub approval and disk confirmation                                               |
+| macOS, Linux ARM64 and NixOS ARM64 | USB discovery, image download, unmounting, writing and read-back verification                                                    | Disk confirmation and OS permission; move the USB to a supported x64 target and boot it there      |
+
+All platforms retry transient network failures up to three attempts. Reloading
+the page reconnects to the existing job. It does not start another write or
+reuse an erase confirmation. The only USB is preselected, but its identity must
+still be reviewed and confirmed. Failed hard checks, checksum mismatches and
+failed writes are never bypassed or retried as destructive operations.
+
+Firmware changes, connecting cables, choosing a backup destination, unsigned-app
+approval and booting another computer from USB cannot be performed silently by
+this installer. It shows only the relevant problems. The current image supports
+x86-64 UEFI targets; Apple silicon and ARM boards make media for other machines.
+USB media still asks for its role at boot and does not carry enrollment secrets:
+for a CI target, supply the canonical CI key on a `FLEET-KEY` volume as described
+in the [checklist](checklist.md). A plain USB by itself cannot enroll a working
+CI runner. Prefer enrolled in-place conversion on supported Windows/Linux PCs.
 
 ## 1. Download
 
@@ -24,7 +97,26 @@ verification first.
 
 ## 2. Open it
 
-The builds are not signed, so the system warns once:
+The currently published Windows and macOS downloads are unsigned. Warnings
+can recur with each release; the installer cannot dismiss a browser or operating
+system block before it runs.
+
+**Microsoft Edge: “isn't commonly downloaded.”** This is SmartScreen's download
+reputation warning, separate from the Windows launch prompt. It does not mean the
+wizard has started or found a problem with your machine. Keep SmartScreen and
+antivirus enabled. On a personally managed machine, Edge may offer **Keep** and
+**Show more > Keep anyway** after you inspect the exact download source. Only
+continue if you trust this repository and intend to run its current unsigned
+build. An organization can prohibit this entirely; the installer cannot override
+that policy. Another permitted Windows, Linux or macOS computer can prepare
+installer USB media without running the blocked download on the target.
+
+[Windows signing status](https://github.com/crvouga/workspace/issues/130) tracks
+the verified-publisher prerequisite. [Signing operations](windows-signing.md)
+describes the automated release path. A signed release still cannot promise no
+reputation warnings or compatibility with every managed Windows policy.
+
+Platform launch behavior:
 
 - **Windows:** SmartScreen says "Windows protected your PC". Choose **More info**, then **Run anyway**. A black window opens and stays open; it prints the address of the wizard and the path of the log. Leave it open.
 - **macOS:** unzip, then open `fleet-installer`. If it is blocked, open **System Settings > Privacy & Security** and choose **Open Anyway**, then open it again.
@@ -39,7 +131,7 @@ A page opens in your browser. If it does not, copy the address the program print
    - **Make an install USB stick for another computer.** Works from Windows, macOS, and Linux. Plug in a USB stick (at least 8 GB; everything on it is erased), choose it, review, confirm.
    - **Turn THIS computer into a node.** On x86-64 Windows (UEFI, GPT, Secure Boot off) and on x86-64 Linux with `kexec`. Choose the kind of node, review, confirm. A GitHub page opens: press **Submit new issue** as the repository owner (see Approval below). The computer then restarts into the installer, erases its disk (Windows included), installs, and restarts as the node. macOS cannot do this; the wizard tells you and offers the USB instead.
      For a **Remote devbox**, choose your SSH public `.pub` file in the wizard. Keep the matching private key on the computer you will connect from. A missing or malformed public key blocks installation.
-3. **Review** lists every check with `ok`, `WARN` or `FAIL` and what to do about a failure, then names the exact disk and what will be erased. Nothing is changed until you tick the box and press **Erase and install**.
+3. **Review** names the exact disk and what will be erased, shows preparation the installer will perform, and surfaces only warnings and checks that need your attention. The full automatic checks are available under a disclosure. Nothing is changed until you tick the box and press **Erase and install**.
 4. The operating system asks for permission (Windows: the shield prompt, macOS: your password, Linux: the polkit dialog). Accept it. Declining changes nothing.
 
 ## 4. After the USB is made
@@ -107,11 +199,19 @@ A node needs its kind's key to decrypt the secrets that kind shares. You do not 
 
 ## Windows
 
-The wizard shrinks `C:` by the installer's size, writes the installer into a new partition and reads it back, puts the installer's boot loader on the EFI partition, and tells the firmware to start it once. Then it restarts. If any step fails, it puts the partition, the files and the boot entry back and Windows boots as before. It refuses, before changing anything, when Secure Boot is on (the installer is not signed: run `shutdown /r /fw`, set Secure Boot to Disabled once, and start the wizard again), when the disk is MBR or the PC boots in legacy mode, or when `C:` cannot shrink enough (empty the Recycle Bin, delete large files, `powercfg /h off`). It needs the image size plus 2 GiB of RAM, because the installer is copied into memory. `fleet-node.sh ROLE --plan` prints the exact steps and sizes without changing anything. [windows.md](windows.md) has the whole experience, a checklist for a real machine, and what to do at every failure point. This path has not been run on real hardware yet; try a spare machine first.
+The wizard handles partition preparation, image verification, boot setup and
+restart. If a shrink check fails, it first attempts free-space consolidation
+once, then repeats the check. If a later staging step fails, it attempts to undo
+the partition and boot changes; an undo failure is reported with its log.
+Secure Boot must be off, the disk must be GPT and the PC must use UEFI. It needs
+the current image size plus 2 GiB of RAM. [windows.md](windows.md) has optional
+boot details and recovery instructions; they are not prerequisite manual steps.
+This conversion has not been qualified on real hardware; use a backed-up spare
+for the first run.
 
 ## Supported hardware and operating systems
 
-The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, wired networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. The ordinary Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. NixOS uses the native Nix package on x86-64 or ARM64; it does not need a foreign ELF loader. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
+The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, supported Wi-Fi or Ethernet networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. The ordinary Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. NixOS uses the native Nix package on x86-64 or ARM64; it does not need a foreign ELF loader. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
 
 An interrupted USB write leaves an incomplete stick. Keep it plugged in, restart the wizard and write the whole image again; it never reports that stick as ready before verification passes. A role reinstall erases the old OS and files.
 

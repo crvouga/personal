@@ -55,6 +55,7 @@ export interface HeartbeatBody {
     readonly paused: boolean;
   };
   readonly failedUnits: readonly string[];
+  readonly readiness?: { readonly issues: readonly string[] };
   readonly runners: { readonly slots: number; readonly busy: number } | null;
   readonly agent: {
     readonly version: string;

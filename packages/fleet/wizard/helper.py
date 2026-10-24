@@ -20,6 +20,8 @@ import bootstrap  # noqa: F401
 import decide
 import imaging
 import leases
+import preparation
+import fleet_wifi
 
 ACTIONS = ("write-usb", "install-here")
 TOKEN_RE = decide.ENROLL_RE
@@ -141,6 +143,10 @@ def write_usb(request, progress):
     # Windows preparation includes diskpart clean, which is already destructive.
     # Capacity must be proven before that command, including sector padding.
     imaging.check_capacity(iso.stat().st_size, int(disk.get("size") or 0))
+    network = fleet_wifi.discover(os_name, request.get("wifi"))
+    private_handoff = network is not None or not os.environ.get("FLEET_WRITE_TARGET")
+    if private_handoff:
+        imaging.check_capacity(imaging.padded(iso.stat().st_size) + fleet_wifi.TRAILER_SIZE, int(disk.get("size") or 0))
     with leases.DeviceLease(disk["path"]):
         # Recheck after acquiring the lease; preparation is destructive on Windows.
         disk = find_disk(os_name, request)
@@ -155,6 +161,9 @@ def write_usb(request, progress):
             iso, raw_target(os_name, disk), int(disk.get("size") or 0), sha,
             lambda done, total: progress.emit("write", "Writing and checking the USB disk", int(done * 100 / total) if total else None),
         )
+        if private_handoff:
+            progress.emit("network", "Saving and verifying private Wi-Fi settings on the USB")
+            fleet_wifi.write_trailer(raw_target(os_name, disk), int(disk["size"]), iso.stat().st_size, network)
     return "The USB disk is ready. Plug it into the new computer and boot from it."
 
 
@@ -171,18 +180,28 @@ def install_here(request, progress):
     token = request.get("token") or None
     decide.invariant(token is None or TOKEN_RE.fullmatch(str(token)) is not None, "the enrollment token is malformed")
     iso, sha = verified_iso(request, progress)
+    decide.check_installer_readiness(iso, role)
     directory = decide.state_dir()
     chosen = decide.choose_disk(os_name, "install")
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))
     decide.invariant(chosen["disk_id"] == request.get("disk_id"), "the internal disk is not the one that was chosen", "Disks changed. Run the wizard again.")
     found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
-    problems = [item for item in found if item["status"] == "fail"]
+    actions = preparation.automatic(os_name, found)
+    problems = [item for item in found if item["status"] == "fail" and item["name"] not in actions]
     decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
     reinstall = request.get("reinstall", False)
     decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
     if not reinstall and decide.installed_for(role, directory):
         return f"This computer is already installed as {role}. Nothing was changed."
     with leases.DeviceLease(chosen["path"]):
+        again = decide.choose_disk(os_name, "install")
+        decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before preparation", "Review the disk again.")
+        if preparation.run(os_name, found, progress):
+            found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
+            problems = [item for item in found if item["status"] == "fail"]
+            decide.invariant(not problems, "automatic preparation could not make this computer ready",
+                             "No partition or boot entry was changed. Make an install USB instead, or resolve the remaining check and reopen the installer.",
+                             failed=[item["detail"] for item in problems])
         # The handoff image is shared state too: a second helper must not
         # replace it while the first is loading its kernel or restarting.
         if os_name == "Windows":
@@ -201,6 +220,7 @@ def install_here(request, progress):
         code = decide.perform_install(
             os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen,
             lambda done, total: progress.emit("write", "Writing the installer into a new partition and checking it", int(done * 100 / total) if total else None),
+            **({"wifi": request["wifi"]} if request.get("wifi") is not None else {}),
         )
     decide.invariant(code == 0, "the reboot into the installer did not start", "Make an install USB instead.", code=code)
     return f"Installing {role}."

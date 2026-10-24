@@ -1098,7 +1098,26 @@ def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, 
     return command
 
 
-def stage_reboot(os_name, role, iso, token=None, vault=None):
+def wifi_module():
+    try:
+        import fleet_wifi
+        return fleet_wifi
+    except ImportError:
+        directory = Path(__file__).resolve().parent.parent / "wizard"
+        sys.path.insert(0, str(directory))
+        import fleet_wifi
+        return fleet_wifi
+
+
+def wifi_profile(os_name, supplied=None):
+    module = wifi_module()
+    try:
+        return module.discover(os_name, supplied)
+    except module.WifiError as exc:
+        invariant(False, str(exc), "Enter the Wi-Fi settings in the wizard before installing. Nothing was erased.")
+
+
+def stage_reboot(os_name, role, iso, token=None, vault=None, wifi=None):
     """Load the ISO's own kernel. The shell initrd finds the file and copies it to RAM."""
     tool = os_boot_tool(os_name)
     flash = "Next: this computer cannot reboot into the installer. Nothing was written. Plug in one USB disk and run this program again with the word flash."
@@ -1116,16 +1135,25 @@ def stage_reboot(os_name, role, iso, token=None, vault=None):
         return 1
     for staged_file in (kernel, initrd, iso):
         invariant(os.path.isfile(staged_file) and os.path.getsize(staged_file) > 0, "a file the installer needs is missing or empty before reboot", file=str(staged_file))
-    load = run_logged([tool, "--load", kernel, f"--initrd={initrd}", f"--command-line={cmdline}"])
-    if load.returncode != 0:
-        say(flash)
-        return load.returncode or 1
-    log("rebooting into the installer")
-    execute = run_logged([tool, "-e"])
-    if execute.returncode != 0:
-        say(flash)
-        return execute.returncode or 1
-    return 0
+    private_initrd = None
+    try:
+        if wifi is not None:
+            private_initrd = Path(initrd).with_name("initrd-wifi")
+            wifi_module().write_private(private_initrd, Path(initrd).read_bytes() + wifi_module().initrd(wifi))
+            initrd = str(private_initrd)
+        load = run_logged([tool, "--load", kernel, f"--initrd={initrd}", f"--command-line={cmdline}"])
+        if load.returncode != 0:
+            say(flash)
+            return load.returncode or 1
+        log("rebooting into the installer")
+        execute = run_logged([tool, "-e"])
+        if execute.returncode != 0:
+            say(flash)
+            return execute.returncode or 1
+        return 0
+    finally:
+        if private_initrd is not None:
+            private_initrd.unlink(missing_ok=True)
 
 
 # ---- Windows: convert this computer in place -------------------------------------
@@ -1599,17 +1627,20 @@ def write_region(iso, target, offset, zero_head=0, on_progress=None, fallback=No
               devices="; ".join(refused))
 
 
-def grub_config(role, linux_path, initrd_path, cmdline):
+def grub_config(role, linux_path, initrd_path, cmdline, wifi=False):
     invariant(role in ROLES, "refusing to write a boot config for an unknown role", role=role)
     for word in (linux_path, initrd_path, cmdline):
         invariant("\n" not in word and "\r" not in word and "'" not in word, "the boot config would span lines or quote badly", value=word[:80])
+    search_wifi = "search --no-floppy --set=fleet_credentials --file /EFI/fleet/fleet-wifi.initrd\n" if wifi else ""
+    extra_initrd = " ($fleet_credentials)/EFI/fleet/fleet-wifi.initrd" if wifi else ""
     return (
         "set timeout=3\n"
         "set default=0\n"
         "search --no-floppy --set=root --file /EFI/nixos-installer-image\n"
+        f"{search_wifi}"
         f"menuentry 'Fleet installer: ERASES the internal disk and installs {role}' {{\n"
         f"    linux {linux_path} {cmdline}\n"
-        f"    initrd {initrd_path}\n"
+        f"    initrd {initrd_path}{extra_initrd}\n"
         "}\n"
     )
 
@@ -1953,7 +1984,7 @@ def write_durably(path, data):
         os.fsync(handle.fileno())
 
 
-def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None, firmware="auto"):
+def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None, firmware="auto", wifi=None):
     """Carve a partition out of C:, put the installer in it, and arrange one boot
     into it. Returns 0 once the restart is scheduled; anything else changed nothing.
     firmware is the UEFI variable access (tests hand in a stand-in); "auto" asks open_firmware()."""
@@ -1973,7 +2004,8 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         return 2
     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
     cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False)
-    config = grub_config(role, linux_path, initrd_path, cmdline)
+    wireless_initrd = wifi_module().initrd(wifi) if wifi is not None else b""
+    config = grub_config(role, linux_path, initrd_path, cmdline, wifi=wifi is not None)
     disk, need, letter = int(facts["DiskNumber"]), windows_need(iso_size), facts["Letter"]
     sector = int(facts.get("LogicalSectorSize") or 512)
     invariant(WRITE_SECTOR % sector == 0, "the disk's sector size does not divide the write alignment", sector=sector)
@@ -1999,12 +2031,16 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         undo.add("unmount the EFI system partition", lambda: windows_ps(ps_unmount_script(mounted)))
         loader = esp.joinpath(*BOOT_LOADER_PARTS)
         free = shutil.disk_usage(esp).free + (loader.stat().st_size if loader.is_file() else 0)
-        invariant(free >= len(grub) + len(config) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
+        invariant(free >= len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
                   "Windows keeps some EFI system partitions nearly full. Free space there (docs/windows.md shows how), or make an install USB with the word flash.",
-                  free=free, need=len(grub) + len(config) + LOADER_SLACK)
+                  free=free, need=len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK)
         undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent, ignore_errors=True))
         loader.parent.mkdir(parents=True, exist_ok=True)
         write_durably(loader, grub)
+        if wireless_initrd:
+            private = loader.parent / "fleet-wifi.initrd"
+            write_durably(private, wireless_initrd)
+            invariant(private.read_bytes() == wireless_initrd, "the Wi-Fi boot handoff did not read back correctly")
         cfg = esp / "EFI" / "BOOT" / "grub.cfg"
         cfg.parent.mkdir(parents=True, exist_ok=True)
         saved = cfg.read_bytes() if cfg.is_file() else None
@@ -2060,7 +2096,7 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
     return 0
 
 
-def write_media(os_name, iso, device):
+def write_media(os_name, iso, device, wifi=None, capacity=None):
     if not device_ok(device):
         say("Next: the USB disk path was not usable. Nothing was written. Run this program again.")
         return 1
@@ -2075,6 +2111,8 @@ def write_media(os_name, iso, device):
     if completed.returncode != 0:
         say("Next: the USB disk could not be written. Nothing else was written. Run this program again from an administrator account.")
         return 1
+    if capacity is not None and not wifi_module().simulated():
+        wifi_module().write_trailer(target, capacity, os.path.getsize(iso), wifi)
     return 0
 
 
@@ -2789,13 +2827,6 @@ def cmd_install(argv, action):
             say("  " + line)
         say("Result: ready. This was only the plan: nothing was written or changed. Run the same command without --plan to do it.")
         return 0
-    if action == "install" and not token and enroll_enabled() and (reinstall or not installed_for(role, directory)):
-        token, error = self_enroll(role)
-        if error:
-            return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
-        verdict = NET.get("lookup", lookup_token)(token, role)
-        if verdict["status"] == "fail":
-            return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
     if action == "install":
         say(f"Role: {role}")
         say(f"Disk: {chosen['plain']}")
@@ -2831,9 +2862,27 @@ def cmd_install(argv, action):
     fetched = fetch_installer(iso)
     if fetched != 0:
         return fetched
+    # Wi-Fi downloads can outlive a wrapping-token lease. Request approval only
+    # after the complete image has been verified, and recheck the disk afterward.
+    if action == "install" and not token and enroll_enabled() and (reinstall or not installed_for(role, directory)):
+        token, error = self_enroll(role)
+        if error:
+            return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
+        verdict = NET.get("lookup", lookup_token)(token, role)
+        if verdict["status"] == "fail":
+            return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
+    fresh = choose_disk(os_name, action)
+    invariant(fresh.get("ok") and fresh.get("disk_id") == chosen["disk_id"],
+              "the disk changed while the installer was downloading or waiting for approval",
+              "Review the exact disk again. Nothing was erased.")
     if action == "install":
         return perform_install(os_name, role, str(iso), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen)
-    written = write_media(os_name, str(iso), chosen["path"])
+    network = wifi_profile(os_name)
+    capacity = int(chosen["disk"].get("size") or 0)
+    if not wifi_module().simulated():
+        invariant(capacity >= padded_size(os.path.getsize(iso)) + wifi_module().TRAILER_SIZE,
+                  "the USB has no space for the Wi-Fi handoff", "Use a larger USB disk. Nothing was written.")
+    written = write_media(os_name, str(iso), chosen["path"], wifi=network, capacity=capacity)
     if written != 0:
         return written
     say("FLEET-WIPE media")
@@ -2841,23 +2890,98 @@ def cmd_install(argv, action):
     return 0
 
 
-def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None):
+class ReleaseChanging(RuntimeError):
+    """Only the release metadata is inconsistent during publication, not image bytes."""
+
+
+def check_release_readiness(role, expected_sha, iso_url):
+    if wifi_module().simulated():
+        return
+    url = iso_url.rsplit('/', 1)[0] + '/fleet-installer.readiness.json'
+    with urllib.request.urlopen(url, timeout=10) as response:
+        raw = response.read(65537)
+    invariant(len(raw) <= 65536, 'the release readiness manifest is too large')
+    try:
+        document = json.loads(raw)
+        invariant(document['version'] == 1, 'the release readiness version is unsupported')
+        blocked = document['roles'][role]['blocked']
+        invariant(isinstance(blocked, list) and all(isinstance(value, str) for value in blocked), 'the release readiness checks are malformed')
+        if document['imageSha256'] != expected_sha:
+            raise ReleaseChanging('The installer release is being updated; waiting for matching metadata before downloading.')
+    except (KeyError, ValueError, TypeError):
+        invariant(False, 'FLEET_RELEASE_READINESS_INVALID: publish a complete current installer release')
+    invariant(not blocked, 'FLEET_PLATFORM_NOT_READY: ' + '; '.join(blocked),
+              'The platform administrator must resolve the configuration errors and publish the installer. No image was downloaded and nothing was erased.')
+
+
+def check_installer_readiness(iso, role):
+    if wifi_module().simulated():
+        return
+    try:
+        with Path(iso).open("rb") as handle:
+            raw = _iso_bytes(handle, _iso_index(handle), "fleet-readiness.json")
+        invariant(len(raw) <= 65536, "the installer readiness manifest is too large")
+        manifest = json.loads(raw)
+        invariant(manifest.get("version") == 1, "the installer readiness manifest has an unsupported version")
+        blocked = manifest["roles"][role]["blocked"]
+        invariant(isinstance(blocked, list) and all(isinstance(item, str) for item in blocked), "the installer readiness checks are malformed")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        invariant(False, "FLEET_INSTALLER_READINESS_MISSING: this image cannot prove it can join and update",
+                  "Download the current Fleet installer. Nothing was erased.")
+    invariant(not blocked, "FLEET_PLATFORM_NOT_READY: " + "; ".join(blocked),
+              "The platform administrator must resolve these Fleet configuration errors and publish a new installer. Reopen the wizard afterward. Nothing was erased.")
+
+
+def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None, wifi=None):
     """The point of no return, shared by the command line and the wizard. On a
     real machine kexec does not come back; the marker is for the test seam."""
     invariant(role in ROLES, "perform_install was given an unknown role", role=role)
     invariant(chosen.get("ok") and chosen.get("disk_id"), "perform_install needs a chosen disk", chosen=chosen)
     invariant(os.path.isfile(iso) and os.path.getsize(iso) > 0, "perform_install needs the verified installer image", iso=str(iso))
-    retire_runner_for_install(directory)
-    if os_name == "Windows":
-        staged = stage_windows(role, str(iso), token, vault, chosen, on_progress)
-    else:
-        staged = stage_reboot(os_name, role, str(iso), token, vault)
-    if staged != 0:
-        return staged
+    # Read credentials before withdrawing a runner or changing partitions.
+    network = wifi_profile(os_name, wifi)
+    check_installer_readiness(iso, role)
+    handoff = {"wifi": network} if network is not None else {}
+    previously_withdrawn = bool(checked_marker(directory, "withdrawn"))
+    started = False
+    try:
+        retire_runner_for_install(directory)
+        restore_ci = not previously_withdrawn and bool(checked_marker(directory, "withdrawn"))
+        write_text(Path(directory) / "handoff", f"role={role}\ndisk={chosen['disk_id']}\nstatus=staged\nrestore_ci={int(restore_ci)}\n")
+        if os_name == "Windows":
+            staged = stage_windows(role, str(iso), token, vault, chosen, on_progress, **handoff)
+        else:
+            staged = stage_reboot(os_name, role, str(iso), token, vault, **handoff)
+        if staged != 0:
+            return staged
+        started = True
+    finally:
+        if not started:
+            (Path(directory) / "handoff").unlink(missing_ok=True)
+        if not started and not previously_withdrawn and checked_marker(directory, "withdrawn"):
+            # Staging failed before the live installer could erase anything.
+            # Undo only this reinstall's withdrawal; intentional removals stay.
+            (Path(directory) / "withdrawn").unlink()
+            root = Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet"))
+            write_text(root / "agent-drained", "recover failed reinstall\n")
+            resume = os.environ.get("FLEET_RESUME") or (None if wifi_module().simulated() else shutil.which("fleet-resume"))
+            if resume and run_logged([resume]).returncode == 0:
+                (root / "agent-drained").unlink(missing_ok=True)
+                log("failed handoff: previous CI node resumed")
+            else:
+                log("FLEET_RECOVERY_PENDING: the fleet agent will retry runner recovery after the failed handoff", "ERROR")
     say(f"FLEET-WIPE role={role}")
-    write_text(Path(directory) / "installed", f"role={role}\ndisk={chosen['disk_id']}\nstatus=installed\n")
-    say(f"Installed role {role}. The hostname is chosen from the hardware id when the machine boots.")
+    say(f"Installer staged for {role}; joining Fleet is confirmed only after the new node boots and reports.")
     return 0
+
+
+def runner_name_prefix():
+    override = os.environ.get("FLEET_HOSTNAME")
+    node = read_kv(Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet")) / "node")
+    value = override or node.get("runner_prefix") or _run(["hostname"]).strip()
+    invariant(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}", value) is not None,
+              "the CI node has no safe runner identity", "Wait for node identity to initialize before retrying.")
+    return value
 
 
 def retire_runner_for_install(directory):
@@ -2877,7 +3001,7 @@ def retire_runner_for_install(directory):
             runner = read_kv(os.environ.get("FLEET_RUNNER_CONF", "/etc/fleet/runner.conf"))
             invariant(credential_ready(key, runner), "cannot withdraw this CI node with its current credential",
                       "Restore the CI role's GitHub App credential before reinstalling. Nothing was erased.")
-            host = os.environ.get("FLEET_HOSTNAME") or _run(["hostname"]).strip()
+            host = runner_name_prefix()
             invariant(bool(host), "the CI node has no hostname to withdraw")
             code = call_runner("withdraw", runner, key, host)
             invariant(code == 0, "the CI node could not be withdrawn before reinstalling", "Check GitHub connectivity and the CI credential, then try again. Nothing was erased.", code=code)
@@ -2948,12 +3072,7 @@ def cmd_remove():
     if plan["stop_job"]:
         return fail("Next: refusing to stop a running job. Leave this machine on.", 1)
     if plan["action"] in ("hold", "withdraw"):
-        host = os.environ.get("FLEET_HOSTNAME")
-        if not host:
-            try:
-                host = _run(["hostname"]).strip()
-            except (OSError, RuntimeError):
-                return fail("Next: this machine has no hostname to withdraw. Nothing was stopped. Run this program again on the node.")
+        host = runner_name_prefix()
         code = call_runner(plan["action"], runner, key_path, host)
         if code != 0:
             return fail("Next: the runner could not be withdrawn with the credential already on this machine. Nothing was stopped. Run this program again.", code)

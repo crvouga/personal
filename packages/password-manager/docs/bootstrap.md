@@ -56,7 +56,7 @@ project-diagnostic features exist on an older installed manager.
    sh scripts/password-manager-setup.sh
    ```
 
-The continuation installs Node 22.22.3 and Bun 1.3.11 from the root toolchain,
+The continuation installs Node 22.22.3 and Bun 1.4.4 from the root toolchain,
 performs frozen workspace installation, acquires Chromium/system dependencies and
 initializes private onboarding. It never authenticates or modifies an online
 account. Linux administration, a desktop credential-store unlock, provider consent

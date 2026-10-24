@@ -119,6 +119,16 @@ the public site's generated files must still ship through the normal workflow.
 Whole-repository formatting reported an unrelated `packages/admin-ui/sync.ts`
 formatting issue; affected auth/documentation files passed their formatting check.
 
+The account-selection follow-up was checked locally on 2026-10-24: 56 auth
+tests, typecheck, lint, production build and affected-file formatting passed.
+The full disposable PostgreSQL/Keycloak/Chromium suite passed, including repeated
+console and consumer sign-ins in the same browser with broker cookies retained.
+Each of those sign-ins reached the mock upstream with `prompt=select_account`
+and no login hint. Gateway tests also cover caller-supplied silent/account hints,
+duplicate prompts, preserved PKCE/state/nonce and unchanged callback/token policy.
+The gateway and OpenTofu-owned provider changes still need deployment together;
+these mock results do not establish live Google account-chooser behavior.
+
 ## Remaining production gates
 
 1. Complete Keycloak's OpenTofu-owned initial table/changelog migration and safe version upgrade path. Production currently validates an existing schema rather than initializing it. Apply Atlas only with its isolated search_path; test runtime-role denial of cross-schema writes and backup restoration.

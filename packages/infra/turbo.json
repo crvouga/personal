@@ -1,0 +1,12 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/**",
+        "$TURBO_ROOT$/packages/fleet/**"
+      ]
+    }
+  }
+}

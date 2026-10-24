@@ -1,5 +1,7 @@
-FROM oven/bun:1.3.11 AS build
+# syntax=docker/dockerfile:1
+FROM oven/bun:1.4.4 AS build
 WORKDIR /app
+ARG TARGETARCH
 COPY package.json bun.lock ./
 # Standalone image uses the workspace's resolved dependency versions.
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
@@ -19,14 +21,15 @@ COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
+RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --filter @pkgs/auth-relay --production --frozen-lockfile --ignore-scripts
 COPY packages/admin-ui ./packages/admin-ui
 COPY packages/auth-relay ./packages/auth-relay
 COPY packages/logger ./packages/logger
 COPY packages/assert ./packages/assert
 WORKDIR /app/packages/auth-relay
-RUN bun install --filter @pkgs/auth-relay --production --frozen-lockfile --ignore-scripts && bun run build
+RUN bun run build
 
-FROM oven/bun:1.3.11-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/auth-relay/node_modules ./packages/auth-relay/node_modules

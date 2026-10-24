@@ -26,6 +26,14 @@ export function proxyRoutes({ db, config }: Dependencies): Hono {
         return c.json({ error: 'unauthorized_client' }, 400);
       }
     }
+    if (url.pathname.endsWith('/protocol/openid-connect/auth')) {
+      // Every new sign-in must reach Google, even with an existing broker SSO
+      // cookie. The provider separately requests Google's account chooser.
+      url.searchParams.set('prompt', 'login');
+      url.searchParams.set('kc_idp_hint', 'google');
+      url.searchParams.delete('login_hint');
+      url.searchParams.delete('id_token_hint');
+    }
     const headers = forwardedHeaders(config.origin, c.req.raw.headers);
     const response = await fetch(
       new URL(url.pathname + url.search, config.upstream),

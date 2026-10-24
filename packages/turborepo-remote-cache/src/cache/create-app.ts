@@ -12,6 +12,7 @@ import type { ObjectStore } from '@pkgs/object-store/interface';
 
 import { createBearerAuthMiddleware } from './auth';
 import { createArtifactsApp } from './artifacts-routes';
+import { createNixCacheApp } from './nix-routes';
 
 export type CacheAppConfig = {
   readonly turboToken: string;
@@ -50,6 +51,7 @@ export function createCacheApp(config: CacheAppConfig): Hono {
   );
 
   app.get('/health', (c) => c.json({ status: 'ok' as const }));
+  app.route('/nix', createNixCacheApp(config.objectStore));
 
   const artifacts = new Hono();
   artifacts.use('*', createBearerAuthMiddleware(config.turboToken));
@@ -57,6 +59,7 @@ export function createCacheApp(config: CacheAppConfig): Hono {
   app.route('/', artifacts);
 
   app.onError((err, c) => {
+    c.header('Cache-Control', 'no-store');
     log.error('cache_request_failed', {
       route: c.req.routePath,
       error: errorDetails(err),

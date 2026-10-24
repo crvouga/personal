@@ -4,6 +4,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+import decide
 
 PART_SIZE = 1024 ** 3
 
@@ -11,6 +12,10 @@ PART_SIZE = 1024 ** 3
 def package_image(source, directory, part_size=PART_SIZE):
     if not 0 < part_size < 2 * 1024 ** 3:
         raise ValueError("release parts must be smaller than 2 GiB")
+    with open(source, 'rb') as image:
+        readiness = json.loads(decide._iso_bytes(image, decide._iso_index(image), 'fleet-readiness.json'))
+    if readiness.get('version') != 1 or not isinstance(readiness.get('roles'), dict):
+        raise ValueError('installer image has no valid onboarding readiness metadata')
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
@@ -39,6 +44,8 @@ def package_image(source, directory, part_size=PART_SIZE):
                 "sha256": digest.hexdigest(), "parts": parts}
     (directory / "fleet-installer.iso.parts.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (directory / "fleet-installer.iso.sha256").write_text(digest.hexdigest() + "  fleet-installer.iso\n")
+    readiness['imageSha256'] = digest.hexdigest()
+    (directory / 'fleet-installer.readiness.json').write_text(json.dumps(readiness) + '\n')
     return manifest
 
 

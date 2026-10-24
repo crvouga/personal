@@ -5,6 +5,7 @@
 import type { ObjectStoreSpec, PostgresConfig } from "../schema.js";
 import { asRecord, errorMessage, getJson, type HealthContext, type KvDocument, type KvRead } from "./context.js";
 import { readSealStatus } from "./check-vault.js";
+import { checkFleetCache } from './check-fleet-cache.js';
 import { fail, pass, skip, type CheckResult } from "./report.js";
 
 const CACHE_SERVICE_ID = "turborepo";
@@ -122,6 +123,7 @@ export async function checkStorage(ctx: HealthContext): Promise<readonly CheckRe
     postgresChecks(ctx, ctx.config.postgres),
     databaseChecks(ctx),
     cacheCheck(ctx),
+    checkFleetCache(ctx),
   ]);
   return groups.flat();
 }

@@ -85,6 +85,13 @@ values, not a Google client secret. If absent, the node API remains usable and
 the login page explicitly reports that Google sign-in is unavailable; there is
 no password or mock fallback. Partial configuration fails validation.
 
+Production Google sign-in was verified on 2026-10-24 through the deployed relay
+and back to Fleet's authenticated dashboard. The public Fleet settings are in
+the OpenTofu service inventory; its client registration remains runtime data in
+the relay. Renew that registration in the production relay's **Applications**
+before 2027-10-23. This sign-in check does not establish the relay's broader
+[production acceptance gates](../auth-relay/acceptance.md).
+
 Local `dev` deliberately ignores the deployed browser client settings. Set
 `FLEET_LOCAL_OIDC_ISSUER` and `FLEET_LOCAL_OIDC_CLIENT_ID` for a separately
 registered nonproduction client. The launcher sets its origin to the actual
@@ -92,9 +99,9 @@ registered nonproduction client. The launcher sets its origin to the actual
 have independent sessions. Browser cookies are shared across localhost ports, so
 these names prevent collisions rather than isolating untrusted local services.
 Register the exact printed callback and update that
-client's callback when the port changes. No wildcard is accepted. The relay's
-managed deployment is still blocked; live Google sign-in cannot work until that
-resource and the Fleet clients are provisioned.
+client's callback when the port changes. No wildcard is accepted. Local Google
+sign-in requires its own registered nonproduction client; the production Fleet
+registration does not authorize localhost callbacks.
 
 Atlas/OpenTofu must apply the new tables before enabling browser sign-in:
 `fleet.allowed_emails`, `fleet.access_audit`, `fleet.login_transactions` and
@@ -248,3 +255,15 @@ email and removal denies its established session. Repeat on the actual local
 callback port and deployed HTTPS origin, including after a restart. Record the
 results before claiming live Google compatibility. This rollout remains blocked
 by the relay deployment prerequisites documented in its operations guide.
+
+## SQL runtime reliability
+
+CI, development tools and service images pin official Bun 1.4.4. Fleet refuses
+Bun versions before 1.4 when constructing its database pool, with
+`FLEET_DATABASE_RUNTIME_UNSUPPORTED`, rather than allowing indefinite pool waits.
+Earlier 1.3.x releases have upstream transaction/prepared-query scheduling defects
+tracked in [Bun #32004](https://github.com/oven-sh/bun/issues/32004) and
+[Bun #33985](https://github.com/oven-sh/bun/issues/33985); fixes landed before
+1.4 stable. The pool contention regression runs transactions and ordinary
+parameterized queries with more workers than connections and awaits every result.
+Test timeout limits remain unchanged. Dependencies are not patched.

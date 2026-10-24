@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe } from 'bun:test';
+import { beforeAll, beforeEach, describe } from 'bun:test';
 
 import type { PgStore } from '../../src/db/pg-store';
 
@@ -37,9 +37,6 @@ export function describeApi(
         db,
         harness: (extra = {}) => createHarness(store, { ...options, ...extra }),
       };
-    });
-    afterAll(async () => {
-      await handle?.close();
     });
     body(() => {
       if (current === null) throw new Error('api is not ready');

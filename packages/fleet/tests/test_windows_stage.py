@@ -205,6 +205,26 @@ class StageCase(unittest.TestCase):
 
 
 class HappyPathTest(StageCase):
+    def test_wifi_uses_a_separate_initramfs_and_never_the_kernel_command(self):
+        import gzip
+        network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": True}
+        world = self.world()
+        self.assertEqual(self.stage(world, firmware=None, wifi=network), 0)
+        config = (world.esp / "EFI/BOOT/grub.cfg").read_text()
+        self.assertIn("($fleet_credentials)/EFI/fleet/fleet-wifi.initrd", config)
+        self.assertNotIn(network["password"], config)
+        archive = gzip.decompress((world.esp / "EFI/fleet/fleet-wifi.initrd").read_bytes())
+        self.assertIn(network["password"].encode(), archive)
+
+    def test_a_failed_restart_removes_the_wifi_handoff_too(self):
+        world = self.world()
+        world.fail_at.add("shutdown")
+        network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password"}
+        with self.assertRaises(decide.Invariant):
+            self.stage(world, firmware=None, wifi=network)
+        self.assertNotIn("EFI/fleet/fleet-wifi.initrd", world.esp_files())
+        self.assertTrue(world.clean())
+
     def test_both_mechanisms_are_installed_and_verified_and_windows_stays_first(self):
         firmware = FakeFirmware(self.firmware_vars)
         world = self.world()

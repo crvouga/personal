@@ -140,6 +140,12 @@ def stable_id(uuid_text, mac):
     return machine_digest(uuid_text, mac)[:4]
 
 
+def runner_prefix(hostname, machine_id=None):
+    # Human-facing hostnames stay short. Runner names need a much larger
+    # identity space or two 4-hex collisions can replace/drain each other.
+    return hostname + "-" + machine_id[:32] if machine_id else hostname
+
+
 def primary_mac(net_root="/sys/class/net"):
     root = Path(net_root)
     if not root.is_dir():
@@ -425,6 +431,7 @@ def apply_identity(root, conf, ident, ram_mib, arch, set_hostname, cores=None, m
         f"role={role}",
         f"id={ident}",
         *([f"machine_id={machine_id}"] if machine_id else []),
+        f"runner_prefix={runner_prefix(hostname, machine_id)}",
         f"capabilities={','.join(tags)}",
         f"arch={arch}",
         "",

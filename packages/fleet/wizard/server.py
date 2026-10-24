@@ -23,6 +23,8 @@ import bootstrap  # noqa: F401
 import decide
 import elevate
 import imaging
+import preparation
+import fleet_wifi
 
 try:
     from _version import VERSION
@@ -85,6 +87,8 @@ class Job:
         self.message = ""
         self.log = []
         self.result = None
+        self.mode = None
+        self.step = None
         self.cancel = threading.Event()
         self.lock = threading.Lock()
 
@@ -105,9 +109,12 @@ class Job:
                              "Wait for the result. Do not unplug the disk while it is being written.")
             self.cancel.set()
 
-    def note(self, message, percent=None):
+    def note(self, message, percent=None, step=None):
         with self.lock:
+            if step:
+                self.step = step
             if message:
+                message = decide.redact(str(message))
                 self.message = message
                 self.log.append(message)
                 del self.log[:-200]
@@ -116,7 +123,7 @@ class Job:
 
     def snapshot(self):
         with self.lock:
-            return {"state": self.state, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
+            return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
 
 
 class Wizard:
@@ -154,7 +161,8 @@ class Wizard:
         if decide.machine_arch() not in decide.X86:
             reasons.append(f"This computer is {decide.machine_arch()}. Nodes are x86_64 UEFI machines, so this one can make a USB for another computer but cannot become a node.")
         if self.os_name == "Linux" and not (shutil.which(decide.os_boot_tool("Linux")) or os.path.isfile(decide.os_boot_tool("Linux"))):
-            reasons.append("kexec is not installed here. Install kexec-tools, or make an install USB.")
+            if not preparation.linux_boot_commands():
+                reasons.append("The Linux boot tool cannot be prepared automatically on this system. Make an install USB instead.")
         if not internal["ok"]:
             reasons.append(internal["next"].replace("Next: ", "", 1).replace(" Nothing was written.", ""))
         return reasons
@@ -181,6 +189,12 @@ class Wizard:
     # ---- plan --------------------------------------------------------------
 
     def make_plan(self, body):
+        wifi = body.get("wifi")
+        if wifi is not None:
+            try:
+                wifi = fleet_wifi.validate(wifi)
+            except fleet_wifi.WifiError as exc:
+                decide.invariant(False, str(exc), "Check the Wi-Fi network name and password.")
         mode = body.get("mode")
         decide.invariant(mode in ("usb", "here"), "the plan request names an unknown mode", mode=mode)
         role = body.get("role") or None
@@ -210,6 +224,7 @@ class Wizard:
                 findings.append(decide.finding("usb-size", "ok", chosen["plain"]))
             erase, disk_id, target = chosen["plain"], chosen["id"], chosen["path"]
             summary = f"This erases the USB disk {chosen['plain']} and writes the installer to it. Nothing else on this computer changes."
+            summary += " Available Wi-Fi settings are saved on the USB for automatic connection. Keep this USB private: it can contain the network password."
         else:
             decide.invariant(role is not None, "choose what kind of node this computer should become")
             internal = decide.plan_disks(disks, "install")
@@ -218,24 +233,25 @@ class Wizard:
             findings = decide.preflight(self.os_name, role, "install", token, directory, need_root=False, ssh_key=ssh_key,
                                         auto_enroll=decide.enroll_enabled(), disk_path=internal["path"],
                                         iso_path=imaging.cache_dir(self.os_name) / "fleet-installer.iso")
+            findings = preparation.review_findings(self.os_name, findings)
             erase, disk_id, target = internal["plain"], internal["disk_id"], internal["path"]
             summary = f"This erases {internal['plain']}, including this computer's operating system and every file on it, and installs a {ROLE_INFO[role][0]}."
             if reinstall:
                 summary = "Hard reinstall: replace the existing installation, even if it already has this role. " + summary
             if self.os_name == "Windows":
-                summary += (" Until it restarts, Windows is only prepared: C: is shrunk by the installer's size, the installer is written into a new partition and read back, "
-                            "and the computer is told to start it once. If any step fails, everything is put back and Windows starts as before. "
-                            "Save the BitLocker recovery key and plug in the power first; `fleet-node.sh ROLE --plan` prints the exact steps and sizes.")
+                summary += " Windows preparation, boot setup and restart are automatic. Back up your files and save your BitLocker recovery key on another device before continuing."
+            summary += " The installer will prepare the required tools, repeat its checks, install and restart automatically."
         problems = [item for item in findings if item["status"] == "fail"]
         plan = {
             "id": secrets.token_hex(8), "mode": mode, "role": role, "reinstall": reinstall, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
+            "wifi": wifi,
             "erase": erase, "summary": summary, "findings": findings, "ready": not problems, "created": time.time(),
         }
         with self.lock:
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"),
                              "a job is already running", "Wait for the current job to finish.")
             self.plan = plan
-        public = {k: v for k, v in plan.items() if k not in ("token", "ssh_key", "path", "created")}
+        public = {k: v for k, v in plan.items() if k not in ("token", "ssh_key", "wifi", "path", "created")}
         decide.log(f"plan {plan['id']} mode={mode} role={role} ready={plan['ready']} erase={erase}")
         return public
 
@@ -252,6 +268,7 @@ class Wizard:
             decide.invariant(body.get("disk_id") == plan["disk_id"], "the acknowledged disk is not the planned disk", "Review the plan again.")
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"), "a job is already running")
             self.job = Job()
+            self.job.mode = plan["mode"]
             self.job.move("downloading")
             job = self.job
             self.plan = None  # acknowledgement is single-use, even if the run fails
@@ -262,13 +279,20 @@ class Wizard:
         try:
             iso_url, sum_url = installer_urls()
             job.note("Looking up the installer checksum")
-            sha = imaging.fetch_checksum(sum_url)
+            def release():
+                checksum = imaging.fetch_checksum(sum_url)
+                if plan['mode'] == 'here':
+                    decide.check_release_readiness(plan['role'], checksum, iso_url)
+                return checksum
+            sha = imaging.retry(release, job.note, job.cancel.is_set)
             target = imaging.cache_dir(self.os_name) / "fleet-installer.iso"
             job.note("Downloading the installer", 0)
             imaging.download(iso_url, target, sha,
                              lambda done, total: job.note("", int(done * 100 / total) if total else None),
-                             cancel=job.cancel.is_set)
+                             cancel=job.cancel.is_set, retry_note=job.note)
             job.note("Download verified", 100)
+            if plan["mode"] == "here":
+                decide.check_installer_readiness(target, plan["role"])
             if plan["mode"] == "here" and not plan["token"] and decide.enroll_enabled():
                 plan = self.enroll(job, plan)
             job.move("working")
@@ -300,7 +324,7 @@ class Wizard:
         scratch = imaging.scratch_dir("fleet-job-")
         try:
             request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
-                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"]}
+                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"], "wifi": plan.get("wifi")}
             fd = os.open(scratch / "request.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w") as handle:
                 json.dump(request, handle)
@@ -313,11 +337,11 @@ class Wizard:
             while process.poll() is None:
                 rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
                 for row in rows:
-                    job.note(row.get("message", ""), row.get("percent"))
+                    job.note(row.get("message", ""), row.get("percent"), row.get("step"))
                 time.sleep(0.25)
             rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
             for row in rows:
-                job.note(row.get("message", ""), row.get("percent"))
+                job.note(row.get("message", ""), row.get("percent"), row.get("step"))
             result_file = scratch / "result.json"
             if not result_file.is_file():
                 return self.fail(job, f"The privileged step ended without a result (exit code {process.returncode}). The permission prompt was probably declined.",

@@ -4,39 +4,33 @@
   "tasks": {
     "tc": {
       "inputs": [
-        "src/**",
-        "projects.ts",
-        "tsconfig.json",
-        "astro.config.mjs",
-        "package.json",
-        "../../tsconfig.strict.json"
+        "$TURBO_DEFAULT$",
+        "../../tsconfig.strict.json",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
       ]
     },
     "lint": {
       "inputs": [
-        "src/**",
-        "scripts/**",
-        "test/**",
-        "projects.ts",
-        "eslint.config.cjs",
-        "astro.config.mjs",
-        "package.json"
+        "$TURBO_DEFAULT$",
+        "../../tsconfig.strict.json",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**",
+        "$TURBO_ROOT$/packages/eslint-rules/**"
       ]
     },
     "test": {
-      "inputs": ["src/**", "projects.ts", "public/**", "package.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../../tsconfig.strict.json",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
+      ]
     },
     "build": {
       "inputs": [
-        "src/**",
-        "scripts/**",
-        "projects.ts",
-        "public/**",
-        "package.json",
-        "Dockerfile",
-        "astro.config.mjs"
+        "$TURBO_DEFAULT$",
+        "../../tsconfig.strict.json",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
       ],
-      "outputs": []
+      "outputs": ["dist/**"]
     }
   }
 }

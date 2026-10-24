@@ -119,12 +119,11 @@ async function main() {
       await page.getByText('What do you want to do?').waitFor();
       await page.getByRole('button', { name: /Make an install USB/ }).click();
       await page.getByText('UI Test Stick').waitFor();
-      await page.getByRole('button', { name: 'Review' }).click();
-      assert.ok(
-        dialogs.some((m) => m.includes('Choose a USB stick')),
-        'Review without choosing asks to choose'
+      assert.equal(
+        await page.locator('input[name="usb"]').isChecked(),
+        true,
+        'the only USB is selected automatically, with review still required'
       );
-      await page.locator('input[name="usb"]').check();
       await page.getByRole('button', { name: 'Review' }).click();
       await page.getByRole('button', { name: 'Erase and install' }).waitFor();
       assert.ok(
@@ -144,7 +143,7 @@ async function main() {
       await page.locator('#ack').check();
       await page.getByRole('button', { name: 'Erase and install' }).click();
       await page
-        .getByRole('heading', { name: 'Done' })
+        .getByRole('heading', { name: 'USB ready' })
         .waitFor({ timeout: 60000 });
       assert.ok(
         (await page.locator('body').innerText()).includes(
@@ -207,6 +206,7 @@ async function main() {
       );
       await page.getByRole('button', { name: 'Review' }).click();
       await page.getByRole('button', { name: 'Erase and install' }).waitFor();
+      await page.getByText(/Automatic checks \(/).click();
       const review = await page.locator('body').innerText();
       assert.ok(
         review.includes('Remote devbox'),

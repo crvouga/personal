@@ -9,13 +9,13 @@
       if [ "$prev" = "--max-jobs" ]; then jobs=$arg; fi
       prev=$arg
       case "$arg" in
-        path:*) flake=$arg ;;
+        git+file:*) flake=$arg ;;
       esac
     done
     [ "$jobs" = 0 ]
     [ -n "$flake" ]
-    checkout=''${flake#path:}
-    checkout=''${checkout%%#*}
+    checkout=''${flake#git+file://}
+    checkout=''${checkout%%\?*}/packages/fleet
     rev=$(${pkgs.git}/bin/git -C "$checkout" rev-parse HEAD)
     kernel_file=$(mktemp)
     printf 'same\n' > "$kernel_file"

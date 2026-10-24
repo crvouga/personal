@@ -11,7 +11,7 @@ export default defineConfig({
   testDir,
   timeout: 90_000,
   expect: { timeout: 20_000 },
-  workers: 1,
+  workers: 4,
   retries: 0,
   outputDir: process.env['FLEET_BDD_OUTPUT_DIR'] ?? 'dist/bdd-results',
   reporter: [
@@ -36,11 +36,17 @@ export default defineConfig({
   projects: [
     {
       name: 'local',
+      fullyParallel: true,
       grep: /@local/,
       ...(process.platform === 'win32' ? { grepInvert: /@posix/ } : {}),
       use: { trace: 'retain-on-failure' },
     },
     // Live authentication must never be written into a trace or video.
-    { name: 'live', grep: /@live/, use: { trace: 'off', video: 'off' } },
+    {
+      name: 'live',
+      workers: 1,
+      grep: /@live/,
+      use: { trace: 'off', video: 'off' },
+    },
   ],
 });

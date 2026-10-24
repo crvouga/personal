@@ -113,8 +113,16 @@ test('the realm applies run after the Vault login and the stable admin API wait'
   expect(firstRealm).toBeGreaterThan(wait);
   const script = String(steps[wait].run);
   // The first 200 can come from the previous deployment during a rollout.
-  expect(script).toContain('stable_since');
-  expect(script).toMatch(/-ge 240/);
+  expect(script).toContain('bun scripts/ci/auth-readiness.ts');
+  expect(steps[wait].env.AUTH_HOSTING_CHANGES).toContain(
+    'steps.hosting.outputs.changed_resources'
+  );
+  expect(steps[wait].env.AUTH_FOUNDATION_CHANGES).toContain(
+    'inputs.foundation_changes'
+  );
+  expect(steps[wait].env.AUTH_FIRST_DEPLOYMENT).toContain(
+    'env.FIRST_DEPLOYMENT'
+  );
 });
 
 test('roots run with the CI Vault token never use the Vault provider while its role lacks lookup-self', () => {

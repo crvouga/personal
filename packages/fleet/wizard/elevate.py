@@ -168,6 +168,10 @@ def start(os_name, argv):
     sudo = shutil.which("sudo")
     if sudo and subprocess.run([sudo, "-n", "true"], check=False, capture_output=True).returncode == 0:
         return _Waitable(subprocess.Popen([sudo, "-n", *argv]))
+    if sudo and sys.stdin is not None and sys.stdin.isatty():
+        # Ordinary Linux downloads run in a terminal. Let sudo ask there when
+        # there is no desktop polkit agent; no command needs to be retyped.
+        return _Waitable(subprocess.Popen([sudo, "--", *argv]))
     raise ElevationUnavailable("This computer cannot ask for administrator rights from here. Close this window and run: sudo " + " ".join(shlex.quote(p) for p in launcher_argv()))
 
 

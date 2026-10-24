@@ -9,14 +9,14 @@
       if [ "$prev" = "--max-jobs" ]; then jobs=$arg; fi
       prev=$arg
       case "$arg" in
-        path:*) flake=$arg ;;
+        git+file:*) flake=$arg ;;
       esac
     done
     # A missing --max-jobs 0 means the sync script tried to build locally.
     [ "$jobs" = 0 ]
     [ -n "$flake" ]
-    checkout=''${flake#path:}
-    checkout=''${checkout%%#*}
+    checkout=''${flake#git+file://}
+    checkout=''${checkout%%\?*}/packages/fleet
     if [ -f "$checkout/NOT_IN_CACHE" ]; then
       echo 'not in cache' >&2
       exit 1
@@ -87,6 +87,7 @@ EOF
     reboot = settings.reboot // {
       delayMaxSeconds = 0;
       drainCommand = "${drain}/bin/drain";
+      resumeCommand = "${pkgs.coreutils}/bin/true";
     };
     binaryCache = {
       url = "https://cache.invalid/fleet";

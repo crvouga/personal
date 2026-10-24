@@ -29,17 +29,19 @@ if [ -z "$py" ]; then
   exit 1
 fi
 
-payload=$(mktemp)
-cleanup() { rm -f "$payload"; }
+payload=$(mktemp -d)
+cleanup() { rm -rf "$payload"; }
 trap cleanup EXIT
 
 if [ -f "$here/decide.py" ]; then
-  cp "$here/decide.py" "$payload"
+  cp "$here/decide.py" "$payload/decide.py"
 else
-  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload"
+  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/decide.py"
 fi
 
-exec "$py" "$payload" "$@"
+sed -n '/^# __FLEET_WIFI_PY__$/,/^# __FLEET_WIFI_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/fleet_wifi.py"
+sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/wifi_capture.py"
+"$py" "$payload/decide.py" "$@"
 # __DECIDE_PY__
 # #!/usr/bin/env python3
 # """Decisions for adding or removing one fleet node.
@@ -1141,7 +1143,26 @@ exec "$py" "$payload" "$@"
 #     return command
 #
 #
-# def stage_reboot(os_name, role, iso, token=None, vault=None):
+# def wifi_module():
+#     try:
+#         import fleet_wifi
+#         return fleet_wifi
+#     except ImportError:
+#         directory = Path(__file__).resolve().parent.parent / "wizard"
+#         sys.path.insert(0, str(directory))
+#         import fleet_wifi
+#         return fleet_wifi
+#
+#
+# def wifi_profile(os_name, supplied=None):
+#     module = wifi_module()
+#     try:
+#         return module.discover(os_name, supplied)
+#     except module.WifiError as exc:
+#         invariant(False, str(exc), "Enter the Wi-Fi settings in the wizard before installing. Nothing was erased.")
+#
+#
+# def stage_reboot(os_name, role, iso, token=None, vault=None, wifi=None):
 #     """Load the ISO's own kernel. The shell initrd finds the file and copies it to RAM."""
 #     tool = os_boot_tool(os_name)
 #     flash = "Next: this computer cannot reboot into the installer. Nothing was written. Plug in one USB disk and run this program again with the word flash."
@@ -1159,16 +1180,25 @@ exec "$py" "$payload" "$@"
 #         return 1
 #     for staged_file in (kernel, initrd, iso):
 #         invariant(os.path.isfile(staged_file) and os.path.getsize(staged_file) > 0, "a file the installer needs is missing or empty before reboot", file=str(staged_file))
-#     load = run_logged([tool, "--load", kernel, f"--initrd={initrd}", f"--command-line={cmdline}"])
-#     if load.returncode != 0:
-#         say(flash)
-#         return load.returncode or 1
-#     log("rebooting into the installer")
-#     execute = run_logged([tool, "-e"])
-#     if execute.returncode != 0:
-#         say(flash)
-#         return execute.returncode or 1
-#     return 0
+#     private_initrd = None
+#     try:
+#         if wifi is not None:
+#             private_initrd = Path(initrd).with_name("initrd-wifi")
+#             wifi_module().write_private(private_initrd, Path(initrd).read_bytes() + wifi_module().initrd(wifi))
+#             initrd = str(private_initrd)
+#         load = run_logged([tool, "--load", kernel, f"--initrd={initrd}", f"--command-line={cmdline}"])
+#         if load.returncode != 0:
+#             say(flash)
+#             return load.returncode or 1
+#         log("rebooting into the installer")
+#         execute = run_logged([tool, "-e"])
+#         if execute.returncode != 0:
+#             say(flash)
+#             return execute.returncode or 1
+#         return 0
+#     finally:
+#         if private_initrd is not None:
+#             private_initrd.unlink(missing_ok=True)
 #
 #
 # # ---- Windows: convert this computer in place -------------------------------------
@@ -1642,17 +1672,20 @@ exec "$py" "$payload" "$@"
 #               devices="; ".join(refused))
 #
 #
-# def grub_config(role, linux_path, initrd_path, cmdline):
+# def grub_config(role, linux_path, initrd_path, cmdline, wifi=False):
 #     invariant(role in ROLES, "refusing to write a boot config for an unknown role", role=role)
 #     for word in (linux_path, initrd_path, cmdline):
 #         invariant("\n" not in word and "\r" not in word and "'" not in word, "the boot config would span lines or quote badly", value=word[:80])
+#     search_wifi = "search --no-floppy --set=fleet_credentials --file /EFI/fleet/fleet-wifi.initrd\n" if wifi else ""
+#     extra_initrd = " ($fleet_credentials)/EFI/fleet/fleet-wifi.initrd" if wifi else ""
 #     return (
 #         "set timeout=3\n"
 #         "set default=0\n"
 #         "search --no-floppy --set=root --file /EFI/nixos-installer-image\n"
+#         f"{search_wifi}"
 #         f"menuentry 'Fleet installer: ERASES the internal disk and installs {role}' {{\n"
 #         f"    linux {linux_path} {cmdline}\n"
-#         f"    initrd {initrd_path}\n"
+#         f"    initrd {initrd_path}{extra_initrd}\n"
 #         "}\n"
 #     )
 #
@@ -1996,7 +2029,7 @@ exec "$py" "$payload" "$@"
 #         os.fsync(handle.fileno())
 #
 #
-# def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None, firmware="auto"):
+# def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=None, writer=None, firmware="auto", wifi=None):
 #     """Carve a partition out of C:, put the installer in it, and arrange one boot
 #     into it. Returns 0 once the restart is scheduled; anything else changed nothing.
 #     firmware is the UEFI variable access (tests hand in a stand-in); "auto" asks open_firmware()."""
@@ -2016,7 +2049,8 @@ exec "$py" "$payload" "$@"
 #         return 2
 #     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
 #     cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False)
-#     config = grub_config(role, linux_path, initrd_path, cmdline)
+#     wireless_initrd = wifi_module().initrd(wifi) if wifi is not None else b""
+#     config = grub_config(role, linux_path, initrd_path, cmdline, wifi=wifi is not None)
 #     disk, need, letter = int(facts["DiskNumber"]), windows_need(iso_size), facts["Letter"]
 #     sector = int(facts.get("LogicalSectorSize") or 512)
 #     invariant(WRITE_SECTOR % sector == 0, "the disk's sector size does not divide the write alignment", sector=sector)
@@ -2042,12 +2076,16 @@ exec "$py" "$payload" "$@"
 #         undo.add("unmount the EFI system partition", lambda: windows_ps(ps_unmount_script(mounted)))
 #         loader = esp.joinpath(*BOOT_LOADER_PARTS)
 #         free = shutil.disk_usage(esp).free + (loader.stat().st_size if loader.is_file() else 0)
-#         invariant(free >= len(grub) + len(config) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
+#         invariant(free >= len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
 #                   "Windows keeps some EFI system partitions nearly full. Free space there (docs/windows.md shows how), or make an install USB with the word flash.",
-#                   free=free, need=len(grub) + len(config) + LOADER_SLACK)
+#                   free=free, need=len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK)
 #         undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent, ignore_errors=True))
 #         loader.parent.mkdir(parents=True, exist_ok=True)
 #         write_durably(loader, grub)
+#         if wireless_initrd:
+#             private = loader.parent / "fleet-wifi.initrd"
+#             write_durably(private, wireless_initrd)
+#             invariant(private.read_bytes() == wireless_initrd, "the Wi-Fi boot handoff did not read back correctly")
 #         cfg = esp / "EFI" / "BOOT" / "grub.cfg"
 #         cfg.parent.mkdir(parents=True, exist_ok=True)
 #         saved = cfg.read_bytes() if cfg.is_file() else None
@@ -2103,7 +2141,7 @@ exec "$py" "$payload" "$@"
 #     return 0
 #
 #
-# def write_media(os_name, iso, device):
+# def write_media(os_name, iso, device, wifi=None, capacity=None):
 #     if not device_ok(device):
 #         say("Next: the USB disk path was not usable. Nothing was written. Run this program again.")
 #         return 1
@@ -2118,6 +2156,8 @@ exec "$py" "$payload" "$@"
 #     if completed.returncode != 0:
 #         say("Next: the USB disk could not be written. Nothing else was written. Run this program again from an administrator account.")
 #         return 1
+#     if capacity is not None and not wifi_module().simulated():
+#         wifi_module().write_trailer(target, capacity, os.path.getsize(iso), wifi)
 #     return 0
 #
 #
@@ -2832,13 +2872,6 @@ exec "$py" "$payload" "$@"
 #             say("  " + line)
 #         say("Result: ready. This was only the plan: nothing was written or changed. Run the same command without --plan to do it.")
 #         return 0
-#     if action == "install" and not token and enroll_enabled() and (reinstall or not installed_for(role, directory)):
-#         token, error = self_enroll(role)
-#         if error:
-#             return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
-#         verdict = NET.get("lookup", lookup_token)(token, role)
-#         if verdict["status"] == "fail":
-#             return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
 #     if action == "install":
 #         say(f"Role: {role}")
 #         say(f"Disk: {chosen['plain']}")
@@ -2874,9 +2907,27 @@ exec "$py" "$payload" "$@"
 #     fetched = fetch_installer(iso)
 #     if fetched != 0:
 #         return fetched
+#     # Wi-Fi downloads can outlive a wrapping-token lease. Request approval only
+#     # after the complete image has been verified, and recheck the disk afterward.
+#     if action == "install" and not token and enroll_enabled() and (reinstall or not installed_for(role, directory)):
+#         token, error = self_enroll(role)
+#         if error:
+#             return fail(f"Next: this node was not approved ({error}). Nothing was written. Run this program again, or add --no-enroll to install without the role's shared key.", 2)
+#         verdict = NET.get("lookup", lookup_token)(token, role)
+#         if verdict["status"] == "fail":
+#             return fail(f"Next: the approval token cannot be used ({verdict['detail']}). Nothing was written. Run this program again to be approved again.", 2)
+#     fresh = choose_disk(os_name, action)
+#     invariant(fresh.get("ok") and fresh.get("disk_id") == chosen["disk_id"],
+#               "the disk changed while the installer was downloading or waiting for approval",
+#               "Review the exact disk again. Nothing was erased.")
 #     if action == "install":
 #         return perform_install(os_name, role, str(iso), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen)
-#     written = write_media(os_name, str(iso), chosen["path"])
+#     network = wifi_profile(os_name)
+#     capacity = int(chosen["disk"].get("size") or 0)
+#     if not wifi_module().simulated():
+#         invariant(capacity >= padded_size(os.path.getsize(iso)) + wifi_module().TRAILER_SIZE,
+#                   "the USB has no space for the Wi-Fi handoff", "Use a larger USB disk. Nothing was written.")
+#     written = write_media(os_name, str(iso), chosen["path"], wifi=network, capacity=capacity)
 #     if written != 0:
 #         return written
 #     say("FLEET-WIPE media")
@@ -2884,23 +2935,98 @@ exec "$py" "$payload" "$@"
 #     return 0
 #
 #
-# def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None):
+# class ReleaseChanging(RuntimeError):
+#     """Only the release metadata is inconsistent during publication, not image bytes."""
+#
+#
+# def check_release_readiness(role, expected_sha, iso_url):
+#     if wifi_module().simulated():
+#         return
+#     url = iso_url.rsplit('/', 1)[0] + '/fleet-installer.readiness.json'
+#     with urllib.request.urlopen(url, timeout=10) as response:
+#         raw = response.read(65537)
+#     invariant(len(raw) <= 65536, 'the release readiness manifest is too large')
+#     try:
+#         document = json.loads(raw)
+#         invariant(document['version'] == 1, 'the release readiness version is unsupported')
+#         blocked = document['roles'][role]['blocked']
+#         invariant(isinstance(blocked, list) and all(isinstance(value, str) for value in blocked), 'the release readiness checks are malformed')
+#         if document['imageSha256'] != expected_sha:
+#             raise ReleaseChanging('The installer release is being updated; waiting for matching metadata before downloading.')
+#     except (KeyError, ValueError, TypeError):
+#         invariant(False, 'FLEET_RELEASE_READINESS_INVALID: publish a complete current installer release')
+#     invariant(not blocked, 'FLEET_PLATFORM_NOT_READY: ' + '; '.join(blocked),
+#               'The platform administrator must resolve the configuration errors and publish the installer. No image was downloaded and nothing was erased.')
+#
+#
+# def check_installer_readiness(iso, role):
+#     if wifi_module().simulated():
+#         return
+#     try:
+#         with Path(iso).open("rb") as handle:
+#             raw = _iso_bytes(handle, _iso_index(handle), "fleet-readiness.json")
+#         invariant(len(raw) <= 65536, "the installer readiness manifest is too large")
+#         manifest = json.loads(raw)
+#         invariant(manifest.get("version") == 1, "the installer readiness manifest has an unsupported version")
+#         blocked = manifest["roles"][role]["blocked"]
+#         invariant(isinstance(blocked, list) and all(isinstance(item, str) for item in blocked), "the installer readiness checks are malformed")
+#     except (OSError, ValueError, KeyError, TypeError, AttributeError):
+#         invariant(False, "FLEET_INSTALLER_READINESS_MISSING: this image cannot prove it can join and update",
+#                   "Download the current Fleet installer. Nothing was erased.")
+#     invariant(not blocked, "FLEET_PLATFORM_NOT_READY: " + "; ".join(blocked),
+#               "The platform administrator must resolve these Fleet configuration errors and publish a new installer. Reopen the wizard afterward. Nothing was erased.")
+#
+#
+# def perform_install(os_name, role, iso, token, vault, directory, chosen, on_progress=None, wifi=None):
 #     """The point of no return, shared by the command line and the wizard. On a
 #     real machine kexec does not come back; the marker is for the test seam."""
 #     invariant(role in ROLES, "perform_install was given an unknown role", role=role)
 #     invariant(chosen.get("ok") and chosen.get("disk_id"), "perform_install needs a chosen disk", chosen=chosen)
 #     invariant(os.path.isfile(iso) and os.path.getsize(iso) > 0, "perform_install needs the verified installer image", iso=str(iso))
-#     retire_runner_for_install(directory)
-#     if os_name == "Windows":
-#         staged = stage_windows(role, str(iso), token, vault, chosen, on_progress)
-#     else:
-#         staged = stage_reboot(os_name, role, str(iso), token, vault)
-#     if staged != 0:
-#         return staged
+#     # Read credentials before withdrawing a runner or changing partitions.
+#     network = wifi_profile(os_name, wifi)
+#     check_installer_readiness(iso, role)
+#     handoff = {"wifi": network} if network is not None else {}
+#     previously_withdrawn = bool(checked_marker(directory, "withdrawn"))
+#     started = False
+#     try:
+#         retire_runner_for_install(directory)
+#         restore_ci = not previously_withdrawn and bool(checked_marker(directory, "withdrawn"))
+#         write_text(Path(directory) / "handoff", f"role={role}\ndisk={chosen['disk_id']}\nstatus=staged\nrestore_ci={int(restore_ci)}\n")
+#         if os_name == "Windows":
+#             staged = stage_windows(role, str(iso), token, vault, chosen, on_progress, **handoff)
+#         else:
+#             staged = stage_reboot(os_name, role, str(iso), token, vault, **handoff)
+#         if staged != 0:
+#             return staged
+#         started = True
+#     finally:
+#         if not started:
+#             (Path(directory) / "handoff").unlink(missing_ok=True)
+#         if not started and not previously_withdrawn and checked_marker(directory, "withdrawn"):
+#             # Staging failed before the live installer could erase anything.
+#             # Undo only this reinstall's withdrawal; intentional removals stay.
+#             (Path(directory) / "withdrawn").unlink()
+#             root = Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet"))
+#             write_text(root / "agent-drained", "recover failed reinstall\n")
+#             resume = os.environ.get("FLEET_RESUME") or (None if wifi_module().simulated() else shutil.which("fleet-resume"))
+#             if resume and run_logged([resume]).returncode == 0:
+#                 (root / "agent-drained").unlink(missing_ok=True)
+#                 log("failed handoff: previous CI node resumed")
+#             else:
+#                 log("FLEET_RECOVERY_PENDING: the fleet agent will retry runner recovery after the failed handoff", "ERROR")
 #     say(f"FLEET-WIPE role={role}")
-#     write_text(Path(directory) / "installed", f"role={role}\ndisk={chosen['disk_id']}\nstatus=installed\n")
-#     say(f"Installed role {role}. The hostname is chosen from the hardware id when the machine boots.")
+#     say(f"Installer staged for {role}; joining Fleet is confirmed only after the new node boots and reports.")
 #     return 0
+#
+#
+# def runner_name_prefix():
+#     override = os.environ.get("FLEET_HOSTNAME")
+#     node = read_kv(Path(os.environ.get("FLEET_BUSY_DIR", "/run/fleet")) / "node")
+#     value = override or node.get("runner_prefix") or _run(["hostname"]).strip()
+#     invariant(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}", value) is not None,
+#               "the CI node has no safe runner identity", "Wait for node identity to initialize before retrying.")
+#     return value
 #
 #
 # def retire_runner_for_install(directory):
@@ -2920,7 +3046,7 @@ exec "$py" "$payload" "$@"
 #             runner = read_kv(os.environ.get("FLEET_RUNNER_CONF", "/etc/fleet/runner.conf"))
 #             invariant(credential_ready(key, runner), "cannot withdraw this CI node with its current credential",
 #                       "Restore the CI role's GitHub App credential before reinstalling. Nothing was erased.")
-#             host = os.environ.get("FLEET_HOSTNAME") or _run(["hostname"]).strip()
+#             host = runner_name_prefix()
 #             invariant(bool(host), "the CI node has no hostname to withdraw")
 #             code = call_runner("withdraw", runner, key, host)
 #             invariant(code == 0, "the CI node could not be withdrawn before reinstalling", "Check GitHub connectivity and the CI credential, then try again. Nothing was erased.", code=code)
@@ -2991,12 +3117,7 @@ exec "$py" "$payload" "$@"
 #     if plan["stop_job"]:
 #         return fail("Next: refusing to stop a running job. Leave this machine on.", 1)
 #     if plan["action"] in ("hold", "withdraw"):
-#         host = os.environ.get("FLEET_HOSTNAME")
-#         if not host:
-#             try:
-#                 host = _run(["hostname"]).strip()
-#             except (OSError, RuntimeError):
-#                 return fail("Next: this machine has no hostname to withdraw. Nothing was stopped. Run this program again on the node.")
+#         host = runner_name_prefix()
 #         code = call_runner(plan["action"], runner, key_path, host)
 #         if code != 0:
 #             return fail("Next: the runner could not be withdrawn with the credential already on this machine. Nothing was stopped. Run this program again.", code)
@@ -3126,6 +3247,458 @@ exec "$py" "$payload" "$@"
 #     except BrokenPipeError:
 #         sys.exit(1)
 # __DECIDE_END__
+# __FLEET_WIFI_PY__
+# """Private Wi-Fi handoff shared by the launcher and the installed system.
+#
+# No credentials in argv, the kernel command line, logs, or the Nix store.
+# USB handoffs occupy a reserved trailer outside the verified ISO filesystem.
+# """
+# import gzip
+# import hashlib
+# import json
+# import os
+# import stat
+# import struct
+# import subprocess
+# import sys
+# import tempfile
+# import time
+# import urllib.request
+# import uuid
+# from pathlib import Path
+#
+# TRAILER_SIZE = 65536
+# MAGIC = b"FLEET-WIFI-v1".ljust(16, b"\0")
+# LIVE = Path("/run/fleet-wifi/wifi.json")
+# PERSISTENT = Path("/nix/fleet-state/network/wifi.json")
+# PROFILE = Path("/run/NetworkManager/system-connections/fleet-wifi.nmconnection")
+#
+#
+# class WifiError(Exception):
+#     """Messages are deliberately credential-free, including malformed input."""
+#
+#
+# class NetworkUnavailable(WifiError):
+#     """Retryable only before disk operations or one-time token consumption."""
+#
+#
+# def require(condition, message):
+#     if not condition:
+#         raise WifiError(message)
+#
+#
+# def utf8_length(value):
+#     try:
+#         return len(value.encode("utf-8")) if isinstance(value, str) else -1
+#     except UnicodeError:
+#         return -1
+#
+#
+# def validate(value):
+#     require(isinstance(value, dict), "Wi-Fi settings must be an object.")
+#     ssid, password = value.get("ssid"), value.get("password", "")
+#     auth = value.get("auth", "wpa-psk" if password else "open")
+#     hidden = value.get("hidden", False)
+#     require(isinstance(ssid, str) and 1 <= utf8_length(ssid) <= 32 and
+#             all(ord(c) >= 32 and ord(c) != 127 for c in ssid), "Wi-Fi needs a valid network name of at most 32 bytes.")
+#     require(isinstance(password, str) and all(ord(c) >= 32 and ord(c) != 127 for c in password),
+#             "The Wi-Fi password contains unsupported characters.")
+#     require(auth in ("open", "wpa-psk", "sae") and isinstance(hidden, bool),
+#             "Automatic Wi-Fi supports open, WPA/WPA2 Personal and WPA3 Personal networks.")
+#     if auth == "open":
+#         require(not password, "An open Wi-Fi network must not have a password.")
+#     elif auth == "wpa-psk":
+#         require(8 <= utf8_length(password) <= 63 or
+#                 len(password) == 64 and all(c in "0123456789abcdefABCDEF" for c in password),
+#                 "WPA/WPA2 Personal needs an 8–63 byte password or a 64-digit hexadecimal key.")
+#     else:
+#         require(1 <= utf8_length(password) <= 63, "WPA3 Personal needs a reusable password.")
+#     return {"ssid": ssid, "password": password, "auth": auth, "hidden": hidden}
+#
+#
+# def encode(profile):
+#     return json.dumps(validate(profile), ensure_ascii=True, sort_keys=True).encode("ascii")
+#
+#
+# def decode(data):
+#     require(len(data) <= 4096, "The Wi-Fi handoff is too large.")
+#     try:
+#         return validate(json.loads(data))
+#     except (ValueError, UnicodeError):
+#         raise WifiError("The Wi-Fi handoff is damaged.") from None
+#
+#
+# def simulated():
+#     return any(os.environ.get(k) for k in (
+#         "FLEET_DISKS_FILE", "FLEET_WINDOWS_TARGET", "FLEET_WRITE_TARGET", "FLEET_ALLOW_UNPRIVILEGED", "FLEET_ALLOW_ANY_OS_INSTALL",
+#         "FLEET_DD", "FLEET_LSBLK", "FLEET_DISKUTIL", "FLEET_POWERSHELL", "FLEET_OS", "FLEET_EUID", "FLEET_ARCH",
+#     ))
+#
+#
+# def discover(os_name, supplied=None):
+#     if supplied is not None:
+#         return validate(supplied)
+#     # Simulated installers must never read the host's saved credentials.
+#     if simulated():
+#         return None
+#     source = os.environ.get("FLEET_WIFI_FILE")
+#     if source:
+#         return read_private(Path(source))
+#     from wifi_capture import capture
+#     profile = capture(os_name)
+#     return validate(profile) if profile is not None else None
+#
+#
+# def connection_id(profile):
+#     return str(uuid.uuid5(uuid.NAMESPACE_URL, "fleet-wifi:" + validate(profile)["ssid"]))
+#
+#
+# def keyfile(profile):
+#     p = validate(profile)
+#     # Numeric SSID bytes avoid keyfile ambiguity for names containing ; or =.
+#     ssid = ";".join(str(c) for c in p["ssid"].encode()) + ";"
+#     password = p["password"].replace("\\", "\\\\").replace(" ", "\\s")
+#     security = "" if p["auth"] == "open" else f"\n[wifi-security]\nkey-mgmt={p['auth']}\npsk={password}\npsk-flags=0\n"
+#     return (f"[connection]\nid=Fleet Wi-Fi\nuuid={connection_id(p)}\ntype=wifi\nautoconnect=true\nautoconnect-retries=0\n"
+#             f"\n[wifi]\nmode=infrastructure\nssid={ssid}\nhidden={'true' if p['hidden'] else 'false'}\npowersave=2\n"
+#             f"{security}\n[ipv4]\nmethod=auto\nroute-metric=600\n\n[ipv6]\nmethod=auto\nroute-metric=600\n")
+#
+#
+# def write_private(path, data):
+#     path = Path(path)
+#     require(not path.is_symlink() and not path.parent.is_symlink(), "The Wi-Fi handoff path is not a private regular file.")
+#     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+#     os.chmod(path.parent, 0o700)
+#     fd, name = tempfile.mkstemp(prefix=".fleet-wifi-", dir=path.parent)
+#     temporary = Path(name)
+#     try:
+#         with os.fdopen(fd, "wb") as handle:
+#             handle.write(data)
+#             handle.flush()
+#             os.fsync(handle.fileno())
+#         os.replace(temporary, path)
+#         if os.name == "posix":
+#             directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+#             try:
+#                 os.fsync(directory)
+#             finally:
+#                 os.close(directory)
+#     finally:
+#         temporary.unlink(missing_ok=True)
+#
+#
+# def read_private(path):
+#     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+#     with os.fdopen(fd, "rb") as handle:
+#         info = os.fstat(handle.fileno())
+#         require(stat.S_ISREG(info.st_mode) and not info.st_mode & 0o077 and info.st_uid == getattr(os, "geteuid", lambda: 0)(),
+#                 "Wi-Fi settings must be a private file owned by the current user.")
+#         return decode(handle.read(4097))
+#
+#
+# def initrd(profile):
+#     """A gzip newc archive: Linux accepts concatenated initramfs members."""
+#     def member(name, body, mode, ino):
+#         name = name.encode() + b"\0"
+#         fields = [ino, mode, 0, 0, 1, 0, len(body), 0, 0, 0, 0, len(name), 0]
+#         header = b"070701" + b"".join(f"{v:08x}".encode() for v in fields)
+#         entry = header + name
+#         entry += b"\0" * (-len(entry) % 4)
+#         return entry + body + b"\0" * (-len(body) % 4)
+#     archive = member("fleet-wifi.json", encode(profile), stat.S_IFREG | 0o600, 1)
+#     archive += member("TRAILER!!!", b"", 0, 2)
+#     return gzip.compress(archive, mtime=0)
+#
+#
+# def trailer(profile):
+#     if profile is None:
+#         return bytes(TRAILER_SIZE)
+#     data = encode(profile)
+#     result = MAGIC + struct.pack(">I", len(data)) + hashlib.sha256(data).digest() + data
+#     return result.ljust(TRAILER_SIZE, b"\0")
+#
+#
+# def read_trailer(device):
+#     with open(device, "rb", buffering=0) as handle:
+#         handle.seek(-TRAILER_SIZE, os.SEEK_END)
+#         data = handle.read(TRAILER_SIZE)
+#     if data[:16] != MAGIC:
+#         return None
+#     length = struct.unpack(">I", data[16:20])[0]
+#     require(0 < length <= 4096 and len(data) == TRAILER_SIZE, "The USB Wi-Fi handoff is incomplete.")
+#     payload = data[52:52 + length]
+#     require(hashlib.sha256(payload).digest() == data[20:52], "The USB Wi-Fi handoff failed its integrity check.")
+#     return decode(payload)
+#
+#
+# def write_trailer(device, capacity, image_size, profile):
+#     padded = (image_size + 4095) // 4096 * 4096
+#     require(capacity >= padded + TRAILER_SIZE, "The USB needs 64 KiB of free space after the installer image for Wi-Fi settings.")
+#     data = trailer(profile)
+#     testing = simulated()
+#     if testing:
+#         try:
+#             mode = os.lstat(device).st_mode
+#         except OSError:
+#             mode = 0
+#         require(stat.S_ISREG(mode), "Simulated Wi-Fi writes require an existing regular file, never a device or symlink.")
+#     flags = getattr(os, "O_BINARY", 0) | (getattr(os, "O_NOFOLLOW", 0) if testing else 0)
+#     with os.fdopen(os.open(device, os.O_RDWR | flags), "r+b", buffering=0) as handle:
+#         require(not testing or stat.S_ISREG(os.fstat(handle.fileno()).st_mode), "A simulated Wi-Fi write cannot target a device.")
+#         handle.seek(capacity - TRAILER_SIZE)
+#         require(handle.write(data) == len(data), "The USB accepted an incomplete Wi-Fi handoff.")
+#         os.fsync(handle.fileno())
+#     with os.fdopen(os.open(device, os.O_RDONLY | flags), "rb", buffering=0) as handle:
+#         require(not testing or stat.S_ISREG(os.fstat(handle.fileno()).st_mode), "A simulated Wi-Fi read cannot target a device.")
+#         handle.seek(capacity - TRAILER_SIZE)
+#         require(handle.read(TRAILER_SIZE) == data, "The USB Wi-Fi handoff did not read back correctly.")
+#
+#
+# def removable_devices(root=Path("/sys/class/block")):
+#     for entry in root.iterdir():
+#         if (entry / "partition").exists():
+#             continue
+#         try:
+#             if (entry / "removable").read_text().strip() == "1" or "/usb" in str(entry.resolve()):
+#                 yield Path("/dev") / entry.name
+#         except OSError:
+#             continue
+#
+#
+# def prepare(live=LIVE, persistent=PERSISTENT, target=PROFILE, devices=None):
+#     if live.exists():
+#         profile = read_private(live)
+#     elif persistent.exists():
+#         profile = read_private(persistent)
+#     else:
+#         profiles = []
+#         for device in removable_devices() if devices is None else devices:
+#             try:
+#                 profile = read_trailer(device)
+#             except OSError:
+#                 continue
+#             if profile is not None:
+#                 profiles.append(profile)
+#         require(len({encode(p) for p in profiles}) <= 1, "Conflicting USB Wi-Fi handoffs are attached. Leave only the intended installer connected.")
+#         profile = profiles[0] if profiles else None
+#     if profile is not None:
+#         write_private(live, encode(profile))
+#         write_private(target, keyfile(profile).encode())
+#     return profile
+#
+#
+# def internet_ready():
+#     # Verify DNS and TLS, so a captive portal cannot masquerade as readiness.
+#     with urllib.request.urlopen("https://github.com/robots.txt", timeout=15) as response:
+#         require(response.status == 200, "Wi-Fi has not reached the internet.")
+#
+#
+# def ready(profile, run=subprocess.run, sleep=time.sleep, probe=internet_ready):
+#     for attempt in range(3):
+#         try:
+#             run(["nmcli", "radio", "wifi", "on"], capture_output=True, timeout=10, check=False)
+#             result = run(["nmcli", "--wait", "45", "connection", "up", "uuid", connection_id(profile)],
+#                          capture_output=True, timeout=55, check=False)
+#             if result.returncode == 0:
+#                 probe()
+#                 return
+#         except (OSError, subprocess.TimeoutExpired, WifiError):
+#             pass
+#         if attempt < 2:
+#             sleep(3 * (attempt + 1))
+#     raise NetworkUnavailable("Wi-Fi did not connect with working DNS and TLS. Nothing was erased. Check the network/password or use a network without a captive portal.")
+#
+#
+# def main(args):
+#     if args == ["prepare"]:
+#         prepare()
+#     elif args == ["ready"]:
+#         profile = read_private(LIVE) if LIVE.exists() else discover("Linux")
+#         if profile is not None:
+#             write_private(LIVE, encode(profile))
+#             write_private(PROFILE, keyfile(profile).encode())
+#             try:
+#                 loaded = subprocess.run(["nmcli", "connection", "load", str(PROFILE)], capture_output=True, timeout=20, check=False)
+#             except (OSError, subprocess.TimeoutExpired):
+#                 raise NetworkUnavailable("The Wi-Fi service is not ready. Nothing was erased.") from None
+#             if loaded.returncode != 0:
+#                 raise NetworkUnavailable("The Wi-Fi service could not load the private profile. Nothing was erased.")
+#             ready(profile)
+#         else:
+#             # Missing firmware can hide the wireless adapter entirely. Never
+#             # interpret its absence as permission to erase an offline machine.
+#             try:
+#                 result = subprocess.run(["ip", "route", "show", "default"], capture_output=True, timeout=10, check=False)
+#                 ipv6 = subprocess.run(["ip", "-6", "route", "show", "default"], capture_output=True, timeout=10, check=False)
+#                 if not result.stdout.strip() and not ipv6.stdout.strip():
+#                     raise NetworkUnavailable("No network connection is available. Nothing was erased.")
+#                 internet_ready()
+#             except (OSError, subprocess.TimeoutExpired, WifiError):
+#                 raise NetworkUnavailable("Waiting for a working network connection. Nothing was erased.") from None
+#     elif len(args) == 2 and args[0] == "persist":
+#         if LIVE.exists():
+#             profile = read_private(LIVE)
+#             destination = Path(args[1]) / "nix/fleet-state/network/wifi.json"
+#             write_private(destination, encode(profile))
+#             require(read_private(destination) == profile, "Installed Wi-Fi settings failed read-back verification.")
+#     else:
+#         raise WifiError("Unknown Wi-Fi handoff operation.")
+#
+#
+# if __name__ == "__main__":
+#     try:
+#         main(sys.argv[1:])
+#     except NetworkUnavailable:
+#         print("Waiting for Wi-Fi with working DNS and TLS. Nothing was erased; the installer will retry automatically.", file=sys.stderr)
+#         sys.exit(75)
+#     except WifiError as exc:
+#         print(str(exc), file=sys.stderr)
+#         sys.exit(2)
+#     except OSError:
+#         # Never emit exception repr, profile contents or subprocess output.
+#         print("Fleet Wi-Fi setup failed. Check Wi-Fi credentials and connectivity before retrying; disk installation was stopped.", file=sys.stderr)
+#         sys.exit(2)
+# __FLEET_WIFI_END__
+# __WIFI_CAPTURE_PY__
+# """Read the currently connected Wi-Fi profile, without logging secrets.
+#
+# Windows uses the WLAN API, never localized netsh output or exported XML files.
+# Enterprise profiles/certificates are not silently converted into personal Wi-Fi.
+# """
+# import os
+# import re
+# import shutil
+# import subprocess
+# import xml.etree.ElementTree as ET
+# from pathlib import Path
+#
+# from fleet_wifi import WifiError, require
+#
+#
+# def output(args):
+#     try:
+#         done = subprocess.run(args, capture_output=True, text=True, timeout=20, check=False,
+#                               env={**os.environ, "LC_ALL": "C"})
+#     except (OSError, subprocess.TimeoutExpired):
+#         raise WifiError("Saved Wi-Fi settings could not be read. Enter the network settings in the wizard before installing.") from None
+#     require(done.returncode == 0, "Saved Wi-Fi settings could not be read. Enter the network settings in the wizard before installing.")
+#     return done.stdout.rstrip("\r\n")
+#
+#
+# def linux():
+#     if not shutil.which("nmcli"):
+#         active = any((p / "operstate").read_text().strip() == "up"
+#                      for p in Path("/sys/class/net").iterdir() if (p / "wireless").exists())
+#         require(not active, "This Wi-Fi connection cannot be exported automatically. Enter the Wi-Fi settings in the wizard before installing.")
+#         return None
+#     active = output(["nmcli", "--terse", "--escape", "no", "--fields", "UUID,TYPE", "connection", "show", "--active"])
+#     for line in active.splitlines():
+#         identifier, _, kind = line.partition(":")
+#         if kind not in ("802-11-wireless", "wifi"):
+#             continue
+#         require(re.fullmatch(r"[0-9a-fA-F-]{36}", identifier) is not None, "The active Wi-Fi profile has an invalid identity.")
+#         def get(field):
+#             return output(["nmcli", "--show-secrets", "--escape", "no", "--get-values", field, "connection", "show", "uuid", identifier])
+#         auth = get("802-11-wireless-security.key-mgmt")
+#         require(auth in ("", "--", "wpa-psk", "sae"), "This network uses enterprise or unsupported Wi-Fi security. Enter a supported network in the wizard before installing.")
+#         return {"ssid": get("802-11-wireless.ssid"), "auth": auth if auth not in ("", "--") else "open",
+#                 "password": get("802-11-wireless-security.psk") if auth in ("wpa-psk", "sae") else "",
+#                 "hidden": get("802-11-wireless.hidden") == "yes"}
+#     return None
+#
+#
+# def windows_xml(text):
+#     try:
+#         require(len(text) <= 65536, "The saved Wi-Fi profile is too large.")
+#         root = ET.fromstring(text)
+#         def value(path):
+#             return root.findtext("/".join("{*}" + part for part in path.split("/")), "")
+#         auth = value("MSM/security/authEncryption/authentication")
+#         modes = {"open": "open", "WPAPSK": "wpa-psk", "WPA2PSK": "wpa-psk", "WPA3SAE": "sae"}
+#         require(auth in modes and value("MSM/security/authEncryption/useOneX").lower() != "true",
+#                 "This Wi-Fi profile needs enterprise credentials. Enter a supported network in the wizard before installing.")
+#         require(value("MSM/security/sharedKey/protected").lower() != "true",
+#                 "Windows did not release a reusable Wi-Fi key. Enter the Wi-Fi settings in the wizard before installing.")
+#         hexadecimal = value("SSIDConfig/SSID/hex")
+#         ssid = bytes.fromhex(hexadecimal).decode("utf-8") if hexadecimal else value("SSIDConfig/SSID/name")
+#         return {"ssid": ssid, "password": value("MSM/security/sharedKey/keyMaterial"),
+#                 "auth": modes[auth], "hidden": value("SSIDConfig/nonBroadcast").lower() == "true"}
+#     except (ET.ParseError, ValueError, UnicodeError):
+#         raise WifiError("The saved Windows Wi-Fi profile could not be decoded.") from None
+#
+#
+# def windows():
+#     import ctypes as c
+#     from ctypes import wintypes as w
+#
+#     class GUID(c.Structure):
+#         _fields_ = [("data", c.c_byte * 16)]
+#
+#     class Interface(c.Structure):
+#         _fields_ = [("guid", GUID), ("description", w.WCHAR * 256), ("state", w.DWORD)]
+#
+#     api = c.WinDLL("wlanapi.dll")
+#     handle, version = w.HANDLE(), w.DWORD()
+#     api.WlanOpenHandle.argtypes = [w.DWORD, c.c_void_p, c.POINTER(w.DWORD), c.POINTER(w.HANDLE)]
+#     api.WlanEnumInterfaces.argtypes = [w.HANDLE, c.c_void_p, c.POINTER(c.c_void_p)]
+#     api.WlanQueryInterface.argtypes = [w.HANDLE, c.POINTER(GUID), w.DWORD, c.c_void_p, c.POINTER(w.DWORD), c.POINTER(c.c_void_p), c.POINTER(w.DWORD)]
+#     api.WlanGetProfile.argtypes = [w.HANDLE, c.POINTER(GUID), w.LPCWSTR, c.c_void_p, c.POINTER(c.c_void_p), c.POINTER(w.DWORD), c.POINTER(w.DWORD)]
+#     api.WlanFreeMemory.argtypes = [c.c_void_p]
+#     api.WlanCloseHandle.argtypes = [w.HANDLE, c.c_void_p]
+#     opened = api.WlanOpenHandle(2, None, c.byref(version), c.byref(handle))
+#     if opened == 1062:  # WLAN AutoConfig is stopped: usually wired-only hardware.
+#         return None
+#     require(opened == 0, "Windows Wi-Fi settings are unavailable. Enter the network settings in the wizard before installing.")
+#     interfaces = c.c_void_p()
+#     try:
+#         require(api.WlanEnumInterfaces(handle, None, c.byref(interfaces)) == 0, "Windows could not enumerate Wi-Fi adapters.")
+#         count = c.cast(interfaces, c.POINTER(w.DWORD))[0]
+#         require(count <= 64, "Windows reported an invalid Wi-Fi adapter list.")
+#         for index in range(count):
+#             interface = Interface.from_address(interfaces.value + 8 + index * c.sizeof(Interface))
+#             if interface.state != 1:  # wlan_interface_state_connected
+#                 continue
+#             current, size, kind = c.c_void_p(), w.DWORD(), w.DWORD()
+#             require(api.WlanQueryInterface(handle, c.byref(interface.guid), 7, None, c.byref(size), c.byref(current), c.byref(kind)) == 0,
+#                     "Windows could not read the active Wi-Fi connection.")
+#             try:
+#                 require(size.value >= 520, "Windows returned incomplete Wi-Fi connection data.")
+#                 name = c.wstring_at(current.value + 8, 256).split("\0", 1)[0]
+#             finally:
+#                 api.WlanFreeMemory(current)
+#             profile, flags, access = c.c_void_p(), w.DWORD(4), w.DWORD()
+#             require(api.WlanGetProfile(handle, c.byref(interface.guid), name, None, c.byref(profile), c.byref(flags), c.byref(access)) == 0,
+#                     "Windows did not release the Wi-Fi key. Enter the network settings in the wizard before installing.")
+#             try:
+#                 return windows_xml(c.wstring_at(profile))
+#             finally:
+#                 api.WlanFreeMemory(profile)
+#         return None
+#     finally:
+#         if interfaces.value:
+#             api.WlanFreeMemory(interfaces)
+#         api.WlanCloseHandle(handle, None)
+#
+#
+# def darwin():
+#     if not shutil.which("networksetup"):
+#         return None
+#     ports = output(["networksetup", "-listallhardwareports"])
+#     match = re.search(r"Hardware Port: (?:Wi-Fi|AirPort)\nDevice: ([A-Za-z0-9]+)", ports)
+#     if not match:
+#         return None
+#     network = output(["networksetup", "-getairportnetwork", match[1]])
+#     if ": " not in network:
+#         return None
+#     ssid = network.split(": ", 1)[1]
+#     password = output(["security", "find-generic-password", "-D", "AirPort network password", "-a", ssid,
+#                        "-w", "/Library/Keychains/System.keychain"])
+#     return {"ssid": ssid, "password": password, "auth": "wpa-psk", "hidden": True}
+#
+#
+# def capture(os_name):
+#     return {"Linux": linux, "Windows": windows, "Darwin": darwin}.get(os_name, lambda: None)()
+# __WIFI_CAPTURE_END__
 # __GUIDE_MD__
 # # Add or remove a fleet node (agent runbook)
 #

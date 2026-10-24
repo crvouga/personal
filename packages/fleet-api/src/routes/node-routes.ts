@@ -18,6 +18,7 @@ import {
 } from './http';
 import { envelopeFor, intervalOf, loadConfig } from './node-config';
 import { validateRegister } from './register-body';
+import { enrollmentCheck } from './enrollment-check';
 
 export interface NodeRouteOptions {
   readonly registerLimiter: RateLimiter;
@@ -180,6 +181,11 @@ export function mountNodeRoutes(
   deps: AppDeps,
   options: NodeRouteOptions
 ): void {
+  app.post(
+    '/v1/enrollment/check',
+    rateLimitGuard(options.registerLimiter),
+    enrollmentCheck(deps)
+  );
   app.post(
     '/v1/nodes/register',
     rateLimitGuard(options.registerLimiter),

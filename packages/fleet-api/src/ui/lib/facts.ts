@@ -2,6 +2,7 @@ import type { NodeRow } from '../../types';
 
 /** What a node last reported, read defensively from the stored JSON. */
 export interface NodeFacts {
+  readonly readinessIssues?: readonly string[] | null;
   readonly capabilities: readonly string[];
   readonly bootId: string | null;
   readonly uptimeSeconds: number | null;
@@ -65,6 +66,9 @@ export function readFacts(row: Pick<NodeRow, 'facts'>): NodeFacts {
   const total = num(memory['totalMiB']);
   const available = num(memory['availableMiB']);
   return {
+    readinessIssues: Array.isArray(record(facts['readiness'])['issues'])
+      ? strings(record(facts['readiness'])['issues'])
+      : null,
     capabilities: strings(facts['capabilities']),
     bootId: str(facts['bootId']),
     uptimeSeconds: num(facts['uptimeSeconds']),

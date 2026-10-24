@@ -128,7 +128,7 @@ class ChainVault:
                 self.reply(200, {"data": {"data": entry[1], "metadata": {"version": 1}}})
 
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self.http.serve_forever, daemon=True).start()
+        threading.Thread(target=self.http.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
 
     @property
     def url(self):

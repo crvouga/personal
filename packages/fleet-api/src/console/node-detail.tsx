@@ -26,6 +26,7 @@ import { formatDuration, formatMiB, shortRevision } from '../ui/lib/format';
 import { settingMeta } from '../ui/lib/setting-meta';
 import { Status } from './nodes';
 import { NodeCharts } from './node-charts';
+import { NodeReadiness } from './node-readiness';
 import { NodeEdit, NodeManage } from './node-edit';
 import { EventFeed } from './events';
 export function NodeDetail({
@@ -68,6 +69,7 @@ export function NodeDetail({
         }
       />
       <NodeNotices entry={entry} />
+      <NodeReadiness entry={entry} />
       <NodeCharts state={state} entry={entry} />
       <NodePanels entry={entry} reload={reload} />
       <EffectiveConfig state={state} entry={entry} />

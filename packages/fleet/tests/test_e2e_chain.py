@@ -109,7 +109,9 @@ class FullChainTest(unittest.TestCase):
     def _start_release_server(cls):
         directory = cls.root / "release"
         directory.mkdir()
-        iso = iso_fixture.build(iso_fixture.installer_tree())
+        tree = iso_fixture.installer_tree()
+        tree['fleet-readiness.json'] = json.dumps({'version': 1, 'roles': {role: {'blocked': []} for role in ('ci', 'web', 'cache', 'netboot', 'devbox')}}).encode()
+        iso = iso_fixture.build(tree)
         source = cls.root / "source.iso"
         source.write_bytes(iso)
         subprocess.run([sys.executable, str(SCRIPTS / "release-image.py"), str(source), str(directory)], check=True)

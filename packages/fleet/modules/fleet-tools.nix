@@ -9,6 +9,7 @@
     cp ${../scripts/cattle.py} "$out/cattle.py"
     cp ${../scripts/fleetconf.py} "$out/fleetconf.py"
     cp ${../scripts/agent.py} "$out/agent.py"
+    cp ${../scripts/node_readiness.py} "$out/node_readiness.py"
   '';
 in {
   inherit scripts;

@@ -263,6 +263,18 @@ export function validateHeartbeat(input: unknown): HeartbeatResult {
     runners: readRunners(problems, input['runners']),
     agent: readAgent(problems, input['agent']),
     events: readEvents(problems, input['events']),
+    ...(input['readiness'] === undefined
+      ? {}
+      : {
+          readiness: {
+            issues: readStringList(
+              problems,
+              'readiness.issues',
+              readObject(problems, 'readiness', input['readiness'])['issues'],
+              { maxItems: 12, max: 500 }
+            ),
+          },
+        }),
   };
   return problems.list.length > 0
     ? { ok: false, errors: problems.list }

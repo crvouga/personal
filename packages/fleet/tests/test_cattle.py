@@ -146,7 +146,8 @@ class MachineIdTests(unittest.TestCase):
             conf = {"role": "web", "high_mem_gib": "60"}
             cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None, machine_id=digest)
             node = (root / "run/fleet/node").read_text()
-            self.assertIn(f"id={digest[:4]}\nmachine_id={digest}\ncapabilities=", node)
+            self.assertIn(f"id={digest[:4]}\nmachine_id={digest}\n", node)
+            self.assertIn(f"runner_prefix=web-{digest[:4]}-{digest[:32]}\ncapabilities=", node)
             cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None)
             self.assertNotIn("machine_id", (root / "run/fleet/node").read_text())
             for wrong in ("a" * 64, digest[:63], digest.upper(), "zz" + digest[2:]):

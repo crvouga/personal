@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 
 export interface RunningServer {
@@ -10,11 +10,18 @@ async function stop(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null) return;
   await new Promise<void>((resolve) => {
     const timeout = setTimeout(() => child.kill('SIGKILL'), 3_000);
-    child.once('exit', () => {
+    child.once('close', () => {
       clearTimeout(timeout);
       resolve();
     });
-    child.kill('SIGTERM');
+    if (process.platform === 'win32' && child.pid) {
+      // A one-file PyInstaller executable has a bootloader parent and Python
+      // child. Both must release their DLLs before its private temp is removed.
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+    } else child.kill('SIGTERM');
   });
 }
 

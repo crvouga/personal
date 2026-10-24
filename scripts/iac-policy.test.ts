@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { sourceFiles as repositorySources } from './ci/source-files';
 
 const repo = join(import.meta.dirname, '..');
 const tofu = 'packages/infra/tofu/';
@@ -57,29 +58,25 @@ function getOnlyFetches(text: string): number {
   visit(source);
   return calls;
 }
-const sourceFiles = [
-  ...new Bun.Glob('**/*.{ts,sh,yml,yaml,tf,json}').scanSync({
-    cwd: repo,
-    dot: true,
-    onlyFiles: true,
-  }),
-].filter(
-  (file) =>
-    !file
-      .split('/')
-      .some((part) =>
-        [
-          'node_modules',
-          '.git',
-          '.terraform',
-          'dist',
-          '.astro',
-          '.sc',
-          '.turbo',
-          '.domain-migration',
-        ].includes(part)
-      )
-);
+const sourceFiles = repositorySources(repo)
+  .filter((file) => /\.(?:ts|sh|yml|yaml|tf|json)$/.test(file))
+  .filter(
+    (file) =>
+      !file
+        .split('/')
+        .some((part) =>
+          [
+            'node_modules',
+            '.git',
+            '.terraform',
+            'dist',
+            '.astro',
+            '.sc',
+            '.turbo',
+            '.domain-migration',
+          ].includes(part)
+        )
+  );
 
 describe('OpenTofu infrastructure ownership', () => {
   test('infrastructure adapters contain no cloud control plane clients', () => {

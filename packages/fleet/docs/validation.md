@@ -1,5 +1,39 @@
 # Validation record
 
+## 2026-10-24 automatic installer preparation across platforms
+
+The wizard now performs bounded preparation after disk consent: missing Linux
+boot tools through known system package managers, or one Windows free-space
+consolidation attempt. Hard failures stop before preparation, disk identity is
+checked again under the device lease, and strict preflight must pass afterward.
+NixOS retains its bundled tools; macOS and ARM64 remain media-making platforms.
+Downloads retry transient network failures only, up to three attempts. Reload
+reconnects to the existing job without repeating the write or erase approval.
+
+Passed locally on macOS ARM64:
+
+- `bun run --filter @pkgs/fleet check`: 596 Python tests and package lint.
+- 27 local browser Gherkin scenarios, including USB preparation and reload
+  under all five modeled OS/architecture combinations, and existing reinstall,
+  busy-job refusal and changed-disk scenarios.
+- Wizard Chromium click-through and the 13-check source launcher self-test.
+- 17 focused automation tests, including interrupted-transfer recovery to a
+  verified file, bounded retries, cancellation, hard failures before mutation,
+  changed disks, ineffective preparation and terminal elevation.
+- Fleet typecheck, BDD lint, formatting, agent-command links and generated-guide
+  checks. Additional imaging/automation verification: 33 tests.
+- Actual Linux boot-tool preparation in an ephemeral `python:3.12-slim`
+  container: the helper installed `kexec-tools` through apt, and `kexec` was
+  available afterward. No host package installation or boot command ran.
+
+The new automation tests are included in the five-platform installer CI matrix.
+Windows free-space consolidation is exercised with a command stand-in, not a
+real volume. Browser platform scenarios simulate disk discovery and write only
+regular temporary files. This does not qualify physical Windows handoff, USB
+boot or hardware compatibility. These changes have not been published; native
+Nix builds, VM checks and rebuilt packaged installers still require CI.
+The repository-wide `bun run check` was not run for this change.
+
 ## 2026-10-16 native NixOS and explicit hard reinstalls
 
 The local Playwright BDD suite passes **21 Gherkin scenarios** on macOS ARM64,

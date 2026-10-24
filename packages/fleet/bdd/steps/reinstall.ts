@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { access, readFile, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Given, When, Then, required } from '../fixtures';
 import { startMachine, operations, runNode } from '../machine';
@@ -57,7 +57,10 @@ Then(
   'the verified installer is handed off for the same role',
   async ({ page, world }) => {
     await expect(
-      page.getByRole('heading', { name: 'Done', exact: true })
+      page.getByRole('heading', {
+        name: 'Restart scheduled — Fleet confirmation pending',
+        exact: true,
+      })
     ).toBeVisible();
     const calls = await operations(required(world.wizard).directory);
     const boot = calls.filter((call) => call.kind === 'kexec');
@@ -157,7 +160,9 @@ Then('the wizard refuses the changed internal disk', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'It did not finish' })
   ).toBeVisible();
-  await expect(page.getByText(/not the one that was chosen/)).toBeVisible();
+  await expect(
+    page.locator('p.fail').filter({ hasText: /not the one that was chosen/ })
+  ).toBeVisible();
 });
 
 When('I arrange for the boot handoff to fail', async ({ world }) => {
@@ -167,23 +172,26 @@ When('I arrange for the boot handoff to fail', async ({ world }) => {
   );
 });
 Then(
-  'the failed handoff leaves the CI node withdrawn',
+  'the failed handoff restores the CI node and exposes copyable diagnostics',
   async ({ page, world }) => {
     await expect(
       page.getByRole('heading', { name: 'It did not finish' })
     ).toBeVisible();
-    expect(
-      await readFile(
-        join(required(world.wizard).directory, 'state/withdrawn'),
-        'utf8'
-      )
-    ).toContain('status=withdrawn');
-    expect(
-      await readFile(
-        join(required(world.wizard).directory, 'busy/draining'),
-        'utf8'
-      )
-    ).toBe('reinstall\n');
+    await expect(
+      access(join(required(world.wizard).directory, 'state/withdrawn'))
+    ).rejects.toThrow();
+    await expect(
+      access(join(required(world.wizard).directory, 'busy/draining'))
+    ).rejects.toThrow();
+    await page
+      .getByText('Error details for support or an LLM', { exact: true })
+      .click();
+    await expect(page.locator('#diagnostic-report')).toHaveValue(
+      /Fleet installer diagnostic/
+    );
+    await expect(
+      page.getByRole('button', { name: 'Copy diagnostic report', exact: true })
+    ).toBeVisible();
   }
 );
 When(
@@ -199,10 +207,13 @@ When(
     await page.getByRole('button', { name: 'Erase and install' }).click();
   }
 );
-Then('the CI runner was withdrawn only once', async ({ world }) => {
-  expect(
-    (await operations(required(world.wizard).directory)).filter(
-      (call) => call.kind === 'runner-control'
-    )
-  ).toHaveLength(1);
-});
+Then(
+  'the CI runner was withdrawn once per actual attempt',
+  async ({ world }) => {
+    expect(
+      (await operations(required(world.wizard).directory)).filter(
+        (call) => call.kind === 'runner-control'
+      )
+    ).toHaveLength(2);
+  }
+);

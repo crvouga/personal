@@ -91,36 +91,28 @@ defaults:
   run:
     shell: bash
 jobs:
-  check:
-    name: Check
+  changes:
+    name: Plan checks
     if: inputs.service_id == ''
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
-      id-token: write
-    env:
-      TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
-      TURBO_CACHE: local:rw
     outputs:
-      fleet: ${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' || github.event_name == 'workflow_dispatch' }}
+      fleet: ${{ steps.fleet_impact.outputs.fleet }}
+      auth: ${{ steps.filter.outputs.auth == 'true' || github.event_name == 'workflow_dispatch' }}
+      fleet_e2e: ${{ (steps.filter.outputs.fleet_e2e == 'true' && steps.fleet_impact.outputs.docs_only != 'true') || github.event_name == 'workflow_dispatch' }}
+      portfolio: ${{ steps.filter.outputs.portfolio == 'true' || github.event_name == 'workflow_dispatch' }}
+      infra: ${{ steps.filter.outputs.infra == 'true' || github.event_name == 'workflow_dispatch' }}
+      vault_inputs: ${{ steps.filter.outputs.vault_inputs }}
+      nix: ${{ steps.fleet_impact.outputs.nix }}
+      installer: ${{ steps.fleet_impact.outputs.installer }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
-      - name: Check branches
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-        env:
-          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
-          HEAD_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_ref || github.head_ref }}
-        run: |
-          set -euo pipefail
-          test "${BASE_REF#refs/heads/}" = main
-          test "${HEAD_REF#refs/heads/}" != main
-      - name: Install dependencies
-        uses: ./.github/actions/setup
+          fetch-depth: 2
       - name: Find affected integrations
         id: filter
         uses: dorny/paths-filter@v4
@@ -128,16 +120,35 @@ jobs:
           base: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
           ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
           filters: |
+            infra:
+              - 'packages/infra/**'
+              - 'packages/auth-relay/**'
+              - 'packages/fleet/workflows/**'
+              - 'scripts/**'
+              - '.github/**'
+              - 'package.json'
+              - 'bun.lock'
             fleet:
               - 'packages/fleet/**'
               - '.github/**'
               - 'bun.lock'
+              - 'package.json'
+              - 'tsconfig*.json'
             auth:
+              - 'packages/admin-ui/**'
+              - 'packages/assert/**'
+              - 'packages/logger/**'
+              - 'bun.lock'
+              - 'package.json'
+              - '.dockerignore'
               - 'packages/auth-relay/**'
               - 'packages/infra/tofu/auth*/**'
               - 'packages/infra/tofu/modules/auth-*/**'
               - '.github/**'
             fleet_e2e:
+              - '.dockerignore'
+              - 'packages/admin-ui/**'
+              - 'package.json'
               - 'packages/fleet/**'
               - 'packages/fleet-api/**'
               - 'packages/assert/**'
@@ -158,7 +169,7 @@ jobs:
           set -euo pipefail
           assets=$(gh release view fleet-installer --json assets --jq '.assets[].name') || assets=''
           for asset in \
-            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.iso.part-000 fleet-node.sh \
+            fleet-installer.iso.parts.json fleet-installer.iso.sha256 fleet-installer.readiness.json fleet-installer.iso.part-000 fleet-node.sh \
             fleet-installer-windows-x64.exe \
             fleet-installer-macos-arm64.zip fleet-installer-macos-x64.zip \
             fleet-installer-linux-arm64.tar.gz fleet-installer-linux-x64.tar.gz; do
@@ -169,6 +180,34 @@ jobs:
             fi
           done
           echo 'missing=false' >> "$GITHUB_OUTPUT"
+      - name: Select Fleet PR build lanes
+        id: fleet_impact
+        env:
+          FLEET_AFFECTED: ${{ steps.filter.outputs.fleet == 'true' || steps.release.outputs.missing == 'true' || github.event_name == 'workflow_dispatch' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 packages/fleet/scripts/ci-impact.py
+  repository:
+    name: Repository checks
+    if: inputs.service_id == ''
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Check branches
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+          HEAD_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_ref || github.head_ref }}
+        run: |
+          set -euo pipefail
+          test "${BASE_REF#refs/heads/}" = main
+          test "${HEAD_REF#refs/heads/}" != main
+      - name: Install dependencies
+        uses: ./.github/actions/setup
       - name: Check commit messages
         if: github.event_name == 'pull_request'
         env:
@@ -182,13 +221,90 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Check TOFU_VAULT_INPUTS against the inventory
         env:
-          VAULT_INPUTS_STRICT: ${{ steps.filter.outputs.vault_inputs == 'true' }}
+          VAULT_INPUTS_STRICT: ${{ needs.changes.outputs.vault_inputs == 'true' }}
           TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
         run: bun run check:vault-inputs
+      - name: Cache formatting results
+        uses: actions/cache@v4
+        with:
+          path: .cache/prettier
+          key: prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '.prettier*', 'prettier.config.*', '.editorconfig', 'package.json', 'packages/*/.prettier*', 'packages/*/prettier.config.*', 'packages/*/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '.prettier*', 'prettier.config.*', '.editorconfig', 'package.json', 'packages/*/.prettier*', 'packages/*/prettier.config.*', 'packages/*/package.json') }}-
       - name: Fast repository checks
         run: bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts
+  packages:
+    name: Packages (${{ matrix.task }})
+    if: inputs.service_id == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [quality, tests]
+    env:
+      TURBO_CACHE: local:rw
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Cache task results
+        id: tasks_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .turbo
+          key: turbo-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ github.sha }}
+          restore-keys: |
+            turbo-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-
       - name: Typecheck and lint packages
+        if: matrix.task == 'quality'
         run: bunx turbo run tc lint
+      - name: Set up Atlas
+        if: matrix.task == 'tests'
+        uses: ariga/setup-atlas@v0
+      - name: Plan browser installation
+        id: browsers
+        if: matrix.task == 'tests'
+        run: bun scripts/ci/browser-plan.ts
+      - name: Install Chromium (portfolio resume PDF and browser contracts)
+        if: matrix.task == 'tests' && steps.browsers.outputs.install == 'true'
+        uses: ./.github/actions/browsers
+        with:
+          packages: >-
+            packages/portfolio/node_modules/playwright
+            packages/fleet/node_modules/@playwright/test
+            packages/fleet-api/node_modules/@playwright/test
+            packages/password-manager/node_modules/playwright
+      - name: Test and build packages
+        if: matrix.task == 'tests'
+        run: bunx turbo run test build
+      - name: Save completed task results
+        if: always() && !cancelled() && steps.tasks_cache.outputs.cache-primary-key != '' && steps.tasks_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo
+          key: ${{ steps.tasks_cache.outputs.cache-primary-key }}
+
+  infra:
+    name: OpenTofu (${{ matrix.group }})
+    if: needs.changes.outputs.infra == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [validate, modules, contracts]
+    env:
+      TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.cache/tofu-providers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        if: matrix.group == 'contracts'
+        uses: ./.github/actions/setup
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
@@ -196,47 +312,143 @@ jobs:
           tofu_wrapper: false
       - name: Set up Atlas
         uses: ariga/setup-atlas@v0
-      - name: Validate and test OpenTofu
-        run: bun run check:infra
-      - name: Cache Playwright browsers
+      - name: Cache verified providers
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      - name: Install Chromium (portfolio resume PDF)
+          path: .cache/tofu-providers
+          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
+          restore-keys: |
+            tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-
+            tofu-1.13-${{ runner.os }}-${{ runner.arch }}-
+      - name: Validate and test OpenTofu
+        env:
+          CHECK_GROUP: ${{ matrix.group }}
         run: |
-          cd packages/portfolio
-          node node_modules/playwright/cli.js install --with-deps chromium
-      - name: Install password-manager Chromium and run synthetic browser contracts
-        run: |
-          node packages/password-manager/node_modules/playwright/cli.js install --with-deps chromium
-          bun run --cwd packages/password-manager test:browser
-      - name: Test and build packages
-        run: bunx turbo run test build
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          bash packages/infra/tofu/check.sh "$CHECK_GROUP"
+  fleet_e2e:
+    name: Fleet integration (${{ matrix.runtime }})
+    if: needs.changes.outputs.fleet_e2e == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [process, image]
+    env:
+      FLEET_E2E_REQUIRED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Set up Atlas
+        uses: ariga/setup-atlas@v0
+      - name: Build Fleet assets
+        if: matrix.runtime == 'process'
+        run: bun run --filter @pkgs/fleet-api build
+      - name: Set up Docker Buildx
+        if: matrix.runtime == 'image'
+        uses: docker/setup-buildx-action@v3
+      - name: Build Fleet production image
+        if: matrix.runtime == 'image'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/fleet-api/Dockerfile
+          tags: fleet-api:ci
+          load: true
+          cache-from: type=gha,scope=fleet-ci
+          cache-to: type=gha,scope=fleet-ci,mode=max
+      - name: Test Fleet integration
+        env:
+          FLEET_E2E_IMAGE: ${{ matrix.runtime == 'image' && 'fleet-api:ci' || '' }}
+        run: python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
+  auth:
+    name: Auth compatibility (${{ matrix.suite }})
+    if: needs.changes.outputs.auth == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [images, compatibility]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.0.0
+      - name: Build auth production images concurrently
+        if: matrix.suite == 'images'
+        uses: docker/bake-action@v6
+        with:
+          files: packages/auth-relay/tests/production-bake.hcl
+          load: true
+          pull: true
+      - name: Test production images
+        if: matrix.suite == 'images'
+        env:
+          AUTH_PRODUCTION_PREBUILT: "1"
+        run: python3 packages/auth-relay/tests/production-image.py
+      - name: Set up Atlas
+        if: matrix.suite == 'compatibility'
+        uses: ariga/setup-atlas@v0
+      - name: Set up OpenTofu
+        if: matrix.suite == 'compatibility'
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.13.0
+          tofu_wrapper: false
+      - name: Build compatibility fixtures
+        if: matrix.suite == 'compatibility'
+        uses: docker/bake-action@v6
+        with:
+          files: packages/auth-relay/tests/docker-bake.hcl
+          load: true
+          pull: true
+      - name: Install Chromium
+        if: matrix.suite == 'compatibility'
+        uses: ./.github/actions/browsers
+        with:
+          packages: packages/fleet/node_modules/@playwright/test
+      - name: Test auth compatibility
+        if: matrix.suite == 'compatibility'
+        env:
+          AUTH_TEST_PREBUILT: "1"
+        run: bun run auth:test:e2e
+  portfolio_urls:
+    name: Portfolio public URLs
+    if: needs.changes.outputs.portfolio == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/setup
       - name: Health-check portfolio public URLs
-        if: steps.filter.outputs.portfolio == 'true'
         run: |
           bun run packages/portfolio/scripts/health-check-urls.ts \
-            --timeout-ms 30000 \
-            --retries 4 \
-            --retry-delay-ms 5000
-      - name: Test Fleet integration
-        if: steps.filter.outputs.fleet_e2e == 'true'
-        env:
-          FLEET_E2E_REQUIRED: "1"
-        run: |
-          bun run --filter @pkgs/fleet-api build:css
-          python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
-          docker build -f packages/fleet-api/Dockerfile -t fleet-api:ci .
-          FLEET_E2E_IMAGE=fleet-api:ci python3 -B -m unittest discover -s packages/fleet/tests -p test_e2e_chain.py -v
-      - name: Test auth compatibility
-        if: steps.filter.outputs.auth == 'true'
-        run: |
-          docker build -f packages/auth-relay/Dockerfile -t auth-relay-gateway:ci .
-          docker build -f packages/auth-relay/Dockerfile.tunnel -t auth-relay-tunnel:ci packages/auth-relay
-          python3 packages/auth-relay/tests/production-image.py
-          (cd packages/fleet && bunx playwright install --with-deps chromium)
-          bun run auth:test:e2e
+            --timeout-ms 30000 --retries 4 --retry-delay-ms 5000
+  optional:
+    name: Optional integrations
+    continue-on-error: true
+    if: inputs.service_id == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/setup
       - name: Read optional integration credentials
         uses: ./.github/actions/turborepo-vault-secrets
         continue-on-error: true
@@ -250,27 +462,101 @@ jobs:
           VAULT_CONFIG: dev
           VAULT_PROJECT: personal
         run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
+  check:
+    name: Check
+    if: always() && inputs.service_id == ''
+    needs: [changes, repository, packages, infra, fleet_e2e, auth, portfolio_urls]
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    outputs:
+      fleet: ${{ needs.changes.outputs.fleet }}
+      nix: ${{ needs.changes.outputs.nix }}
+      installer: ${{ needs.changes.outputs.installer }}
+    steps:
+      - name: Check validation results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          FILTERS: ${{ toJSON(needs.changes.outputs) }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
+          for job in changes repository packages; do
+            test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
+          done
+          for job in infra fleet_e2e auth portfolio_urls; do
+            filter="$job"
+            if [ "$job" = portfolio_urls ]; then filter=portfolio; fi
+            expected=$(jq -r --arg filter "$filter" '.[$filter]' <<< "$FILTERS")
+            result=$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")
+            if [ "$expected" = true ]; then
+              test "$result" = success
+            elif [ "$expected" = false ]; then
+              test "$result" = success || test "$result" = skipped
+            else
+              echo "Missing or invalid path filter for $job: $expected" >&2
+              exit 1
+            fi
+          done
   nix:
-    name: Test Nix
-    if: needs.check.outputs.fleet == 'true'
-    needs: check
+    name: Test Nix (${{ matrix.group }})
+    if: needs.changes.outputs.nix == 'true'
+    needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [roles, runtime, lifecycle, image]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Set up Nix
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Reuse pinned Nix dependencies
+        if: matrix.group == 'roles' || matrix.group == 'image'
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-store-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-${{ hashFiles('packages/fleet/flake.lock') }}
+          save: ${{ matrix.group == 'roles' }}
+          gc-max-store-size-linux: 4G
       - name: Lint workflows and shell scripts
+        if: matrix.group == 'roles'
         run: nix develop ./packages/fleet --command bash packages/fleet/scripts/lint.sh
+      - name: Evaluate exact Nix derivations
+        working-directory: packages/fleet
+        env:
+          CHECK_GROUP: ${{ matrix.group }}
+        run: python3 scripts/ci-checks.py "$CHECK_GROUP" --plan .ci/nix-plan.json --plan-only
+      - name: Cache successful VM derivations
+        if: matrix.group == 'runtime' || matrix.group == 'lifecycle'
+        id: vm_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: packages/fleet/.ci/nix-results.json
+          key: nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/fleet/.ci/nix-plan.json') }}-${{ github.sha }}-${{ github.run_attempt }}
+          restore-keys: |
+            nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/fleet/.ci/nix-plan.json') }}-
+            nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-
       - name: Test all Nix checks
         working-directory: packages/fleet
+        env:
+          CHECK_GROUP: ${{ matrix.group }}
+          FRESH_CHECKS: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          for group in roles runtime lifecycle image; do
-            timeout 12m python3 scripts/ci-checks.py "$group"
-          done
+          check_args=("$CHECK_GROUP" --plan .ci/nix-plan.json)
+          if [ "$CHECK_GROUP" = runtime ] || [ "$CHECK_GROUP" = lifecycle ]; then
+            check_args+=(--cache .ci/nix-results.json)
+          fi
+          if [ "$FRESH_CHECKS" = true ]; then check_args+=(--fresh); fi
+          timeout 12m python3 scripts/ci-checks.py "${check_args[@]}"
+      - name: Save successful VM derivations
+        if: always() && !cancelled() && (matrix.group == 'runtime' || matrix.group == 'lifecycle') && steps.vm_cache.outputs.cache-primary-key != '' && hashFiles('packages/fleet/.ci/nix-results.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: packages/fleet/.ci/nix-results.json
+          key: ${{ steps.vm_cache.outputs.cache-primary-key }}
       - name: Upload fleet-installer
-        if: github.event_name != 'pull_request'
+        if: matrix.group == 'image' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: fleet-installer
@@ -280,8 +566,8 @@ jobs:
           retention-days: 1
   installer:
     name: Build installer (${{ matrix.os }})
-    if: needs.check.outputs.fleet == 'true'
-    needs: check
+    if: needs.changes.outputs.installer == 'true'
+    needs: changes
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -301,30 +587,38 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Wizard tests
-        working-directory: packages/fleet
-        run: python -B -m unittest discover -s tests -p "test_wizard.py" -v
+          cache: pip
+          cache-dependency-path: packages/fleet/wizard/requirements-build.txt
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.11
+          bun-version: 1.4.4
+      - name: Cache Bun downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-1.4.4-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-1.4.4-${{ runner.os }}-${{ runner.arch }}-
       - name: Install only Fleet browser dependencies
-        run: |
-          bun install --frozen-lockfile --filter '@pkgs/fleet'
-          cd packages/fleet
-          bunx playwright install --with-deps chromium
-      - name: Click through the wizard page in a real browser
+        run: bun install --frozen-lockfile --filter '@pkgs/fleet'
+      - name: Install Chromium
+        uses: ./.github/actions/browsers
+        with:
+          packages: packages/fleet/node_modules/@playwright/test
+      - name: Set up Nix
+        if: startsWith(matrix.os, 'ubuntu-')
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Test and build the installer concurrently
         working-directory: packages/fleet
-        shell: bash
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
           PLAYWRIGHT_PATH: "@playwright/test"
-        run: node wizard/ui-e2e.cjs
-      - name: Build the installer and run its self-test
-        working-directory: packages/fleet
         run: |
-          python -m pip install "pyinstaller>=6,<7"
-          python wizard/build.py --version "${{ github.sha }}"
+          python -m pip install -r wizard/requirements-build.txt
+          installer_args=(--version "$GITHUB_SHA")
+          if [ "$RUNNER_OS" = Linux ]; then installer_args+=(--native-nix); fi
+          python -B tests/installer.py "${installer_args[@]}"
       - name: Select the packaged installer for browser acceptance
         working-directory: packages/fleet
         run: python bdd/packaged.py
@@ -345,9 +639,6 @@ jobs:
             packages/fleet/dist/bdd-results.json
           if-no-files-found: error
           retention-days: 14
-      - name: Set up Nix
-        if: startsWith(matrix.os, 'ubuntu-')
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - name: Native Nix installer and Gherkin acceptance
         if: startsWith(matrix.os, 'ubuntu-')
         working-directory: packages/fleet
@@ -358,7 +649,6 @@ jobs:
           PLAYWRIGHT_HTML_OUTPUT_DIR: dist/bdd-native-report
           PLAYWRIGHT_JSON_OUTPUT_FILE: dist/bdd-native-results.json
         run: |
-          nix build --no-write-lock-file -o result-native '.#fleet-installer'
           result-native/bin/fleet-installer --selftest
           FLEET_BDD_WIZARD="$PWD/result-native/bin/fleet-installer" bun run test:bdd:local
       - name: Upload fleet-bdd-native-${{ matrix.os }}
@@ -390,36 +680,17 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Set up Nix
-        if: github.event_name == 'merge_group'
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
-      - name: Push role closures before this commit can reach main
-        if: github.event_name == 'merge_group'
+      - name: Verify signed cache publication before releasing this exact revision
         working-directory: packages/fleet
         env:
-          CACHE_URL: ${{ vars.FLEET_CACHE_URL }}
-          CACHE_NAME: ${{ vars.FLEET_CACHE_NAME }}
-          ATTIC_TOKEN: ${{ secrets.FLEET_ATTIC_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CACHE_URL}" ] || [ -z "${CACHE_NAME}" ] || [ -z "${ATTIC_TOKEN}" ]; then
-            echo 'TODO: set FLEET_CACHE_URL, FLEET_CACHE_NAME, and FLEET_ATTIC_TOKEN. A fleet commit cannot merge until the cache push succeeds.' >&2
-            exit 1
-          fi
-          for attr in ci web cache netboot devbox; do
-            nix build -o "result-${attr}" ".#${attr}"
-            if [ ! -L "result-${attr}" ] || [ ! -d "result-${attr}" ]; then
-              echo "Fleet cache: missing build result for ${attr}. Rebuild this role before publishing." >&2
-              exit 1
-            fi
-          done
-          nix run '.#attic-client' -- login fleet "$CACHE_URL" "$ATTIC_TOKEN"
-          for attr in ci web cache netboot devbox; do
-            nix run '.#attic-client' -- push "$CACHE_NAME" "./result-${attr}"
-          done
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-cache.py
       - name: Download fleet-installer
         uses: actions/download-artifact@v4
         with:
@@ -455,7 +726,9 @@ jobs:
           find wizard-artifacts -type f -exec ls -l {} +
           count=$(find wizard-artifacts -type f | wc -l)
           test "$count" -ge 5
-          gh release upload fleet-installer wizard-artifacts/* --clobber
+          # Windows is published only after Authenticode verification by
+          # fleet-windows-sign.yml; never reset its reputation with unsigned bytes.
+          find wizard-artifacts -maxdepth 1 -type f ! -name '*.exe' -exec gh release upload fleet-installer --clobber '{}' +
   fleet:
     name: Fleet
     if: always() && inputs.service_id == ''
@@ -464,21 +737,33 @@ jobs:
       - nix
       - installer
       - release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
       - name: Check platform results
         env:
           RESULTS: ${{ toJSON(needs) }}
           FLEET: ${{ needs.check.outputs.fleet }}
+          NIX_REQUIRED: ${{ needs.check.outputs.nix }}
+          INSTALLER_REQUIRED: ${{ needs.check.outputs.installer }}
           RELEASE_REQUIRED: ${{ github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') }}
         run: |
           set -euo pipefail
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
           test "$(jq -r '.check.result' <<< "$RESULTS")" = success
-          if [ "$FLEET" != true ]; then exit 0; fi
+          if [ "$FLEET" = false ]; then exit 0; fi
+          test "$FLEET" = true
           for job in nix installer; do
-            test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
+            if [ "$job" = nix ]; then required="$NIX_REQUIRED"; else required="$INSTALLER_REQUIRED"; fi
+            result=$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")
+            if [ "$required" = true ]; then
+              test "$result" = success
+            elif [ "$required" = false ] && [ "$RELEASE_REQUIRED" != true ]; then
+              test "$result" = success || test "$result" = skipped
+            else
+              echo "Missing or invalid Fleet lane selection: $job=$required" >&2
+              exit 1
+            fi
           done
           if [ "$RELEASE_REQUIRED" = true ]; then
             test "$(jq -r '.release.result' <<< "$RESULTS")" = success
@@ -489,7 +774,7 @@ jobs:
     needs:
       - check
       - fleet
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
       - name: Check legacy merge status

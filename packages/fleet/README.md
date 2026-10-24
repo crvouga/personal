@@ -5,19 +5,22 @@
 Before the first rollout, read the [bring-up readiness record](docs/readiness.md)
 for the verified builds, outstanding production prerequisites and installation order.
 
-| Role      | What the machine does                                                      |
-| --------- | -------------------------------------------------------------------------- |
-| `ci`      | GitHub Actions runners for trusted private repositories                    |
-| `web`     | Caddy in front of one OCI image per app                                    |
-| `cache`   | The attic binary cache every other node pulls from                         |
-| `netboot` | Pixiecore; machines on the network boot from their own disk unless flagged |
-| `devbox`  | SSH development machine (`dev` account, persistent `/nix/devbox`, no sudo) |
+| Role      | What the machine does                                                          |
+| --------- | ------------------------------------------------------------------------------ |
+| `ci`      | GitHub Actions runners for trusted private repositories                        |
+| `web`     | Caddy in front of one OCI image per app                                        |
+| `cache`   | Optional physical Attic server; shared updates use the independent cloud cache |
+| `netboot` | Pixiecore; machines on the network boot from their own disk unless flagged     |
+| `devbox`  | SSH development machine (`dev` account, persistent `/nix/devbox`, no sudo)     |
 
 ## Add a machine
 
-You need the machine, its power and a network cable. Nothing else, and no second computer.
+You need the machine, power, and working Ethernet or supported personal Wi-Fi.
+No second computer or node-terminal commands are needed for the supported
+Windows/Linux x86-64 UEFI conversion path. Firmware and hardware constraints
+are listed in the readiness record.
 
-1. Open the [`fleet-installer` release](https://github.com/crvouga/workspace/releases/tag/fleet-installer) on the machine and download the file for its operating system:
+1. Open [Fleet](https://fleet.chrisvouga.dev) on the new machine and download its installer:
 
    | The machine runs       | Download                                |
    | ---------------------- | --------------------------------------- |
@@ -32,6 +35,13 @@ You need the machine, its power and a network cable. Nothing else, and no second
 
 That is all. The installer does the rest, unattended:
 
+The wizard distinguishes a scheduled restart from an installed, integrated
+node. Follow its **Monitor in Fleet** link: **Ready** confirms approved reporting,
+automatic update/cache checks, and live GitHub runners for CI. Configuration,
+credential and connectivity failures stop before erasure where possible and
+expose a copyable diagnostic report. A failed update keeps or restores the
+previous system and automatically restores runner admission.
+
 ```text
 download the installer image, check its sha256
 ask the owner to approve (the GitHub issue)            nothing erased yet
@@ -43,6 +53,13 @@ generate the SSH host key, install the role's age key
 boot into the role; the hostname is  <role>-<4 hex>
 CI: register GitHub runners with the GitHub App; every role: poll main
 ```
+
+The wizard also installs missing Linux boot tools on supported distributions,
+attempts Windows free-space consolidation when needed, retries temporary
+download failures, and reconnects to an active job after a browser reload.
+There is no separate doctor/plan step for a person using the wizard. See the
+[cross-platform installer guide](docs/installer.md) for automatic preparation
+and the physical or firmware steps that still require a person.
 
 On a `ci` machine the runners appear in GitHub on their own. On every machine `fleet-node status` answers whether it came up. Nothing was typed into the machine except the role.
 

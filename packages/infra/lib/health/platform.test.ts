@@ -97,6 +97,7 @@ describe("storage", () => {
   const routes: Routes = {
     [`${VAULT}/sys/seal-status`]: { body: SEAL },
     "https://turborepo.example.dev/v8/artifacts/status": { body: { status: "enabled" } },
+    "https://turborepo.example.dev/nix/nix-cache-info": { body: "StoreDir: /nix/store\n", headers: { 'content-type': 'text/plain' } },
   };
 
   test("buckets, PostgreSQL, databases and the cache pass when reachable", async () => {
@@ -106,6 +107,7 @@ describe("storage", () => {
       ["postgres openbao", "pass"],
       ["database DATABASE_URL", "pass"],
       ["remote cache", "pass"],
+      ["Fleet Nix cache", "pass"],
     ]);
   });
 
@@ -129,7 +131,7 @@ describe("storage", () => {
         },
       }),
     );
-    expect(statuses(results.filter((result) => !result.name.startsWith("postgres")))).toEqual(["fail"]);
+    expect(statuses(results.filter((result) => !result.name.startsWith("postgres") && result.name !== "Fleet Nix cache"))).toEqual(["fail"]);
     const database = results.find((result) => result.name === "database DATABASE_URL")!;
     expect(database.detail).toBe("connection failed: connection refused");
   });

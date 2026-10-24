@@ -64,7 +64,7 @@ class ServerTests(unittest.TestCase):
         os.environ["FLEET_NETBOOT_BIND"] = "127.0.0.1"
         os.environ["FLEET_NETBOOT_PORT"] = "0"
         self.server = policy.ThreadingHTTPServer(("127.0.0.1", 0), policy.Handler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
         self.port = self.server.server_address[1]
 

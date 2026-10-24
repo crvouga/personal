@@ -13,6 +13,6 @@ These OS installer/trust actions cannot run through a missing tool manager.
 ACTION
   exit 2
 fi
-mise install node@22.22.3 bun@1.3.11
+mise install node@22.22.3 bun@1.4.4
 mise exec -- bun install --frozen-lockfile
 exec mise exec -- bun run password-manager setup "$@"

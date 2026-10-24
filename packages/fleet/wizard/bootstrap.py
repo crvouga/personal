@@ -1,7 +1,7 @@
 """Make `import decide` work without putting scripts/ on sys.path.
 
-scripts/ holds a token.py that would shadow Python's own `token` module for
-every import that follows. So decide.py is loaded by file path instead. In a
+Repository helper names must not leak into unrelated imports (a former
+token.py shadowed Python's standard module). Load decide.py by file path. In a
 packaged build decide.py sits beside the other modules and imports normally.
 """
 import importlib.util

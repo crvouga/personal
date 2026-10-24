@@ -13,14 +13,16 @@ from pathlib import Path
 root = Path(__file__).parent
 kind = Path(__file__).name
 args = sys.argv[1:]
-assert kind in ('kexec', 'runner-control')
-assert args[0] in ('--load', '-e', 'withdraw', 'hold')
+assert kind in ('kexec', 'runner-control', 'fleet-resume')
+assert kind == 'fleet-resume' or args[0] in ('--load', '-e', 'withdraw', 'hold')
 with (root / 'events.jsonl').open('a') as stream:
     stream.write(json.dumps({'kind': kind, 'args': args, 'draining': (root / 'busy/draining').exists()}) + '\\n')
 if kind == 'kexec' and '-e' in args and (root / 'fail-boot').exists():
     sys.exit(7)
+if kind == 'fleet-resume':
+    (root / 'busy/draining').unlink(missing_ok=True)
 `;
-  for (const name of ['kexec', 'runner-control'])
+  for (const name of ['kexec', 'runner-control', 'fleet-resume'])
     await writeFile(join(directory, name), script, { mode: 0o700 });
 }
 
@@ -68,6 +70,7 @@ async function configure(
     FLEET_RUNNER_CONF: join(directory, 'runner.conf'),
     FLEET_CREDENTIAL: join(directory, 'credential'),
     FLEET_RUNNER_CONTROL: join(directory, 'runner-control'),
+    FLEET_RESUME: join(directory, 'fleet-resume'),
     FLEET_BUSY_DIR: join(directory, 'busy'),
     FLEET_HOSTNAME: 'ci-bdd0',
     FLEET_KEXEC: join(directory, 'kexec'),

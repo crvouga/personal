@@ -2,12 +2,33 @@
   "extends": ["//"],
   "tasks": {
     "lint": {
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/**",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**",
+        "$TURBO_ROOT$/packages/eslint-rules/**"
+      ],
       "outputs": []
     },
     "test": {
-      "inputs": ["$TURBO_DEFAULT$"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/**",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
+      ],
       "outputs": []
+    },
+    "tc": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
+      ]
+    },
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
+      ]
     }
   }
 }
