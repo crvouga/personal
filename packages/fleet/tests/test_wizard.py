@@ -38,12 +38,14 @@ import main as wizard_main  # noqa: E402
 import server  # noqa: E402
 import iso_fixture  # noqa: E402
 
+# Windows device mutexes are global even when every write is a fixture.
+# Give independent test processes distinct fake devices; retain real locking.
 INTERNAL = {
-    "path": "/dev/nvme0n1", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
+    "path": f"/dev/fleet-test-internal-{os.getpid()}", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
     "mounted": True, "whole": True, "size": 500 * 10**9, "model": "Samsung SSD 980", "serial": "S5",
 }
 USB = {
-    "path": "/dev/sdb", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
+    "path": f"/dev/fleet-test-usb-{os.getpid()}", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
     "mounted": False, "whole": True, "size": 8 * 10**9, "model": "Flash", "serial": "U1",
 }
 USB_OTHER = dict(USB, serial="U2", path="/dev/sdc")
@@ -339,7 +341,7 @@ class InvariantTests(unittest.TestCase):
     def test_a_mounted_internal_disk_is_the_running_system_and_is_eligible(self):
         chosen = decide.plan_disks([INTERNAL, USB], "install")
         self.assertTrue(chosen["ok"], chosen)
-        self.assertEqual(chosen["path"], "/dev/nvme0n1")
+        self.assertEqual(chosen["path"], INTERNAL["path"])
         self.assertIsNone(decide.install_block(INTERNAL))
         for refused in (USB, dict(INTERNAL, rm=True), dict(INTERNAL, hotplug=True)):
             self.assertIsNotNone(decide.install_block(refused))
