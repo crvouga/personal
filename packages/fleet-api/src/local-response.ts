@@ -14,8 +14,16 @@ export async function localResponse(
   const banner =
     '<aside role="note">LIVE FLEET DATA: changes affect the managed fleet. Background jobs run only on the deployed service.</aside>';
   headers.delete('content-length');
-  return new Response(html.replace('<main', `${banner}<main`), {
-    status: response.status,
-    headers,
-  });
+  return new Response(
+    html
+      .replace(
+        '<head>',
+        '<head><meta name="fleet-data-source" content="managed">'
+      )
+      .replace('<main', `${banner}<main`),
+    {
+      status: response.status,
+      headers,
+    }
+  );
 }

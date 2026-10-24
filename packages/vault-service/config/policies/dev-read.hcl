@@ -1,8 +1,9 @@
-# Read-only access to migrated secrets (KV v2 mount: secret).
-path "secret/data/*" {
+# Shared application development reads must not include operator credentials,
+# fleet enrollment material or isolated auth registration credentials.
+path "secret/data/personal/*" {
   capabilities = ["read"]
 }
 
-path "secret/metadata/*" {
+path "secret/metadata/personal/*" {
   capabilities = ["list", "read"]
 }

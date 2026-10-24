@@ -8,17 +8,28 @@
     "dev": "bun run build && bun ../../scripts/dev-server.ts auth-relay 8081 bun development/run.ts",
     "start": "bun src/server.ts",
     "tc": "tsc --noEmit",
-    "lint": "eslint src ui development --max-warnings 0",
-    "build": "bun build ./ui/app.ts --outdir ./dist --target browser",
-    "dev:fixtures": "AUTH_DEV_MODE=local bun run dev"
+    "lint": "eslint src ui development agent.ts --max-warnings 0",
+    "build": "bun build ./ui/app.tsx ./ui/theme-init.ts --outdir ./dist --target browser --production",
+    "dev:fixtures": "AUTH_DEV_MODE=local bun run dev",
+    "dev:ui:fixtures": "bun run build && bun tests/ui-preview.ts"
   },
   "dependencies": {
+    "@mantine/core": "^9.7.3",
+    "@mantine/form": "^9.7.3",
+    "@mantine/hooks": "^9.7.3",
     "@pkgs/logger": "workspace:*",
+    "@tabler/icons-react": "^3.49.0",
+    "get-nonce": "^1.0.1",
     "hono": "catalog:",
-    "openid-client": "6.8.8"
+    "openid-client": "6.8.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "@pkgs/admin-ui": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "typescript": "catalog:"
   }
 }

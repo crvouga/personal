@@ -6,8 +6,14 @@ import type { Context, Dependencies } from './types';
 
 export function readinessRoutes(
   deps: Pick<Dependencies, 'db' | 'config' | 'log'>,
-  assetsAvailable = () =>
-    Bun.file(new URL('../dist/app.js', import.meta.url)).exists()
+  assetsAvailable = async () =>
+    (
+      await Promise.all(
+        ['app.js', 'app.css', 'theme-init.js'].map((file) =>
+          Bun.file(new URL(`../dist/${file}`, import.meta.url)).exists()
+        )
+      )
+    ).every(Boolean)
 ): Hono<Context> {
   const app = new Hono<Context>();
   app.get('/health/live', (c) => c.json({ ok: true }));
@@ -28,7 +34,9 @@ export function readinessRoutes(
     await check(
       'database',
       () =>
-        deps.db`SELECT 1 FROM ${deps.db(deps.config.schema)}.bootstrap LIMIT 1`
+        deps.db`SELECT c.agent_id, g.token_hash FROM ${deps.db(deps.config.schema)}.bootstrap b
+          LEFT JOIN ${deps.db(deps.config.schema)}.clients c ON false
+          LEFT JOIN ${deps.db(deps.config.schema)}.agent_grants g ON g.id = c.agent_id LIMIT 0`
     );
     await check('identity', async () => {
       const response = await fetch(

@@ -65,6 +65,8 @@ async function renderSettings(
   attempt: Attempt = {}
 ) {
   const { deps, actor } = session;
+  const jsonError = settingsJsonError(c, attempt);
+  if (jsonError) return jsonError;
   const data = await loadFleet(deps);
   const stored = (data.documents.get(resolved.scope) ?? {}) as FleetConfig;
   const history = await deps.store.settingsHistory(
@@ -220,3 +222,18 @@ export function registerSettings(app: Hono, deps: AppDeps): void {
 }
 
 export { splitErrors };
+
+function settingsJsonError(c: Context, attempt: Attempt) {
+  if (
+    attempt.status !== 422 ||
+    !c.req.header('accept')?.includes('application/json')
+  )
+    return null;
+  return c.json(
+    {
+      error: attempt.rawError ?? 'Nothing was saved.',
+      errors: attempt.errors ?? [],
+    },
+    422
+  );
+}

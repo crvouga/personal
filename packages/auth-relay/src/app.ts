@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { secureHeaders } from 'hono/secure-headers';
+import { NONCE, secureHeaders } from 'hono/secure-headers';
 import { loginRoutes, sessionRoutes } from './login';
 import { registryRoutes } from './registry';
 import { proxyRoutes } from './proxy';
@@ -16,6 +16,9 @@ import {
 } from '@pkgs/logger';
 import { relayLogger } from './telemetry';
 import { readinessRoutes } from './readiness';
+import { staticAssets } from './static-assets';
+import { agentRoutes } from './agent-api';
+import { agentGrantRoutes } from './agent-grants';
 
 export function application(deps: Dependencies): Hono<Context> {
   const app = new Hono<Context>();
@@ -37,16 +40,7 @@ export function application(deps: Dependencies): Hono<Context> {
   });
   app.use('*', bodyLimit({ maxSize: 16384 }));
   app.use('*', rateLimit(deps));
-  const headers = secureHeaders({
-    referrerPolicy: 'no-referrer',
-    contentSecurityPolicy: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
-      frameAncestors: ["'none'"],
-      formAction: ["'self'"],
-    },
-  });
+  const headers = consoleHeaders();
   app.use('*', async (c, next) => {
     if (
       c.req.path.startsWith('/realms/') ||
@@ -63,6 +57,8 @@ export function application(deps: Dependencies): Hono<Context> {
   app.route('/', loginRoutes(deps));
   app.route('/', sessionRoutes(deps));
   app.route('/', registryRoutes(deps));
+  app.route('/', agentGrantRoutes(deps));
+  app.route('/', agentRoutes(deps));
   app.route('/', proxyRoutes(deps));
   staticAssets(app, deps.config.developmentIdentity);
   app.onError((error, c) => {
@@ -85,36 +81,16 @@ export function application(deps: Dependencies): Hono<Context> {
   return app;
 }
 
-function staticAssets(app: Hono<Context>, developmentIdentity: boolean): void {
-  app.get('/', async (c) => {
-    let html = await Bun.file(
-      new URL('../ui/index.html', import.meta.url)
-    ).text();
-    if (developmentIdentity)
-      html = html
-        .replace(
-          'Google sign-in for your projects.',
-          'LOCAL DEVELOPMENT — mock identity provider. This is not Google sign-in.'
-        )
-        .replace('Continue with Google', 'Continue with local test identity')
-        .replace(
-          'Use the one-time setup credential from Vault.',
-          'Local setup credential: local-development-only.'
-        );
-    return c.html(html);
+export function consoleHeaders() {
+  return secureHeaders({
+    referrerPolicy: 'no-referrer',
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", NONCE],
+      styleSrcAttr: ["'unsafe-inline'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+    },
   });
-  app.get(
-    '/app.js',
-    () =>
-      new Response(Bun.file(new URL('../dist/app.js', import.meta.url)), {
-        headers: { 'Content-Type': 'text/javascript' },
-      })
-  );
-  app.get(
-    '/style.css',
-    () =>
-      new Response(Bun.file(new URL('../ui/style.css', import.meta.url)), {
-        headers: { 'Content-Type': 'text/css' },
-      })
-  );
 }

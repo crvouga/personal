@@ -25,9 +25,10 @@ export const command: Command = async (args, env) => {
     child.exited,
   ]);
   if (code !== 0) {
-    const operation =
-      args.find((arg) => ['init', 'show', 'plan', 'apply'].includes(arg)) ??
-      args[0];
+    const operation = args.includes('state')
+      ? 'state list'
+      : (args.find((arg) => ['init', 'show', 'plan', 'apply'].includes(arg)) ??
+        args[0]);
     throw new Error(
       `${args[0]} ${operation} failed (exit ${code}). Check state access, credentials and provider connectivity. Raw provider output is hidden because it may contain secrets.`
     );

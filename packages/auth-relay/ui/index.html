@@ -3,106 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Authentication relay</title>
-    <link rel="stylesheet" href="/style.css" />
+    <meta name="theme-color" content="#4c6ef5" />
+    <meta name="relay-development" content="{{development}}" />
+    <meta name="csp-nonce" content="{{nonce}}" />
+    <meta
+      name="description"
+      content="Manage application connections and operator access to your shared authentication relay."
+    />
+    <title>Relay · Identity console</title>
+    <script src="/theme-init.js"></script>
+    <link rel="stylesheet" href="/app.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <main>
-      <header>
-        <h1>Authentication relay</h1>
-        <p>Google sign-in for your projects.</p>
-      </header>
-      <p id="notice" role="status"></p>
-      <section id="signed-out" hidden>
-        <a class="button" href="/auth/login">Continue with Google</a>
-      </section>
-      <section id="signed-in" hidden>
-        <p id="identity"></p>
-        <button id="logout">Sign out</button>
-      </section>
-      <section id="access-denied" hidden>
-        <h2>Not authorized</h2>
-        <p>
-          You signed in successfully, but this account does not have operator
-          access to the authentication relay. Ask an existing operator to grant
-          access using your relay subject:
-        </p>
-        <pre id="access-subject"></pre>
-      </section>
-      <section id="unavailable" hidden>
-        <h2>Authentication relay unavailable</h2>
-        <p>We could not check your access. Please try again shortly.</p>
-        <a class="button" href="/">Try again</a>
-      </section>
-      <section id="setup" hidden>
-        <h2>Authorize the first operator</h2>
-        <p>
-          Use the one-time setup credential from Vault. A Google account alone
-          does not grant access.
-        </p>
-        <form id="setup-form">
-          <label
-            >Setup credential<input
-              id="setup-token"
-              type="password"
-              required
-              autocomplete="off" /></label
-          ><button>Authorize</button>
-        </form>
-      </section>
-      <section id="console" hidden>
-        <h2>Applications</h2>
-        <div id="clients"></div>
-        <h2 id="editor-title">Register an application</h2>
-        <form id="registration">
-          <label>Name<input name="name" required maxlength="80" /></label>
-          <label>Project<input name="project" required maxlength="80" /></label>
-          <label
-            >Environment<select name="environment" id="environment"></select
-          ></label>
-          <label
-            >Instance<input
-              name="instance"
-              required
-              value="primary"
-              maxlength="80"
-          /></label>
-          <label
-            >Exact callback URLs (one per line)<textarea
-              name="callbacks"
-              rows="4"
-              required
-              placeholder="http://localhost:5173/callback"
-            ></textarea>
-          </label>
-          <label
-            >Expires at<input type="datetime-local" name="expiresAt" required
-          /></label>
-          <label class="check"
-            ><input type="checkbox" name="ownership" required />I verified
-            ownership of these destinations and their application.</label
-          >
-          <p>
-            Use separate instances for concurrent local servers and previews. No
-            wildcard URLs. Revocation prevents new sign-ins; application
-            sessions follow their own policy.
-          </p>
-          <button>Save registration</button
-          ><button id="new-client" type="button">New application</button>
-        </form>
-        <pre id="settings"></pre>
-        <h2>Operators</h2>
-        <p>
-          Only trusted infrastructure administrators should be operators. They
-          can register callbacks for every project in this environment.
-        </p>
-        <form id="operator-form">
-          <label
-            >Exact relay subject<input id="operator-subject" required /></label
-          ><button>Add operator</button>
-        </form>
-      </section>
-    </main>
+    <div id="root"></div>
+    <noscript
+      >This console requires JavaScript. Enable it to manage your
+      applications.</noscript
+    >
   </body>
 </html>

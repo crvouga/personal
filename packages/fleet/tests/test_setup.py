@@ -171,7 +171,7 @@ class SetupFlowTest(unittest.TestCase):
         page = urllib.request.urlopen(url, timeout=10).read().decode()
         action = re.search(r'action="([^"]+)"', page).group(1).replace("&amp;", "&")
         self.form_action = action
-        self.manifest = json.loads(re.search(r'value="([^"]+)"', page).group(1).replace("&quot;", '"'))
+        self.manifest = json.loads(re.search(r'name=manifest value="([^"]+)"', page).group(1).replace("&quot;", '"'))
         state = parse_qs(urlparse(action).query)["state"][0]
         urllib.request.urlopen(f"{self.manifest['redirect_url']}?code=onetimecode&state={state}", timeout=10).read()
 
@@ -306,7 +306,7 @@ class SetupFlowTest(unittest.TestCase):
             with urllib.request.urlopen(url, timeout=5) as response:
                 page = response.read().decode()
             action = html.unescape(re.search(r'action="([^"]+)"', page).group(1))
-            payload = json.loads(html.unescape(re.search(r'value="([^"]+)"', page).group(1)))
+            payload = json.loads(html.unescape(re.search(r'name=manifest value="([^"]+)"', page).group(1)))
             self.assertEqual(payload, document)
             self.assertEqual(parse_qs(urlparse(action).query)["state"], [state])
             self.assertIn('target="_blank"', page, "GitHub must leave the retry page open")

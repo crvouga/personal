@@ -56,9 +56,17 @@ const DANGEROUS = [
 async function assertSafe(page: string): Promise<void> {
   for (const bad of DANGEROUS) expect(page).not.toContain(bad);
   const parsed = await parseHtml(page);
-  // The only script is our own static one; nothing injected became an element.
+  // Only the two locally built entry points may become executable elements.
+  const sources = [...page.matchAll(/<script[^>]*src="([^"]+)"[^>]*>/g)].map(
+    (match) => match[1]
+  );
+  expect(sources).toEqual(
+    page.includes('src="/assets/console.js"')
+      ? ['/assets/theme-init.js', '/assets/console.js']
+      : []
+  );
   expect(parsed.tags.filter((tag) => tag === 'script')).toHaveLength(
-    page.includes('src="/assets/app.js"') ? 1 : 0
+    sources.length
   );
   expect(parsed.tags).not.toContain('img');
   expect(parsed.attributes.filter((name) => name.startsWith('on'))).toEqual([]);

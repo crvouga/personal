@@ -1,9 +1,5 @@
-import {
-  RULES,
-  SECTIONS,
-  type FleetConfig,
-  type Scope,
-} from '../../config/schema';
+import { RULES, SECTIONS, type FleetConfig } from '../../config/fields';
+import type { Scope } from '../../config/schema';
 import type { NodeView } from '../../types';
 import type { ScopeDocuments } from './fleet-data';
 

@@ -147,3 +147,41 @@ Keycloak authentication sessions still depend on its replicated cache. Losing on
 Remaining failure domains include the shared single-node PlanetScale branch, Railway's region/routing, DNS/TLS and Google for new sign-ins. Vault/OpenTofu availability affects provisioning/rotation, not each page load. Separate schemas do not remove the shared DB failure domain. Before launch, provide minute-resolution external synthetic sign-ins, readiness/latency/error/pool/backup alerts, per-client load testing and a tested alert destination. Daily health alone does not measure a 99.9% SLO.
 
 References: [Keycloak production](https://www.keycloak.org/server/configuration-production), [cache behavior](https://www.keycloak.org/server/caching), [upgrade compatibility](https://www.keycloak.org/server/update-compatibility), [Railway private domains](https://docs.railway.com/networking/domains/working-with-domains), [OAuth security BCP](https://www.rfc-editor.org/rfc/rfc9700).
+
+## Scoped registration credentials
+
+[Agent onboarding](README.md#agent-registration) and the generated public
+[consumer guide](https://www.chrisvouga.dev/llms.txt#6-auth-relay-google-sign-in)
+cover the CLI/HTTP interface. The additive `agent_grants` table and nullable
+`clients.agent_id` are Atlas-owned; apply a reviewed foundation schema plan before
+deploying this gateway. Readiness checks those tables/columns as well as provider
+and UI availability. An older gateway can ignore the additive data; do not drop it
+as part of an application rollback.
+
+The Vault root's `auth_agent_credentials` input is credential-delivery metadata
+only, persisted with the complete `TOFU_VAULT_INPUTS`. Each entry generates a
+48-character secret in `secret/auth-relay-agents/<id>/<config>` and a dedicated
+read-only policy / exact repository-and-subject GitHub JWT role (five-minute TTL,
+ten-minute maximum). No plaintext token is output or stored in the relay database.
+Raw material also exists in encrypted OpenTofu state under its existing access and
+backup controls. Use the nonsecret output fingerprint in **Agent access**; verify
+ownership before approving origins. Runtime grants, client ownership, expiry and
+audits are application data, never an infrastructure project allowlist.
+
+`dev-read` previously matched every KV document. Its source now limits reads and
+metadata listing to `personal/*`, matching the shared application boundary. Review
+that policy change with the credential plan; users who depended on unrelated
+namespaces need explicit, scoped OpenTofu policies. Existing administrators remain
+trusted administrators. Shared CI and runtime read tokens do not receive these
+new agent credentials. Never add them to service secret projections.
+
+Rotate by incrementing an entry's generation, applying the reviewed saved plan,
+then replacing the fingerprint on the existing runtime grant. In-flight registration
+writes lock the grant through provider update/commit; rotation/revocation waits for
+that transaction and subsequent old-token writes are rejected. Agent admission is
+rate-limited by a credential hash and a global ceiling. A revoked or expired grant
+stops management requests; application revocation is separate and established
+consumer sessions follow application policy. Grant/project identities are immutable;
+only the operator can replace a fingerprint and preserve its client ownership.
+No live credential generation, scope approval or Google validation is implied by
+local tests. Keep the remaining production acceptance gates in force.

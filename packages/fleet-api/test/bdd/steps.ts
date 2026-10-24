@@ -49,7 +49,7 @@ When('I open the empty fleet overview', async ({ page }) => {
 
 When('the dashboard refreshes automatically', async ({ page }) => {
   const refreshed = page.waitForResponse((response) =>
-    response.url().includes('/ui/fleet?view=overview')
+    response.url().includes('/ui/state?')
   );
   await page.clock.fastForward(10_001);
   expect((await refreshed).status()).toBe(200);
@@ -79,7 +79,9 @@ Then('no installer is incorrectly recommended', async ({ page }) => {
 
 Then('all other installers remain available', async ({ page }) => {
   await page.getByText('All installers', { exact: true }).click();
-  const choices = page.locator('#installer-downloads details');
+  const choices = page.locator(
+    '#installer-downloads details, [data-installer-choices]'
+  );
   for (const name of [
     'Windows — x64',
     'macOS — Apple silicon (ARM64)',
@@ -144,6 +146,6 @@ Then(
     await expect(page.locator('#nixos-install code')).toContainText(
       'packages/fleet#fleet-installer'
     );
-    await expect(page.locator('#nixos-install')).toHaveAttribute('open', '');
+    await expect(page.locator('#nixos-install code')).toBeVisible();
   }
 );

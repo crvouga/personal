@@ -33,6 +33,11 @@ export function registerAccess(app: Hono, deps: AppDeps): void {
     } else if (form['action'] === undefined)
       await store.allow(email, identity.email);
     else return c.text('Unknown access action.', 400);
+    if (c.req.header('accept')?.includes('application/json'))
+      return c.json({
+        redirect: '/access',
+        flash: { kind: 'success', text: 'Access updated.' },
+      });
     return c.redirect('/access', 303);
   });
 }
