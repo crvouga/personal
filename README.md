@@ -103,3 +103,12 @@ bun run health --json                # machine-readable
 It is read-only: probes, reads and unlocked plans. A check that cannot run (no `vault login`, no `gh auth login`, root not initialized) reports `SKIP` with the reason and never counts as a pass. The exit code is 1 on any failure; `--strict` also fails on warnings and skips.
 
 The read-only Health job in [Maintenance](.github/workflows/maintenance.yml) runs the full report, including drift, every day and on demand (`gh workflow run maintenance.yml -f task=health`); its job summary is the same report. `bun run health-check` remains the narrower post-deploy URL probe used inside CI.
+
+## Password manager
+
+Local account discovery and Bitwarden maintenance live in
+[`packages/password-manager`](packages/password-manager/README.md). Start with
+`sh scripts/password-manager-setup.sh`; root `bun run password-manager ...`
+commands operate outside Turbo. State and credentials remain private and local.
+See the package's operator guide and acceptance ledger for the supported automation
+and the distinction between fixture-tested and live-verified behavior.

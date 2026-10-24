@@ -26,6 +26,7 @@ COPY packages/secret-string/package.json ./packages/secret-string/
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
 COPY packages/vault/package.json ./packages/vault/
 COPY packages/workstation/package.json ./packages/workstation/
+COPY packages/password-manager/package.json ./packages/password-manager/
 COPY packages/9router/package.json ./packages/9router/
 
 RUN bun install --frozen-lockfile
