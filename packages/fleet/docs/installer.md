@@ -97,7 +97,7 @@ verification first.
 
 ## 2. Open it
 
-Frozen downloads include a public CA bundle in addition to the operating
+New packaged builds include a public CA bundle in addition to the operating
 system's trusted roots. Each packaged build must verify HTTPS to GitHub, its
 API and its release CDN before publication. A certificate failure stops the
 download; verification is never disabled. If an older build reports

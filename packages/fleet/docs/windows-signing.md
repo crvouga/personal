@@ -28,8 +28,8 @@ private signing keys.
 
 The canonical inventory's `fleet_windows_signing` object declares the resource
 names, region, authenticated subscription/tenant/operator IDs and approved
-identity-validation ID. It defaults to `enabled: false`; validating this root
-never requires an Azure account. Nothing has been provisioned by adding these
+identity-validation ID. Enrollment starts disabled until the authenticated IDs are pinned; validating
+this root never requires Azure credentials. Nothing has been provisioned by adding these
 files. The root's states and saved plans are encrypted and use the existing
 R2 backend with the distinct `signing.tfstate` key.
 
@@ -114,7 +114,7 @@ prevent applying its infrastructure.
 
 ## Verification and health
 
-`bun run health -- --only windows-signing` reads the Azure account and public
+`bun run health --only windows-signing` reads the Azure account and public
 profile through GET requests. Missing Azure credentials or reader permission
 reports **SKIP**, never a pass. Incomplete identity validation is a failure.
 `--drift` also includes the signing root once it is enabled. `health:fix` points
