@@ -105,13 +105,17 @@ describe.skipIf(!databaseAvailable)(
           .getByLabel('Google email address')
           .fill('another@example.test');
         await page.getByRole('button', { name: 'Allow access' }).click();
-        await page.waitForURL('**/access');
-        expect(await access.emails()).toContain('another@example.test');
         const row = page
           .getByRole('listitem')
           .filter({ hasText: 'another@example.test' });
+        await row.waitFor();
+        expect(await access.emails()).toContain('another@example.test');
         await row.getByRole('button', { name: 'Remove access' }).click();
-        await page.waitForURL('**/access');
+        await page
+          .getByRole('dialog')
+          .getByRole('button', { name: 'Remove access', exact: true })
+          .click();
+        await row.waitFor({ state: 'detached' });
         expect(await access.emails()).not.toContain('another@example.test');
       } finally {
         await browser.close();

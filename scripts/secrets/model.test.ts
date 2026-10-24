@@ -1,6 +1,35 @@
 import { expect, test } from 'bun:test';
 import { before, fills, inventory } from './fixtures';
-import { editableKeys, stages, updateInputs } from './model';
+import {
+  editableKeys,
+  stages,
+  updateInputs,
+  vaultSecretVariables,
+} from './model';
+
+test('historical backend credentials are preserved in managed inputs but excluded from Vault variables', () => {
+  const inputs = {
+    ...before,
+    state_passphrase: 'stale-state-passphrase',
+    state_backend: { bucket: 'stale-bucket' },
+    github_token: 'stale-provider-token',
+  };
+  const next = updateInputs(inputs, fills, inventory.vault.kv_keys);
+  expect(next.state_passphrase).toBe(inputs.state_passphrase);
+  expect(vaultSecretVariables(next)).toEqual({
+    secrets: next.secrets,
+    admin_passwords: next.admin_passwords,
+    fleet_age_keys: next.fleet_age_keys,
+  });
+  const vault = stages(next, fills, inventory).find(
+    (stage) => stage.root === 'vault'
+  )!;
+  expect(Object.keys(vault.env).sort()).toEqual([
+    'TF_VAR_admin_passwords',
+    'TF_VAR_fleet_age_keys',
+    'TF_VAR_secrets',
+  ]);
+});
 
 test('editing one scope preserves other scopes, unknown fields, passwords and fleet keys', () => {
   const original = structuredClone(before);
@@ -13,6 +42,31 @@ test('editing one scope preserves other scopes, unknown fields, passwords and fl
   expect(before).toEqual(original);
   expect(stages(next, selected, inventory).map((stage) => stage.state)).toEqual(
     ['foundation', 'vault', 'auth-production']
+  );
+});
+
+test('secret edits preserve isolated auth agent credential metadata in saved Vault inputs', () => {
+  const auth_agent_credentials = {
+    'example-dev': {
+      config: 'dev',
+      repository: 'owner/example',
+      subject: 'repo:owner/example:ref:refs/heads/main',
+      generation: 2,
+    },
+  };
+  const next = updateInputs(
+    { ...before, auth_agent_credentials },
+    fills,
+    inventory.vault.kv_keys
+  );
+  expect(vaultSecretVariables(next).auth_agent_credentials).toEqual(
+    auth_agent_credentials
+  );
+  const vault = stages(next, fills, inventory).find(
+    (stage) => stage.root === 'vault'
+  )!;
+  expect(JSON.parse(vault.env.TF_VAR_auth_agent_credentials!)).toEqual(
+    auth_agent_credentials
   );
 });
 

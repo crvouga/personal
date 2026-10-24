@@ -198,6 +198,11 @@ function values(ctx: Context): Record<string, string> {
   }
   return {
     infraRepo,
+    authProductionOrigin: `https://${need(config.auth_relay?.instances.production?.hostname, 'auth production hostname')}`,
+    authNonproductionOrigin: `https://${need(config.auth_relay?.instances.nonproduction?.hostname, 'auth nonproduction hostname')}`,
+    authProductionIssuer: `https://${need(config.auth_relay?.instances.production?.hostname, 'auth production hostname')}/realms/${need(config.auth_relay?.instances.production?.realm, 'auth production realm')}`,
+    authNonproductionIssuer: `https://${need(config.auth_relay?.instances.nonproduction?.hostname, 'auth nonproduction hostname')}/realms/${need(config.auth_relay?.instances.nonproduction?.realm, 'auth nonproduction realm')}`,
+    authStatus: need(config.auth_relay?.status, 'auth relay status'),
     rawUrl: `https://raw.githubusercontent.com/${infraRepo}/main/${ROOT_OUTPUT_PATH}`,
     siteGuideUrl: `https://${need(portfolio.hostname, 'portfolio hostname')}/llms.txt`,
     siteGuideAliasUrl: `https://${need(portfolio.hostname, 'portfolio hostname')}/llm.txt`,
@@ -314,6 +319,11 @@ function blocks(ctx: Context): Record<string, string> {
           'Object store',
           `Cloudflare R2 (S3 API) via \`${s3.endpoint_secret}\``,
           `SigV4 with \`${s3.access_key_secret}\` / \`${s3.secret_key_secret}\``,
+        ],
+        [
+          'Google sign-in',
+          `${code(v.authProductionIssuer!)} / ${code(v.authNonproductionIssuer!)}`,
+          'Public OIDC code + S256 PKCE; agent registration uses a scoped Vault credential (§6)',
         ],
         [
           'Hosting',

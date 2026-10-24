@@ -56,6 +56,8 @@ export function action(deps: AppDeps, run: ActorHandler): Handler {
 
 /** Remember a message and send the browser back. A POST is never rendered directly. */
 export function back(c: Context, to: string, flash: Flash): Response {
+  if (c.req.header('accept')?.includes('application/json'))
+    return c.json({ redirect: to, flash });
   setFlash(c, flash);
   return c.redirect(to, 303);
 }

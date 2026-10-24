@@ -1,4 +1,4 @@
-import { RULES, SECTIONS } from '../../config/schema';
+import { RULES, SECTIONS } from '../../config/fields';
 
 export interface SettingMeta {
   readonly label: string;

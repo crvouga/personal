@@ -4,107 +4,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fleet installer</title>
-    <style>
-      body {
-        font:
-          16px/1.5 system-ui,
-          sans-serif;
-        max-width: 46rem;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        color: #111;
-      }
-      h1 {
-        font-size: 1.5rem;
-      }
-      h2 {
-        font-size: 1.15rem;
-        margin-top: 1.5rem;
-      }
-      button {
-        font: inherit;
-        padding: 0.6rem 1rem;
-        margin: 0.3rem 0.3rem 0.3rem 0;
-        cursor: pointer;
-      }
-      button.primary {
-        background: #0b57d0;
-        color: #fff;
-        border: 0;
-        border-radius: 4px;
-      }
-      button.danger {
-        background: #b3261e;
-        color: #fff;
-        border: 0;
-        border-radius: 4px;
-      }
-      button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-      label.choice {
-        display: block;
-        border: 1px solid #bbb;
-        border-radius: 4px;
-        padding: 0.6rem 0.8rem;
-        margin: 0.4rem 0;
-      }
-      label.choice small {
-        display: block;
-        color: #555;
-      }
-      .fail {
-        color: #b3261e;
-        font-weight: 600;
-      }
-      .warn {
-        color: #8a5a00;
-        font-weight: 600;
-      }
-      .ok {
-        color: #1a6b2a;
-      }
-      .box {
-        background: #f3f3f3;
-        border-radius: 4px;
-        padding: 0.7rem 0.9rem;
-        margin: 0.6rem 0;
-      }
-      .erase {
-        background: #fdecea;
-        border: 2px solid #b3261e;
-        border-radius: 4px;
-        padding: 0.7rem 0.9rem;
-        margin: 0.8rem 0;
-      }
-      progress {
-        width: 100%;
-        height: 1.4rem;
-      }
-      pre {
-        background: #111;
-        color: #ddd;
-        padding: 0.6rem;
-        max-height: 12rem;
-        overflow: auto;
-        font-size: 0.8rem;
-      }
-      input[type='text'] {
-        font: inherit;
-        width: 100%;
-        padding: 0.4rem;
-        box-sizing: border-box;
-      }
-      .hidden {
-        display: none;
-      }
-    </style>
+    <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/admin.css" />
   </head>
   <body>
-    <h1>Fleet installer</h1>
-    <noscript><p class="fail">This page needs JavaScript.</p></noscript>
-    <div id="app"><p>Looking at this computer…</p></div>
+    <header class="admin-header">
+      <div class="admin-brand">
+        <span class="admin-mark">▤</span>
+        <div>
+          Fleet
+          <div class="admin-subtitle">Installer console</div>
+        </div>
+      </div>
+      <label class="admin-theme"
+        ><span>Appearance</span
+        ><select id="admin-theme" aria-label="Color theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="auto">System</option>
+        </select></label
+      >
+    </header>
+    <main class="admin-main">
+      <div class="admin-intro">
+        <h1>Fleet installer</h1>
+        <p>Prepare a machine with clear checks and an exact disk review.</p>
+      </div>
+      <ol class="admin-stepper" aria-label="Installation progress">
+        <li data-step="choose" aria-current="step">1 · Choose</li>
+        <li data-step="configure">2 · Configure</li>
+        <li data-step="review">3 · Review</li>
+        <li data-step="install">4 · Install</li>
+      </ol>
+      <noscript><p class="fail">This page needs JavaScript.</p></noscript>
+      <section id="app" class="admin-card" aria-live="polite">
+        <p>Looking at this computer…</p>
+      </section>
+    </main>
 
     <script>
       'use strict';
@@ -162,7 +98,27 @@
         );
       }
       function show(html) {
+        const previousHeading = app.querySelector('h2')?.textContent;
         app.innerHTML = html;
+        const step = /Working|Restarting|Done|did not finish|Cancelled/.test(
+          html
+        )
+          ? 'install'
+          : state.plan
+            ? 'review'
+            : state.mode
+              ? 'configure'
+              : 'choose';
+        document.querySelectorAll('[data-step]').forEach((item) => {
+          if (item.dataset.step === step)
+            item.setAttribute('aria-current', 'step');
+          else item.removeAttribute('aria-current');
+        });
+        const heading = app.querySelector('h2');
+        if (heading && heading.textContent !== previousHeading) {
+          heading.tabIndex = -1;
+          heading.focus({ preventScroll: true });
+        }
       }
       function problem(err) {
         return (
@@ -179,6 +135,7 @@
 
       async function start() {
         state.sawWorking = false;
+        state.mode = null;
         state.plan = null;
         show('<p>Looking at this computer…</p>');
         try {
@@ -262,14 +219,14 @@
             '<label class="choice"><input type="checkbox" id="reinstall"> <b>Hard reinstall</b><small>Erase and replace this node even when keeping the same role. Every file on its internal disk will be lost.</small></label>';
         h +=
           '<h2>Devbox SSH access</h2><p>If you choose Remote devbox, select your SSH <b>public</b> key file (usually <code>id_ed25519.pub</code> in your <code>.ssh</code> folder), or paste its contents below. Keep the private key on the computer you will connect from.</p>' +
-          '<input type="file" id="key-file" accept=".pub" onchange="readPublicKey(this)">' +
-          '<input type="text" id="ssh-key" autocomplete="off" spellcheck="false" placeholder="ssh-ed25519 AAAA…" value="' +
+          '<label for="key-file">SSH public key file</label><input type="file" id="key-file" accept=".pub" onchange="readPublicKey(this)">' +
+          '<label for="ssh-key">SSH public key</label><input type="text" id="ssh-key" autocomplete="off" spellcheck="false" placeholder="ssh-ed25519 AAAA…" value="' +
           esc(state.sshKey) +
           '">';
         h +=
           '<h2>Enrollment</h2><p>After you press <b>Erase and install</b>, a GitHub page opens. Press <b>Submit new issue</b> on it, signed in as the repository owner; that approves this computer and gives it the secrets the other nodes of its kind share. ' +
           'Nothing is erased until it is approved. Already have a token from <code>just enroll &lt;kind&gt;</code>? Paste it here to skip the approval.</p>' +
-          '<input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="hvs.… (optional)" value="' +
+          '<label for="token">Enrollment token (optional)</label><input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="hvs.… (optional)" value="' +
           esc(state.token) +
           '">';
         h +=

@@ -1103,7 +1103,7 @@ class FleetconfTests(unittest.TestCase):
         self.assertEqual(self.cli("nope").returncode, 2)
 
     def test_sanitize_matches_the_server_schema_keys(self):
-        schema = (Path(__file__).parents[2] / "fleet-api/src/config/schema.ts")
+        schema = (Path(__file__).parents[2] / "fleet-api/src/config/fields.ts")
         if not schema.is_file():
             self.skipTest("fleet-api schema is not present")
         text = schema.read_text()

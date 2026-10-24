@@ -10,6 +10,7 @@ export default defineConfig({
     steps: [
       'test/bdd/fixtures.ts',
       'test/bdd/steps.ts',
+      'test/bdd/console-steps.ts',
       'test/bdd/live-download.ts',
     ],
     outputDir: 'dist/download-bdd-generated',

@@ -12,8 +12,10 @@ import { provider } from '../src/oidc';
 import { application } from '../src/app';
 import { maintenance } from '../src/maintenance';
 import { consumer } from './consumer';
+import { agentAcceptance } from './agent';
 
 const repo = resolve(import.meta.dir, '../../..');
+const portA = Number(process.env['AUTH_CONSOLE_PORT_A'] ?? 3000);
 const require = createRequire(join(repo, 'packages/fleet/package.json'));
 const { chromium } = require('@playwright/test');
 const temp = mkdtempSync(join(tmpdir(), 'auth-console-'));
@@ -113,6 +115,7 @@ try {
   await page.goto('http://localhost:19080/auth/login');
   await page.waitForURL('http://localhost:19080/', { timeout: 30000 });
   assert.equal((await api('/api/clients')).status, 403);
+  assert.equal((await api('/api/agent-grants')).status, 403);
   assert.equal(
     (await api('/api/setup', 'POST', { token: 'wrong' })).status,
     403
@@ -140,7 +143,7 @@ try {
     project: 'ui-project',
     environment: 'localhost',
     instance: 'one',
-    callbacks: ['http://localhost:3000/callback'],
+    callbacks: [`http://localhost:${portA}/callback`],
     expiresAt: new Date(Date.now() + 3600000).toISOString(),
   };
   assert.equal((await api(`/api/clients/${id}`, 'PUT', input)).status, 200);
@@ -178,10 +181,10 @@ try {
     (await api('/api/clients')).data[0].config.callbacks,
     input.callbacks
   );
-  const clientA = await consumer(config.issuer, id, 3000);
+  const clientA = await consumer(config.issuer, id, portA);
   consumers.push(clientA);
   const applicationPage = await context.newPage();
-  await applicationPage.goto('http://localhost:3000/login');
+  await applicationPage.goto(`http://localhost:${portA}/login`);
   await applicationPage.waitForURL('**/private');
   assert.equal(await applicationPage.textContent('body'), 'authenticated');
   await server.stop(true);
@@ -222,6 +225,10 @@ try {
   assert.equal(unrelated.length, 1);
   await page.reload();
   await page.locator('#console').waitFor({ state: 'visible' });
+  await page
+    .getByRole('button', { name: 'New application', exact: true })
+    .first()
+    .click();
   const form = page.locator('#registration');
   await form.locator('[name=name]').fill('Second UI project');
   await form.locator('[name=project]').fill('ui-second');
@@ -254,6 +261,27 @@ try {
   );
   console.log(
     'PASS Google-backed console login, operator bootstrap, CSRF, DB registrations, port update, rejection/revocation, Bun restart, scoped Atlas schema'
+  );
+  await agentAcceptance(api, deps, id);
+  await page.goto('http://localhost:19080/#agents');
+  await page
+    .getByRole('button', { name: 'Authorize an agent', exact: true })
+    .click();
+  const grantDialog = page.getByRole('dialog', { name: 'Authorize an agent' });
+  await grantDialog.getByRole('textbox', { name: /^Project/ }).fill('ui-agent');
+  await grantDialog
+    .getByRole('textbox', { name: /^Credential SHA-256 fingerprint/ })
+    .fill('f'.repeat(64));
+  await grantDialog
+    .getByLabel(
+      "I verified this project's ownership, credential custody and every approved origin."
+    )
+    .check();
+  await grantDialog.getByRole('button', { name: 'Save agent access' }).click();
+  await grantDialog.waitFor({ state: 'hidden' });
+  await page.getByText('ui-agent', { exact: true }).waitFor();
+  console.log(
+    'PASS operator Agent access UI creates a scoped grant using only a fingerprint'
   );
 } finally {
   await browser.close();

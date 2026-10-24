@@ -44,8 +44,10 @@ function Head(props: { title: string }) {
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <meta name="color-scheme" content="light dark" />
       <meta name="robots" content="noindex" />
+      <script src="/assets/theme-init.js" />
       <title>{`${props.title} · Fleet`}</title>
       <link rel="stylesheet" href="/assets/app.css" />
+      <link rel="stylesheet" href="/assets/console.css" />
       <link
         rel="icon"
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232563eb'/%3E%3Cpath d='M6 8h12M6 12h12M6 16h12' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"
@@ -161,28 +163,32 @@ export function Shell(props: ShellProps) {
       <html lang="en">
         <Head title={props.title} />
         <body class="bg-canvas text-fg">
-          <a
-            href="#main"
-            class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-white"
-          >
-            Skip to content
-          </a>
-          <header class="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
-            <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 sm:px-6">
-              <Brand />
-              <Nav path={props.path} pendingCount={props.pendingCount} />
-              <Account actor={props.actor} />
-            </div>
-          </header>
-          <main
-            id="main"
-            tabindex={-1}
-            class="mx-auto max-w-7xl px-4 py-6 outline-none sm:px-6 sm:py-8"
-          >
-            <FlashMessage flash={props.flash} />
-            {props.children}
-          </main>
-          <script src="/assets/app.js" />
+          <div id="admin-root">
+            <noscript>
+              <a
+                href="#main"
+                class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-white"
+              >
+                Skip to content
+              </a>
+              <header class="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
+                <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 sm:px-6">
+                  <Brand />
+                  <Nav path={props.path} pendingCount={props.pendingCount} />
+                  <Account actor={props.actor} />
+                </div>
+              </header>
+              <main
+                id="main"
+                tabindex={-1}
+                class="mx-auto max-w-7xl px-4 py-6 outline-none sm:px-6 sm:py-8"
+              >
+                <FlashMessage flash={props.flash} />
+                {props.children}
+              </main>
+            </noscript>
+          </div>
+          <script type="module" src="/assets/console.js" />
         </body>
       </html>
     </>
@@ -197,13 +203,17 @@ export function BareShell(props: { title: string; children?: Child }) {
       <html lang="en">
         <Head title={props.title} />
         <body class="bg-canvas text-fg">
-          <main
-            id="main"
-            class="mx-auto grid min-h-screen max-w-md content-center px-4 py-10"
-          >
-            {props.children}
-          </main>
-          <script src="/assets/app.js" />
+          <div id="admin-root">
+            <noscript>
+              <main
+                id="main"
+                class="mx-auto grid min-h-screen max-w-md content-center px-4 py-10"
+              >
+                {props.children}
+              </main>
+            </noscript>
+          </div>
+          <script type="module" src="/assets/console.js" />
         </body>
       </html>
     </>

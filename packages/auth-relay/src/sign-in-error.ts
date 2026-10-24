@@ -36,7 +36,7 @@ export function signInError(
     `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${failure.title}</title><link rel="stylesheet" href="/style.css"></head>
+<title>${failure.title}</title><script src="/theme-init.js"></script><link rel="stylesheet" href="/style.css"></head>
 <body><main><h1>${failure.title}</h1><section><p>${failure.message}</p>
 <a class="button" href="/auth/login">Start a new sign-in</a>
 ${reference}

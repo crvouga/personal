@@ -1,6 +1,72 @@
 mock_provider "vault" {}
 mock_provider "random" {}
 
+run "reject_unsafe_auth_agent_id" {
+  command = plan
+  variables {
+    auth_agent_credentials = {
+      app_dev = {
+        config = "dev", repository = "owner/app", subject = "repo:owner/app:ref:refs/heads/main"
+      }
+    }
+  }
+  expect_failures = [var.auth_agent_credentials]
+}
+
+run "auth_agent_credential_isolation" {
+  command = plan
+  variables {
+    auth_agent_credentials = {
+      app-dev = {
+        config = "dev", repository = "owner/app", subject = "repo:owner/app:ref:refs/heads/main", generation = 2
+      }
+      app-prd = {
+        config = "prd", repository = "owner/app", subject = "repo:owner/app:environment:production"
+      }
+    }
+  }
+  assert {
+    condition = alltrue([for id, credential in var.auth_agent_credentials :
+      vault_kv_secret_v2.auth_agent[id].name == "auth-relay-agents/${id}/${credential.config}" &&
+      vault_policy.auth_agent[id].policy == "path \"secret/data/auth-relay-agents/${id}/${credential.config}\" {\n  capabilities = [\"read\"]\n}\n" &&
+      vault_jwt_auth_backend_role.auth_agent[id].bound_claims.repository == credential.repository &&
+      vault_jwt_auth_backend_role.auth_agent[id].bound_claims.sub == credential.subject &&
+      vault_jwt_auth_backend_role.auth_agent[id].bound_claims_type == "string" &&
+      vault_jwt_auth_backend_role.auth_agent[id].token_no_default_policy &&
+      vault_jwt_auth_backend_role.auth_agent[id].token_max_ttl == 600 &&
+      random_password.auth_agent[id].length == 48 && !random_password.auth_agent[id].special
+    ])
+    error_message = "Agent credentials must be independently generated in isolated documents with read-only exact-subject CI policies."
+  }
+  assert {
+    condition = alltrue([for policy in ["ci-read", "personal-read", "dev-read"] :
+      !strcontains(vault_policy.this[policy].policy, "auth-relay-agents") &&
+      !strcontains(vault_policy.this[policy].policy, "path \"secret/data/*\"")
+    ]) && random_password.auth_agent["app-dev"].keepers.generation == "2"
+    error_message = "Shared application policies cannot expose registration credentials; rotation uses generation keepers."
+  }
+}
+
+run "reject_auth_agent_repository_subject_mismatch" {
+  command = plan
+  variables {
+    auth_agent_credentials = {
+      app-dev = { config = "dev", repository = "owner/app", subject = "repo:attacker/app:ref:refs/heads/main" }
+    }
+  }
+  expect_failures = [var.auth_agent_credentials]
+}
+
+run "reject_auth_agent_wildcard_subject" {
+  command = plan
+  variables {
+    auth_agent_credentials = {
+      app-prd = { config = "prd", repository = "owner/app", subject = "repo:owner/app:*" }
+    }
+  }
+  expect_failures = [var.auth_agent_credentials]
+}
+
 # The remote states hold real credentials; the plan only needs their shape.
 override_data {
   target = data.terraform_remote_state.foundation

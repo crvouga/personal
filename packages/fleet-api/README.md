@@ -2,7 +2,33 @@
 
 The fleet's control plane, at **https://fleet.chrisvouga.dev**. Every physical machine in [`packages/fleet`](../fleet) reports to it with a heartbeat and receives its dynamic settings from it. The dashboard shows the whole fleet at a glance.
 
-Hono on Bun, raw SQL on Postgres (no ORM), server-rendered Hono JSX styled with Tailwind, shipped as a Docker image on Railway. The wire contract is [PROTOCOL.md](PROTOCOL.md); it is the source of truth for the node agent, the server and the dashboard.
+Hono on Bun, raw SQL on Postgres (no ORM), and a client-rendered React/Mantine administration console, shipped as a Docker image on Railway. The wire contract is [PROTOCOL.md](PROTOCOL.md); it is the source of truth for the node agent, the server and the dashboard.
+
+## Shared admin design
+
+The browser console uses `@pkgs/admin-ui`, the same component library, shell,
+spacing, typography, copy controls and Light/Dark/System preference as Relay.
+Overview, node search and details, heartbeat charts, pending approvals, events,
+scoped settings/history, access management and installer downloads all use it.
+Navigation preserves URLs and browser history; live data refreshes every ten
+seconds while visible and can be paused. The theme is applied before CSS paints
+and follows system changes in System mode.
+
+`GET /ui/state` is a same-origin, noncached view endpoint protected by the
+existing Fleet session authorization. It masks webhook paths and query strings
+in documents, effective settings and history. Mutations reuse the existing
+origin-checked form handlers with JSON responses; neither role credentials nor
+new first-sign-in privileges are introduced. Retire, delete and access removal
+ask for confirmation. The existing complete HTML forms remain inside `noscript`
+for browsers without JavaScript and retain their validation and CSRF behavior.
+
+`bun run build` builds both the fallback CSS and the production console assets.
+The early theme script and application bundle are served locally with CSP style
+nonces. `bun run demo` builds and serves synthetic data on loopback; it never
+connects to the managed database or operates real machines. `dev:fixtures` keeps
+its explicit fixture selection, and ordinary `dev` continues using managed data.
+The local installer and setup flow use the matching offline design assets from
+the shared package. Vendor consoles and portfolio are outside this redesign.
 
 ## What it does
 
@@ -180,7 +206,7 @@ Local acceptance uses the real dashboard routes/assets with an in-memory store. 
 
 ## Add a setting
 
-1. Add the key to `RULES` in [`src/config/schema.ts`](src/config/schema.ts) (type, range). The dashboard form and the validation are generated from it.
+1. Add the key to `RULES` in [`src/config/fields.ts`](src/config/fields.ts) (type, range). The dashboard form and the validation are generated from it.
 2. Teach the node to apply it: `packages/fleet/scripts/fleetconf.py` (the keys a node understands) and `agent.py`.
 3. Document it in [dynamic-config.md](../fleet/docs/dynamic-config.md) and add a test on both sides.
 
@@ -194,8 +220,10 @@ src/app.ts            the JSON API; routes/ holds node and admin routes
 src/db/               the only code that runs SQL (PgStore implements Store)
 src/auth/             node credentials, role tokens, Google/relay OIDC and sessions
 src/jobs/             offline notices, webhook, history pruning
-src/config/schema.ts  settings: rules, validation, merge, revisions
-src/ui/               dashboard pages and components (Hono JSX + Tailwind)
+src/config/fields.ts  browser-safe settings metadata and rules
+src/config/schema.ts  settings validation, merge, revisions
+src/console/          React/Mantine administration views
+src/ui/               server authorization, data adapters and no-JavaScript fallback
 src/testing/          in-memory store, fixtures and demo data
 test/                 unit, API, database, isolation and UI tests; test/e2e/stack.ts starts the real stack
 ```

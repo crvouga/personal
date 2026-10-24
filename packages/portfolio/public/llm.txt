@@ -1,6 +1,6 @@
 # crvouga/workspace — shared infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/workspace`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/workspace`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: https://www.chrisvouga.dev/llms.txt
 
@@ -13,7 +13,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 - Link it from your project's `AGENTS.md` / `CLAUDE.md` so every session can fetch it:
 
   ```md
-  Shared infra (Vault, PostgreSQL, Turborepo remote cache, R2 object store, hosting):
+  Shared infra (Vault, PostgreSQL, Turborepo remote cache, R2 object store, hosting, Google sign-in):
   https://www.chrisvouga.dev/llms.txt
   ```
 
@@ -25,7 +25,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 
 - **Never invent, print, log, or commit secret values.** If an optional secret is missing or invalid, report its key and source, skip only its dependent integration or skill check, and continue unrelated work. Required credentials for an active deployment fail that deployment; never claim a skipped check passed.
 - **Never install global tooling yourself** (`vault`, `bao`, `jq`, `gh`). Tell the human the install command.
-- **Never modify the shared services from another repo** (deploy them, rotate tokens, change policies, edit Railway/Cloudflare by hand). Those changes happen in `crvouga/workspace`; tell the human exactly what is needed.
+- **Shared infrastructure changes belong in `crvouga/workspace` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
 - `@pkgs/*` packages in `crvouga/workspace` are **private workspace packages** — they cannot be installed elsewhere. Use the plain HTTP / S3 / env-var contracts below.
 - Keep the app **twelve-factor**: configuration and secrets come from env vars at runtime, never from files baked into the image or the repo.
 
@@ -36,6 +36,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 3. Uses Turborepo (`turbo.json` exists)? → [3. Turborepo remote cache](#3-turborepo-remote-cache).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
 5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-fleet). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `crvouga/workspace` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
+6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
 
 ## Resources at a glance
 
@@ -45,9 +46,10 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 | PostgreSQL | via `DATABASE_URL` (opaque connection URL) | connection URL from Vault; an app-specific allocation is required |
 | Turborepo cache | `https://turborepo.chrisvouga.dev` | `Authorization: Bearer $TURBO_TOKEN` |
 | Object store | Cloudflare R2 (S3 API) via `S3_ENDPOINT` | SigV4 with `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` |
+| Google sign-in | `https://auth.chrisvouga.dev/realms/projects` / `https://auth-dev.chrisvouga.dev/realms/projects-dev` | Public OIDC code + S256 PKCE; agent registration uses a scoped Vault credential (§6) |
 | Hosting | Railway project `Workspace` at `*.chrisvouga.dev` | Prebuilt GHCR image published by the shared workflow (§5) |
 
-All consumer credentials live in Vault. Vault supplies application secrets; application users authenticate through the shared Google-to-OIDC relay, never through Vault.
+All consumer credentials live in Vault. Auth agent credentials use isolated `secret/auth-relay-agents/<credential-id>/<config>` documents, outside the shared personal document and shared CI read policy. Vault supplies application secrets; application users authenticate through the shared Google-to-OIDC relay, never through Vault.
 
 This is a consumer guide, not an inventory dump. State backends, provider credentials, the OpenBao storage database, administrative tunnels, and control-plane tokens are intentionally excluded from consumer instructions. They remain OpenTofu-owned and must never be reused by an application.
 
@@ -460,6 +462,14 @@ Issue body — copy it verbatim and replace every `<…>`:
 | Kind                 | <static site / HTTP server / API / websocket server / other: …>                         |
 | Stack                | <language, framework, runtime version, package manager>                                 |
 
+## Authentication (if needed)
+
+- Shared Google/OIDC relay: <yes/no>; production/nonproduction: <...>
+- Project / instance names: <...>; exact owned callback URLs/origins: <...>
+- Loopback development / preview lifecycle / expiry needs: <...>
+- Registration credential id(s), Vault config(s), repository and exact CI OIDC subject(s): <metadata only; never a token>
+- Ownership evidence: <repo/deployment/domain evidence the platform operator can verify>
+
 ## Image
 
 | Field               | Value                                                                                       |
@@ -663,6 +673,143 @@ Working examples to copy from — each links to its source repo:
 
 ---
 
+## 6. Auth relay (Google sign-in)
+
+**Status: `preproduction`; live Google, reliability and browser acceptance remain incomplete.** Configured endpoints below do not establish readiness. Check discovery and the [acceptance record](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/acceptance.md) before relying on the relay. Missing deployment, credentials or approval are blockers; never substitute mock authentication or disable verification.
+
+| Use | Console / agent API origin | OIDC issuer |
+| --- | --- | --- |
+| Production HTTPS apps | `https://auth.chrisvouga.dev` | `https://auth.chrisvouga.dev/realms/projects` |
+| Localhost, development, CI, staging, previews | `https://auth-dev.chrisvouga.dev` | `https://auth-dev.chrisvouga.dev/realms/projects-dev` |
+
+### Information and credentials to collect
+
+| Item | Source | Secret? |
+| --- | --- | --- |
+| Project, environment, instance, exact callbacks, registration expiry | Your app and the operator-approved grant | No |
+| Relay origin and issuer | Table above; discovery at `<issuer>/.well-known/openid-configuration` | No |
+| Client ID, callback, scopes | Successful registration response / console connection settings | No; safe as runtime configuration |
+| `AUTH_RELAY_AGENT_TOKEN` | **Isolated** Vault `secret/auth-relay-agents/<credential-id>/<config>`; obtain the exact credential id/path from platform onboarding | Yes; use only in registration tooling |
+| Vault CI role | `auth-relay-agent-<credential-id>`; exact repository + OIDC subject binding | Role name is public; use GitHub OIDC, no static Vault token |
+| Session encryption/signing secret, if your framework requires one | A separate application secret in Vault | Yes; never use the registration token as a session secret |
+
+Applications are **public PKCE clients**: there is no consuming OIDC client secret. Never request or copy `GOOGLE_OAUTH_*`, `AUTH_MANAGER_*`, `AUTH_CONSOLE_*`, `AUTH_RELAY_DATABASE_URL`, setup tokens, or platform database/provider credentials. A registration credential does not grant application users access, and a Google sign-in does not make someone a relay operator.
+
+### One-time onboarding (platform operator)
+
+1. Request a credential id, repo and exact GitHub OIDC subject, relay environment, project, approved HTTPS origins, whether changing loopback ports are needed, and expiry. Include this in the hosting request when applicable. Verify repository/deployment/domain ownership; a hostname or Google email alone is not evidence. No wildcard or shared hosting suffix approvals.
+2. In `crvouga/workspace`, add an entry to the **complete** `auth_agent_credentials` input map of the Vault OpenTofu root. Persist it in the existing OpenTofu-owned `TOFU_VAULT_INPUTS` input, preserving all other fields. Example metadata (no credential values):
+
+   ```json
+   {
+     "my-app-dev": {
+       "config": "dev",
+       "repository": "owner/my-app",
+       "subject": "repo:owner/my-app:ref:refs/heads/main",
+       "generation": 1
+     }
+   }
+   ```
+
+   Use a separate id and `config: "prd"` for production. Protected GitHub environments can use an exact `repo:owner/my-app:environment:production` subject instead. An untrusted PR must never receive a production credential. This input controls credential delivery only; application registrations and callback scopes are never OpenTofu inventory entries.
+3. Review and apply a saved Vault-root plan through the existing deployment workflow. OpenTofu generates the random credential, writes only its isolated Vault document, and creates a read-only policy/JWT role restricted to that document. Shared `personal/*` CI/runtime tokens cannot read it. If a resource already exists, import it before applying; never replace it to adopt it.
+4. Read the **nonsecret** `auth_agent_credentials` OpenTofu output for path, role and SHA-256 fingerprint. In the correct relay console, sign in as an authorized operator, open **Agent access**, and approve that fingerprint with one project, allowed environments, exact owned HTTPS origins, optional nonproduction loopback access and expiry. Paste only the fingerprint, never the token. Application data goes into the relay's isolated PostgreSQL schema. The singleton first-operator setup and Google configuration remain platform-only operations.
+5. Supply the integrating agent the credential id/path/role, approved project/scopes/expiry and relay origin. All of these are public metadata. Local agents use an existing authorized Vault login; grant narrowly scoped Vault read access through OpenTofu if needed, never a root/operator token. Runtime app containers never receive the registration credential.
+
+Grant leases last at most seven days outside production and 366 days in production. Registrations cannot outlive the grant. Operators renew grants explicitly. Rotate by incrementing `generation` in the credential input, applying the reviewed plan, and replacing the fingerprint on the **existing** grant. Its id and application ownership remain stable; the old token then fails immediately. Revoke **Agent access** to stop registration operations; revoke application clients separately to stop their new sign-ins. Existing app sessions follow the app's own policy.
+
+### Register from another project
+
+The dependency-free [Bun agent client](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/agent.ts) can be copied into your project, inspected and pinned to a reviewed commit. No private `@pkgs/*` imports or platform checkout is needed:
+
+```bash
+# Download source for review; replace main with a reviewed commit for reproducibility.
+curl -fsS https://raw.githubusercontent.com/crvouga/workspace/main/packages/auth-relay/agent.ts -o auth-relay-agent.ts
+
+# List only the fields that would be injected; no values.
+vault run --path secret/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
+
+# A fingerprint is public; it can be supplied to the operator without revealing the token.
+vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts fingerprint
+vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts list --origin https://auth-dev.chrisvouga.dev
+```
+
+Commit a **public** `auth-registration.json`. The helper defaults to a one-hour lease capped at the grant expiry; optionally set an explicit future `expiresAt` or `--ttl-seconds` within the grant and environment limits:
+
+```json
+{
+  "name": "My app local",
+  "project": "my-app",
+  "environment": "localhost",
+  "instance": "dev-server-one",
+  "callbacks": ["http://localhost:5173/auth/callback"]
+}
+```
+
+```bash
+vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts register --origin https://auth-dev.chrisvouga.dev --file auth-registration.json
+# Teardown: use the public client id from the registration result.
+vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts revoke --origin https://auth-dev.chrisvouga.dev --id app-<UUID>
+```
+
+For changing ports, supply `--callback http://localhost:<actual-port>/auth/callback` after the server binds; this overrides the single callback without editing the file. `--ttl-seconds 3600` requests a fresh one-hour lease capped at grant expiry.
+
+The helper looks up the immutable `(project, environment, instance)`, reuses its client id and supplies its current revision. Re-running updates/renews that client, including an exact port change, without a Google change or deployment. Give each simultaneous server/preview a different instance. Choose the actual bound port before registering; do not advertise readiness until registration succeeds. Preview teardown revokes its client; expiry remains a fallback when teardown fails. A separately approved loopback grant permits changing explicit ports, never wildcard redirect URIs.
+
+Only clients created under this grant can be listed, updated or revoked by its credential. An operator-created client or another grant's client cannot be adopted by guessing its id/project. For an identity collision, ask an operator to resolve ownership; do not generate new ids repeatedly. Writes use revision checks. On a timeout or conflict, list again and reconcile the saved state before retrying; no request is automatically retried. New-client provider failures retain a pending identity for recovery.
+
+### CI registration without a static Vault token
+
+Use the credential's dedicated role, **not** the shared application role from §1. Adapt the subject-bound job/ref/environment to the approved onboarding metadata:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+steps:
+  # Checkout and install the project's pinned Bun runtime first.
+  - uses: hashicorp/vault-action@v4
+    id: relay-credential
+    with:
+      url: https://vault.chrisvouga.dev
+      method: jwt
+      path: jwt
+      role: auth-relay-agent-my-app-dev
+      jwtGithubAudience: https://vault.chrisvouga.dev
+      exportEnv: false
+      secrets: |
+        secret/data/auth-relay-agents/my-app-dev/dev AUTH_RELAY_AGENT_TOKEN | AUTH_RELAY_AGENT_TOKEN
+  - run: bun auth-relay-agent.ts register --origin https://auth-dev.chrisvouga.dev --file auth-registration.json
+    env:
+      AUTH_RELAY_AGENT_TOKEN: ${{ steps.relay-credential.outputs.AUTH_RELAY_AGENT_TOKEN }}
+```
+
+Do not echo credentials, enable shell tracing, write them to `.env`, arguments, `$GITHUB_ENV`, job summaries, artifacts or caches. Inject them only into the registration step. Keep the production credential out of fork/PR jobs and browser code.
+
+### Plain HTTP contract (any language)
+
+Use HTTPS with `Authorization: Bearer <Vault-injected AUTH_RELAY_AGENT_TOKEN>` and `Content-Type: application/json`. No cookies, browser Origin, redirect following or CORS. Keep the credential in process memory; never send it in the URL. Paths are relative to the selected relay origin:
+
+| Method / path | Contract |
+| --- | --- |
+| `GET /agent/v1/clients` | Returns `issuer`, approved `grant`, and this grant's `clients` including `id`, `revision`, `config`, `desired`, `revoked`. Pending records have null `config`; use `desired` to reconcile identity. |
+| `PUT /agent/v1/clients/app-<UUID>` | Registration JSON above plus explicit `expiresAt` (ISO-8601 timestamp) and `revision` (0 for a new UUID; returned revision for updates). Returns `id`, `issuer`, next `revision`, and public `settings`. Identity is immutable; 1–8 exact callbacks. |
+| `DELETE /agent/v1/clients/app-<UUID>` | Revokes only this grant's client; returns `ok`. Repeating revocation is safe. |
+
+`401`: missing/unknown/expired/revoked credential; check Vault path, selected environment and fingerprint. `403`: browser-origin/cookie request denied. `400`: invalid registration, delegated scope, ownership or stale revision; inspect local metadata and re-list. `429`: honor `Retry-After`. `503`: dependency failure; reconcile before retrying a write. Errors contain no credential values. Agent credentials cannot access `/api/*` console/operator/setup operations.
+
+### Configure and verify the consuming app
+
+Use returned public `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI` and `OIDC_SCOPES=openid email profile`. Discover endpoints at `<issuer>/.well-known/openid-configuration`. Use a maintained library supporting public clients, authorization code, mandatory S256 PKCE, `token_endpoint_auth_method=none`, random state and nonce. Optional `kc_idp_hint=google` skips the provider choice. Confidential client, implicit, password, refresh and iframe silent-renew flows are outside the supported profile.
+
+Bind each ten-minute, single-use transaction to the exact client/callback, browser, state, nonce and verifier; separate concurrent tabs. Never retry a one-time code exchange after an error/timeout. Validate signature, exact issuer, audience, nonce and expiry; cache JWKS with bounded freshness and refresh once on an unknown key. Identify people by `(iss, sub)`, never automatically link accounts by email. A verified email alone grants no app permissions.
+
+Each app owns its authorization and sessions. SSR sessions use host-only HttpOnly/Secure/SameSite=Lax cookies over HTTPS. Namespace local session/transaction cookies per project **and instance**: localhost ports do not isolate cookies. Browser-only clients keep transactions per tab and avoid persistent token storage. Use top-level redirects. Existing app sessions follow local policy during a relay outage; new authentication fails closed.
+
+Before reporting success, verify discovery, registration readback, fresh login and callback/token validation, denied state/replay, concurrent tabs, and a second local instance. Confirm no registration credential enters the app bundle or runtime env. A missing deployment, Vault permission or operator approval is a precise blocker, not a passed check. Framework integration details and rollout evidence: [`packages/auth-relay/README.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/README.md), [`packages/auth-relay/operations.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/operations.md), [`packages/auth-relay/acceptance.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/acceptance.md).
+
+---
+
 ## Troubleshooting
 
 | Symptom                                        | Meaning / fix                                                                                                                  |
@@ -700,20 +847,3 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R c
 ## Maintaining this file (agents working inside `crvouga/workspace`)
 
 `llms.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-txt.template.md`](https://github.com/crvouga/workspace/blob/main/scripts/llms-txt.template.md); values, tables and the publish workflow come from [`packages/infra/tofu/modules/inventory/inventory.tf.json`](https://github.com/crvouga/workspace/blob/main/packages/infra/tofu/modules/inventory/inventory.tf.json), [`.github/workflows/publish.yml`](https://github.com/crvouga/workspace/blob/main/.github/workflows/publish.yml) and [`.github/workflows/deploy.yml`](https://github.com/crvouga/workspace/blob/main/.github/workflows/deploy.yml), [`packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts`](https://github.com/crvouga/workspace/blob/main/packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts) and [`packages/infra/lib/publish-workflow.ts`](https://github.com/crvouga/workspace/blob/main/packages/infra/lib/publish-workflow.ts) via [`scripts/llms-txt.ts`](https://github.com/crvouga/workspace/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
-
-
-## Shared Google authentication relay (preproduction)
-
-Any project using shared managed infrastructure should be able to add Google authentication without obtaining its own Google credentials, for the supported standard OIDC code + S256 PKCE profile. Projects may use unrelated domains, repositories, frameworks, hosting providers and localhost ports. Each application owns its sessions and permissions.
-
-Local `bun run dev` uses managed resources. Fleet loads the `prd` Vault scope for secrets, shows real fleet data, binds to loopback, and disables duplicate background jobs. Its browser uses Google through the shared relay and a database-managed verified-email allowlist; Vault is never the user identity provider. Distinct local OIDC settings use `FLEET_LOCAL_OIDC_ISSUER` / `FLEET_LOCAL_OIDC_CLIENT_ID`; authenticated edits affect live nodes. Auth relay resolves hostname/realm/upstream from canonical inventory for its selected Vault scope, loads managed credentials, and fails clearly with missing Vault fields until its staged deployment, private connectivity and exact issuer/callback configuration exist; it never silently substitutes mocks. Explicit `AUTH_DEV_MODE=local` / `FLEET_DEV_MODE=fixtures` selects synthetic test fixtures. See the integration guides. Production startup stays strict.
-
-An existing stopped default Colima runtime starts automatically; explicit Docker endpoints are respected. `bun run check:dev` verifies all workspace servers with disposable auth storage, browser sign-in, a changed-port restart and cleanup. Portfolio and remote-cache still require a valid dev Vault login. See `.superset/README.md` for cold-run prerequisites and logs.
-
-The relay is staged, not live or production-ready. Read [integration](packages/auth-relay/README.md), [operations](packages/auth-relay/operations.md) and [acceptance](packages/auth-relay/acceptance.md). A Bun/Hono API serves a simple client-side management UI and OIDC gateway from the same public domain. The UI signs in through its own Google-backed relay; only authorized operators can register applications. First-operator setup requires a one-time environment-specific Vault credential, never merely the first Google account to sign in. Register exact URLs, project/environment/instance identity and expiry in the UI. These records live only in isolated `auth_relay_production` / `auth_relay_nonproduction` PostgreSQL schemas. Atlas schema management, hosting, bootstrap system identities and secrets remain OpenTofu-owned. Application callback lists do not live in source code or inventory.
-
-Localhost and 127.0.0.1 support arbitrary exact ports and concurrent instances. Update the record through the UI when a port changes; no Google change or broker deployment is needed. Production callbacks require HTTPS; preview callbacks require verified ownership, a unique instance and a short lease. Revocation/expiry is enforced at the gateway. No wildcard redirects, public dynamic registration or native-app port exception exist. Automatic development startup registration and scoped preview provisioning remain incomplete; use the UI until their acceptance gates pass.
-
-Use the returned issuer and client ID with a maintained OIDC library, discovery, code flow, S256 PKCE, per-tab state/nonce and exact callbacks. Applications receive no Google secrets. SSR libraries must support public PKCE clients. Production and nonproduction issuers/clients are separate. Localhost cookies require per-application and per-instance names because ports do not isolate cookies. Top-level redirects avoid third-party-cookie dependence. Follow the README for production, changing localhost ports, previews, tests and troubleshooting; do not claim a browser/domain/failure scenario passes without the evidence recorded in acceptance.md.
-
-`bun run health -- --only auth` verifies the relay's required Google and setup credential fields in the actual dev/prd Vault documents even before deployment, plus broker/schema isolation and signing-key declarations. Once enabled, console, registration-service and database credentials are also required in Vault. Missing/blank fields fail without revealing values; unavailable Vault access skips rather than passes. Normal inventory/Vault checks enforce the required-key registry. Live Google validity and callback policy still require the documented sign-in smoke test.
