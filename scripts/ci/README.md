@@ -105,7 +105,11 @@ NixOS graph again just to build it.
 Runtime and lifecycle VM checks save small success records keyed by exact Nix
 derivation paths. Records include the validating commit, Nix version and scheduler
 code hash. A fallback cache can reuse unchanged checks while rebuilding changed
-ones. Records are written only after a successful build; malformed or incompatible
+ones. Records are written only after a successful build; failed VM groups retain
+only outputs that Nix independently reports as valid. The group still fails, and
+unchanged successes can be reused on the repair run. Cache keys include commit
+and attempt so immutable partial caches can advance to complete results.
+Malformed or incompatible
 records cause a rebuild. Logs identify every reused check and its original commit.
 This avoids transferring multi-gigabyte Nix stores for unchanged test results.
 

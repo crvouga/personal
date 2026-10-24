@@ -521,12 +521,14 @@ jobs:
         run: python3 scripts/ci-checks.py "$CHECK_GROUP" --plan .ci/nix-plan.json --plan-only
       - name: Cache successful VM derivations
         if: matrix.group == 'runtime' || matrix.group == 'lifecycle'
-        uses: actions/cache@v4
+        id: vm_cache
+        uses: actions/cache/restore@v4
         with:
           path: packages/fleet/.ci/nix-results.json
-          key: nix-vm-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/fleet/.ci/nix-plan.json') }}
+          key: nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/fleet/.ci/nix-plan.json') }}-${{ github.sha }}-${{ github.run_attempt }}
           restore-keys: |
-            nix-vm-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-
+            nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/fleet/.ci/nix-plan.json') }}-
+            nix-vm-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-
       - name: Test all Nix checks
         working-directory: packages/fleet
         env:
@@ -539,6 +541,12 @@ jobs:
           fi
           if [ "$FRESH_CHECKS" = true ]; then check_args+=(--fresh); fi
           timeout 12m python3 scripts/ci-checks.py "${check_args[@]}"
+      - name: Save successful VM derivations
+        if: always() && !cancelled() && (matrix.group == 'runtime' || matrix.group == 'lifecycle') && steps.vm_cache.outputs.cache-primary-key != '' && hashFiles('packages/fleet/.ci/nix-results.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: packages/fleet/.ci/nix-results.json
+          key: ${{ steps.vm_cache.outputs.cache-primary-key }}
       - name: Upload fleet-installer
         if: matrix.group == 'image' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4

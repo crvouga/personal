@@ -87,13 +87,14 @@ class CheckScheduling(unittest.TestCase):
             self.assertEqual(saved["vm"]["revision"], "second-commit")
             self.assertEqual(saved["web-vm"]["revision"], "first-commit")
 
+    @patch.object(ci_checks, "realized_checks", return_value=[])
     @patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "nix"))
-    def test_failed_build_never_writes_a_success_record(self, build):
+    def test_failed_build_never_writes_a_success_record(self, build, realized):
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "results.json"
             with self.assertRaises(subprocess.CalledProcessError):
                 ci_checks.run("runtime", plan("runtime", {"vm": drv("a")}), cache)
-            self.assertFalse(cache.exists())
+            self.assertEqual(json.loads(cache.read_text())["passed"], {})
 
     @patch.object(subprocess, "run")
     def test_fresh_run_ignores_success_records(self, build):
@@ -146,3 +147,20 @@ class ResourceScheduling(unittest.TestCase):
                 expected = "2" if group in ci_checks.CACHEABLE else "4"
                 self.assertEqual(command[command.index("--max-jobs") + 1], expected)
                 self.assertEqual(command[command.index("--cores") + 1], expected)
+
+
+class PartialResults(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(ci_checks, "context", side_effect=context)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @patch.object(ci_checks, "realized_checks", return_value=[("vm", drv("a"))])
+    @patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "nix"))
+    def test_failed_group_preserves_only_independently_realized_successes(self, build, realized):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "results.json"
+            with self.assertRaises(subprocess.CalledProcessError):
+                ci_checks.run("runtime", plan("runtime", {"vm": drv("a"), "web-vm": drv("b")}), cache)
+            self.assertEqual(set(json.loads(cache.read_text())["passed"]), {"vm"})
+            self.assertIn("--keep-going", build.call_args.args[0])

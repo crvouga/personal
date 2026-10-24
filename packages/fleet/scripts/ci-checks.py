@@ -93,6 +93,27 @@ def write_json(path, value):
     temporary.replace(path)
 
 
+def realized_checks(checks):
+    """Only Nix-registered successful outputs can become partial proof records."""
+    passed = []
+    for name, drv in checks:
+        try:
+            outputs = subprocess.check_output(["nix-store", "--query", "--outputs", drv], text=True).splitlines()
+            if outputs and subprocess.run(["nix-store", "--check-validity", *outputs],
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                passed.append((name, drv))
+        except subprocess.CalledProcessError:
+            pass
+    return passed
+
+
+def save_results(cache, plan, records):
+    if cache:
+        write_json(cache, {"context": plan["context"], "passed": {
+            name: records[name] for name in plan["checks"] if name in records
+        }})
+
+
 def run(group, plan=None, cache=None, fresh=False):
     if group not in GROUPS:
         raise ValueError(f"unknown check group: {group}")
@@ -120,18 +141,22 @@ def run(group, plan=None, cache=None, fresh=False):
         jobs = "2" if group in CACHEABLE else "4"
         cores = "2" if group in CACHEABLE else "4"
         print(f"{group}: building {', '.join(name for name, _ in pending)}", flush=True)
-        subprocess.run([
-            "nix", "build", "--no-write-lock-file", "--max-jobs", jobs, "--cores", cores,
-            "-L", "-o", "result-iso" if group == "image" else f"result-{group}",
-            *(drv + "^*" for _, drv in pending),
-        ], check=True)
-        # Record success only after every requested derivation actually built.
+        try:
+            subprocess.run([
+                "nix", "build", "--no-write-lock-file", "--max-jobs", jobs, "--cores", cores,
+                *(["--keep-going"] if cache else []),
+                "-L", "-o", "result-iso" if group == "image" else f"result-{group}",
+                *(drv + "^*" for _, drv in pending),
+            ], check=True)
+        except subprocess.CalledProcessError:
+            if cache:
+                for name, drv in realized_checks(pending):
+                    records[name] = {"derivation": drv, "revision": os.environ.get("GITHUB_SHA", "local")}
+                save_results(cache, plan, records)
+            raise
         for name, drv in pending:
             records[name] = {"derivation": drv, "revision": os.environ.get("GITHUB_SHA", "local")}
-    if cache:
-        write_json(cache, {"context": plan["context"], "passed": {
-            name: records[name] for name in plan["checks"]
-        }})
+    save_results(cache, plan, records)
 
 
 def main():

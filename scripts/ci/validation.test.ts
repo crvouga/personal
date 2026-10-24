@@ -143,6 +143,14 @@ test('Nix result caching only covers VM groups and manual runs force fresh tests
     "hashFiles('packages/fleet/.ci/nix-plan.json')"
   );
   expect(cache.with.path).toBe('packages/fleet/.ci/nix-results.json');
+  expect(cache.with.key).toContain(
+    '${{ github.sha }}-${{ github.run_attempt }}'
+  );
+  const save = steps.find(
+    (step: any) => step.name === 'Save successful VM derivations'
+  );
+  expect(save.if).toContain('always()');
+  expect(save.with.key).toContain('steps.vm_cache.outputs.cache-primary-key');
   const build = steps.find((step: any) => step.name === 'Test all Nix checks');
   expect(build.if).toBeUndefined();
   expect(build.env.FRESH_CHECKS).toBe(
