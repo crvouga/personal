@@ -60,7 +60,10 @@ test('the inventory edit changes only the Fleet env lines and stays valid JSON',
   });
   const removed = text.split('\n');
   const added = edited.split('\n');
-  expect(added.length - removed.length).toBe(3);
+  const newKeys = Object.keys(env).filter(
+    (key) => !(key in configuredEnv(inventory))
+  );
+  expect(added.length - removed.length).toBe(newKeys.length);
   // Idempotent: applying the same settings again is a no-op.
   expect(withServiceEnv(edited, 'fleet-api', env)).toBe(edited);
   // Other services are untouched.
