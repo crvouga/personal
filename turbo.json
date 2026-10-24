@@ -51,5 +51,6 @@
       "outputs": [],
       "outputLogs": "new-only"
     }
-  }
+  },
+  "globalEnv": ["ImageOS"]
 }

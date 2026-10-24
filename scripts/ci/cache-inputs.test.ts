@@ -50,7 +50,10 @@ function fixture(): string {
   return directory;
 }
 
-function plan(directory: string): Map<string, string> {
+function plan(
+  directory: string,
+  image = process.env['ImageOS']
+): Map<string, string> {
   const result = Bun.spawnSync(
     [
       join(root, 'node_modules/.bin/turbo'),
@@ -63,7 +66,7 @@ function plan(directory: string): Map<string, string> {
     ],
     {
       cwd: directory,
-      env: { ...process.env, TURBO_TELEMETRY_DISABLED: '1' },
+      env: { ...process.env, ImageOS: image, TURBO_TELEMETRY_DISABLED: '1' },
     }
   );
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
@@ -136,6 +139,19 @@ test('shared lint rules invalidate every linter without discarding unrelated com
       }
     }
     expect(linters).toBeGreaterThan(0);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('changing the hosted runner image invalidates successes from a different system toolchain', () => {
+  const directory = fixture();
+  try {
+    const original = plan(directory, 'fixture-previous-image');
+    const changed = plan(directory, 'fixture-next-image');
+    expect(original.size).toBeGreaterThan(0);
+    for (const [id, hash] of original)
+      expect(changed.get(id), id).not.toBe(hash);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

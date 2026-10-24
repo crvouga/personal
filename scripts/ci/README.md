@@ -104,6 +104,8 @@ server. New filesystem consumers must declare these inputs in their package
 Turbo configuration. Real Turbo planner tests verify that both inventory and
 template edits invalidate every current reader, while unrelated package results
 remain reusable. The same tests ensure shared lint-rule edits reach every linter.
+The hosted runner's `ImageOS` generation participates in task fingerprints, so
+an operating-system/toolchain migration cannot reuse tests from the old image.
 Generated browser bundles and portfolio builds declare their `dist` outputs so
 cache hits restore usable artifacts. Fleet API tests explicitly depend on their
 asset build, avoiding cold-checkout races. External integration probes always run when
