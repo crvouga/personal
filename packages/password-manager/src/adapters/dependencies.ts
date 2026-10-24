@@ -11,7 +11,7 @@ import { command } from './process.ts';
 const require = createRequire(import.meta.url);
 export const NODE_VERSION = '22.22.3';
 export const BUN_VERSION = '1.3.11';
-export const PLAYWRIGHT_VERSION = '1.64.1';
+export const PLAYWRIGHT_VERSION = '1.63.0';
 export function dependencyInventory() {
   const manifest = JSON.parse(
     readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
