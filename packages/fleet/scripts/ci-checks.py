@@ -117,9 +117,11 @@ def run(group, plan=None, cache=None, fresh=False):
             "--system", "x86_64-linux",
         ], check=True)
     if pending:
+        jobs = "2" if group in CACHEABLE else "4"
+        cores = "2" if group in CACHEABLE else "4"
         print(f"{group}: building {', '.join(name for name, _ in pending)}", flush=True)
         subprocess.run([
-            "nix", "build", "--no-write-lock-file", "--max-jobs", "2", "--cores", "2",
+            "nix", "build", "--no-write-lock-file", "--max-jobs", jobs, "--cores", cores,
             "-L", "-o", "result-iso" if group == "image" else f"result-{group}",
             *(drv + "^*" for _, drv in pending),
         ], check=True)

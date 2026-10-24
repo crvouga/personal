@@ -2,6 +2,7 @@
 
 FROM oven/bun:1.3.11 AS build
 WORKDIR /app
+ARG TARGETARCH
 
 COPY package.json bun.lock ./
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
@@ -22,7 +23,7 @@ COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
-RUN bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
+RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
 
 COPY tsconfig.json turbo.json ./
 COPY packages/turborepo-remote-cache ./packages/turborepo-remote-cache

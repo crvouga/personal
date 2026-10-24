@@ -31,11 +31,13 @@ test('all image inputs validate before any build starts and select isolated cach
     expect(build.args.join(' ')).toContain(
       `${build.id}:buildcache,mode=max,ignore-error=true`
     );
-    expect(build.args).not.toContain('--no-cache');
+    expect(build.args).not.toContain('--no-cache-filter');
   }
   expect(
-    imageBuilds(config, ids, 'revision', true).every((build) =>
-      build.args.includes('--no-cache')
+    imageBuilds(config, ids, 'revision', true).every(
+      (build) =>
+        build.args.includes('--no-cache-filter') &&
+        build.args[build.args.indexOf('--no-cache-filter') + 1] === 'build'
     )
   ).toBe(true);
 });

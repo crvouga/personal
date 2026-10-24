@@ -98,8 +98,18 @@ test('restored task results are validated by Turbo and never skip the package co
   );
   expect(cache.with.path).toBe('.turbo');
   expect(cache.with.key).toContain('${{ matrix.task }}-${{ github.sha }}');
-  for (const step of jobs.packages.steps)
+  for (const step of jobs.packages.steps.filter((step: any) => step.run))
     expect(step.if ?? '').not.toContain('cache-hit');
+  const save = jobs.packages.steps.find(
+    (step: any) => step.name === 'Save completed task results'
+  );
+  expect(save.if).toContain('always()');
+  expect(save.with.path).toBe('.turbo');
+  expect(
+    jobs.infra.steps.find(
+      (step: any) => step.name === 'Cache verified providers'
+    ).with.key
+  ).toContain('${{ matrix.group }}');
   const config = JSON.parse(readFileSync(join(root, 'turbo.json'), 'utf8'));
   expect(config.globalDependencies).toContain('packages/eslint-rules/**');
   expect(config.globalDependencies).toContain('tsconfig.strict.json');
@@ -206,4 +216,23 @@ test('formatting cache keeps the full check and scopes reuse to the lock and for
     expect(cache.with[key]).toContain('**/.prettier*');
     expect(cache.with[key]).toContain('package.json');
   }
+});
+
+test('every independent database lane installs its own tooling before testing', () => {
+  const uses = (job: any, tool: string) =>
+    job.steps.find((step: any) => String(step.uses ?? '').startsWith(tool));
+  expect(uses(jobs.packages, 'ariga/setup-atlas').if).toBe(
+    "matrix.task == 'tests'"
+  );
+  expect(uses(jobs.fleet_e2e, 'ariga/setup-atlas')).toBeDefined();
+  expect(uses(jobs.auth, 'ariga/setup-atlas').if).toBe(
+    "matrix.suite == 'compatibility'"
+  );
+  expect(uses(jobs.auth, 'opentofu/setup-opentofu').with.tofu_version).toBe(
+    '1.13.0'
+  );
+  expect(
+    jobs.fleet_e2e.steps.find((step: any) => step.name === 'Build Fleet assets')
+      .run
+  ).toBe('bun run --filter @pkgs/fleet-api build');
 });

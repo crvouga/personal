@@ -81,8 +81,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/tofu-providers
-          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
+          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
           restore-keys: |
+            tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-
             tofu-1.13-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare provider cache
         run: mkdir -p "$TF_PLUGIN_CACHE_DIR"

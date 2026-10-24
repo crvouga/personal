@@ -129,3 +129,20 @@ class CheckScheduling(unittest.TestCase):
             with self.subTest(plan=bad), self.assertRaises(ValueError):
                 ci_checks.run("runtime", bad)
         build.assert_not_called()
+
+
+class ResourceScheduling(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(ci_checks, "context", side_effect=context)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @patch.object(subprocess, "run")
+    def test_only_non_vm_groups_use_the_whole_runner(self, build):
+        for group, name in [("roles", "node"), ("image", "installer"), ("runtime", "vm"), ("lifecycle", "follow-up")]:
+            with self.subTest(group=group):
+                ci_checks.run(group, plan(group, {name: drv("a")}))
+                command = build.call_args.args[0]
+                expected = "2" if group in ci_checks.CACHEABLE else "4"
+                self.assertEqual(command[command.index("--max-jobs") + 1], expected)
+                self.assertEqual(command[command.index("--cores") + 1], expected)

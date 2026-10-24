@@ -27,7 +27,8 @@ short change plan. They never wait for the aggregate Check job.
 - Fleet integration runs the process and production-image contracts separately.
 - Auth image contracts and compatibility fixtures have independent runners.
 - Nix runs roles, runtime, lifecycle and image concurrently. Its partitioner
-  assigns newly added flake checks to roles automatically. Only image uploads
+  assigns newly added flake checks to roles automatically. VM groups retain
+  two builds/two cores; static role/image groups use four builds/four cores. Only image uploads
   the ISO; every group must pass before release.
 - When installer inputs are affected, all five platforms retain unit, browser,
   packaged-binary and applicable native Nix acceptance tests. Within each native
@@ -75,7 +76,8 @@ Every install still uses the frozen lockfile. Installer Python build dependencie
 use setup-python's pip cache.
 
 Each package lane restores `.turbo` from earlier runs, then always invokes Turbo.
-Turbo decides reuse from task inputs and dependency hashes. Shared ESLint rules
+Turbo decides reuse from task inputs and dependency hashes. Successful task
+entries are saved even when a different task fails, so retries retain valid work. Shared ESLint rules
 and strict TypeScript settings invalidate task results; Fleet and infrastructure
 checks also track the repository files they inspect outside their package.
 Generated browser bundles and portfolio builds declare their `dist` outputs so
@@ -87,7 +89,9 @@ Chromium. Matching installed Playwright versions share one browser/dependency
 installation; every distinct version is still installed. Unreadable manifests or plans conservatively install it. The actual
 Turbo test/build command always runs.
 
-OpenTofu caches only downloaded provider binaries. Provider locks still verify
+OpenTofu caches only downloaded provider binaries. Cache keys include each
+validation/deployment lane, avoiding an immutable partial cache from another
+job winning the same key. Provider locks still verify
 installed packages. State, plans, backend metadata, tfvars and credentials are
 never cached. Docker production-image tests use separate BuildKit cache scopes
 and load the resulting images locally without publishing them.
@@ -131,11 +135,14 @@ run two at a time, and any failure blocks deployment after in-flight work ends.
 Production and reusable publishers restore intermediate BuildKit layers from a
 `buildcache` tag in each existing image package. Cache export failure cannot hide
 an image publication failure. Base images are checked on every publication;
-scheduled data refreshes still force fresh build steps.
+scheduled data refreshes force the final build stage to run again while reusing
+frozen dependencies and browser/system packages.
 
 Fleet API builds install filtered workspace dependencies and retain only production
 dependencies in the runtime image. Cache-server and portfolio installs are also
 filtered. Portfolio uses the headless Chromium shell for PDF generation.
+Auth production images build concurrently in one cached Bake graph, including
+the exact local-cache identity image exercised by startup/restart checks.
 Auth compatibility uses one cached Bake dependency graph for identity, broker and
 mock images, then still runs the complete real compatibility suite.
 
@@ -147,3 +154,10 @@ concurrently. Identity, connector, foundation or unknown changes retain the full
 four-minute continuous stability window. Only proven gateway-only/no-op hosting
 plans with an unchanged foundation may use an immediate successful live probe.
 Missing plan metadata always restores the full window.
+
+The current main branch's password-manager browser contracts remain mandatory as
+a cached prerequisite of its package test task. Browser planning sees that task,
+and the shared installer deduplicates equal Playwright versions across all four
+browser consumers. Each database lane installs its own Atlas/OpenTofu tools.
+Windows fixture cleanup terminates the entire PyInstaller child process tree and
+waits for stream closure before removing temporary DLLs.

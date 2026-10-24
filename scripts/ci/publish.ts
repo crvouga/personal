@@ -48,7 +48,7 @@ export function imageBuilds(
       '--file',
       service.dockerfile,
     ];
-    if (fresh) args.push('--no-cache');
+    if (fresh) args.push('--no-cache-filter', 'build');
     if (
       service.secrets?.some(
         (secret) => secret.name === 'PORTFOLIO_GITHUB_TOKEN'

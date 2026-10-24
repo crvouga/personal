@@ -250,7 +250,8 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache task results
-        uses: actions/cache@v4
+        id: tasks_cache
+        uses: actions/cache/restore@v4
         with:
           path: .turbo
           key: turbo-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ github.sha }}
@@ -259,6 +260,9 @@ jobs:
       - name: Typecheck and lint packages
         if: matrix.task == 'quality'
         run: bunx turbo run tc lint
+      - name: Set up Atlas
+        if: matrix.task == 'tests'
+        uses: ariga/setup-atlas@v0
       - name: Plan browser installation
         id: browsers
         if: matrix.task == 'tests'
@@ -276,6 +280,13 @@ jobs:
       - name: Test and build packages
         if: matrix.task == 'tests'
         run: bunx turbo run test build
+      - name: Save completed task results
+        if: always() && !cancelled() && steps.tasks_cache.outputs.cache-primary-key != '' && steps.tasks_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo
+          key: ${{ steps.tasks_cache.outputs.cache-primary-key }}
+
   infra:
     name: OpenTofu (${{ matrix.group }})
     if: needs.changes.outputs.infra == 'true'
@@ -306,8 +317,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/tofu-providers
-          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
+          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
           restore-keys: |
+            tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-
             tofu-1.13-${{ runner.os }}-${{ runner.arch }}-
       - name: Validate and test OpenTofu
         env:
@@ -332,8 +344,11 @@ jobs:
         uses: actions/checkout@v5
       - name: Install dependencies
         uses: ./.github/actions/setup
+      - name: Set up Atlas
+        uses: ariga/setup-atlas@v0
       - name: Build Fleet assets
-        run: bun run --filter @pkgs/fleet-api build:css
+        if: matrix.runtime == 'process'
+        run: bun run --filter @pkgs/fleet-api build
       - name: Set up Docker Buildx
         if: matrix.runtime == 'image'
         uses: docker/setup-buildx-action@v3
@@ -368,29 +383,27 @@ jobs:
         uses: ./.github/actions/setup
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.0.0
-      - name: Build auth gateway
+      - name: Build auth production images concurrently
         if: matrix.suite == 'images'
-        uses: docker/build-push-action@v6
+        uses: docker/bake-action@v6
         with:
-          context: .
-          file: packages/auth-relay/Dockerfile
-          tags: auth-relay-gateway:ci
+          files: packages/auth-relay/tests/production-bake.hcl
           load: true
-          cache-from: type=gha,scope=auth-gateway-ci
-          cache-to: type=gha,scope=auth-gateway-ci,mode=max
-      - name: Build auth tunnel
-        if: matrix.suite == 'images'
-        uses: docker/build-push-action@v6
-        with:
-          context: packages/auth-relay
-          file: packages/auth-relay/Dockerfile.tunnel
-          tags: auth-relay-tunnel:ci
-          load: true
-          cache-from: type=gha,scope=auth-tunnel-ci
-          cache-to: type=gha,scope=auth-tunnel-ci,mode=max
+          pull: true
       - name: Test production images
         if: matrix.suite == 'images'
+        env:
+          AUTH_PRODUCTION_PREBUILT: "1"
         run: python3 packages/auth-relay/tests/production-image.py
+      - name: Set up Atlas
+        if: matrix.suite == 'compatibility'
+        uses: ariga/setup-atlas@v0
+      - name: Set up OpenTofu
+        if: matrix.suite == 'compatibility'
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.13.0
+          tofu_wrapper: false
       - name: Build compatibility fixtures
         if: matrix.suite == 'compatibility'
         uses: docker/bake-action@v6

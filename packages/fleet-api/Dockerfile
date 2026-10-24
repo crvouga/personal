@@ -4,6 +4,7 @@
 # `fleet` only), with a React/Mantine client console and offline fallback CSS.
 FROM oven/bun:1.3.11 AS manifests
 WORKDIR /app
+ARG TARGETARCH
 
 COPY package.json bun.lock ./
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
@@ -25,10 +26,10 @@ COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
 FROM manifests AS production-dependencies
-RUN bun install --frozen-lockfile --filter @pkgs/fleet-api --production
+RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api --production
 
 FROM manifests AS build
-RUN bun install --frozen-lockfile --filter @pkgs/fleet-api
+RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api
 
 COPY tsconfig.json tsconfig.strict.json turbo.json ./
 COPY packages/assert ./packages/assert

@@ -91,7 +91,12 @@ export async function startWizard(
     original,
     stop: async () => {
       await server.stop();
-      await rm(directory, { recursive: true, force: true });
+      await rm(directory, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
     },
   };
 }
