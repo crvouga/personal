@@ -17,6 +17,8 @@ completed after 3 minutes 5 seconds; Nix image construction was the final build
 lane. All selected integration checks, four Nix groups and five native installer
 platforms passed. This run had warm package/image caches and actual Nix builds;
 it is not a cold-cache guarantee. Hosted queues and changed inputs affect timing.
+A subsequent [warm run](https://github.com/crvouga/workspace/actions/runs/40134330309)
+passed in **4 minutes**, approximately **84% less elapsed time** than baseline.
 
 ## Scheduling and gates
 
@@ -128,8 +130,10 @@ Malformed or incompatible
 records cause a rebuild. Logs identify every reused check and its original commit.
 These records can avoid building or fetching VM closures for unchanged tests.
 
-A shared Nix store cache also retains pinned dependencies. All four Nix groups
-can restore it; only roles saves it, avoiding four large duplicate archives.
+A shared Nix store cache also retains pinned dependencies. Roles and image
+restore it; only roles saves it, avoiding large duplicate archives. VM groups
+retain the lightweight success records: restoring the large store added
+40–54 seconds to their already reusable tests in the warm benchmark.
 The immutable key includes the runner platform, pinned Nix installer and
 `flake.lock`, rather than creating a new store archive for every commit. Garbage
 collection targets 4 GiB before saving (live output roots remain protected).
@@ -137,6 +141,19 @@ Only `/nix` is cached. Nix still evaluates the current Git revision and builds
 its exact derivations, including changed role and image outputs; a cache miss
 falls back to normal downloads and builds. No external service or credentials
 are needed.
+
+The Fleet cache publisher also restores these dependencies after a public
+exact-revision probe reports a miss. That probe evaluates all five exact role
+paths and pinned public metadata in one Nix call, then still verifies every
+public signature. It submits all five role closures in one
+Nix build with four jobs/four cores, then preserves the role-specific publication
+links. Exact revision proofs, signature verification and content-before-metadata
+publication remain mandatory. A real Nix fixture verifies all five output links.
+
+A shared-package Nix evaluation experiment was rejected: after warming inputs,
+the unmodified flake took 108.4 seconds versus 115.7 seconds for the trial.
+Its initial 158.5-second cold measurement was not a comparable baseline. The
+flake was left unchanged by this optimization pass.
 
 Role closures and installer images always materialize their actual outputs, even
 with warm caches. Full flake validation remains mandatory. Manual workflow runs

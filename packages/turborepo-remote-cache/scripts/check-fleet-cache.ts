@@ -9,27 +9,27 @@ async function capture(args: string[]): Promise<string> {
   return text.trim();
 }
 
-const metadata = JSON.parse(
+const expression = `hosts: let
+  bootstrap = builtins.fromJSON hosts.ci.config.environment.etc."fleet/bootstrap.json".text;
+in {
+  metadata = { inherit (bootstrap) cacheUrl cachePublicKey; };
+  paths = map (role: builtins.toString (builtins.getAttr role hosts).config.system.build.toplevel)
+    [ "ci" "web" "cache" "netboot" "devbox" ];
+}`;
+const { metadata, paths } = JSON.parse(
   await capture([
     'nix',
     'eval',
     '--no-write-lock-file',
-    '--raw',
-    '.#nixosConfigurations.ci.config.environment.etc."fleet/bootstrap.json".text',
+    '--json',
+    '.#nixosConfigurations',
+    '--apply',
+    expression,
   ])
-) as { cacheUrl: string; cachePublicKey: string };
-const paths: string[] = [];
-for (const role of ['ci', 'web', 'cache', 'netboot', 'devbox']) {
-  paths.push(
-    await capture([
-      'nix',
-      'eval',
-      '--no-write-lock-file',
-      '--raw',
-      `.#nixosConfigurations.${role}.config.system.build.toplevel`,
-    ])
-  );
-}
+) as {
+  metadata: { cacheUrl: string; cachePublicKey: string };
+  paths: string[];
+};
 const child = Bun.spawn(
   [
     'timeout',
@@ -67,10 +67,10 @@ if (hit) {
       signedPaths: paths.length,
     }) + '\n'
   );
-  console.log(
-    'FLEET_CACHE_ALREADY_PUBLISHED: exact role paths and pinned signatures verified through the public endpoint.'
+  process.stdout.write(
+    'FLEET_CACHE_ALREADY_PUBLISHED: exact role paths and pinned signatures verified through the public endpoint.\n'
   );
 }
 const output = process.env['GITHUB_OUTPUT'];
 if (!output) throw new Error('FLEET_CACHE_OUTPUT_PATH_MISSING');
-await appendFile(output, `hit=${hit}\n`);
+await appendFile(output, `hit=${String(hit)}\n`);

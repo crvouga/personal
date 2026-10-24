@@ -35,13 +35,24 @@ jobs:
         env:
           FLEET_CACHE_PROOF: ../../fleet-cache-proof.json
         run: bun ../turborepo-remote-cache/scripts/check-fleet-cache.ts
+      - name: Reuse pinned Nix dependencies
+        if: steps.existing.outputs.hit != 'true'
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-store-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-${{ hashFiles('packages/fleet/flake.lock') }}
+          save: false
       - name: Build exact main role closures independently of physical nodes
         if: steps.existing.outputs.hit != 'true'
         working-directory: packages/fleet
         run: |
           set -euo pipefail
-          for role in ci web cache netboot devbox; do
-            nix build --no-write-lock-file --out-link "result-${role}" ".#${role}"
+          roles=(ci web cache netboot devbox)
+          nix build --no-write-lock-file --max-jobs 4 --cores 4 \
+            --out-link result-role-batch "${roles[@]/#/.#}"
+          for index in "${!roles[@]}"; do
+            output=result-role-batch
+            if [ "$index" -ne 0 ]; then output+="-$index"; fi
+            ln -sfn "$(readlink "$output")" "result-${roles[$index]}"
           done
       - name: Read isolated publisher credentials through GitHub OIDC
         if: steps.existing.outputs.hit != 'true'
