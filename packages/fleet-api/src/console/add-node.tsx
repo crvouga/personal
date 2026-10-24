@@ -81,9 +81,9 @@ export function AddNode({ empty = false }: { empty?: boolean }) {
           </Group>
           <Downloads />
           <Alert color="yellow">
-            The macOS and Windows downloads are unsigned. Installation can erase
-            a disk; review the exact target and retain your recovery
-            information.
+            macOS is unsigned, and Windows can show download or publisher
+            warnings. Installation can erase a disk; review the exact target and
+            retain your recovery information.
           </Alert>
           <Anchor href="/pending" size="sm">
             Already ran it? See pending approvals
@@ -118,6 +118,24 @@ function Downloads() {
           ? 'Use the native NixOS installer'
           : `Download ${installer?.label ?? 'recommended installer'}`}
       </Button>
+      {platform === 'windows-x64' && (
+        <Alert color="yellow" title="If Microsoft Edge blocks the download">
+          Edge may say the installer “isn’t commonly downloaded.” New or
+          unsigned Windows downloads may not have established publisher
+          reputation. The wizard cannot fix a browser block before it starts.
+          Keep Windows protection enabled. If your organization blocks
+          unrecognized apps, use another permitted computer to make installer
+          USB media or contact its administrator.
+          <Anchor
+            href="https://github.com/crvouga/workspace/issues/130"
+            target="_blank"
+            rel="noopener noreferrer"
+            ml="xs"
+          >
+            Windows signing status
+          </Anchor>
+        </Alert>
+      )}
       <NativeSelect
         id="installer-platform"
         label="Installer for"

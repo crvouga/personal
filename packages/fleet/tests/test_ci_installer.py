@@ -29,14 +29,14 @@ class InstallerSchedulingTests(unittest.TestCase):
 
     def test_every_native_platform_runs_unit_browser_packaging_and_self_test(self):
         commands = installer.commands("fixture-sha")
-        self.assertEqual(len(commands), 3)
+        self.assertEqual(len(commands), 4 if sys.platform == "win32" else 3)
         self.assertIn("test_wizard*.py", commands["Wizard unit tests"])
         self.assertEqual(commands["Wizard browser contracts"], ["node", "wizard/ui-e2e.cjs"])
         self.assertEqual(commands["Packaged installer and self-test"], [sys.executable, "wizard/build.py", "--version", "fixture-sha"])
 
     def test_linux_adds_native_build_without_omitting_portable_contracts(self):
         commands = installer.commands("fixture-sha", native_nix=True)
-        self.assertEqual(len(commands), 4)
+        self.assertEqual(len(commands), 5 if sys.platform == "win32" else 4)
         self.assertEqual(commands["Native Nix installer"], ["nix", "build", "--no-write-lock-file", "-o", "result-native", ".#fleet-installer"])
         self.assertIn("Packaged installer and self-test", commands)
 

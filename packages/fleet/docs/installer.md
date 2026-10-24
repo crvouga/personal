@@ -97,7 +97,26 @@ verification first.
 
 ## 2. Open it
 
-The builds are not signed, so the system warns once:
+The currently published Windows and macOS downloads are unsigned. Warnings
+can recur with each release; the installer cannot dismiss a browser or operating
+system block before it runs.
+
+**Microsoft Edge: “isn't commonly downloaded.”** This is SmartScreen's download
+reputation warning, separate from the Windows launch prompt. It does not mean the
+wizard has started or found a problem with your machine. Keep SmartScreen and
+antivirus enabled. On a personally managed machine, Edge may offer **Keep** and
+**Show more > Keep anyway** after you inspect the exact download source. Only
+continue if you trust this repository and intend to run its current unsigned
+build. An organization can prohibit this entirely; the installer cannot override
+that policy. Another permitted Windows, Linux or macOS computer can prepare
+installer USB media without running the blocked download on the target.
+
+[Windows signing status](https://github.com/crvouga/workspace/issues/130) tracks
+the verified-publisher prerequisite. [Signing operations](windows-signing.md)
+describes the automated release path. A signed release still cannot promise no
+reputation warnings or compatibility with every managed Windows policy.
+
+Platform launch behavior:
 
 - **Windows:** SmartScreen says "Windows protected your PC". Choose **More info**, then **Run anyway**. A black window opens and stays open; it prints the address of the wizard and the path of the log. Leave it open.
 - **macOS:** unzip, then open `fleet-installer`. If it is blocked, open **System Settings > Privacy & Security** and choose **Open Anyway**, then open it again.

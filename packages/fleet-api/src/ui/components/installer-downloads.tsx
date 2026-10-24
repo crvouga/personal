@@ -68,6 +68,20 @@ export function InstallerDownloads() {
       <a data-installer-recommended hidden class="btn btn-primary mt-3">
         Download recommended installer
       </a>
+      <details class="mt-3 text-sm">
+        <summary class="cursor-pointer font-medium">
+          Windows: Edge blocks the download
+        </summary>
+        <p class="mt-2 text-fg-2">
+          “Isn’t commonly downloaded” is a Microsoft SmartScreen reputation
+          warning. New or unsigned releases may trigger it. Keep Windows
+          protection enabled; organization policy may prevent running it. You
+          can prepare installer USB media on another permitted computer.
+        </p>
+        <a href="https://github.com/crvouga/workspace/issues/130">
+          Windows signing status
+        </a>
+      </details>
       <InstallerChoices />
       <AllInstallers />
       <a

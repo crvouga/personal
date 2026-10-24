@@ -18,6 +18,8 @@ def commands(version, native_nix=False):
         "Wizard browser contracts": ["node", "wizard/ui-e2e.cjs"],
         "Packaged installer and self-test": [sys.executable, "wizard/build.py", "--version", version],
     }
+    if sys.platform == "win32":
+        checks["Windows release trust contracts"] = [sys.executable, "-B", "tests/run.py", "--pattern", "test_windows_signing.py"]
     if native_nix:
         checks["Native Nix installer"] = ["nix", "build", "--no-write-lock-file", "-o", "result-native", ".#fleet-installer"]
     return checks

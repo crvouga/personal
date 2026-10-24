@@ -725,7 +725,9 @@ jobs:
           find wizard-artifacts -type f -exec ls -l {} +
           count=$(find wizard-artifacts -type f | wc -l)
           test "$count" -ge 5
-          gh release upload fleet-installer wizard-artifacts/* --clobber
+          # Windows is published only after Authenticode verification by
+          # fleet-windows-sign.yml; never reset its reputation with unsigned bytes.
+          find wizard-artifacts -maxdepth 1 -type f ! -name '*.exe' -exec gh release upload fleet-installer --clobber '{}' +
   fleet:
     name: Fleet
     if: always() && inputs.service_id == ''
