@@ -1,6 +1,6 @@
 # Native launcher: no foreign ELF loader, PyInstaller or nix-ld dependency.
 { pkgs, lib, revision ? "dev" }: let
-  files = [ "main.py" "bootstrap.py" "helper.py" "imaging.py" "leases.py" "elevate.py" "preparation.py" "server.py" "index.html" "admin.css" "theme.js" ];
+  files = [ "main.py" "bootstrap.py" "helper.py" "imaging.py" "leases.py" "elevate.py" "preparation.py" "fleet_wifi.py" "wifi_capture.py" "server.py" "index.html" "admin.css" "theme.js" ];
   source = pkgs.linkFarm "fleet-installer-source" (map (name: {
     inherit name;
     path = ../wizard + "/${name}";
@@ -13,14 +13,14 @@ in pkgs.runCommand "fleet-installer" { } ''
   cat > "$out/bin/fleet-installer" <<EOF
 #!${pkgs.runtimeShell}
 export PATH=${lib.makeBinPath ([ pkgs.python3 pkgs.curl pkgs.coreutils pkgs.bash ]
-  ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.util-linux pkgs.kexec-tools ])}:\$PATH
+  ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.util-linux pkgs.kexec-tools pkgs.networkmanager ])}:\$PATH
 exec ${pkgs.python3}/bin/python3 "$out/libexec/fleet-installer/main.py" "\$@"
 EOF
   chmod +x "$out/bin/fleet-installer"
   cat > "$out/bin/fleet-node" <<EOF
 #!${pkgs.runtimeShell}
 export PATH=${lib.makeBinPath ([ pkgs.python3 pkgs.curl pkgs.coreutils pkgs.bash ]
-  ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.util-linux pkgs.kexec-tools ])}:\$PATH
+  ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.util-linux pkgs.kexec-tools pkgs.networkmanager ])}:\$PATH
 exec ${pkgs.bash}/bin/bash ${../scripts/fleet-node.sh} "\$@"
 EOF
   chmod +x "$out/bin/fleet-node"

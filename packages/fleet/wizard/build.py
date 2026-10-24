@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FILES = ("main.py", "bootstrap.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "preparation.py", "server.py", "index.html", "admin.css", "theme.js")
+FILES = ("main.py", "bootstrap.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "preparation.py", "fleet_wifi.py", "wifi_capture.py", "server.py", "index.html", "admin.css", "theme.js")
 
 
 def target_name():
@@ -56,6 +56,7 @@ def main(argv):
             "--add-data", f"{stage / 'admin.css'}{separator}.",
             "--add-data", f"{stage / 'theme.js'}{separator}.",
             "--hidden-import", "decide", "--hidden-import", "_version",
+            "--hidden-import", "fleet_wifi", "--hidden-import", "wifi_capture",
         ]
         if system == "macos":
             command += ["--windowed", "--osx-bundle-identifier", "dev.chrisvouga.fleet-installer"]

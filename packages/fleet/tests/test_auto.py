@@ -66,3 +66,12 @@ class AutoInstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text(), "auto=1 args=\n")
         self.assertIn("pull the stick", result.stderr)
+
+    def test_network_wait_status_reaches_systemd_without_rebooting(self):
+        manifest = self.root / "manifest"
+        manifest.write_text("ci /system\n")
+        write_executable(self.install, "#!/bin/bash\nexit 75\n")
+        env = {**self.env, "FLEET_MANIFEST": str(manifest)}
+        result = subprocess.run([str(SCRIPT)], capture_output=True, text=True, env=env, check=False)
+        self.assertEqual(result.returncode, 75)
+        self.assertNotIn("Installed.", result.stderr)

@@ -21,3 +21,8 @@ Feature: Minimize manual steps on every installer platform
     Given I open the wizard on "Linux" with "x86_64" hardware
     When I choose the CI runner role
     Then SSH key and manual enrollment fields stay out of the normal flow
+
+  Scenario: Review a hidden WPA3 Wi-Fi handoff without exposing its password
+    Given I open the USB wizard on "Windows" with "AMD64" hardware
+    When I review a USB with explicit hidden WPA3 Wi-Fi settings
+    Then the Wi-Fi password stays private and disk consent is still required

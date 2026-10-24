@@ -10,8 +10,46 @@ the native launcher below.
 
 **Before confirming an internal disk:** back up the files you want to keep to
 another device, save any BitLocker recovery key there, and connect power and
-wired Ethernet. Installation erases the whole disk. A USB operation erases only
+a working Wi-Fi or Ethernet network. Installation erases the whole disk. A USB operation erases only
 the USB disk you review; booting it on a target later erases that target's disk.
+
+## Wi-Fi installation
+
+Wi-Fi works through the download, reboot into the live installer, and the
+installed node. The launcher carries the currently connected personal Wi-Fi
+profile from Windows or NetworkManager on Linux. A macOS USB creator can read
+its saved network from the system Keychain when macOS permits access. If the
+OS cannot release a reusable password, expand **Use a different Wi-Fi network**
+and enter the network once. This also selects a different target network, a
+hidden SSID, or WPA3 Personal. The default remains automatic detection.
+
+The privileged helper reads the saved password; it is never returned by the
+plan API, logged, put in shell arguments, or added to a kernel command line or
+the Nix store. In-place conversion uses a private supplemental initramfs. USB
+creation writes a checksummed, read-back-verified Wi-Fi handoff outside the ISO
+filesystem. **Keep a prepared USB private: it contains a reusable network
+password.** Creating a new USB without Wi-Fi settings clears an old handoff.
+
+The live installer connects and checks DNS/TLS before consuming an enrollment
+token or erasing the internal disk. A temporary outage makes it wait and retry
+automatically. Disk/install failures are not retried automatically. The profile
+is stored root-only under `/nix/fleet-state/network`, restored before
+NetworkManager starts on every boot, and reconnects automatically when the
+access point returns. It is not bound to an interface name or MAC address.
+Wired networking remains available as a fallback.
+
+Supported automatic networks use DHCP and open, WPA/WPA2 Personal, or WPA3
+Personal authentication. Enterprise/802.1X certificates, WEP, captive portals,
+and adapters without a driver/firmware in the pinned Linux system are not
+silently guessed or treated as working. A Wi-Fi-only install waits before
+wiping if it cannot connect. A Wi-Fi network/password cannot be invented when
+neither the source OS nor the person supplies it. PXE firmware/network boot
+remains a wired facility; USB and in-place installation support Wi-Fi.
+
+Software tests cover transfer, credential privacy, corruption, readiness and
+reboot preparation. The `wifi-vm` check uses simulated radios with real
+NetworkManager, hostapd and DHCP/DNS to exercise connection, AP loss and reboot.
+This does not certify a particular physical Wi-Fi adapter or Windows firmware.
 
 ## What happens automatically
 
@@ -154,7 +192,7 @@ for the first run.
 
 ## Supported hardware and operating systems
 
-The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, wired networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. The ordinary Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. NixOS uses the native Nix package on x86-64 or ARM64; it does not need a foreign ELF loader. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
+The five downloads are for the computer making the USB, not five node architectures. Nodes currently require x86-64, UEFI, supported Wi-Fi or Ethernet networking and one unambiguous internal disk; Apple silicon and ARM boards can make install media but cannot become fleet nodes. The ordinary Linux downloads require glibc; Alpine/musl and old Linux distributions are not supported. NixOS uses the native Nix package on x86-64 or ARM64; it does not need a foreign ELF loader. macOS installations use a USB and require a physical firmware boot. Windows converts itself but needs Secure Boot turned off once. The wizard cannot automate firmware settings, hardware replacement, or unsigned-app approval. No claim of universal hardware support is made.
 
 An interrupted USB write leaves an incomplete stick. Keep it plugged in, restart the wizard and write the whole image again; it never reports that stick as ready before verification passes. A role reinstall erases the old OS and files.
 

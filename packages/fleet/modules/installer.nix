@@ -1,9 +1,21 @@
 { config, lib, pkgs, settings, ... }: {
+  imports = [ ./hardware/generic.nix ./wifi.nix ];
+  # stage-1-init.sh moves /run into the live system after postMountCommands.
+  # The supplemental initramfs is private runtime data, never a store path.
+  boot.initrd.postMountCommands = lib.mkIf (!config.boot.initrd.systemd.enable) ''
+    if [ -f /fleet-wifi.json ]; then
+      mkdir -p /run/fleet-wifi
+      chmod 0700 /run/fleet-wifi
+      cp /fleet-wifi.json /run/fleet-wifi/wifi.json
+      chmod 0600 /run/fleet-wifi/wifi.json
+      rm -f /fleet-wifi.json
+    fi
+  '';
   # Live image. The USB ISO carries the role closures. fleet-install on this
   # console partitions the disk and installs. SSH is optional emergency access.
   # No static hostname. The installed system names itself at boot.
   networking.hostName = lib.mkForce "";
-  networking.useDHCP = lib.mkDefault true;
+  networking.useDHCP = lib.mkForce false;
   assertions = [{
     assertion = config.networking.hostName == "";
     message = "The installer does not set a static hostname.";
@@ -34,13 +46,20 @@
     description = "Wipe the internal disk and install the role from the boot menu";
     wantedBy = [ "multi-user.target" ];
     before = [ "getty@tty1.service" ];
-    after = [ "systemd-udev-settle.service" "local-fs.target" ];
+    after = [ "systemd-udev-settle.service" "local-fs.target" "NetworkManager.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
     unitConfig.ConditionPathExists = "/iso/fleet-install-manifest";
+    unitConfig.StartLimitIntervalSec = 0;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       StandardOutput = "journal+console";
       StandardError = "journal+console";
+      # Retry only the network preflight status, before token use or disko.
+      # Never automatically repeat a partition/install failure.
+      Restart = "no";
+      RestartForceExitStatus = "75";
+      RestartSec = "30s";
     };
     # A service path replaces the default and hides select-disk and
     # nixos-install. Keep the live system profile, then the tools this unit calls.

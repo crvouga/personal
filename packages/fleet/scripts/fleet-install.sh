@@ -136,6 +136,18 @@ cmdline_value() {
 }
 
 enrolled=""
+# Connect with the carried profile before consuming a one-time token or wiping
+# anything. The helper never prints passwords or places them in arguments.
+if command -v fleet-wifi-ready >/dev/null 2>&1; then
+  note 'checking automatic Wi-Fi connection before installation'
+  if fleet-wifi-ready; then
+    note 'Wi-Fi preflight ready'
+  else
+    network_status=$?
+    note "network preflight exited $network_status; no disk changes"
+    exit "$network_status"
+  fi
+fi
 # Prove SSH access before consuming a token or touching a disk. This public
 # key is carried by kexec, a FLEET-KEY volume, or the console for a USB boot.
 devbox_key_file=""
@@ -310,6 +322,11 @@ fi
 note "partitioning with disko"
 "$disko"
 note "disko done"
+
+if command -v fleet-wifi-persist >/dev/null 2>&1; then
+  fleet-wifi-persist "$mnt"
+  note 'private Wi-Fi settings preserved for first boot'
+fi
 
 if [ "$role" = devbox ]; then
   install -d -m 0700 "$mnt/nix/fleet-state/devbox"

@@ -21,6 +21,22 @@ def write_executable(path: Path, body: str) -> None:
 
 
 class InstallTests(unittest.TestCase):
+    def test_failed_wifi_readiness_stops_before_disk_or_secret_operations(self):
+        write_executable(self.bin / "fleet-wifi-ready", "#!/bin/bash\nexit 2\n")
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env={**self.env, "FLEET_AUTO": "1"})
+        self.assertEqual(result.returncode, 2)
+        self.assertFalse(self.log.exists())
+
+    def test_wifi_is_checked_before_wiping_and_persisted_after_partitioning(self):
+        write_executable(self.bin / "fleet-wifi-ready", f"#!/bin/bash\nprintf 'wifi-ready\\n' >> '{self.log}'\n")
+        write_executable(self.bin / "fleet-wifi-persist", f"#!/bin/bash\nprintf 'wifi-persist %s\\n' \"$1\" >> '{self.log}'\n")
+        result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env={**self.env, "FLEET_AUTO": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = self.log.read_text()
+        self.assertLess(actions.index("wifi-ready"), actions.index("disko "))
+        self.assertGreater(actions.index("wifi-persist"), actions.index("disko "))
+        self.assertIn("wifi-persist " + str(self.mnt), actions)
+
     def devbox_env(self, key=None):
         self.manifest.write_text(f"devbox {self.system}\ndisko {self.disko}\n")
         env = self.env.copy()

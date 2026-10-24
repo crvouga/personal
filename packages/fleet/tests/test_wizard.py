@@ -422,6 +422,23 @@ class WizardCase(unittest.TestCase):
 
 
 class ServerTests(WizardCase):
+    def test_wifi_plan_keeps_password_private_and_usb_handoff_reads_back(self):
+        import fleet_wifi
+        network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": True}
+        self.disks.write_text(json.dumps([INTERNAL, {**USB, "size": self.target.stat().st_size}]))
+        _status, scan = self.call("GET", "/api/scan")
+        status, plan = self.call("POST", "/api/plan", {"mode": "usb", "disk_id": scan["usb"][0]["id"], "wifi": network})
+        self.assertEqual(status, 200)
+        self.assertNotIn("wifi", plan)
+        self.assertNotIn(network["password"], json.dumps(plan))
+        self.assertIn("Keep this USB private", plan["summary"])
+        self.run_plan(plan)
+        job = self.wait_job()
+        self.assertEqual(job["state"], "done", job)
+        self.assertEqual(fleet_wifi.read_trailer(self.target), network)
+        self.assertNotIn(network["password"], json.dumps(job))
+        self.assertNotIn(network["password"], Path(decide.LOG["path"]).read_text())
+
     def test_duplicate_disk_identifiers_cannot_pick_a_target_silently(self):
         self.disks.write_text(json.dumps([USB, dict(USB, path="/dev/sdc")]))
         status, body = self.usb_plan()

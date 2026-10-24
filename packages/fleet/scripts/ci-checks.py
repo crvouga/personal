@@ -7,7 +7,7 @@ import sys
 
 GROUPS = ("roles", "runtime", "lifecycle", "image")
 SPECIAL = {
-    "runtime": {"vm", "web-vm", "devbox-vm", "cattle-vm"},
+    "runtime": {"vm", "web-vm", "devbox-vm", "cattle-vm", "wifi-vm"},
     "lifecycle": {"lifecycle", "follow-up", "netboot-vm"},
     "image": {"installer"},
 }

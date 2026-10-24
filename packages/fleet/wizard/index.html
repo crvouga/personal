@@ -62,6 +62,7 @@
         plan: null,
         sshKey: '',
         sawWorking: false,
+        wifi: null,
       };
       const app = document.getElementById('app');
 
@@ -245,6 +246,7 @@
           esc(state.token) +
           '"></details>';
         h +=
+          wifiFields() +
           '<p><button onclick="start()">Back</button><button class="primary" onclick="reviewHere()">Review</button></p>';
         show(h);
       }
@@ -274,6 +276,7 @@
             '</small></label>';
         });
         h +=
+          wifiFields() +
           '<p><button onclick="start()">Back</button><button onclick="rescanUsb()">Rescan</button>' +
           '<button class="primary" ' +
           (s.usb.length ? '' : 'disabled') +
@@ -307,6 +310,7 @@
           ssh_key: state.sshKey,
           reinstall: document.getElementById('reinstall')?.checked === true,
           disk_id: state.scan.internal.id,
+          wifi: readWifi(),
         });
       }
       async function readPublicKey(input) {
@@ -321,7 +325,58 @@
       async function reviewUsb() {
         state.usb = picked('usb');
         if (!state.usb) return alert('Choose a USB stick first.');
-        review({ mode: 'usb', disk_id: state.usb });
+        review({ mode: 'usb', disk_id: state.usb, wifi: readWifi() });
+      }
+
+      function wifiFields() {
+        const wifi = state.wifi || {};
+        return (
+          '<p>Saved Wi-Fi settings are carried over automatically when the operating system permits it. Ethernet also works.</p>' +
+          '<details><summary>Use a different Wi-Fi network</summary>' +
+          '<p>Enter these only to override automatic detection. Wi-Fi settings saved on an install USB include the password; keep the USB private.</p>' +
+          '<label for="wifi-ssid">Wi-Fi network name</label><input id="wifi-ssid" autocomplete="off" spellcheck="false" value="' +
+          esc(wifi.ssid || '') +
+          '">' +
+          '<label for="wifi-auth">Wi-Fi security</label><select id="wifi-auth">' +
+          [
+            ['wpa-psk', 'WPA/WPA2 Personal'],
+            ['sae', 'WPA3 Personal'],
+            ['open', 'Open network'],
+          ]
+            .map(
+              ([value, label]) =>
+                '<option value="' +
+                value +
+                '"' +
+                ((wifi.auth || 'wpa-psk') === value ? ' selected' : '') +
+                '>' +
+                label +
+                '</option>'
+            )
+            .join('') +
+          '</select>' +
+          '<label for="wifi-password">Wi-Fi password</label><input id="wifi-password" type="password" autocomplete="new-password" value="' +
+          esc(wifi.password || '') +
+          '">' +
+          '<label><input id="wifi-hidden" type="checkbox"' +
+          (wifi.hidden ? ' checked' : '') +
+          '> Hidden network</label></details>'
+        );
+      }
+
+      function readWifi() {
+        const ssid = document.getElementById('wifi-ssid').value;
+        const password = document.getElementById('wifi-password').value;
+        state.wifi =
+          ssid || password
+            ? {
+                ssid,
+                password,
+                auth: document.getElementById('wifi-auth').value,
+                hidden: document.getElementById('wifi-hidden').checked,
+              }
+            : null;
+        return state.wifi;
       }
 
       async function review(body) {
@@ -400,6 +455,7 @@
         } catch (e) {
           return show(problem(e));
         }
+        state.wifi = null;
         progress();
       }
 

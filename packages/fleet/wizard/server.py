@@ -24,6 +24,7 @@ import decide
 import elevate
 import imaging
 import preparation
+import fleet_wifi
 
 try:
     from _version import VERSION
@@ -184,6 +185,12 @@ class Wizard:
     # ---- plan --------------------------------------------------------------
 
     def make_plan(self, body):
+        wifi = body.get("wifi")
+        if wifi is not None:
+            try:
+                wifi = fleet_wifi.validate(wifi)
+            except fleet_wifi.WifiError as exc:
+                decide.invariant(False, str(exc), "Check the Wi-Fi network name and password.")
         mode = body.get("mode")
         decide.invariant(mode in ("usb", "here"), "the plan request names an unknown mode", mode=mode)
         role = body.get("role") or None
@@ -213,6 +220,7 @@ class Wizard:
                 findings.append(decide.finding("usb-size", "ok", chosen["plain"]))
             erase, disk_id, target = chosen["plain"], chosen["id"], chosen["path"]
             summary = f"This erases the USB disk {chosen['plain']} and writes the installer to it. Nothing else on this computer changes."
+            summary += " Available Wi-Fi settings are saved on the USB for automatic connection. Keep this USB private: it can contain the network password."
         else:
             decide.invariant(role is not None, "choose what kind of node this computer should become")
             internal = decide.plan_disks(disks, "install")
@@ -232,13 +240,14 @@ class Wizard:
         problems = [item for item in findings if item["status"] == "fail"]
         plan = {
             "id": secrets.token_hex(8), "mode": mode, "role": role, "reinstall": reinstall, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
+            "wifi": wifi,
             "erase": erase, "summary": summary, "findings": findings, "ready": not problems, "created": time.time(),
         }
         with self.lock:
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"),
                              "a job is already running", "Wait for the current job to finish.")
             self.plan = plan
-        public = {k: v for k, v in plan.items() if k not in ("token", "ssh_key", "path", "created")}
+        public = {k: v for k, v in plan.items() if k not in ("token", "ssh_key", "wifi", "path", "created")}
         decide.log(f"plan {plan['id']} mode={mode} role={role} ready={plan['ready']} erase={erase}")
         return public
 
@@ -304,7 +313,7 @@ class Wizard:
         scratch = imaging.scratch_dir("fleet-job-")
         try:
             request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
-                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"]}
+                       "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"], "wifi": plan.get("wifi")}
             fd = os.open(scratch / "request.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w") as handle:
                 json.dump(request, handle)

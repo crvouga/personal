@@ -19,7 +19,7 @@ The planned rollout is **CI runners converted from existing Windows installation
 - Use `fleet-installer-windows-x64.exe` from the published release; choose
   **Turn THIS computer into a node**, then **CI**. The wizard needs no Git Bash,
   Python or Nix installation. Windows downloads are unsigned.
-- Before conversion: wired Ethernet, AC power, x86_64 UEFI/GPT, Secure Boot off,
+- Before conversion: a reusable personal Wi-Fi profile or Ethernet, AC power, x86_64 UEFI/GPT, Secure Boot off,
   one unambiguous internal disk, enough shrinkable space on `C:` for the image
   and staging partition, and image size plus 2 GiB of RAM. The installer checks
   these with actual sizes; the source Windows machine has not been probed yet.
@@ -132,7 +132,7 @@ or apply was run during this readiness audit.
 
 ## At the machines tomorrow
 
-Use wired Ethernet and x86_64 UEFI hardware; disable Secure Boot and set power-on
+Use Wi-Fi prepared by the installer or Ethernet, and x86_64 UEFI hardware; disable Secure Boot and set power-on
 after AC loss. Keep backups of anything on the internal disk. The installer
 requires one unambiguous internal disk. Set the lasting boot order to network,
 then the internal disk; use the firmware's one-time USB menu for the first install.

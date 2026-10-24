@@ -8,7 +8,7 @@ You do not need Git Bash, PowerShell commands, a separate doctor run or a plan.
 
 Before confirming, back up the files you want to keep and save your BitLocker
 recovery key on another device. Installation erases the entire internal disk.
-Keep power and wired Ethernet connected. If a firmware setting needs changing,
+Keep power connected. Saved personal Wi-Fi is carried into the installer and the installed node automatically; Ethernet also works. If a firmware setting needs changing,
 the installer names it; Secure Boot must be disabled because the loader is
 unsigned. The installer cannot make a backup without a destination or operate
 your PC's firmware settings for you.
@@ -34,7 +34,7 @@ required firmware change still need the person at the computer.
 - [ ] **Back up what you care about to another computer or drive.** The installer erases the whole disk (Windows, your files, the recovery partition, everything). Do not rely on this program to keep any of it.
 - [ ] **Save the BitLocker recovery key** if BitLocker or "Device encryption" is on (Settings > Privacy & security > Device encryption, or <https://account.microsoft.com/devices/recoverykey>). Turning Secure Boot off, which this needs, can make Windows ask for the key, and so can a conversion that stops half way.
 - [ ] **Plug in the power** (laptops), and keep it plugged in the whole time. A power cut while partitions are changing needs the recovery steps below.
-- [ ] **Connect Ethernet.** The installer needs a wired network; it does not do Wi-Fi.
+- [ ] **Keep a working network.** Saved personal Wi-Fi is carried over automatically. If Windows cannot release its key, enter it once in the wizard’s Wi-Fi panel. The live installer checks connectivity before erasing anything; Ethernet is an optional fallback.
 - [ ] **Unplug other drives and USB sticks.** The installer refuses to guess between two internal disks, and an external disk can look internal to Windows.
 - [ ] **Turn Secure Boot off.** The installer's boot loader is not signed. Run `shutdown /r /fw` in an administrator window, open the firmware's Boot or Security page, set Secure Boot to Disabled, save, and start Windows again. (`msinfo32` shows "Secure Boot State: Off" when it worked.)
 - [ ] **UEFI and GPT.** In `msinfo32`, "BIOS Mode" must say UEFI. In Disk Management, the disk's Properties > Volumes must say "GUID Partition Table (GPT)". A legacy-BIOS or MBR disk cannot convert; make an install USB instead (`fleet-node.sh flash`, or the wizard's USB option).
@@ -46,8 +46,8 @@ required firmware change still need the person at the computer.
 ## What you will see
 
 1. **Start it.** Either the wizard (`fleet-installer-windows-x64.exe`; choose _Turn THIS computer into a node_) or `bash fleet-node.sh ROLE` in an administrator Git Bash. The checks run and every problem is listed at once with what to do about it.
-2. **Approve the node.** A GitHub page opens; the repository owner presses _Submit new issue_. Nothing has been changed yet.
-3. **Confirm the erase.** You type the line shown (CLI), or tick the box (wizard). Nothing has been changed yet.
+2. **Confirm the erase.** You type the line shown (CLI), or tick the box (wizard). The image is downloaded and verified before approval, so a slow Wi-Fi transfer cannot spend the approval token’s lifetime.
+3. **Approve the node.** A GitHub page opens; the repository owner presses _Submit new issue_. The internal disk is still unchanged. Wi-Fi settings are carried to the live installer, which checks connectivity again before erasing it.
 4. **Download and check the installer** (several GB, into `%LOCALAPPDATA%\fleet-installer` for the wizard or `~\.fleet` for the CLI). It is verified against its published checksum.
 5. **Windows is prepared**, in this order (the messages appear on screen):
    1. _Making room_: `C:` is shrunk by the image size plus 64 MiB. Your files are not touched. This can take minutes.

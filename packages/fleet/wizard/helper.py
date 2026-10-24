@@ -21,6 +21,7 @@ import decide
 import imaging
 import leases
 import preparation
+import fleet_wifi
 
 ACTIONS = ("write-usb", "install-here")
 TOKEN_RE = decide.ENROLL_RE
@@ -142,6 +143,10 @@ def write_usb(request, progress):
     # Windows preparation includes diskpart clean, which is already destructive.
     # Capacity must be proven before that command, including sector padding.
     imaging.check_capacity(iso.stat().st_size, int(disk.get("size") or 0))
+    network = fleet_wifi.discover(os_name, request.get("wifi"))
+    private_handoff = network is not None or not os.environ.get("FLEET_WRITE_TARGET")
+    if private_handoff:
+        imaging.check_capacity(imaging.padded(iso.stat().st_size) + fleet_wifi.TRAILER_SIZE, int(disk.get("size") or 0))
     with leases.DeviceLease(disk["path"]):
         # Recheck after acquiring the lease; preparation is destructive on Windows.
         disk = find_disk(os_name, request)
@@ -156,6 +161,9 @@ def write_usb(request, progress):
             iso, raw_target(os_name, disk), int(disk.get("size") or 0), sha,
             lambda done, total: progress.emit("write", "Writing and checking the USB disk", int(done * 100 / total) if total else None),
         )
+        if private_handoff:
+            progress.emit("network", "Saving and verifying private Wi-Fi settings on the USB")
+            fleet_wifi.write_trailer(raw_target(os_name, disk), int(disk["size"]), iso.stat().st_size, network)
     return "The USB disk is ready. Plug it into the new computer and boot from it."
 
 
@@ -211,6 +219,7 @@ def install_here(request, progress):
         code = decide.perform_install(
             os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen,
             lambda done, total: progress.emit("write", "Writing the installer into a new partition and checking it", int(done * 100 / total) if total else None),
+            **({"wifi": request["wifi"]} if request.get("wifi") is not None else {}),
         )
     decide.invariant(code == 0, "the reboot into the installer did not start", "Make an install USB instead.", code=code)
     return f"Installing {role}."

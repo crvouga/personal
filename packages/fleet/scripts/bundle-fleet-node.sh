@@ -37,21 +37,29 @@ if [ -z "$py" ]; then
   exit 1
 fi
 
-payload=$(mktemp)
-cleanup() { rm -f "$payload"; }
+payload=$(mktemp -d)
+cleanup() { rm -rf "$payload"; }
 trap cleanup EXIT
 
 if [ -f "$here/decide.py" ]; then
-  cp "$here/decide.py" "$payload"
+  cp "$here/decide.py" "$payload/decide.py"
 else
-  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload"
+  sed -n '/^# __DECIDE_PY__$/,/^# __DECIDE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/decide.py"
 fi
 
-exec "$py" "$payload" "$@"
+sed -n '/^# __FLEET_WIFI_PY__$/,/^# __FLEET_WIFI_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/fleet_wifi.py"
+sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d;s/^#$//;s/^# //' > "$payload/wifi_capture.py"
+"$py" "$payload/decide.py" "$@"
 WRAPPER
   printf '%s\n' '# __DECIDE_PY__'
   sed 's/^/# /;s/^# $/#/' scripts/decide.py
   printf '%s\n' '# __DECIDE_END__'
+  printf '%s\n' '# __FLEET_WIFI_PY__'
+  sed 's/^/# /;s/^# $/#/' wizard/fleet_wifi.py
+  printf '%s\n' '# __FLEET_WIFI_END__'
+  printf '%s\n' '# __WIFI_CAPTURE_PY__'
+  sed 's/^/# /;s/^# $/#/' wizard/wifi_capture.py
+  printf '%s\n' '# __WIFI_CAPTURE_END__'
   printf '%s\n' '# __GUIDE_MD__'
   sed 's/^/# /;s/^# $/#/' docs/agent-install.md
   printf '%s\n' '# __GUIDE_END__'

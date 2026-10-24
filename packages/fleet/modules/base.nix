@@ -4,6 +4,7 @@ in {
   imports = [
     ./disks/internal.nix
     ./hardware/generic.nix
+    ./wifi.nix
     ./capabilities/high-mem.nix
     ./identity.nix
     ./sync.nix
