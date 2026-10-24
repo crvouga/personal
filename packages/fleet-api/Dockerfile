@@ -2,7 +2,7 @@
 
 # The fleet API: Hono on Bun, raw SQL against the shared Postgres (schema
 # `fleet` only), with a React/Mantine client console and offline fallback CSS.
-FROM oven/bun:1.3.11 AS manifests
+FROM oven/bun:1.4.4 AS manifests
 WORKDIR /app
 ARG TARGETARCH
 
@@ -26,10 +26,10 @@ COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
 FROM manifests AS production-dependencies
-RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api --production
+RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api --production
 
 FROM manifests AS build
-RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api
+RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/fleet-api
 
 COPY tsconfig.json tsconfig.strict.json turbo.json ./
 COPY packages/assert ./packages/assert
@@ -40,7 +40,7 @@ COPY packages/fleet-api ./packages/fleet-api
 # dist/ is excluded from the context; compile all browser assets here.
 RUN cd packages/fleet-api && bun run build
 
-FROM oven/bun:1.3.11-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production

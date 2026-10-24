@@ -13,7 +13,7 @@ sh scripts/password-manager-setup.sh
 ```
 
 The launcher uses the repository's existing mise installation to acquire Node
-22.22.3 and Bun 1.3.11, installs the frozen workspace lock and initializes private
+22.22.3 and Bun 1.4.4, installs the frozen workspace lock and initializes private
 onboarding. If mise is missing it prints the exact platform installation/trust
 path in [bootstrap.md](docs/bootstrap.md) and this same continuation command. No account mutation runs on install,
 setup, build or ordinary tests. A terminal/browser consent or keychain unlock can

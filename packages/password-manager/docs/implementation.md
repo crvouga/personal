@@ -5,13 +5,14 @@ repository root. This ledger records decisions, delivery scope and acceptance ev
 
 ## Repository audit and decisions
 
-- Flat `packages/*`, private `@pkgs/*`, Bun 1.3.11, Node 22.22.3 from root mise.
+- Flat `packages/*`, private `@pkgs/*`, Bun 1.4.4, Node 22.22.3 from root mise.
   No repository-pinned mise release or mise lock currently exists. Avoid new
   bootstrap/diagnostics features requiring an undeclared mise version.
 - Root strict TypeScript, shared ESLint structural limits, Prettier, Bun tests.
 - Node 22.22.3 `node:sqlite` was directly exercised (SQLite 3.51.3).
-  Bun 1.3.11 does not implement that module: SQLite integration tests must run
-  under managed Node; pure domain/adapter tests can use the usual Bun stack.
+  The original Bun 1.3.11 audit lacked that module. Bun 1.4.4 exposes it,
+  but SQLite integration tests retain the exercised managed Node runtime;
+  pure domain/adapter tests use the usual Bun stack.
 - Reuse `SecretStore` and `SecretString`. Existing Vault adapter is read-only;
   runtime staging must not mutate OpenTofu-owned Vault values. Implement the
   existing port using the OS persistent credential store; no custom vault.

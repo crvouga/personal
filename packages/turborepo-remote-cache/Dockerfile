@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3.11 AS build
+FROM oven/bun:1.4.4 AS build
 WORKDIR /app
 ARG TARGETARCH
 
@@ -23,7 +23,7 @@ COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
 
-RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
+RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
 
 COPY tsconfig.json turbo.json ./
 COPY packages/turborepo-remote-cache ./packages/turborepo-remote-cache
@@ -34,7 +34,7 @@ COPY packages/secret-store ./packages/secret-store
 COPY packages/secret-string ./packages/secret-string
 COPY packages/vault ./packages/vault
 
-FROM oven/bun:1.3.11-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production

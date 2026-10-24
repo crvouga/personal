@@ -255,3 +255,15 @@ email and removal denies its established session. Repeat on the actual local
 callback port and deployed HTTPS origin, including after a restart. Record the
 results before claiming live Google compatibility. This rollout remains blocked
 by the relay deployment prerequisites documented in its operations guide.
+
+## SQL runtime reliability
+
+CI, development tools and service images pin official Bun 1.4.4. Fleet refuses
+Bun versions before 1.4 when constructing its database pool, with
+`FLEET_DATABASE_RUNTIME_UNSUPPORTED`, rather than allowing indefinite pool waits.
+Earlier 1.3.x releases have upstream transaction/prepared-query scheduling defects
+tracked in [Bun #32004](https://github.com/oven-sh/bun/issues/32004) and
+[Bun #33985](https://github.com/oven-sh/bun/issues/33985); fixes landed before
+1.4 stable. The pool contention regression runs transactions and ordinary
+parameterized queries with more workers than connections and awaits every result.
+Test timeout limits remain unchanged. Dependencies are not patched.

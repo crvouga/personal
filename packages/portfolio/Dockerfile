@@ -6,7 +6,7 @@
 FROM node:22-bookworm-slim AS dependencies
 
 # bun binary for `bun install --frozen-lockfile`; astro build runs via node.
-COPY --from=oven/bun:1.3.11 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.4 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 ARG TARGETARCH
@@ -30,7 +30,7 @@ COPY packages/workstation/package.json ./packages/workstation/
 COPY packages/password-manager/package.json ./packages/password-manager/
 COPY packages/9router/package.json ./packages/9router/
 
-RUN --mount=type=cache,id=bun-1.3.11-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/portfolio
+RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/portfolio
 
 # Matches the lockfile's Playwright version, and is cached with it: this layer
 # only rebuilds when dependencies change, not when content does.
