@@ -104,7 +104,7 @@ in pkgs.testers.runNixOSTest {
     machine.wait_for_unit("github-runner-slot-1.service")
     # Busy jobs must not be stopped at timeout; deployment must be blocked.
     machine.succeed("touch /run/fleet/slot-1/busy")
-    machine.fail("fleet-drain 30")
+    machine.fail("fleet-drain 1")
     machine.succeed("systemctl is-active --quiet github-runner-slot-1.service")
     machine.succeed("rm /run/fleet/slot-1/busy; fleet-resume")
     machine.wait_for_unit("github-runner-slot-1.service")

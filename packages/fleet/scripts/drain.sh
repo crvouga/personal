@@ -49,10 +49,18 @@ for used in /run/fleet/assign-used/*; do
   if (( result != 0 && result != 3 )); then echo "drain: repository $repo could not be checked (exit $result); using the local job markers" >&2
   fi
 done
-# A running job is a file under /run/fleet/<slot>/busy. Wait for the last one.
+# A running job is a file under /run/fleet/<slot>/busy. Minimal Nix Bash does
+# not include the readline-dependent compgen builtin.
+has_busy_jobs() {
+  local marker
+  for marker in /run/fleet/*/busy; do
+    [ ! -e "$marker" ] || return 0
+  done
+  return 1
+}
 while true; do
   flock 9
-  if ! compgen -G '/run/fleet/*/busy' > /dev/null; then
+  if ! has_busy_jobs; then
     read -r -a runner_units <<< "$FLEET_UNITS"
     systemctl stop "${runner_units[@]}"
     flock -u 9
@@ -60,6 +68,8 @@ while true; do
   fi
   flock -u 9
   (( SECONDS < end )) || { echo 'Drain timed out; runner labels remain removed.' >&2; exit 1; }
-  sleep 5
+  remaining=$((end - SECONDS))
+  if (( remaining > 5 )); then remaining=5; fi
+  sleep "$remaining"
 done
 echo "All runners drained and stopped. /run/fleet/draining remains until fleet-resume."
