@@ -9,7 +9,8 @@
     "packages/infra/tofu/modules/inventory/inventory.tf.json",
     "packages/infra/tofu/modules/inventory/publish.yml.tftpl",
     "tsconfig.strict.json",
-    "packages/eslint-rules/**"
+    "packages/eslint-rules/**",
+    ".nvmrc"
   ],
   "globalPassThroughEnv": ["CLOUDFLARE_*", "VAULT_*", "TURBO_*", "DEPLOY_*"],
   "tasks": {

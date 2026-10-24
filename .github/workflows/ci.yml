@@ -140,11 +140,13 @@ jobs:
               - 'packages/logger/**'
               - 'bun.lock'
               - 'package.json'
+              - '.dockerignore'
               - 'packages/auth-relay/**'
               - 'packages/infra/tofu/auth*/**'
               - 'packages/infra/tofu/modules/auth-*/**'
               - '.github/**'
             fleet_e2e:
+              - '.dockerignore'
               - 'packages/admin-ui/**'
               - 'package.json'
               - 'packages/fleet/**'
@@ -265,7 +267,7 @@ jobs:
         if: matrix.task == 'tests' && steps.browsers.outputs.install == 'true'
         run: |
           installed=''
-          for package in packages/portfolio/node_modules/playwright packages/fleet/node_modules/@playwright/test packages/fleet-api/node_modules/@playwright/test; do
+          for package in packages/portfolio/node_modules/playwright packages/fleet/node_modules/@playwright/test packages/fleet-api/node_modules/@playwright/test packages/password-manager/node_modules/playwright; do
             version=$(node -p "require('./${package}/package.json').version")
             case " $installed " in *" $version "*) continue ;; esac
             node "$package/cli.js" install --with-deps --only-shell chromium

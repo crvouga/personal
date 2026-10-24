@@ -1,0 +1,40 @@
+{
+  "name": "@pkgs/password-manager",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "password-manager": "./bin.mjs"
+  },
+  "scripts": {
+    "tc": "tsc --noEmit",
+    "lint": "eslint src tests --max-warnings 0",
+    "test": "bun test src && node --import tsx --test tests/*.test.ts",
+    "test:browser": "node --import tsx --test tests/browser/*.test.ts",
+    "build": "tsc --noEmit",
+    "password-manager": "node --import tsx src/cli/main.ts",
+    "test:bootstrap": "node tests/bootstrap/run.mjs"
+  },
+  "dependencies": {
+    "@bitwarden/cli": "2026.10.0",
+    "@inquirer/prompts": "catalog:",
+    "@napi-rs/keyring": "2.1.2",
+    "@pkgs/logger": "workspace:*",
+    "@pkgs/secret-store": "workspace:*",
+    "@pkgs/secret-string": "workspace:*",
+    "commander": "catalog:",
+    "csv-parse": "7.0.3",
+    "imapflow": "2.9.1",
+    "jsonc-parser": "3.3.1",
+    "mailparser": "3.12.4",
+    "playwright": "1.63.0",
+    "tldts": "7.4.19",
+    "tsx": "4.23.15",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/mailparser": "3.9.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "type": "module"
+}

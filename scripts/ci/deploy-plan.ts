@@ -50,7 +50,7 @@ export function deploymentPlan(config: InfraConfig, request: Request) {
     automatic &&
     (changed(/^packages\/vault-service\//) || !!request.recoverVault);
   const authChanged = changed(
-    /^(bun\.lock|package\.json|tsconfig(?:\.strict)?\.json)$|^packages\/(auth-relay|admin-ui|assert|logger)\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/(actions\/(deploy-auth|tofu)\/|workflows\/deploy\.yml$)|^scripts\/(ci\/(deploy-plan|deploy-preflight|auth-readiness)\.ts$|(?:tofu|atlas)-plan\.ts$)/
+    /^(bun\.lock|package\.json|tsconfig(?:\.strict)?\.json|\.dockerignore)$|^packages\/(auth-relay|admin-ui|assert|logger)\/|^packages\/infra\/tofu\/(auth[^/]*\/|modules\/auth-|foundation\/auth-relay\.tf|modules\/inventory\/)|^\.github\/(actions\/(deploy-auth|tofu)\/|workflows\/deploy\.yml$)|^scripts\/(ci\/(deploy-plan|deploy-preflight|auth-readiness)\.ts$|(?:tofu|atlas)-plan\.ts$)/
   );
   const auth =
     !!config.auth_relay?.enabled &&

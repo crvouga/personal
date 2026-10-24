@@ -1,0 +1,14 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "dependsOn": ["^tc", "test:browser"]
+    },
+    "test:browser": {
+      "dependsOn": ["^tc"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": [],
+      "outputLogs": "new-only"
+    }
+  }
+}

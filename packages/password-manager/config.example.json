@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "bitwarden": {
+    "server": "https://vault.bitwarden.com",
+    "email": "you@example.com",
+    "clientIdRef": "bitwarden/client-id",
+    "clientSecretRef": "bitwarden/client-secret"
+  },
+  "sources": [
+    { "id": "bitwarden", "kind": "bitwarden" },
+    {
+      "id": "personal-mail",
+      "kind": "gmail",
+      "identity": "you@example.com",
+      "clientId": "YOUR_DESKTOP_CLIENT_ID",
+      "tokenRef": "oauth/personal-mail",
+      "after": "2000-01-01",
+      "includeSpamTrash": false
+    }
+  ],
+  "execution": {
+    "autoApply": false,
+    "allowedKinds": [],
+    "allowedOrigins": [],
+    "allowedAccounts": [],
+    "maxAttempts": 2,
+    "concurrency": 1
+  },
+  "retentionDays": 30,
+  "backupPasswordRef": "backup/independent-password",
+  "scheduleHour": 9
+}

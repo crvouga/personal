@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.strict.json",
+  "compilerOptions": {
+    "types": ["node", "bun"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

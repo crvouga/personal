@@ -63,7 +63,9 @@
     "auth:test": "bun run --cwd packages/auth-relay test",
     "auth:test:e2e": "python3 -B packages/auth-relay/tests/run.py",
     "gh:deploy:status": "gh run list --workflow deploy.yml --limit 3",
-    "gh:maintenance:status": "gh run list --workflow maintenance.yml --limit 3"
+    "gh:maintenance:status": "gh run list --workflow maintenance.yml --limit 3",
+    "password-manager": "node packages/password-manager/bin.mjs",
+    "password-manager:setup": "sh scripts/password-manager-setup.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",
