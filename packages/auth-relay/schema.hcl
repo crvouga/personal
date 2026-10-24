@@ -67,6 +67,10 @@ table "sessions" {
 
 table "clients" {
   schema = schema.${schema}
+  column "agent_id" {
+    type = text
+    null = true
+  }
   column "id" {
     type = text
     null = false
@@ -123,6 +127,41 @@ table "clients" {
   index "client_identity" {
     unique = true
     columns = [column.project, column.environment, column.instance]
+  }
+}
+
+table "agent_grants" {
+  schema = schema.${schema}
+  column "id" {
+    type = text
+    null = false
+  }
+  column "token_hash" {
+    type = text
+    null = false
+  }
+  column "config" {
+    type = jsonb
+    null = false
+  }
+  column "expires_at" {
+    type = timestamptz
+    null = false
+  }
+  column "revoked" {
+    type = boolean
+    null = false
+    default = false
+  }
+  column "revision" {
+    type = integer
+    null = false
+    default = 0
+  }
+  primary_key { columns = [column.id] }
+  index "agent_token_hash" {
+    unique = true
+    columns = [column.token_hash]
   }
 }
 

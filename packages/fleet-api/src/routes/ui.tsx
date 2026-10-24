@@ -2,6 +2,9 @@ import type { Context, Hono } from 'hono';
 
 import type { AppDeps } from '../deps';
 import { script, stylesheet, type Asset } from '../ui/assets';
+import { registerUiSecurity } from '../ui/routes/security';
+import { registerConsoleState } from '../ui/routes/console-state';
+import { registerConsoleAssets } from '../ui/routes/console-assets';
 import { registerBrowser } from '../ui/routes/browser';
 import { registerAccess } from '../ui/routes/access';
 import { registerActions } from '../ui/routes/actions';
@@ -21,6 +24,7 @@ function serve(c: Context, asset: Asset, type: string): Response {
  * Every page needs a signed-in person; every form checks the request's origin.
  */
 export function mountUi(app: Hono, deps: AppDeps): void {
+  registerUiSecurity(app);
   app.get('/assets/app.css', async (c) => {
     const css = await stylesheet();
     return css === null
@@ -30,6 +34,8 @@ export function mountUi(app: Hono, deps: AppDeps): void {
   app.get('/assets/app.js', (c) =>
     serve(c, script, 'text/javascript; charset=utf-8')
   );
+  registerConsoleAssets(app);
+  registerConsoleState(app, deps);
   registerBrowser(app, deps);
   registerAccess(app, deps);
   registerActions(app, deps);

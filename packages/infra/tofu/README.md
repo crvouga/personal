@@ -290,3 +290,23 @@ OIDC system identities; it has no cloud or Vault provider. Its state/plans are
 encrypted in `.superset/.auth-dev/`, and its wrapper rejects unrelated resources
 and all deletes before applying a saved plan. Never use this root for adoption
 or production migrations.
+
+## Auth agent credential delivery
+
+The Vault root's [auth-agents.tf](vault/auth-agents.tf) owns isolated generated
+registration credentials and exact-repository/subject GitHub JWT read roles. Its
+complete `auth_agent_credentials` input map travels in `TOFU_VAULT_INPUTS` and is
+preserved by the secret editor. Default `{}` provisions nothing. Supply separate
+credential ids for dev/prd; each isolated document contains only
+`AUTH_RELAY_AGENT_TOKEN`. The public `auth_agent_credentials` output contains paths,
+role names and SHA-256 fingerprints, never raw values. Credentials remain in Vault
+and encrypted OpenTofu state. Import existing resources before adoption; generated
+KV documents have destroy protection.
+
+Project callback scopes and client registrations remain runtime application data
+in the relay's Atlas-managed schema. Operators approve a fingerprint through
+**Agent access** after verifying ownership. Increment a credential's `generation`
+for rotation, apply its reviewed saved plan, then update the existing runtime grant
+fingerprint. Omission from the complete input map is blocked by KV destroy
+protection; revoke runtime access first and treat permanent removal as a separately
+reviewed infrastructure change. See [agent onboarding](../../auth-relay/README.md#agent-registration).

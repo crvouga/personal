@@ -13,6 +13,15 @@ export const GOOGLE_KEYS = [
   'GOOGLE_OAUTH_CLIENT_ID',
   'GOOGLE_OAUTH_CLIENT_SECRET',
 ];
+
+/** Historical input documents can include stale backend/provider credentials. */
+export function vaultSecretVariables(inputs: VaultInputs) {
+  return Object.fromEntries(
+    ['secrets', 'admin_passwords', 'fleet_age_keys', 'auth_agent_credentials']
+      .filter((key) => inputs[key] !== undefined)
+      .map((key) => [key, inputs[key]])
+  );
+}
 // These values are computed after operator inputs in the Vault root.
 const computed = new Set([
   'TURBO_LOG_ORDER',
@@ -104,7 +113,7 @@ export function stages(
         (config) => `vault_kv_secret_v2.personal["${config}"]`
       ),
       env: Object.fromEntries(
-        Object.entries(next).map(([key, value]) => [
+        Object.entries(vaultSecretVariables(next)).map(([key, value]) => [
           `TF_VAR_${key}`,
           JSON.stringify(value),
         ])

@@ -10,7 +10,7 @@ import { command, type Command } from './command';
 const next = updateInputs(before, fills, inventory.vault.kv_keys);
 const steps = stages(next, fills, inventory);
 
-function provider(failState?: string) {
+function provider(failState?: string, recorded = before) {
   const calls: { args: string[]; state: string }[] = [];
   const directories = new Set<string>();
   const plans = new Map<string, unknown>();
@@ -30,8 +30,12 @@ function provider(failState?: string) {
       );
       return '';
     }
-    if (args.includes('state'))
+    if (args.includes('state')) {
+      expect(env.TF_VAR_state_passphrase).toBe(
+        'fixture-passphrase-at-least-32-characters'
+      );
       return steps.find((step) => step.state === state)!.addresses.join('\n');
+    }
     if (args.includes('plan')) {
       const step = steps.find((step) => step.state === state)!;
       const file = args.find((arg) => arg.startsWith('-var-file='))!.slice(10);
@@ -43,13 +47,13 @@ function provider(failState?: string) {
         let old: Record<string, unknown>;
         let after: Record<string, unknown>;
         if (state === 'foundation') {
-          old = { value: JSON.stringify(before) };
+          old = { value: JSON.stringify(recorded) };
           after = { value: vars.vault_inputs };
         } else if (state === 'vault') {
           const config = address.endsWith('["prd"]') ? 'prd' : 'dev';
           old = {
             data_json: JSON.stringify({
-              ...before.secrets[config],
+              ...recorded.secrets[config],
               VAULT_TOKEN: 'keep-managed',
             }),
           };
@@ -61,6 +65,9 @@ function provider(failState?: string) {
           };
           expect(vars.fleet_age_keys).toEqual(before.fleet_age_keys);
           expect(vars.admin_passwords).toEqual(before.admin_passwords);
+          expect(vars.state_passphrase).toBe(
+            'fixture-passphrase-at-least-32-characters'
+          );
         } else {
           old = { realm: state, client_id: 'old', client_secret: 'old-secret' };
           after = {
@@ -85,7 +92,7 @@ function provider(failState?: string) {
               resources: [
                 {
                   address: TOFU_VAULT_INPUTS_ADDRESS,
-                  values: { value: JSON.stringify(before) },
+                  values: { value: JSON.stringify(recorded) },
                 },
               ],
             },
@@ -144,6 +151,32 @@ test('dry-run plans all stages and never calls apply', async () => {
       fake.calls.filter((call) => call.args.includes('plan'))
     ).toHaveLength(4);
     expect(fake.calls.some((call) => call.args.includes('apply'))).toBe(false);
+  } finally {
+    session.close();
+  }
+});
+
+test('a resumed update uses operator credentials despite stale credentials in saved inputs', async () => {
+  const recorded = {
+    ...before,
+    state_passphrase: 'stale-state-passphrase',
+    state_backend: { bucket: 'stale-bucket' },
+  };
+  const fake = provider(undefined, recorded);
+  const session = new TofuSession(
+    inventory,
+    fakeUi(),
+    fake.execute,
+    credentials
+  );
+  try {
+    const loaded = await session.load();
+    await session.update(
+      loaded,
+      updateInputs(loaded, fills, inventory.vault.kv_keys),
+      fills,
+      true
+    );
   } finally {
     session.close();
   }

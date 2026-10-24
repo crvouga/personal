@@ -70,9 +70,7 @@ def form_page(owner_kind, owner, state, document):
     base = f"{web()}/organizations/{owner}/settings/apps/new" if owner_kind == "Organization" else f"{web()}/settings/apps/new"
     action = html.escape(f"{base}?state={state}", quote=True)
     value = html.escape(json.dumps(document), quote=True)
-    return (
-        "<!doctype html><meta charset=utf-8><title>Fleet setup</title>"
-        "<h1>Set up fleet runners</h1>"
+    return admin_page("Set up fleet runners", (
         "<p>Create a private GitHub App to register your fleet runners. "
         "GitHub opens in another tab; press <b>Create GitHub App</b> there.</p>"
         "<p>If GitHub asks you to sign in or confirm access, finish that first. "
@@ -80,8 +78,25 @@ def form_page(owner_kind, owner, state, document):
         "and press the button again. Keep this page open until setup finishes.</p>"
         f'<form method=post action="{action}" target="_blank" rel="noopener noreferrer">'
         f'<input type=hidden name=manifest value="{value}">'
-        '<button type=submit>Create runner GitHub App</button></form>'
+        '<button class=primary type=submit>Create runner GitHub App</button></form>'
+    ))
+
+
+def admin_page(title, body):
+    css = (PACKAGE / "wizard" / "admin.css").read_text()
+    script = (PACKAGE / "wizard" / "theme.js").read_text()
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>{html.escape(title)} · Fleet</title><style>{css}</style><script>{script}</script></head><body>'
+        '<header class="admin-header"><div class="admin-brand"><span class="admin-mark">▤</span>'
+        '<div>Fleet<div class="admin-subtitle">Setup console</div></div></div>'
+        '<label class="admin-theme">Appearance <select id="admin-theme" aria-label="Color theme">'
+        '<option value="light">Light</option><option value="dark">Dark</option><option value="auto">System</option></select></label></header>'
+        f'<main class="admin-main"><div class="admin-intro"><h1>{html.escape(title)}</h1>'
+        f'<p>Connect your trusted repositories to the fleet.</p></div><section class="admin-card">{body}</section></main></body></html>'
     ).encode()
+
 
 
 class Flow(BaseHTTPRequestHandler):
@@ -109,7 +124,7 @@ class Flow(BaseHTTPRequestHandler):
                 return self.reply(400, b"This is not the page GitHub should send you to. Run setup again.")
             flow["code"] = query["code"][0]
             flow["done"].set()
-            return self.reply(200, b"<p>The runner app was created. Now press <b>Install</b> on the GitHub page that opens next, choosing the repositories to run on.</p>")
+            return self.reply(200, admin_page("Runner app created", "<p>The runner app was created. Now press <b>Install</b> on the GitHub page that opens next, choosing the repositories to run on.</p>"))
         return self.reply(404, b"not found")
 
 

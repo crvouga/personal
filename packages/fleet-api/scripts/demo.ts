@@ -37,8 +37,8 @@ app.use('*', async (c, next) => {
   const html = await c.res.text();
   c.res = new Response(
     html.replace(
-      '<main',
-      '<aside role="note">LOCAL DEMO: synthetic fleet data; changes disappear on restart.</aside><main'
+      '<head>',
+      '<head><meta name="fleet-data-source" content="fixtures">'
     ),
     {
       status: c.res.status,

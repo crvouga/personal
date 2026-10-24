@@ -1,3 +1,16 @@
+run "fleet_browser_auth_contract" {
+  command = plan
+  assert {
+    condition = one([for service in output.config.services :
+      try(service.env.FLEET_OIDC_ISSUER, "") == "https://${output.config.auth_relay.instances.production.hostname}/realms/${output.config.auth_relay.instances.production.realm}" &&
+      startswith(try(service.env.FLEET_OIDC_CLIENT_ID, ""), "app-") &&
+      try(service.env.FLEET_PUBLIC_ORIGIN, "") == "https://${service.hostname}"
+      if service.id == "fleet-api"
+    ])
+    error_message = "Fleet must retain its registered production browser-auth configuration across deployments."
+  }
+}
+
 run "fleet_contract" {
   command = plan
   assert {

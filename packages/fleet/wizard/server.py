@@ -384,12 +384,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self, method):
         path = self.path.split("?", 1)[0]
-        refusal = self.allowed(public_page=method == "GET" and path == "/")
+        refusal = self.allowed(public_page=method == "GET" and path in ("/", "/admin.css", "/theme.js"))
         if refusal:
             return self.reply(403, {"error": refusal})
         try:
             if method == "GET" and path == "/":
                 return self.reply(200, resource("index.html").read_bytes(), "text/html; charset=utf-8")
+            if method == "GET" and path in ("/admin.css", "/theme.js"):
+                name, kind = ("admin.css", "text/css; charset=utf-8") if path == "/admin.css" else ("theme.js", "text/javascript; charset=utf-8")
+                return self.reply(200, resource(name).read_bytes(), kind)
             if method == "GET" and path == "/api/scan":
                 return self.reply(200, self.wizard.scan())
             if method == "GET" and path == "/api/job":

@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # The fleet API: Hono on Bun, raw SQL against the shared Postgres (schema
-# `fleet` only), dashboard styled with Tailwind compiled at build time.
+# `fleet` only), with a React/Mantine client console and offline fallback CSS.
 FROM oven/bun:1.3.11 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
 COPY packages/assert/package.json ./packages/assert/
+COPY packages/admin-ui/package.json ./packages/admin-ui/
 COPY packages/auth-relay/package.json ./packages/auth-relay/
 COPY packages/infra/package.json ./packages/infra/
 COPY packages/logger/package.json ./packages/logger/
@@ -28,10 +29,11 @@ RUN bun install --frozen-lockfile
 COPY tsconfig.json tsconfig.strict.json turbo.json ./
 COPY packages/assert ./packages/assert
 COPY packages/logger ./packages/logger
+COPY packages/admin-ui ./packages/admin-ui
 COPY packages/fleet-api ./packages/fleet-api
 
-# dist/ is not in the build context (.dockerignore), so the stylesheet is built here.
-RUN cd packages/fleet-api && bun run build:css
+# dist/ is excluded from the context; compile all browser assets here.
+RUN cd packages/fleet-api && bun run build
 
 FROM oven/bun:1.3.11-slim AS runtime
 WORKDIR /app

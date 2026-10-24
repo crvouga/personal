@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FILES = ("main.py", "bootstrap.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "server.py", "index.html")
+FILES = ("main.py", "bootstrap.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "server.py", "index.html", "admin.css", "theme.js")
 
 
 def target_name():
@@ -53,6 +53,8 @@ def main(argv):
             sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir" if system == "macos" else "--onefile", "--name", "fleet-installer",
             "--distpath", str(stage / "dist"), "--workpath", str(stage / "work"), "--specpath", str(stage),
             "--add-data", f"{stage / 'index.html'}{separator}.",
+            "--add-data", f"{stage / 'admin.css'}{separator}.",
+            "--add-data", f"{stage / 'theme.js'}{separator}.",
             "--hidden-import", "decide", "--hidden-import", "_version",
         ]
         if system == "macos":

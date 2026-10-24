@@ -9,7 +9,7 @@ import {
 } from '../vault-inputs/model';
 import { connect } from './connection';
 import { command, type Command } from './command';
-import { stages, type Stage } from './model';
+import { stages, vaultSecretVariables, type Stage } from './model';
 import { reviewPlan } from './plan';
 import type { Inventory, Session, Ui } from './types';
 
@@ -119,7 +119,7 @@ export class TofuSession implements Session {
         state_access_key: this.env.TF_VAR_state_access_key,
         state_secret_key: this.env.TF_VAR_state_secret_key,
         github_token: this.env.TF_VAR_github_token,
-        ...next,
+        ...vaultSecretVariables(next),
       };
     const supplied = { ...this.env, ...stage.env };
     const strings = Object.fromEntries(

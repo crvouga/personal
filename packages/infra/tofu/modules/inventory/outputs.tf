@@ -1,6 +1,14 @@
 output "config" {
   value = local.inventory
   precondition {
+    condition = alltrue([for service in local.inventory.services : try(
+      service.env.FLEET_OIDC_ISSUER == "https://${local.inventory.auth_relay.instances.production.hostname}/realms/${local.inventory.auth_relay.instances.production.realm}" &&
+      trimspace(service.env.FLEET_OIDC_CLIENT_ID) != "" &&
+      service.env.FLEET_PUBLIC_ORIGIN == "https://${service.hostname}", false
+    ) if service.id == "fleet-api"])
+    error_message = "Fleet's deployed Google sign-in requires its production relay issuer, registered client ID and exact public origin in inventory. Removing these settings would disable browser access."
+  }
+  precondition {
     condition     = alltrue([for service in local.inventory.services : try(service.railway.registry, null) == null])
     error_message = "All platform images must be public and pulled anonymously; private registry credentials are not allowed."
   }

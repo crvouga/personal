@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import type { Dependencies } from './types';
+import { digest } from './db';
 
 export function rateLimit({ db, config }: Dependencies): MiddlewareHandler {
   return async (c, next) => {
@@ -12,7 +13,9 @@ export function rateLimit({ db, config }: Dependencies): MiddlewareHandler {
       c.req.method === 'POST' && c.req.path.endsWith('/token')
         ? new URLSearchParams(await c.req.raw.clone().text())
         : new URL(c.req.url).searchParams;
-    const client = params.get('client_id') ?? 'console';
+    const client = c.req.path.startsWith('/agent/')
+      ? `agent:${digest(c.req.header('Authorization') ?? '')}`
+      : (params.get('client_id') ?? 'console');
     const minute = Math.floor(Date.now() / 60000);
     const schema = db(config.schema);
     for (const [key, maximum] of [
@@ -38,6 +41,7 @@ export function rateLimit({ db, config }: Dependencies): MiddlewareHandler {
 function protectedPath(path: string): boolean {
   return (
     path.startsWith('/api/') ||
+    path.startsWith('/agent/') ||
     path.startsWith('/auth/') ||
     path.endsWith('/protocol/openid-connect/auth') ||
     path.endsWith('/protocol/openid-connect/token')

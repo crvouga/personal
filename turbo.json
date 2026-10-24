@@ -23,25 +23,35 @@
     },
     "tc": {
       "dependsOn": ["^tc"],
-      "inputs": ["**/*.ts", "tsconfig.json", "../../tsconfig.strict.json"],
+      "inputs": [
+        "**/*.ts",
+        "**/*.tsx",
+        "tsconfig.json",
+        "../../tsconfig.strict.json"
+      ],
       "outputLogs": "new-only",
       "outputs": []
     },
     "lint": {
       "dependsOn": ["^tc"],
-      "inputs": ["**/*.ts", "eslint.config.js", "eslint.config.cjs"],
+      "inputs": [
+        "**/*.ts",
+        "**/*.tsx",
+        "eslint.config.js",
+        "eslint.config.cjs"
+      ],
       "outputLogs": "new-only",
       "outputs": []
     },
     "test": {
       "dependsOn": ["^tc"],
-      "inputs": ["**/*.ts", "**/*.test.ts"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputLogs": "new-only",
       "outputs": []
     },
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.ts", "Dockerfile"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "passThroughEnv": ["PORTFOLIO_GITHUB_TOKEN"],
       "outputLogs": "new-only",
       "outputs": []

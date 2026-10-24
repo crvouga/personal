@@ -91,10 +91,50 @@ safe to re-run:
    into the `fleet-api` inventory entry. Merge that change (`/pr-ready`), then re-run
    the command to check the live sign-in page.
 
-The Google console, the operator claim and the registration form stay manual by
-design: only an authenticated operator may register a client. Production
+The Google console and initial operator claim stay manual. Fleet can still use
+the registration form; approved agents can use the scoped registration API described below. Production
 registrations expire after at most 366 days, and the command prints the date to
 renew before.
+
+## Console interface
+
+The management console is a client-rendered React single-page application using
+`@pkgs/admin-ui` and Mantine for its shell, navigation, layout, forms, tables, drawers, dialogs and
+feedback. Applications, Operators and the Integration guide have bookmarkable
+hash navigation and stay on the same origin as the existing Hono API. Browser
+requests retain the host-only session and CSRF protection; authentication still
+uses the relay's existing code/S256 PKCE flow.
+
+`bun run build` produces the production JavaScript and CSS in ignored `dist/`.
+The application bundle, CSS and small early theme script are required for readiness and are served locally, without a CDN.
+The HTML shell is never cached. Mantine's generated style tags use a per-request
+CSP nonce; component style attributes are permitted while scripts remain restricted
+to the same origin. OAuth failures retain a minimal server-rendered recovery
+page so a broken bundle cannot prevent restarting sign-in.
+
+The appearance menu is available before and after sign-in with **Light**, **Dark**
+and **System** modes. System is the default and follows operating-system changes.
+Preferences share the same visual contract and storage key as Fleet, persist in browser storage and synchronize across tabs on the same origin; blocked or
+invalid storage falls back to the system preference. A small same-origin script
+sets the theme before styles paint, including on sign-in recovery pages. All
+surfaces use theme-aware colors. Navigation has route titles, active-page
+semantics and a skip-to-content control; keyboard focus and reduced-motion
+preferences are respected. Closing a dirty registration asks before discarding,
+and reloading with unsaved changes requests the browser's standard warning.
+
+For UI work without managed resources, use the explicitly synthetic preview:
+
+```sh
+bun run --cwd packages/auth-relay dev:ui:fixtures
+```
+
+This serves in-memory application/operator fixtures on loopback port 18091. It
+has no database, identity provider, Vault access, or infrastructure effects, and
+resets on restart. Its sign-in link is not an authentication test. Use
+`dev:fixtures` for the real local OIDC flow and `test:e2e` for provider/database
+acceptance. The preview's `/__test/state` endpoint injects anonymous, setup,
+nonoperator and unavailable sessions or write/list failures for browser checks;
+it exists only in the explicit test server and is never part of the runtime image.
 
 ## Register in the UI
 
@@ -102,12 +142,65 @@ Open the relay's public origin (`https://auth.chrisvouga.dev` for production, `h
 
 1. Select **Continue with Google**. The console authenticates through this relay's own OIDC provider with code + S256 PKCE, state and nonce. Google credentials stay in the provider.
 2. An existing operator grants access using your exact relay subject, shown after sign-in. On first installation only, an authorized infrastructure administrator enters the instance's one-time setup token from Vault. **Signing in with Google does not make someone an operator.** The first claim is atomic and cannot be repeated, including after a token rotation.
-3. Enter a project, environment, independent instance name, exact callback URLs and expiry. Verify domain/repository/deployment ownership before checking the ownership declaration. Operators are trusted infrastructure administrators with authority across their broker environment, not arbitrary project owners. A hostname or Google email alone is not ownership proof.
-4. Save, then copy the displayed issuer, client ID and callback into the application. Registration takes effect without a deployment. The generated client ID is stable across updates; project/environment/instance are immutable. A duplicate identity is rejected rather than taking over an existing client.
+3. In **Applications**, select **New application**. Enter a project, environment, independent instance name, exact callback URLs and expiry. Verify domain/repository/deployment ownership before checking the ownership declaration. Operators are trusted infrastructure administrators with authority across their broker environment, not arbitrary project owners. A hostname or Google email alone is not ownership proof.
+4. Save, then use **Copy .env** to copy the displayed issuer, client ID, callback and scopes into the application. Use **Manage** to edit or renew a registration; revocation asks for confirmation. Registration takes effect without a deployment. The generated client ID is stable across updates; project/environment/instance are immutable. A duplicate identity is rejected rather than taking over an existing client.
 
 **Registrations and allowed URLs live in PostgreSQL, never an application list in source code or infrastructure inventory.** UI operations are runtime application data, explicitly separate from OpenTofu-owned hosting, secrets, roles and Atlas schema definitions. Do not use the Keycloak admin console or old registration workflows to edit consuming clients. Only the console's own two system clients are bootstrapped through OpenTofu, so the UI can authenticate before any application exists.
 
 The database is the existing shared Postgres. Application tables live exclusively in `auth_relay_production` or `auth_relay_nonproduction`, each with a restricted runtime role. They are separate from `public`, `fleet`, other projects and Keycloak's internal schemas. [schema.hcl](schema.hcl) is applied by the foundation root's Atlas provider with an explicit schema-scoped `search_path`. Bun never creates or migrates tables on startup.
+
+## Agent registration
+
+The public, generated [integration guide](https://www.chrisvouga.dev/llms.txt#6-auth-relay-google-sign-in)
+is the entry point for an agent in another repository. It includes hosting,
+PostgreSQL, S3-compatible object storage, Vault coordinates, exact relay issuers,
+credential onboarding, CLI/CI examples and the language-independent HTTP contract.
+Its source is [the template](../../scripts/llms-txt.template.md); run
+`bun run llms:sync` after editing it.
+
+The dependency-free [Bun client](agent.ts) can be copied into any project. It reads
+`AUTH_RELAY_AGENT_TOKEN` from a Vault-injected environment, reconciles the immutable
+project/environment/instance identity, preserves the client id and supplies the
+current revision. It supports `fingerprint`, `list`, `register --file <public.json>`
+and `revoke --id <client-id>`; use `--help` for options. Public settings returned by
+registration contain no secret and can be configured in the application. The
+registration credential belongs only in the tooling process, never the app.
+
+Credential issuance and Vault access policies are OpenTofu-owned:
+[auth-agents.tf](../infra/tofu/vault/auth-agents.tf) generates independent credentials
+in `secret/auth-relay-agents/<credential-id>/<dev|prd>` and dedicated GitHub OIDC
+roles bound to an exact repository and subject. These documents are outside shared
+`personal/*` CI/runtime access. The complete `auth_agent_credentials` metadata map
+is preserved in the existing `TOFU_VAULT_INPUTS`; no callback list is stored there.
+Encrypted OpenTofu state also holds generated material and retains its existing
+protected backup/access requirements. Only nonsecret fingerprints and coordinates
+are outputs. No application process generates or seeds Vault secrets.
+
+After ownership verification, an operator uses **Agent access** in the matching
+console to approve a fingerprint, one project, allowed environments, exact owned
+HTTPS origins, optional nonproduction loopback access and expiry. Paths within an
+approved origin are delegated. Loopback access permits exact HTTP localhost and
+127.0.0.1 callbacks on changing explicit ports, not wildcard redirects. Grants
+follow the existing seven-day / 366-day lease bounds; registrations cannot outlive
+them. Independent production and nonproduction credentials/grants are required.
+
+`/agent/v1/clients` exposes GET, PUT `/:id` and DELETE `/:id` over server-side bearer
+authentication. It rejects browser Origin/cookies and cannot authorize console,
+operator or setup operations. The database stores only credential SHA-256 hashes,
+scopes and audit records. Agents can manage only clients created under their grant;
+manual registrations and other grants are protected even when project names match.
+Writes recheck the live grant under a database lock through provider update and
+commit; revision checks reject stale edits. Failed provider updates preserve the
+committed configuration, and pending identities allow reconciliation after ambiguous
+new-client failures. Do not blindly retry a write after a timeout.
+
+Rotate through a reviewed OpenTofu plan by incrementing the credential generation,
+then update the fingerprint on its existing grant to preserve application ownership.
+Revoke a grant to stop agent operations; revoke its clients separately to deny new
+sign-ins. Existing application sessions remain subject to application policy.
+First-operator bootstrap remains protected by its one-time setup token. This path
+requires the additive Atlas schema migration and a deployed gateway; local tests do
+not establish live Google or production acceptance.
 
 ## Integrate any framework
 
@@ -138,13 +231,13 @@ Project A / localhost / server-two: http://127.0.0.1:8080/callback
 
 Changing a port requires updating that record in the UI, not Google credentials, source configuration, or the production broker. `localhost` and `127.0.0.1` are different destinations. No port wildcard or native-app loopback exception is used for web clients. Callback removals retain a ten-minute overlap for outstanding flows; explicit revocation and expiry deny new authorization and token exchanges immediately. Nonproduction leases last at most seven days; production leases at most 366 days. Renew explicitly.
 
-A development-server startup helper with scoped credentials is **not yet implemented**. UI registration supports arbitrary exact ports but is not a claim of fully automatic port discovery or unattended project provisioning.
+The standalone [agent client](agent.ts) registers and renews exact callbacks using an operator-approved Vault credential. A dev server must select its actual port before invoking it; the helper does not discover framework ports automatically. See [agent integration](#agent-registration).
 
 ## Production and previews
 
 Use the production console for HTTPS production callbacks, and the nonproduction console for staging, development, CI and previews. These use independent issuers, clients, sessions, schemas and runtime credentials. Register exact unrelated domains freely after an operator verifies their ownership; no shared parent domain is required. Never approve a shared hosting suffix, wildcard, dangling domain or someone else's preview URL.
 
-Register each preview under a unique instance and a short expiry. Revoke in the UI on teardown. The gateway enforces expiry using the database clock even if cleanup is unavailable. A replica-safe maintenance job disables expired/revoked private-provider clients and removes stale transactions. Registrations retain identity tombstones and audit history; they are not reassigned. Automated provisioning with narrowly scoped project-owner credentials is a remaining acceptance gate. There is no unauthenticated public dynamic registration.
+Register each preview under a unique instance and a short expiry. Revoke in the UI on teardown. The gateway enforces expiry using the database clock even if cleanup is unavailable. A replica-safe maintenance job disables expired/revoked private-provider clients and removes stale transactions. Registrations retain identity tombstones and audit history; they are not reassigned. Scoped registration automation is implemented below; live acceptance remains a gate. There is no unauthenticated public dynamic registration.
 
 Google only sees the relay's fixed upstream callback `/realms/<realm>/broker/google/endpoint`. Google consent branding, verified domains, organization policy, test-user restrictions and platform rules still apply. The relay does not bypass these requirements or impersonate each consuming application's brand.
 

@@ -4,6 +4,7 @@ COPY package.json bun.lock ./
 # Standalone image uses the workspace's resolved dependency versions.
 COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-cache/
 COPY packages/assert/package.json ./packages/assert/
+COPY packages/admin-ui/package.json ./packages/admin-ui/
 COPY packages/auth-relay/package.json ./packages/auth-relay/
 COPY packages/infra/package.json ./packages/infra/
 COPY packages/logger/package.json ./packages/logger/
@@ -18,6 +19,7 @@ COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
 COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/fleet-api/package.json ./packages/fleet-api/
+COPY packages/admin-ui ./packages/admin-ui
 COPY packages/auth-relay ./packages/auth-relay
 COPY packages/logger ./packages/logger
 COPY packages/assert ./packages/assert
@@ -32,7 +34,7 @@ COPY --from=build /app/packages/auth-relay/src ./packages/auth-relay/src
 COPY --from=build /app/packages/logger ./packages/logger
 COPY --from=build /app/packages/assert ./packages/assert
 COPY --from=build /app/packages/auth-relay/ui/index.html ./packages/auth-relay/ui/index.html
-COPY --from=build /app/packages/auth-relay/ui/style.css ./packages/auth-relay/ui/style.css
+COPY --from=build /app/packages/admin-ui ./packages/admin-ui
 COPY --from=build /app/packages/auth-relay/dist ./packages/auth-relay/dist
 WORKDIR /app/packages/auth-relay
 ENV NODE_ENV=production
