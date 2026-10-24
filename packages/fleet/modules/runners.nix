@@ -131,66 +131,9 @@ ${builtins.readFile ../scripts/runner_control.py}
     name = "fleet-resume";
     runtimeInputs = with pkgs; [ systemd coreutils util-linux ];
     text = ''
-      update_in_progress() {
-        [ -e /run/fleet/update-draining ] || return 1
-        state=$(systemctl show --property=ActiveState --value fleet-sync.service) || return 0
-        case "$state" in active|activating|reloading) return 0 ;; esac
-        rm -f /run/fleet/update-draining
-        return 1
-      }
-      if update_in_progress; then
-        echo 'FLEET_UPDATE_DRAIN_ACTIVE: preserving admission until the update commits or recovers'
-        exit 75
-      fi
-      enabled=$(${tools.fleetconf}/bin/fleetconf get runners.enabled true)
-      cordoned=$(${tools.fleetconf}/bin/fleetconf get runners.cordoned false)
-      if [ "$enabled" = false ] || [ "$cordoned" = true ]; then
-        echo 'Keeping the drain gate: runners remain disabled or cordoned by Fleet configuration'
-        exit 0
-      fi
-      rm -f /run/systemd/system/github-runner-*.service.d/drain.conf
-      systemctl daemon-reload
-      count=$(tr -d '[:space:]' < /run/fleet/slot-count)
-      case "$count" in
-        ""|*[!0-9]*) echo 'slot count is not a number' >&2; exit 1 ;;
-      esac
-      units=()
-      n=1
-      while [ "$n" -le "$count" ]; do
-        units+=("github-runner-slot-$n.service")
-        n=$((n + 1))
-      done
-      # systemd 260 ResetFailedUnit refuses a unit that is not loaded. A clean
-      # stop plus daemon-reload unloads these units, and an unloaded unit cannot
-      # be failed. A unit that hit its start limit stays loaded and failed.
-      for unit in "''${units[@]}"; do
-        if systemctl is-failed --quiet "$unit"; then
-          systemctl reset-failed "$unit"
-        fi
-      done
-      for unit in "''${units[@]}"; do
-        slot=''${unit#github-runner-}
-        slot=''${slot%.service}
-        # A failed drain may have removed labels from an otherwise active
-        # listener. Starting it is a no-op; recycle idle listeners to register
-        # their labels again. Busy ephemeral listeners finish undisturbed and
-        # re-register automatically when their current job ends.
-        (
-          exec 9>/run/fleet/gate
-          flock 9
-          if update_in_progress; then exit 75; fi
-          if [ ! -e "/run/fleet/$slot/busy" ]; then
-            systemctl stop "$unit"
-            systemctl --no-block start "$unit"
-          fi
-        )
-      done
-      (
-        exec 9>/run/fleet/gate
-        flock 9
-        if update_in_progress; then exit 75; fi
-        rm -f /run/fleet/draining
-      )
+      export FLEETCONF=${tools.fleetconf}/bin/fleetconf
+      export FLEET_SLOT_MAX=${toString slots}
+      ${builtins.readFile ../scripts/resume.sh}
     '';
   };
   hooks = event: pkgs.writeShellScript "fleet-job-${event}" (if event == "started" then ''
