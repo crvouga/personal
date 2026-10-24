@@ -207,6 +207,10 @@ jobs:
         run: |
           cd packages/portfolio
           node node_modules/playwright/cli.js install --with-deps chromium
+      - name: Install password-manager Chromium and run synthetic browser contracts
+        run: |
+          node packages/password-manager/node_modules/playwright/cli.js install --with-deps chromium
+          bun run --cwd packages/password-manager test:browser
       - name: Test and build packages
         run: bunx turbo run test build
       - name: Health-check portfolio public URLs

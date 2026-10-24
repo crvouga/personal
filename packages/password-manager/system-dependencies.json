@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "architectures": ["arm64", "x64"],
+  "darwin": {
+    "minimumMajor": 14,
+    "secretStore": "macOS Keychain (OS-provided; user must unlock)",
+    "scheduler": "/bin/launchctl",
+    "opener": "/usr/bin/open"
+  },
+  "linux": {
+    "distributions": {
+      "debian": ["12", "13"],
+      "ubuntu": ["22.04", "24.04", "26.04"]
+    },
+    "credentialPackages": [
+      "dbus-user-session",
+      "gnome-keyring",
+      "xdg-utils",
+      "systemd"
+    ],
+    "owner": "distribution apt repository; release-managed security versions",
+    "packageManager": "/usr/bin/apt-get",
+    "query": "/usr/bin/dpkg-query",
+    "privilege": "/usr/bin/sudo",
+    "scheduler": "/usr/bin/systemctl",
+    "opener": "/usr/bin/xdg-open",
+    "sessionRequirement": "A user D-Bus session and an unlocked persistent Secret Service; never a volatile kernel keyring"
+  },
+  "browserLibraries": {
+    "owner": "locked Playwright registry and distribution package repositories",
+    "diagnostic": "playwright install-deps --dry-run chromium",
+    "acquisition": "playwright install-deps chromium"
+  },
+  "bootstrapPackages": ["ca-certificates", "curl", "xz-utils", "unzip", "tar"],
+  "bootstrapUtilities": {
+    "owner": "supported OS POSIX/core utilities; Linux coreutils and macOS system shasum",
+    "commands": [
+      "sh",
+      "dirname",
+      "cat",
+      "uname",
+      "mktemp",
+      "mkdir",
+      "cp",
+      "chmod",
+      "rm",
+      "printf",
+      "curl",
+      "sha256sum (Linux)",
+      "shasum (macOS)"
+    ]
+  }
+}
