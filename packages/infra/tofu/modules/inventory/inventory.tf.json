@@ -2109,7 +2109,10 @@
           "env": {
             "PORT": "8080",
             "VAULT_ADDR": "from_vault_addr",
-            "FLEET_GITHUB_REPO": "crvouga/workspace"
+            "FLEET_GITHUB_REPO": "crvouga/workspace",
+            "FLEET_OIDC_ISSUER": "https://auth.chrisvouga.dev/realms/projects",
+            "FLEET_OIDC_CLIENT_ID": "app-f00cf29d-b5ee-44cd-857e-777b3ff5d354",
+            "FLEET_PUBLIC_ORIGIN": "https://fleet.chrisvouga.dev"
           },
           "secrets": [
             {
