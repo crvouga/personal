@@ -236,9 +236,11 @@ continue to update only the saved Vault inputs.
 Validate with `bun run check:infra`; regenerate the integration guide with `bun run llms:sync`. Never commit state, saved plans, initialization files, secret tfvars or credentials.
 
 Production CI verifies access to the adopted Railway project with a targeted,
-refresh-only OpenTofu plan before core checks, image builds or Vault deployment.
-The probe cannot apply changes and has a two-minute timeout (five minutes for
-setup plus the probe). Failed preflight blocks publication, deployment and smoke;
+refresh-only OpenTofu plan after core checks and before image builds or Vault deployment.
+When OpenTofu requires additional targets for pending resource moves, the probe
+includes the exact suggested endpoints and replans once. Other errors stop it
+immediately. It never saves or applies a plan or writes state, and has a two-minute
+timeout. Failed preflight blocks publication, deployment and smoke;
 PR checks and sibling image publishing do not need production credentials.
 
 The shared CI OpenTofu action makes at most three plan attempts, retrying only
