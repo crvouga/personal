@@ -1,78 +1,100 @@
-"""Resume opens admission before starts and restores it on partial failure."""
+"""Exercise the actual recovery script with fake systemd; VM tests use real locks."""
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 
-MODULE = Path(__file__).parents[1] / 'modules/runners.nix'
+SCRIPT = Path(__file__).parents[1] / 'scripts/resume.sh'
 
 
+@unittest.skipIf(os.name == 'nt', 'Runner recovery executes on NixOS')
 class ResumeTests(unittest.TestCase):
-    def run_resume(self, failure='', busy=False, update=False):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            runtime = root / 'runtime'
-            runtime.mkdir()
-            (runtime / 'draining').touch()
-            (runtime / 'slot-count').write_text('2')
-            if busy:
-                (runtime / 'slot-2').mkdir()
-                (runtime / 'slot-2/busy').touch()
-            if update:
-                (runtime / 'update-draining').touch()
-            binary = root / 'bin'
-            binary.mkdir()
-            programs = {
-                'flock': '#!/bin/sh\nexit 0\n',
-                'fleetconf': '#!/bin/sh\ncase "$2" in runners.enabled) echo true;; *) echo false;; esac\n',
-                'systemctl': f'''#!{sys.executable}
-import json, os, sys
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.run = self.root / 'run'
+        self.run.mkdir()
+        (self.run / 'slot-count').write_text('2')
+        (self.run / 'draining').touch()
+        binaries = self.root / 'bin'
+        binaries.mkdir()
+        self.write(binaries / 'flock', '#!/bin/sh\nexit 0\n')
+        self.write(binaries / 'fleetconf', '#!/bin/sh\ncase "$2" in runners.cordoned) echo "${FLEET_TEST_CORDON:-false}";; *) echo true;; esac\n')
+        self.write(binaries / 'systemctl', f'''#!{sys.executable}
+import json,os,sys
 from pathlib import Path
-args = sys.argv[1:]
-root = Path(os.environ['RESUME_FIXTURE'])
-if args[0] == 'show':
- print('active' if os.environ.get('UPDATE_ACTIVE') else 'inactive')
-elif args[0] == 'is-failed':
- sys.exit(1)
-elif args[0] == 'stop' or '--no-block' in args:
- with (root / 'events').open('a') as log: log.write(json.dumps(args) + '\\n')
- if '--no-block' in args:
-  assert not (root / 'runtime/draining').exists(), 'start condition still blocked'
-  if args[-1] == os.environ.get('FAIL_START'): sys.exit(1)
-''',
-            }
-            for name, program in programs.items():
-                path = binary / name
-                path.write_text(program)
-                path.chmod(0o700)
-            text = MODULE.read_text().split('  resume = ', 1)[1].split('  hooks = ', 1)[0]
-            text = text.split("    text = ''\n", 1)[1].rsplit("    '';", 1)[0]
-            text = text.replace("''${", '${').replace('${tools.fleetconf}/bin/fleetconf', shlex.quote(str(binary / 'fleetconf')))
-            text = text.replace('/run/fleet', str(runtime)).replace('/run/systemd/system', str(root / 'systemd'))
-            result = subprocess.run(['bash', '-euo', 'pipefail', '-c', text], capture_output=True, text=True,
-                env={**os.environ, 'PATH': str(binary) + os.pathsep + os.environ.get('PATH', ''),
-                     'RESUME_FIXTURE': directory, 'FAIL_START': failure, 'UPDATE_ACTIVE': '1' if update else ''})
-            events = [json.loads(line) for line in (root / 'events').read_text().splitlines()] if (root / 'events').exists() else []
-            return result, events, (runtime / 'draining').exists()
+root=Path(os.environ['FLEET_TEST_ROOT']);run=root/'run';args=sys.argv[1:]
+with (root/'calls').open('a') as stream: stream.write(json.dumps(args)+'\\n')
+if args[0]=='show':
+    print(os.environ.get('FLEET_TEST_SYNC','inactive'));sys.exit(0)
+if args[0]=='is-failed':sys.exit(1)
+if args[0]=='stop':
+    for unit in args[1:]:
+        slot=unit.removeprefix('github-runner-').removesuffix('.service')
+        assert not (run/slot/'busy').exists(),'an active job was interrupted'
+if args[0]=='--no-block':
+    assert args[1]=='start'
+    if (run/'draining').exists():sys.exit(0) # systemd silently skips the condition
+    if (root/'fail-start').exists():sys.exit(1)
+    (run/'started').mkdir(exist_ok=True)
+    for unit in args[2:]:(run/'started'/unit).touch()
+''')
+        self.env = {**os.environ, 'FLEET_TEST_ROOT': str(self.root), 'FLEET_BUSY_DIR': str(self.run),
+            'FLEET_SYSTEMD_RUNTIME': str(self.root / 'systemd'), 'FLEETCONF': str(binaries / 'fleetconf'),
+            'FLEET_SYSTEMCTL': str(binaries / 'systemctl'), 'FLEET_SLOT_MAX': '2',
+            'PATH': str(binaries) + os.pathsep + os.environ.get('PATH', '')}
 
-    def test_starts_pass_the_gate_and_busy_listeners_are_not_interrupted(self):
-        result, events, blocked = self.run_resume(busy=True)
+    def write(self, path, content):
+        path.write_text(content)
+        path.chmod(0o700)
+
+    def resume(self, **env):
+        return subprocess.run(['bash', str(SCRIPT)], env={**self.env, **env}, capture_output=True, text=True)
+
+    def calls(self):
+        return [json.loads(line) for line in (self.root / 'calls').read_text().splitlines()]
+
+    def test_start_conditions_see_the_reopened_gate_and_busy_jobs_are_not_stopped(self):
+        (self.run / 'slot-1').mkdir()
+        (self.run / 'slot-1/busy').touch()
+        result = self.resume()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(events, [['stop', 'github-runner-slot-1.service'], ['--no-block', 'start', 'github-runner-slot-1.service']])
-        self.assertFalse(blocked)
+        self.assertFalse((self.run / 'draining').exists())
+        self.assertTrue((self.run / 'slot-1/busy').exists())
+        self.assertEqual(sorted(path.name for path in (self.run / 'started').iterdir()),
+            ['github-runner-slot-1.service', 'github-runner-slot-2.service'])
+        self.assertEqual([call for call in self.calls() if call[0] == 'stop'], [['stop', 'github-runner-slot-2.service']])
 
-    def test_partial_restart_failure_restores_admission_blocking(self):
-        result, events, blocked = self.run_resume(failure='github-runner-slot-2.service')
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(events[-1], ['--no-block', 'start', 'github-runner-slot-2.service'])
-        self.assertTrue(blocked)
+    def test_active_update_preserves_gate_and_an_interrupted_updater_recovers(self):
+        (self.run / 'update-draining').touch()
+        for state in ('active', 'activating', 'reloading'):
+            self.assertEqual(self.resume(FLEET_TEST_SYNC=state).returncode, 75)
+            self.assertTrue((self.run / 'draining').exists())
+        result = self.resume(FLEET_TEST_SYNC='failed')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.run / 'update-draining').exists())
+        self.assertTrue((self.run / 'started').is_dir())
 
-    def test_active_update_keeps_every_listener_untouched_and_admission_blocked(self):
-        result, events, blocked = self.run_resume(update=True)
-        self.assertEqual(result.returncode, 75)
-        self.assertEqual(events, [])
-        self.assertTrue(blocked)
+    def test_failed_start_recloses_admission_and_retains_automatic_retry_intent(self):
+        (self.root / 'fail-start').touch()
+        result = self.resume()
+        self.assertEqual(result.returncode, 1)
+        self.assertTrue((self.run / 'draining').exists())
+        self.assertTrue((self.run / 'agent-drained').exists())
+        (self.root / 'fail-start').unlink()
+        self.assertEqual(self.resume().returncode, 0)
+        self.assertFalse((self.run / 'draining').exists())
+        self.assertTrue((self.run / 'started').is_dir())
+
+    def test_deliberate_cordon_and_invalid_capacity_never_start_runners(self):
+        self.assertEqual(self.resume(FLEET_TEST_CORDON='true').returncode, 0)
+        self.assertTrue((self.run / 'draining').exists())
+        self.assertFalse((self.run / 'started').exists())
+        (self.run / 'slot-count').write_text('999')
+        self.assertEqual(self.resume().returncode, 1)
+        self.assertTrue((self.run / 'draining').exists())
+        self.assertFalse((self.run / 'started').exists())
