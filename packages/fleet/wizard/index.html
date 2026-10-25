@@ -63,19 +63,36 @@
         sshKey: '',
         sawReboot: false,
         lastJob: null,
+        lastBody: null,
         wifi: null,
+        retry: null,
+        problem: null,
+        report: '',
+        issueUrl: null,
+        diagnostic: null,
+        diagnosticTicket: 0,
       };
       const app = document.getElementById('app');
 
       async function api(path, body) {
-        const res = await fetch(path, {
-          method: body === undefined ? 'GET' : 'POST',
-          headers: {
-            'X-Fleet-Token': TOKEN,
-            'Content-Type': 'application/json',
-          },
-          body: body === undefined ? undefined : JSON.stringify(body),
-        });
+        let res;
+        try {
+          res = await fetch(path, {
+            method: body === undefined ? 'GET' : 'POST',
+            headers: {
+              'X-Fleet-Token': TOKEN,
+              'Content-Type': 'application/json',
+            },
+            body: body === undefined ? undefined : JSON.stringify(body),
+          });
+        } catch (e) {
+          const err = new Error(
+            'This page lost its connection to the Fleet installer program.'
+          );
+          err.fix =
+            'Check that the Fleet installer is still running (its window or terminal is open), then press Try again. If it was closed, start it again.';
+          throw err;
+        }
         let data = {};
         try {
           data = await res.json();
@@ -85,6 +102,8 @@
         if (!res.ok) {
           const err = new Error(data.error || 'HTTP ' + res.status);
           err.fix = data.fix;
+          err.guidance = data.guidance;
+          err.log = data.log;
           throw err;
         }
         return data;
@@ -125,14 +144,189 @@
           heading.focus({ preventScroll: true });
         }
       }
-      function problem(err) {
-        return (
+      function problem(err, retry, where) {
+        return trouble({
+          message: err.message,
+          fix: err.fix,
+          guidance: err.guidance,
+          log: err.log,
+          retry: retry || (() => start()),
+          where: where,
+        });
+      }
+      // One recovery panel for every failure: what happened, what to do, a
+      // retry where it is safe, and a report an agent or an issue can use.
+      function trouble(t) {
+        const g = t.guidance || {};
+        state.retry = t.retry && g.retry !== false ? t.retry : null;
+        state.problem = t.job
+          ? null
+          : {
+              message: t.message,
+              fix: t.fix,
+              where: t.where,
+              mode: state.mode,
+              role: state.role,
+            };
+        state.report = fallbackReport(t);
+        state.issueUrl = null;
+        const steps =
+          g.steps && g.steps.length ? g.steps : t.fix ? [t.fix] : [];
+        const h =
           '<div class="box"><p class="fail">' +
-          esc(err.message) +
+          esc(t.message) +
           '</p>' +
-          (err.fix ? '<p>' + esc(err.fix) + '</p>' : '') +
-          '<button onclick="start()">Start over</button></div>'
+          (g.summary ? '<p><b>' + esc(g.summary) + '</b></p>' : '') +
+          (steps.length
+            ? '<p>What to do:</p><ol>' +
+              steps.map((step) => '<li>' + esc(step) + '</li>').join('') +
+              '</ol>'
+            : '') +
+          (g.safety ? '<p><small>' + esc(g.safety) + '</small></p>' : '') +
+          (t.log ? '<p><small>Log: ' + esc(t.log) + '</small></p>' : '') +
+          '<p>' +
+          (state.retry
+            ? '<button class="primary" onclick="retry()">' +
+              esc(t.retryLabel || 'Try again') +
+              '</button>'
+            : '') +
+          '<button onclick="copyDiagnostic()">Copy diagnostic report</button>' +
+          '<button onclick="reportIssue()">Report on GitHub</button>' +
+          (t.noStartOver
+            ? ''
+            : '<button onclick="start()">Start over</button>') +
+          '</p><p id="diagnostic-status" role="status"><small>Copy diagnostic report puts the error, this computer\'s details and the recent log on the clipboard, ready to paste to an agent. Report on GitHub opens a pre-filled public issue; review it before you submit.</small></p>' +
+          '<details><summary>Error details for support or an LLM</summary><textarea id="diagnostic-report" readonly rows="12"></textarea></details></div>';
+        loadDiagnostic();
+        return h;
+      }
+      function retry() {
+        const again = state.retry;
+        if (again) again();
+      }
+      function fallbackReport(t) {
+        const j = t.job || state.lastJob;
+        const g = t.guidance || {};
+        return [
+          'Fleet installer diagnostic',
+          '(The installer program did not answer, so this report has only what the page knows.)',
+          'Version: ' + (j?.version || state.scan?.version || 'unknown'),
+          'System: ' +
+            (state.scan?.os || 'unknown') +
+            ' / ' +
+            (state.scan?.arch || 'unknown'),
+          'Where: ' + (t.where || 'install job'),
+          'Mode: ' + state.mode,
+          'State: ' + (j?.state || 'connection lost'),
+          'Step: ' + (j?.step || 'unknown'),
+          'Result: ' + (t.message || j?.message || 'No final result received'),
+          'Next: ' + (t.fix || '-'),
+          ...(g.steps || []).map((step) => '- ' + step),
+          'Log: ' + (t.log || state.scan?.log || 'unavailable'),
+          ...(j?.log || []),
+        ].join('\n');
+      }
+      // The report is set as the textarea's value, never as page text, so it
+      // cannot be mistaken for the message it describes.
+      function fillReport() {
+        const box = document.getElementById('diagnostic-report');
+        if (box) box.value = state.report;
+      }
+      async function loadDiagnostic() {
+        const ticket = ++state.diagnosticTicket;
+        queueMicrotask(fillReport); // after show() has placed the panel
+        state.diagnostic = api('/api/diagnostic', {
+          problem: state.problem,
+        }).then(
+          (d) => {
+            if (ticket !== state.diagnosticTicket) return;
+            state.report = d.report;
+            state.issueUrl = d.issue_url;
+            fillReport();
+          },
+          () => {
+            /* keep the page's own report */
+          }
         );
+        return state.diagnostic;
+      }
+      function diagnosticStatus(text) {
+        const status = document.getElementById('diagnostic-status');
+        if (status) status.textContent = text;
+      }
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (_) {
+          const area = document.createElement('textarea');
+          area.value = text;
+          area.setAttribute('readonly', '');
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          let copied = false;
+          try {
+            copied = document.execCommand('copy');
+          } catch (__) {
+            copied = false;
+          }
+          area.remove();
+          return copied;
+        }
+      }
+      async function copyDiagnostic() {
+        await state.diagnostic;
+        const copied = await copyText(state.report);
+        diagnosticStatus(
+          copied
+            ? 'Copied. Paste it to an agent, or into a GitHub issue.'
+            : 'The clipboard is not available. Open Error details below and copy the text by hand.'
+        );
+        if (!copied) {
+          const details = document
+            .getElementById('diagnostic-report')
+            ?.closest('details');
+          if (details) details.open = true;
+          document.getElementById('diagnostic-report')?.select();
+        }
+      }
+      function reportIssue() {
+        // Open the window first, while the click still allows it.
+        const url =
+          state.issueUrl ||
+          'https://github.com/crvouga/workspace/issues/new?title=' +
+            encodeURIComponent('Fleet installer: installer failure') +
+            '&body=' +
+            encodeURIComponent(
+              'Reported from the Fleet installer.\n\n```text\n' +
+                state.report.slice(0, 2500) +
+                '\n```\n'
+            );
+        // A window opened with 'noopener' is always reported as null, so cut
+        // the opener link by hand to tell a blocked tab from an opened one.
+        const opened = window.open(url, '_blank');
+        if (opened) opened.opener = null;
+        copyText(state.report).then((copied) => {
+          const status = document.getElementById('diagnostic-status');
+          if (!status) return;
+          status.textContent = opened
+            ? 'A pre-filled GitHub issue opened in a new tab. Review it, then press Submit new issue.'
+            : 'Your browser blocked the new tab. ';
+          if (!opened) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noreferrer';
+            link.textContent = 'Open the pre-filled GitHub issue';
+            status.append(link, '.');
+          }
+          if (copied)
+            status.append(
+              ' The full report is also on your clipboard, in case the issue had to be shortened.'
+            );
+        });
       }
       function gb(n) {
         return n ? (n / 1e9).toFixed(1) + ' GB' : 'unknown size';
@@ -156,7 +350,9 @@
           }
           state.scan = await api('/api/scan');
         } catch (e) {
-          return show(problem(e));
+          return show(
+            problem(e, () => start(resume), 'looking at this computer')
+          );
         }
         home();
       }
@@ -175,14 +371,16 @@
             : '') +
           '</div>';
         if (!s.release.ok) {
-          h +=
-            '<p class="fail">The installer download cannot be reached: ' +
-            esc(s.release.error) +
-            '</p>' +
-            '<p>' +
-            esc(s.release.advice) +
-            '</p>' +
-            '<button onclick="start()">Try again</button>';
+          h += trouble({
+            message:
+              'The installer download cannot be reached: ' + s.release.error,
+            fix: s.release.advice,
+            guidance: s.release.guidance,
+            log: s.log,
+            retry: () => start(),
+            where: 'checking the installer download',
+            noStartOver: true,
+          });
           return show(h);
         }
         h += '<h2>What do you want to do?</h2>';
@@ -292,7 +490,7 @@
         try {
           state.scan = await api('/api/scan');
         } catch (e) {
-          return show(problem(e));
+          return show(problem(e, rescanUsb, 'rescanning USB disks'));
         }
         if (state.scan.usb.length === 1) state.usb = state.scan.usb[0].id;
         chooseUsb();
@@ -385,11 +583,13 @@
       }
 
       async function review(body) {
+        state.lastBody = body;
+        state.plan = null;
         show('<p>Checking everything…</p>');
         try {
           state.plan = await api('/api/plan', body);
         } catch (e) {
-          return show(problem(e));
+          return show(problem(e, () => review(body), 'review'));
         }
         const p = state.plan;
         let h = '<h2>Review</h2>';
@@ -458,7 +658,10 @@
             disk_id: state.plan.disk_id,
           });
         } catch (e) {
-          return show(problem(e));
+          const body = state.lastBody;
+          return show(
+            problem(e, body ? () => review(body) : null, 'starting the install')
+          );
         }
         state.wifi = null;
         progress();
@@ -477,9 +680,21 @@
             );
           return show(
             '<h2 class="fail">Connection lost — installation is not confirmed</h2>' +
-              problem(e) +
-              diagnostics(state.lastJob) +
-              '<button onclick="progress()">Reconnect to this job</button>'
+              trouble({
+                message: e.message,
+                fix: e.fix,
+                guidance: {
+                  steps: [
+                    'Do not start another erase yet: a disk operation may still be running.',
+                    e.fix ||
+                      'Check that the Fleet installer is still running, then press Reconnect to this job.',
+                  ],
+                },
+                job: state.lastJob,
+                retry: progress,
+                retryLabel: 'Reconnect to this job',
+                where: 'following the install job',
+              })
           );
         }
         state.lastJob = j;
@@ -496,7 +711,9 @@
           '</p><progress max=100 ' +
           (j.percent == null ? '' : 'value="' + j.percent + '"') +
           '></progress>';
-        if (j.state === 'downloading')
+        // The server allows Cancel until the administrator step claims its work,
+        // including while the permission prompt is still open.
+        if (j.cancellable ?? j.state === 'downloading')
           h += '<p><button onclick="cancelBeforeWrite()">Cancel</button></p>';
         h += '<pre>' + esc(j.log.join('\n')) + '</pre>';
         show(h);
@@ -532,52 +749,44 @@
               '<li>Choose ci, web, cache, netboot or devbox in the installer menu, then press Enter. The menu waits for your choice; every entry erases the internal disk. A devbox asks for your SSH public key before erasing anything; paste your .pub file contents at that prompt.</li>' +
               "<li>It erases the computer's internal disk and installs by itself. Remove the stick when it says so.</li></ol>";
         } else {
+          const body = state.lastBody;
           h =
             '<h2 class="fail">' +
             (j.state === 'cancelled' ? 'Cancelled' : 'It did not finish') +
-            '</h2><p class="fail">' +
-            esc(r.message) +
-            '</p>' +
-            (r.fix ? '<p>' + esc(r.fix) + '</p>' : '');
+            '</h2>' +
+            trouble({
+              message: r.message,
+              fix: r.fix,
+              guidance: r.guidance,
+              log: r.log,
+              job: j,
+              retry: body ? () => review(body) : () => start(),
+            });
+          return show(h);
         }
         if (r.log) h += '<p><small>Log: ' + esc(r.log) + '</small></p>';
         h += diagnostics(j);
         h += '<button onclick="start()">Start over</button>';
         show(h);
       }
+      // Details for a finished or unconfirmed job that did not fail.
       function diagnostics(j) {
         const r = j?.result || {};
-        const report = [
-          'Fleet installer diagnostic',
-          'Version: ' + (j?.version || state.scan?.version || 'unknown'),
-          'System: ' +
-            (state.scan?.os || 'unknown') +
-            ' / ' +
-            (state.scan?.arch || 'unknown'),
-          'Mode: ' + state.mode,
-          'State: ' + (j?.state || 'connection lost'),
-          'Step: ' + (j?.step || 'unknown'),
-          'Result: ' + (r.message || j?.message || 'No final result received'),
-          'Next: ' +
-            (r.fix ||
-              'Check this node in Fleet. Do not repeat an erase while a disk operation is still running.'),
-          'Log: ' + (r.log || 'unavailable'),
-          ...(j?.log || []),
-        ].join('\n');
+        state.problem = null;
+        state.report = fallbackReport({
+          job: j,
+          message: r.message,
+          fix:
+            r.fix ||
+            'Check this node in Fleet. Do not repeat an erase while a disk operation is still running.',
+          log: r.log,
+        });
+        state.issueUrl = null;
+        loadDiagnostic();
         return (
-          '<details><summary>Error details for support or an LLM</summary><textarea id="diagnostic-report" readonly rows="12">' +
-          esc(report) +
-          '</textarea><p><button onclick="copyDiagnostic()">Copy diagnostic report</button></p></details>'
+          '<details><summary>Error details for support or an LLM</summary><textarea id="diagnostic-report" readonly rows="12"></textarea><p><button onclick="copyDiagnostic()">Copy diagnostic report</button>' +
+          '<button onclick="reportIssue()">Report on GitHub</button></p><p id="diagnostic-status" role="status"></p></details>'
         );
-      }
-      async function copyDiagnostic() {
-        const input = document.getElementById('diagnostic-report');
-        input.select();
-        try {
-          await navigator.clipboard.writeText(input.value);
-        } catch (_) {
-          document.execCommand('copy');
-        }
       }
       start(true);
     </script>

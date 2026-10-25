@@ -76,9 +76,18 @@ def shell_execute_parameters(argv):
 
 
 class _Waitable:
-    def __init__(self, process):
+    def __init__(self, process, hint=None):
         self.process = process
         self.returncode = None
+        self.hint = hint
+
+    def terminate(self):
+        """Close a permission prompt that is still open. A helper that already runs as
+        root cannot be signalled from here, and is not: it finishes its work."""
+        try:
+            self.process.terminate()
+        except OSError:
+            pass
 
     def poll(self):
         self.returncode = self.process.poll()
@@ -155,23 +164,28 @@ def start(os_name, argv):
     """Start argv with administrator rights. Returns an object with poll() and wait()."""
     mode = mode_for(os_name)
     decide.log(f"starting helper mode={mode}")
+    # Its own session: closing the terminal or pressing Ctrl+C in it must not kill a
+    # helper half way through a disk write (it would skip its own undo).
+    detached = {"start_new_session": True}
     if mode == "none":
-        return _Waitable(subprocess.Popen(argv))
+        return _Waitable(subprocess.Popen(argv, **detached))
     if mode == "Windows":
         return _WindowsProcess(argv)
     if mode == "Darwin":
-        return _Waitable(subprocess.Popen(["osascript", "-e", applescript_command(argv)]))
+        return _Waitable(subprocess.Popen(["osascript", "-e", applescript_command(argv)], **detached))
     pkexec = shutil.which("pkexec")
     graphical = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
     if pkexec and graphical:
-        return _Waitable(subprocess.Popen([pkexec, *argv]))
+        return _Waitable(subprocess.Popen([pkexec, *argv], **detached))
     sudo = shutil.which("sudo")
     if sudo and subprocess.run([sudo, "-n", "true"], check=False, capture_output=True).returncode == 0:
-        return _Waitable(subprocess.Popen([sudo, "-n", *argv]))
+        return _Waitable(subprocess.Popen([sudo, "-n", *argv], **detached))
     if sudo and sys.stdin is not None and sys.stdin.isatty():
         # Ordinary Linux downloads run in a terminal. Let sudo ask there when
-        # there is no desktop polkit agent; no command needs to be retyped.
-        return _Waitable(subprocess.Popen([sudo, "--", *argv]))
+        # there is no desktop polkit agent; no command needs to be retyped. It
+        # needs the terminal to ask, so it stays in this session.
+        return _Waitable(subprocess.Popen([sudo, "--", *argv]),
+                         hint="Type your password in the terminal window this installer was started from.")
     raise ElevationUnavailable("This computer cannot ask for administrator rights from here. Close this window and run: sudo " + " ".join(shlex.quote(p) for p in launcher_argv()))
 
 

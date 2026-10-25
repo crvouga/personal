@@ -2,9 +2,11 @@
 scratch (it trusts nothing the web UI said), does the work, writes a result.
 
 Request and result live in a directory made by the unprivileged server:
-  request.json   what to do
+  request.json   what to do; renamed to request.claimed.json the moment this starts,
+                 so the server can withdraw it (cancel) until then, and knows after
+                 that the helper ran
   progress.jsonl one JSON object per line while it runs
-  result.json    written last: {"ok": bool, "message": str, "fix": str}
+  result.json    written last: {"ok": bool, "message": str, "fix": str, "log_tail": [...]}
 """
 import json
 import os
@@ -18,30 +20,51 @@ from pathlib import Path
 
 import bootstrap  # noqa: F401
 import decide
+import diagnostics
 import imaging
 import leases
 import preparation
 import fleet_wifi
 
 ACTIONS = ("write-usb", "install-here")
+REQUEST, CLAIMED, WITHDRAWN = "request.json", "request.claimed.json", "request.withdrawn.json"
+LOG_TAIL = 80
+
+
+class Withdrawn(Exception):
+    """The wizard cancelled before this helper started. Nothing has been touched."""
 TOKEN_RE = decide.ENROLL_RE
 
 
 class Progress:
     def __init__(self, directory):
         self.path = Path(directory) / "progress.jsonl"
+        self.failed = False
 
     def emit(self, step, message="", percent=None):
         row = {"step": step, "message": decide.redact(message), "percent": percent}
-        with open(self.path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(row) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        try:
+            with open(self.path, "a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError as exc:
+            # Progress only feeds the window. Losing it must never stop disk
+            # work halfway; the log keeps the full record.
+            if not self.failed:
+                self.failed = True
+                decide.log(f"progress could not be written to {self.path}: {type(exc).__name__}: {exc}", "WARN")
 
 
 def load_request(directory):
-    path = Path(directory) / "request.json"
-    decide.invariant(path.is_file(), "the helper was started without a request file", directory=str(directory))
+    directory = Path(directory)
+    path = directory / CLAIMED
+    try:
+        os.replace(directory / REQUEST, path)  # atomic: either this claim or the wizard's withdrawal wins
+    except FileNotFoundError:
+        if (directory / WITHDRAWN).exists():
+            raise Withdrawn() from None
+        decide.invariant(False, "the helper was started without a request file", directory=str(directory))
     request = json.loads(path.read_text(encoding="utf-8"))
     decide.invariant(isinstance(request, dict) and request.get("action") in ACTIONS, "the request names an unknown action", action=request.get("action") if isinstance(request, dict) else request)
     return request
@@ -242,19 +265,34 @@ def run(directory):
         result.update(message=f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", fix=broken.fix)
     except imaging.Cancelled:
         result.update(message="Cancelled. Nothing is left half done that running the wizard again cannot redo.", fix="")
+    except Withdrawn:
+        result.update(message="Cancelled before the administrator step started. Nothing was changed.", fix="", withdrawn=True)
     except Exception as exc:
         decide.log(traceback.format_exc(), "ERROR")
         result.update(message=f"{type(exc).__name__}: {exc}", fix="This is a bug in the installer. The log has the details.")
     finally:
-        request_file = directory / "request.json"
-        if request_file.exists():
-            request_file.write_text("{}")  # the token must not outlive the run
+        for name in (REQUEST, CLAIMED):
+            request_file = directory / name
+            try:
+                if request_file.exists():
+                    request_file.write_text("{}")  # the token must not outlive the run
+            except OSError as exc:
+                decide.log(f"could not clear the request file: {type(exc).__name__}: {exc}", "ERROR")
     result["log"] = decide.LOG["path"]
+    # The log carries the outcome too, in case the window cannot read result.json.
+    decide.log(f"result ok={result['ok']} message={result['message']} fix={result['fix']}", "INFO" if result["ok"] else "ERROR")
+    # The window may not be able to open this log (another account, or root-only), so
+    # its end travels with the result for the diagnostic report.
+    result["log_tail"] = diagnostics.tail(decide.LOG["path"], LOG_TAIL)
     final = directory / "result.json"
     temporary = directory / "result.json.tmp"
-    temporary.write_text(json.dumps(result), encoding="utf-8")
-    os.replace(temporary, final)
-    os.chmod(final, 0o644)
+    try:
+        temporary.write_text(json.dumps(result), encoding="utf-8")
+        os.replace(temporary, final)
+        os.chmod(final, 0o644)
+    except OSError as exc:
+        decide.log(f"could not write {final}: {type(exc).__name__}: {exc}", "ERROR")
+        return 2
     return 0 if result["ok"] else 1
 
 

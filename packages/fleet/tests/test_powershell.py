@@ -305,5 +305,53 @@ class DisksTest(NeedsPowerShell):
         self.assertEqual(len(decide.parse_windows(done.stdout)), 1)
 
 
+
+WITH_LINUX = """
+$real = ${function:Get-Partition}
+function Get-Partition { param($DriveLetter, $DiskNumber, $PartitionNumber)
+  $rows = & $real -DriveLetter $DriveLetter -DiskNumber $DiskNumber -PartitionNumber $PartitionNumber
+  if (-not $DriveLetter -and -not $PartitionNumber) { @($rows) + [PSCustomObject]@{ PartitionNumber = 5; DiskNumber = 0; Size = [uint64]8589934592; Offset = [uint64]499000000000; GptType = '{0fc63daf-8483-4772-8e79-3d69d8477de4}'; Guid = '{99999999-8888-7777-6666-555555555555}' } } else { $rows } }
+"""
+
+
+class LeftoverScriptsTest(NeedsPowerShell):
+    """The scripts that find and take back what an unfinished conversion left, run against stand-ins."""
+
+    def run_script(self, script, *extra):
+        done = run_powershell(stubs(PARTS_ONE_ESP, *extra) + decide.PS_PREAMBLE + script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        return decide.json_from_output(done.stdout)
+
+    def test_one_linux_partition_is_still_a_list(self):
+        listed = self.run_script(decide.ps_linux_partitions_script(0), WITH_LINUX)
+        self.assertEqual(listed["Parts"], [{"Number": 5, "Offset": 499000000000, "Size": 8589934592, "Guid": "{99999999-8888-7777-6666-555555555555}"}])
+
+    def test_no_linux_partition_is_an_empty_list(self):
+        self.assertEqual(self.run_script(decide.ps_linux_partitions_script(0))["Parts"], [])
+
+    def test_facts_list_linux_partitions_for_leftover_detection(self):
+        facts = decide.parse_windows_facts(run_powershell(stubs(PARTS_ONE_ESP, WITH_LINUX) + decide.PS_PREAMBLE + decide.ps_facts_script()).stdout)
+        self.assertEqual(facts["LinuxParts"], [{"Number": 5, "Size": 8589934592}])
+        plain = decide.parse_windows_facts(run_powershell(stubs(PARTS_ONE_ESP) + decide.PS_PREAMBLE + decide.ps_facts_script()).stdout)
+        self.assertEqual(plain["LinuxParts"], [])
+
+    def test_an_efi_partition_left_mounted_is_reused_not_mounted_twice(self):
+        mounted = """
+        $real = ${function:Get-Partition}
+        function Get-Partition { param($DriveLetter, $DiskNumber, $PartitionNumber)
+          $rows = & $real -DriveLetter $DriveLetter -DiskNumber $DiskNumber -PartitionNumber $PartitionNumber
+          foreach ($r in @($rows)) { if ($r.PartitionNumber -eq 1) { $r | Add-Member -NotePropertyName DriveLetter -NotePropertyValue ([char]'S') -Force } }
+          $rows }
+        function mountvol { throw 'mountvol must not run when the partition is already mounted' }
+        """
+        self.assertEqual(self.run_script(decide.ps_mount_esp_script(), mounted), {"Root": "S:\\", "Letter": "S", "Reused": True})
+
+    def test_an_unmounted_efi_partition_is_mounted_on_a_free_letter(self):
+        fresh = """
+        function Test-Path { param($Path) $Path -eq 'Z:\\' }
+        function mountvol { $global:LASTEXITCODE = 0 }
+        """
+        self.assertEqual(self.run_script(decide.ps_mount_esp_script(), fresh), {"Root": "Y:\\", "Letter": "Y"})
+
 if __name__ == "__main__":
     unittest.main()

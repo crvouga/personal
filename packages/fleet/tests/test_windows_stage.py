@@ -46,6 +46,7 @@ class World:
         self.facts = dict(FACTS, **(facts or {}))
         self.c_size = self.facts["Size"]
         self.partitions = []
+        self.partition_size = 0
         self.mounted = False
         self.entries, self.order, self.sequence = set(), [], None
         self.hide_sequence = False
@@ -81,11 +82,16 @@ class World:
             size = int(re.search(r"-Size (\d+)", script).group(1))
             assert self.facts["Size"] - self.c_size >= size, "the model has no room for the partition"
             self.partitions.append(5)
+            self.partition_size = size
             return json.dumps({"Number": 5, "Offset": 1048576, "Size": size, "Guid": "{99999999-8888-7777-6666-555555555555}"})
         if "Remove-Partition" in script:
             self.maybe_fail("remove-partition")
             self.partitions.remove(int(re.search(r"-PartitionNumber (\d+)", script).group(1)))
             return ""
+        if "Parts = $found" in script:
+            self.maybe_fail("list-linux")
+            return json.dumps({"Parts": [{"Number": n, "Offset": 1048576, "Size": self.partition_size, "Guid": "{99999999-8888-7777-6666-555555555555}"}
+                                         for n in self.partitions]})
         if "/S" in script and "mountvol" in script:
             self.maybe_fail("mount")
             self.mounted = True
@@ -129,14 +135,19 @@ class World:
         if text == f"/delete {ENTRY}":
             self.maybe_fail("bcd:delete")
             self.entries.remove(ENTRY)
+            if ENTRY in self.order:  # bcdedit's default /cleanup
+                self.order.remove(ENTRY)
             return ""
         if text == "/enum {fwbootmgr}":
             self.maybe_fail("bcd:enum")
             return f"bootsequence              {self.sequence}\n" if self.sequence and not self.hide_sequence else "displayorder\n"
         raise AssertionError("an unexpected bcdedit call: " + text)
 
-    # -- shutdown
+    # -- shutdown, and bcdedit probes that may fail
     def run_logged(self, command, **kwargs):
+        if command[:2] == ["bcdedit", "/enum"] and len(command) == 3:
+            self.ops.append("bcd:probe")
+            return SimpleNamespace(returncode=0 if command[2] in self.entries else 1, stdout="", stderr="")
         assert os.path.basename(command[0]) == "shutdown", command
         if "/a" in command:
             self.ops.append("shutdown-abort")
@@ -180,6 +191,8 @@ class StageCase(unittest.TestCase):
         if not self.iso.exists():
             self.iso.write_bytes(self.iso_bytes)
         world = World(folder, **kw)
+        # A fresh Windows has no record of an earlier conversion; re-runs reuse one world instead.
+        (self.state / decide.WINDOWS_JOURNAL_NAME).unlink(missing_ok=True)
         env = {"FLEET_WINDOWS_TARGET": str(world.disk), "FLEET_STATE": str(self.state), "FLEET_ARCH": "x86_64"}
         patches = [
             mock.patch.dict(os.environ, env),
@@ -467,8 +480,9 @@ class FailureAfterEachStepTest(StageCase):
         ops = world.ops
         order = [ops.index(name) for name in ("shrink", "new-partition", "mount", "bcd:copy", "shutdown")]
         self.assertEqual(order, sorted(order))
+        self.assertLess(ops.index("unmount"), ops.index("shutdown"), "the EFI system partition is unmounted before the restart")
         undone = [name for name in ops[ops.index("shutdown"):] if name in ("bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "unmount", "remove-partition", "restore")]
-        self.assertEqual(undone, ["bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "unmount", "remove-partition", "restore"])
+        self.assertEqual(undone, ["bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "remove-partition", "restore"])
 
     def test_an_undo_step_that_fails_is_reported_but_does_not_stop_the_rest(self):
         world = self.world()
@@ -481,6 +495,16 @@ class FailureAfterEachStepTest(StageCase):
         self.assertEqual(world.esp_files(), [])
         self.assertIn("Could not undo: delete the firmware boot entry", " ".join(self.says))
         self.assertEqual(world.entries, {ENTRY}, "what could not be undone is named for the person (see docs/windows.md)")
+
+    def test_the_result_names_what_was_not_undone_instead_of_claiming_windows_is_unchanged(self):
+        world = self.world()
+        world.fail_at = {"shutdown", "bcd:delete"}
+        with self.assertRaises(decide.Invariant) as caught:
+            self.stage(world, None)
+        self.assertIn("could not be taken back", caught.exception.what)
+        self.assertIn("delete the firmware boot entry", caught.exception.context["not_undone"])
+        self.assertIn("Remove everything by hand", caught.exception.fix)
+        self.assertTrue((self.state / decide.WINDOWS_JOURNAL_NAME).is_file(), "the record stays for the next run")
 
 
 class RefusalsTest(StageCase):
@@ -627,6 +651,160 @@ class FindingsExtrasTest(unittest.TestCase):
         self.assertIn("(web installer)", text)
         self.assertIn("ERASES the whole of disk 0", text)
         self.assertIn("installs web", text)
+
+
+
+class RerunTest(StageCase):
+    """A conversion that never finished is found and taken back by the next run, whatever the
+    reason it stopped: killed (no undo ran), a restart stopped with `shutdown /a`, or an undo
+    step that failed. A second run then stages exactly one copy, never two."""
+
+    def killed_at(self, world, firmware, step):
+        """Stage until step, as if the process died there: the in-memory undo never runs."""
+        world.fail_at = {step}
+        with mock.patch.object(decide.WindowsUndo, "run", lambda undo: []), \
+                mock.patch.object(decide.WindowsJournal, "clear", lambda journal: None), self.assertRaises(decide.Invariant):
+            self.stage(world, firmware)
+        world.fail_at = set()
+
+    def assert_staged_once(self, world, firmware):
+        self.assertEqual(world.partitions, [5], "one installer partition")
+        self.assertEqual(world.c_size, world.facts["Size"] - decide.windows_need(len(self.iso_bytes)), "C: shrunk once, not twice")
+        self.assertEqual(world.order, [ENTRY])
+        self.assertEqual(world.sequence, ENTRY)
+        self.assertEqual(world.esp_files(), ["EFI/BOOT/grub.cfg", "EFI/fleet/grubx64.efi"])
+        self.assertFalse(world.mounted, "no drive letter is left on the EFI system partition")
+        if firmware is not None:
+            self.assertEqual(struct.unpack("<3H", firmware.vars["BootOrder"][0]), (0, 1, 2), "one firmware option, appended once")
+            self.assertEqual(firmware.vars["BootNext"][0], struct.pack("<H", 2))
+
+    def test_a_run_killed_after_both_boot_entries_is_taken_back_then_staged_once(self):
+        firmware = FakeFirmware(self.firmware_vars)
+        world = self.world()
+        self.killed_at(world, firmware, "shutdown")
+        self.assertEqual(world.partitions, [5], "the killed run left its partition")
+        self.assertEqual(self.stage(world, firmware), 0)
+        self.assertIn("An earlier conversion on this computer did not finish. Taking back what it changed first.", self.says)
+        self.assert_staged_once(world, firmware)
+
+    def test_every_point_a_run_can_be_killed_at_is_recovered(self):
+        # Without firmware variables a bcdedit failure is fatal, so each step is a place to die.
+        for step in ("new-partition", "mount", "bcd:copy", "bcd:path", "bcd:displayorder-add", "bcd:sequence-set", "bcd:enum", "unmount", "shutdown"):
+            with self.subTest(step=step):
+                world = self.world()
+                self.killed_at(world, None, step)
+                self.assertEqual(self.stage(world, None), 0, step)
+                self.assert_staged_once(world, None)
+
+    def test_a_run_killed_half_way_through_the_firmware_variables_is_recovered(self):
+        firmware = FakeFirmware(self.firmware_vars, fail={("write", "BootNext")})
+        world = self.world()
+        self.killed_at(world, firmware, "shutdown")
+        self.assertIn("Boot0002", firmware.vars)
+        firmware.fail = set()
+        self.assertEqual(self.stage(world, firmware), 0)
+        self.assert_staged_once(world, firmware)
+
+    def test_running_again_after_shutdown_a_replaces_the_armed_conversion(self):
+        firmware = FakeFirmware(self.firmware_vars)
+        world = self.world()
+        self.assertEqual(self.stage(world, firmware), 0)
+        world.restart = "aborted"  # the person ran shutdown /a
+        self.iso.write_bytes(self.iso_bytes)  # success deleted the download; running again fetches it
+        self.assertEqual(self.stage(world, firmware), 0)
+        self.assert_staged_once(world, firmware)
+        self.assertEqual(world.restart, "scheduled")
+
+    def test_a_recovery_that_cannot_finish_stops_before_anything_new_changes(self):
+        world = self.world()
+        self.killed_at(world, None, "shutdown")
+        world.fail_at = {"remove-partition"}
+        shrinks = world.ops.count("shrink")
+        with self.assertRaises(decide.Invariant) as caught:
+            self.stage(world, None)
+        self.assertIn("could not be taken back completely", caught.exception.what)
+        self.assertIn("installer partition", caught.exception.context["failed"])
+        self.assertEqual(world.ops.count("shrink"), shrinks, "no second shrink on top of the leftovers")
+        self.assertTrue((self.state / decide.WINDOWS_JOURNAL_NAME).is_file(), "the record is kept to try again")
+        world.fail_at = set()
+        self.assertEqual(self.stage(world, None), 0)
+        self.assertEqual(world.partitions, [5])
+
+    def test_recovery_leaves_a_reused_firmware_option_number_alone(self):
+        firmware = FakeFirmware(self.firmware_vars)
+        world = self.world()
+        self.killed_at(world, firmware, "shutdown")
+        firmware.vars["Boot0002"] = (decide.efi_load_option("Some other OS", [decide.EFI_END_NODE]), 7)
+        decide.recover_windows_staging(firmware)
+        self.assertIn("Boot0002", firmware.vars, "only an option with this program's description is deleted")
+        self.assertNotIn("BootNext", firmware.vars)
+        self.assertEqual(struct.unpack("<2H", firmware.vars["BootOrder"][0]), (0, 1))
+
+    def test_a_record_from_a_newer_installer_is_not_guessed_at(self):
+        world = self.world()
+        (self.state / decide.WINDOWS_JOURNAL_NAME).write_text(json.dumps({"version": 99}))
+        with self.assertRaises(decide.Invariant) as caught:
+            self.stage(world, None)
+        self.assertIn("latest Fleet installer", caught.exception.fix)
+        self.assertEqual(world.ops, [])
+
+    def test_an_earlier_one_time_boot_choice_is_restored_not_deleted(self):
+        other = "{22222222-3333-4444-5555-666666666666}"
+        world = self.world()
+        world.sequence = other
+        world.fail_at = {"shutdown"}
+        original = world.bcd
+
+        def bcd(*args):
+            if args == ("/set", "{fwbootmgr}", "bootsequence", other):
+                world.sequence = other
+                return ""
+            return original(*args)
+
+        with mock.patch.object(decide, "bcd", bcd), self.assertRaises(decide.Invariant):
+            self.stage(world, None)
+        self.assertEqual(world.sequence, other)
+
+    def test_a_stale_fleet_boot_config_is_not_kept_as_the_owners(self):
+        world = self.world()
+        (world.esp / "EFI" / "BOOT").mkdir(parents=True)
+        (world.esp / "EFI" / "BOOT" / "grub.cfg").write_text("set timeout=3\nmenuentry 'Fleet installer: ERASES the internal disk and installs web' {\n}\n")
+        (world.esp / "EFI" / "fleet").mkdir()
+        (world.esp / "EFI" / "fleet" / "fleet-wifi.initrd").write_bytes(b"old password")
+        world.fail_at = {"shutdown"}
+        with self.assertRaises(decide.Invariant):
+            self.stage(world, None)
+        self.assertEqual(world.esp_files(), [], "neither the old config nor the old Wi-Fi handoff survives")
+
+
+class LeftoverFindingsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        patch = mock.patch.dict(os.environ, {"FLEET_STATE": self.tmp.name})
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def findings(self, **changes):
+        facts = {**FACTS, **changes}
+        with mock.patch.object(decide, "windows_facts", return_value=facts), mock.patch.object(decide.shutil, "which", return_value="bcdedit"):
+            return {item["name"]: item for item in decide.windows_findings(6 * 1024 ** 3, "\\.\PHYSICALDRIVE0")}
+
+    def test_unrecorded_linux_partitions_are_a_warning_with_the_way_out(self):
+        found = self.findings(LinuxParts=[{"Number": 5, "Size": 7 * 1024 ** 3}])
+        self.assertEqual(found["leftover-partition"]["status"], "warn")
+        self.assertIn("Disk Management", found["leftover-partition"]["fix"])
+        self.assertNotIn("leftover-partition", self.findings())
+
+    def test_a_recorded_unfinished_run_is_announced_and_its_shrink_counts_as_free(self):
+        need = decide.windows_need(6 * 1024 ** 3)
+        squeezed = {"Size": C_SIZE - need, "SizeMin": C_SIZE - need - 1024}
+        self.assertEqual(self.findings(**squeezed)["shrink"]["status"], "fail")
+        Path(self.tmp.name, decide.WINDOWS_JOURNAL_NAME).write_text(json.dumps({"version": 1, "letter": "C", "original_size": C_SIZE}))
+        found = self.findings(**squeezed, LinuxParts=[{"Number": 5, "Size": 1}])
+        self.assertEqual(found["earlier-run"]["status"], "info")
+        self.assertEqual(found["shrink"]["status"], "ok", "taking the earlier run back gives the space back first")
+        self.assertNotIn("leftover-partition", found, "a recorded partition is taken back, not reported")
 
 
 if __name__ == "__main__":

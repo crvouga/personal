@@ -642,7 +642,7 @@ class NodeEntryTests(unittest.TestCase):
         self.assertNotIn("findiso", config)
         self.assertIn("--file /EFI/nixos-installer-image", config)
         bcd = self.bcd_log.read_text().splitlines()
-        self.assertEqual(bcd[0], "/copy {bootmgr} /d Fleet installer")
+        self.assertEqual(bcd[:2], ["/enum {fwbootmgr}", "/copy {bootmgr} /d Fleet installer"], "an existing one-time boot is read first, to be restored")
         self.assertIn("/set {11111111-2222-3333-4444-555555555555} path \\EFI\\fleet\\grubx64.efi", bcd)
         self.assertIn("/set {fwbootmgr} bootsequence {11111111-2222-3333-4444-555555555555}", bcd)
         self.assertRegex(self.shutdown_log.read_text(), r"^/r /t 15")
@@ -1492,6 +1492,7 @@ class NodeEntryTests(unittest.TestCase):
 
         self.boot_log.unlink(missing_ok=True)
         (self.state / "installed").unlink(missing_ok=True)
+        (self.state / "windows-staging.json").unlink(missing_ok=True)  # another machine: no earlier conversion
         self._windows([{
             "DeviceID": r"\\.\PHYSICALDRIVE0",
             "Model": "Samsung SSD 980",
