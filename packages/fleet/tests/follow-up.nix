@@ -77,7 +77,7 @@ in pkgs.testers.runNixOSTest {
     systemd.timers.fleet-sync.timerConfig = {
       OnBootSec = lib.mkForce "5s";
       RandomizedDelaySec = lib.mkForce "0";
-      AccuracySec = "1ms";
+      AccuracySec = lib.mkForce "1ms";
     };
     systemd.services.fleet-sync.environment = {
       FLEET_ACTIVATION_TIMEOUT = "180";
