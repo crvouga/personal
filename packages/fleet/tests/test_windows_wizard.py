@@ -25,6 +25,7 @@ from test_windows_firmware import FakeFn  # noqa: E402
 
 import decide  # noqa: E402  (wizard/bootstrap.py puts scripts/ on the path)
 import elevate  # noqa: E402
+import imaging  # noqa: E402
 import leases  # noqa: E402
 import main as wizard_main  # noqa: E402
 
@@ -232,6 +233,117 @@ class DiskLockOnWindowsTest(LastErrorMixin, unittest.TestCase):
         a, b, c = (leases.DeviceLease(p).name for p in ("\\\\.\\PHYSICALDRIVE0", "\\\\.\\PHYSICALDRIVE0", "\\\\.\\PHYSICALDRIVE1"))
         self.assertEqual(a, b)
         self.assertNotEqual(a, c)
+
+
+class FakeScratchKernel:
+    def __init__(self, collisions=0, error=183):
+        self.collisions, self.error, self.last_error = collisions, error, 0
+        self.created, self.descriptors, self.freed, self.closed = [], [], [], []
+        self.CreateDirectoryW = FakeFn(self.create)
+        self.LocalFree = FakeFn(lambda pointer: self.freed.append(getattr(pointer, "value", pointer)))
+        self.GetCurrentProcess = FakeFn(lambda: -1)
+        self.CloseHandle = FakeFn(lambda handle: self.closed.append(getattr(handle, "value", handle)) or True)
+
+    def create(self, path, attributes):
+        if self.collisions:
+            self.collisions -= 1
+            self.last_error = self.error
+            return False
+        self.descriptors.append(attributes._obj.lpSecurityDescriptor)
+        os.mkdir(path)
+        self.created.append(path)
+        return True
+
+
+class FakeAdvapi:
+    SID = "S-1-5-21-1004336348-1177238915-682003330-1001"
+
+    def __init__(self, kernel):
+        self.kernel, self.sddl = kernel, []
+        self.ConvertStringSecurityDescriptorToSecurityDescriptorW = FakeFn(self.descriptor)
+        self.OpenProcessToken = FakeFn(self.open_token)
+        self.GetTokenInformation = FakeFn(self.token_information)
+        self.ConvertSidToStringSidW = FakeFn(self.sid_text)
+
+    def descriptor(self, sddl, revision, pointer, size):
+        self.sddl.append((sddl, revision))
+        pointer._obj.value = 4242
+        return True
+
+    def open_token(self, process, access, pointer):
+        self.access = access
+        pointer._obj.value = 99
+        return True
+
+    def token_information(self, token, kind, buffer, length, needed):
+        self.kind = kind
+        if buffer is None:
+            needed._obj.value = 64
+            return False
+        ctypes.memmove(buffer, ctypes.byref(ctypes.c_void_p(0x5151)), ctypes.sizeof(ctypes.c_void_p))
+        return True
+
+    def sid_text(self, sid, pointer):
+        self.sid = sid
+        pointer._obj.value = self.SID
+        return True
+
+
+class JobFolderOnWindowsTest(unittest.TestCase):
+    """Issue #140: the elevated helper's files must stay readable by the unelevated wizard."""
+
+    def libraries(self, kernel):
+        advapi = FakeAdvapi(kernel)
+        libs = {"kernel32": kernel, "advapi32": advapi}
+        dll = mock.patch.object(ctypes, "WinDLL", lambda name, **kw: libs[name], create=True)
+        error = mock.patch.object(ctypes, "get_last_error", lambda: kernel.last_error, create=True)
+        return advapi, dll, error
+
+    def test_the_folder_names_this_user_by_sid_never_owner_rights(self):
+        kernel = FakeScratchKernel()
+        advapi, dll, error = self.libraries(kernel)
+        with dll, error:
+            path = imaging._windows_scratch_dir("fleet-job-", sid=FakeAdvapi.SID)
+        self.addCleanup(shutil.rmtree, path, True)
+        sddl, revision = advapi.sddl[0]
+        self.assertEqual(sddl, f"D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;{FakeAdvapi.SID})")
+        self.assertNotIn(";OW)", sddl)
+        self.assertEqual(revision, 1)
+        self.assertTrue(path.is_dir() and path.name.startswith("fleet-job-"))
+        self.assertEqual(Path(path).parent, Path(tempfile.gettempdir()))
+        self.assertEqual(kernel.descriptors, [4242])
+        self.assertEqual(kernel.freed, [4242], "the security descriptor is freed")
+
+    def test_a_name_collision_tries_another_name_and_other_errors_stop(self):
+        kernel = FakeScratchKernel(collisions=2)
+        _advapi, dll, error = self.libraries(kernel)
+        with dll, error:
+            path = imaging._windows_scratch_dir("fleet-job-", sid=FakeAdvapi.SID)
+        self.addCleanup(shutil.rmtree, path, True)
+        self.assertEqual(len(kernel.created), 1)
+        kernel = FakeScratchKernel(collisions=1, error=5)
+        _advapi, dll, error = self.libraries(kernel)
+        with dll, error, self.assertRaises(decide.Invariant) as caught:
+            imaging._windows_scratch_dir("fleet-job-", sid=FakeAdvapi.SID)
+        self.assertIn("private working folder", caught.exception.what)
+        self.assertEqual(kernel.freed, [4242])
+
+    def test_the_user_sid_is_read_from_this_process_token(self):
+        kernel = FakeScratchKernel()
+        advapi, dll, error = self.libraries(kernel)
+        with dll, error:
+            self.assertEqual(imaging.windows_user_sid(), FakeAdvapi.SID)
+        self.assertEqual((advapi.access, advapi.kind, advapi.sid), (imaging.TOKEN_QUERY, imaging.TOKEN_USER, 0x5151))
+        self.assertEqual(kernel.closed, [99], "the token handle is closed")
+
+    def test_windows_uses_the_private_folder_and_other_systems_mkdtemp(self):
+        with mock.patch.object(imaging.os, "name", "nt"), mock.patch.object(imaging, "_windows_scratch_dir", return_value="made") as made:
+            self.assertEqual(imaging.scratch_dir("fleet-job-"), "made")
+        made.assert_called_once_with("fleet-job-")
+        if os.name != "nt":
+            path = imaging.scratch_dir("fleet-job-")
+            self.addCleanup(shutil.rmtree, path, True)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
 
 
 class StreamTest(unittest.TestCase):

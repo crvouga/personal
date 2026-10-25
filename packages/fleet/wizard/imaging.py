@@ -268,7 +268,98 @@ def cache_dir(os_name=None):
     return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "fleet-installer"
 
 
+# Python 3.12.4+ gives mkdtemp directories on Windows an ACL for SYSTEM,
+# Administrators and OWNER RIGHTS. A file the elevated helper creates inside is
+# owned by Administrators, so OWNER RIGHTS then locks the unelevated wizard out
+# of the helper's progress and result (issue #140). Name this user's SID instead;
+# every file created inside inherits it, whoever owns the file.
+WINDOWS_SCRATCH_SDDL = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;{sid})"
+TOKEN_QUERY = 0x0008
+TOKEN_USER = 1
+ERROR_ALREADY_EXISTS = 183
+
+
 def scratch_dir(prefix):
+    if os.name == "nt":
+        return _windows_scratch_dir(prefix)
     path = Path(tempfile.mkdtemp(prefix=prefix))
     os.chmod(path, 0o700)
     return path
+
+
+def _win32():
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel.GetCurrentProcess.argtypes = []
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    kernel.CreateDirectoryW.argtypes = [wintypes.LPCWSTR, ctypes.c_void_p]
+    kernel.CreateDirectoryW.restype = wintypes.BOOL
+    advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi.OpenProcessToken.restype = wintypes.BOOL
+    advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    advapi.GetTokenInformation.restype = wintypes.BOOL
+    advapi.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)]
+    advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.ULONG)]
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    return ctypes, wintypes, kernel, advapi
+
+
+def windows_user_sid():
+    """The string SID of the user this process runs as, e.g. S-1-5-21-…-1001."""
+    ctypes, wintypes, kernel, advapi = _win32()
+    token = wintypes.HANDLE()
+    decide.invariant(advapi.OpenProcessToken(kernel.GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)),
+                     "could not read this Windows user's identity", error=ctypes.get_last_error())
+    try:
+        size = wintypes.DWORD(0)
+        advapi.GetTokenInformation(token, TOKEN_USER, None, 0, ctypes.byref(size))  # only sizes the buffer
+        decide.invariant(size.value > 0, "Windows did not size this user's identity", error=ctypes.get_last_error())
+        buffer = ctypes.create_string_buffer(size.value)
+        decide.invariant(advapi.GetTokenInformation(token, TOKEN_USER, buffer, size, ctypes.byref(size)),
+                         "could not read this Windows user's identity", error=ctypes.get_last_error())
+        sid = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0]  # TOKEN_USER starts with User.Sid
+        text = wintypes.LPWSTR()
+        decide.invariant(advapi.ConvertSidToStringSidW(sid, ctypes.byref(text)),
+                         "could not format this Windows user's identity", error=ctypes.get_last_error())
+        try:
+            value = text.value
+        finally:
+            kernel.LocalFree(text)
+    finally:
+        kernel.CloseHandle(token)
+    decide.invariant(bool(re.fullmatch(r"S-1(-\d+)+", value or "")), "Windows returned an unusable user SID", sid=value)
+    return value
+
+
+def _windows_scratch_dir(prefix, sid=None):
+    ctypes, wintypes, kernel, advapi = _win32()
+    sddl = WINDOWS_SCRATCH_SDDL.format(sid=sid or windows_user_sid())
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("nLength", wintypes.DWORD), ("lpSecurityDescriptor", ctypes.c_void_p), ("bInheritHandle", wintypes.BOOL)]
+
+    descriptor = ctypes.c_void_p()
+    decide.invariant(advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, 1, ctypes.byref(descriptor), None),
+                     "could not build the private folder permissions", error=ctypes.get_last_error(), sddl=sddl)
+    try:
+        attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor.value, False)
+        base = Path(tempfile.gettempdir())
+        for _attempt in range(100):
+            path = base / f"{prefix}{os.urandom(6).hex()}"
+            if kernel.CreateDirectoryW(str(path), ctypes.byref(attributes)):
+                return path
+            error = ctypes.get_last_error()
+            decide.invariant(error == ERROR_ALREADY_EXISTS, "could not create the installer's private working folder",
+                             "Check that the temporary folder exists and has free space, then try again.", folder=str(base), error=error)
+        decide.invariant(False, "could not find a free name for the installer's working folder", folder=str(base))
+    finally:
+        kernel.LocalFree(descriptor)
