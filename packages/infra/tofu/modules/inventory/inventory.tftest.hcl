@@ -78,8 +78,8 @@ run "squarespace_domain_contract" {
     error_message = "Keep original delegations and remove all registrar transfer controls."
   }
   assert {
-    condition     = toset([for domain, spec in output.config.domains : domain if spec.availability == "critical"]) == toset(["chrisvouga.dev", "gamezilla.app"]) && alltrue([for spec in values(output.config.domains) : spec.availability != "critical" || (spec.web_usage == "required" && length(spec.https) >= 2)])
-    error_message = "Both critical sites must retain apex/www availability probes."
+    condition     = toset([for domain, spec in output.config.domains : domain if spec.availability == "critical"]) == toset(["chrisvouga.dev", "gamezilla.app", "moviefinder.app"]) && alltrue([for spec in values(output.config.domains) : spec.availability != "critical" || (spec.web_usage == "required" && length(spec.https) >= 2)])
+    error_message = "Critical sites must retain apex/www availability probes."
   }
   assert {
     condition     = output.config.domains[output.config.zone].dnssec_status == output.config.cloudflare.dnssec_status && output.config.domains["emulates.dev"].dnssec_status == "disabled"

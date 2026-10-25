@@ -12,6 +12,19 @@ import { httpsHostnames, tunnelHostnames } from "./targets.js";
 
 const statuses = (results: readonly { status: string }[]): string[] => [...new Set(results.map((result) => result.status))];
 
+test("additional service domains are independently checked for DNS, TLS and readiness", async () => {
+  const hostname = "www.application.app";
+  const ctx = fakeContext({ config: {
+    ...CONFIG,
+    aliases: [{ hostname, service: "web", zone: "application.app" }],
+  } });
+  const broken = async (): Promise<never> => { throw new Error("alias unavailable"); };
+  expect(httpsHostnames(ctx.config)).toContain(hostname);
+  expect(statusOf(await checkDns({ ...ctx, dns: { ...ctx.dns, resolveCname: broken, resolve4: broken } }), `CNAME ${hostname}`)).toBe("fail");
+  expect(statusOf(await checkTls({ ...ctx, certificate: broken }), hostname)).toBe("fail");
+  expect(statusOf(await checkServices({ ...ctx, fetch: fakeFetch({ [`https://${hostname}/`]: { status: 503 } }) }), hostname)).toBe("fail");
+});
+
 describe("inventory", () => {
   test("the committed inventory is internally consistent", async () => {
     const repoRoot = join(import.meta.dirname, "..", "..", "..", "..");

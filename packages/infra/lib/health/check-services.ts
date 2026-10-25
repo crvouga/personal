@@ -64,6 +64,12 @@ export async function checkServices(ctx: HealthContext): Promise<readonly CheckR
   const services = ctx.config.services.filter(isRailwayService);
   const probes: (() => Promise<CheckResult>)[] = [
     ...services.map((service) => () => checkService(ctx, service)),
+    ...(ctx.config.aliases ?? []).map((alias) => () => {
+      const service = services.find((candidate) => candidate.id === alias.service);
+      return service
+        ? checkService(ctx, { ...service, id: alias.hostname, hostname: alias.hostname })
+        : Promise.resolve(fail(alias.hostname, `unknown service ${alias.service}`));
+    }),
     ...(ctx.config.cloudflare?.redirects ?? []).map((redirect) => () => checkRedirect(ctx, redirect)),
   ];
   return mapLimit(probes, CONCURRENCY, (probe) => probe());

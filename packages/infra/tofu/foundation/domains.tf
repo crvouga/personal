@@ -51,6 +51,19 @@ resource "cloudflare_zone_dnssec" "domain" {
   status   = each.value.dnssec_status
 }
 
+resource "cloudflare_zone_setting" "domain_ssl" {
+  for_each   = { for domain, spec in local.domain_zones : domain => spec if try(spec.ssl_mode, null) != null }
+  zone_id    = cloudflare_zone.domain[each.key].id
+  setting_id = "ssl"
+  value      = each.value.ssl_mode
+}
+
+import {
+  for_each = { for domain, spec in local.domain_zones : domain => spec if try(spec.ssl_mode, null) != null }
+  to       = cloudflare_zone_setting.domain_ssl[each.key]
+  id       = "${local.domain_zone_ids[each.key]}/ssl"
+}
+
 import {
   for_each = { for domain, spec in local.domain_zones : domain => spec.existing_zone_id if try(spec.existing_zone_id, "") != "" }
   to       = cloudflare_zone_dnssec.domain[each.key]

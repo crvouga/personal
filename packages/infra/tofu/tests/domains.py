@@ -13,7 +13,7 @@ import tempfile
 tofu_root = Path(__file__).resolve().parents[1]
 policy = {
     "availability": "best-effort", "manage_zone": True, "records": {},
-    "dnssec_status": "disabled", "web_usage": "none", "https": [],
+    "dnssec_status": "disabled", "web_usage": "none", "https": [], "ssl_mode": "full",
 }
 base = {"name": "unused.example", "ttl": 3600, "proxied": False}
 policy["records"] = {

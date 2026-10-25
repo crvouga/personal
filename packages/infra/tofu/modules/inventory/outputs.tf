@@ -1,6 +1,17 @@
 output "config" {
   value = local.inventory
   precondition {
+    condition = alltrue([for alias in local.inventory.aliases :
+      contains([for service in local.inventory.services : service.id if try(service.kind, "railway") == "railway" && !try(service.standalone, false)], alias.service) &&
+      try(local.inventory.domains[alias.zone].manage_zone, false) &&
+      (alias.hostname == alias.zone || endswith(alias.hostname, ".${alias.zone}"))
+      ]) && length(distinct(concat(
+        [for service in local.inventory.services : service.hostname],
+        [for alias in local.inventory.aliases : alias.hostname]
+    ))) == length(local.inventory.services) + length(local.inventory.aliases)
+    error_message = "Additional domains must be unique, belong to a managed zone and attach to an existing Railway service."
+  }
+  precondition {
     condition = alltrue([for service in local.inventory.services : try(
       service.env.FLEET_OIDC_ISSUER == "https://${local.inventory.auth_relay.instances.production.hostname}/realms/${local.inventory.auth_relay.instances.production.realm}" &&
       trimspace(service.env.FLEET_OIDC_CLIENT_ID) != "" &&

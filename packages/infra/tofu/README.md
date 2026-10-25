@@ -291,10 +291,30 @@ uses embedded PostgreSQL and never connects to the shared development URL.
 fleet alongside DATABASE_URL and TMDB_API_READ_ACCESS_TOKEN. No existing auth
 key or secret input is rotated. Production Google sign-in uses the shared relay
 registration `app-0067b6ae-9579-4afb-8f3c-3be747f4f26f`, registered through the
-authorized production operator console on 2026-10-25. Its sole callback is
-`https://moviefinder.chrisvouga.dev/api/auth/callback/auth-relay`; its lease expires
+authorized production operator console on 2026-10-25. Its callbacks are
+`https://moviefinder.chrisvouga.dev/api/auth/callback/auth-relay` and
+`https://www.moviefinder.app/api/auth/callback/auth-relay`; its lease expires
 2027-10-25 and must be renewed through the relay console before then. The public
 issuer/client ID are projected by the service inventory. Mail remains unconfigured.
+
+The additional `www.moviefinder.app` domain attaches to the same Railway service
+through inventory `aliases`; `moviefinder.chrisvouga.dev`, its application origin
+and its registered authentication callback remain present.
+`MOVIEFINDER_ADDITIONAL_ORIGINS` adds only `https://www.moviefinder.app`; the
+application scopes authentication, cookies and CSRF checks to each exact origin. The existing
+Cloudflare apex redirect preserves paths and query strings when sending
+`moviefinder.app` to `www.moviefinder.app`. Fleet owns alias registration,
+verification and traffic DNS. Apply the foundation DNS ownership handoff before
+fleet imports the existing www record ID and replaces the obsolete AAAA record
+with its Railway CNAME (the pinned provider requires replacement for type changes).
+The alias uses Cloudflare proxying and the zone's explicit `full` TLS mode,
+Railway's documented configuration: browsers validate Cloudflare's certificate,
+and Cloudflare encrypts the origin connection even while Railway's custom-domain
+certificate is blocked by a Let's Encrypt limit. `full` does not validate the
+origin certificate's hostname; the primary zone's `strict` policy is unchanged.
+Domain HTTPS, service readiness, DNS and
+TLS health checks cover the additional hostname.
+
 Apply the approved foundation allocation before running MovieFinder's guarded
 production Atlas workflow. No application DDL is reconciled by this platform.
 

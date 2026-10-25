@@ -281,6 +281,7 @@
         },
         "moviefinder.app": {
           "manage_zone": true,
+          "ssl_mode": "full",
           "records": {
             "a-f3b832b7b4ffd5ce": {
               "name": "moviefinder.app",
@@ -289,14 +290,6 @@
               "proxied": true,
               "content": "192.0.2.1",
               "id": "219760adc16f8dda6d8cdde38f8da0bd"
-            },
-            "aaaa-af6bfaa788cbc384": {
-              "name": "www.moviefinder.app",
-              "type": "AAAA",
-              "ttl": 1,
-              "proxied": true,
-              "content": "2a09:8280:1::11c:b7cf:0",
-              "id": "a99538f44b05cf3e3b61c48c5e0eedde"
             }
           },
           "dnssec_status": "disabled",
@@ -309,10 +302,11 @@
             },
             {
               "url": "https://www.moviefinder.app/",
-              "status": 200
+              "status": 302,
+              "location": "/auth?returnTo=%2F"
             }
           ],
-          "availability": "best-effort",
+          "availability": "critical",
           "existing_zone_id": "dc6fa504265ad50cd7b29a7dc7a002c3",
           "nameservers": ["carioca.ns.cloudflare.com", "dan.ns.cloudflare.com"],
           "domain_manager": "squarespace",
@@ -1707,7 +1701,15 @@
         }
       ],
       "tunnels": [],
-      "aliases": [],
+      "aliases": [
+        {
+          "hostname": "www.moviefinder.app",
+          "service": "moviefinder",
+          "zone": "moviefinder.app",
+          "existing_record_id": "a99538f44b05cf3e3b61c48c5e0eedde",
+          "proxied": true
+        }
+      ],
       "auth_relay": {
         "status": "preproduction",
         "instances": {
@@ -2307,6 +2309,7 @@
             "PORT": "8080",
             "NODE_ENV": "production",
             "MOVIEFINDER_ORIGIN": "https://moviefinder.chrisvouga.dev",
+            "MOVIEFINDER_ADDITIONAL_ORIGINS": "https://www.moviefinder.app",
             "MOVIEFINDER_OIDC_ISSUER": "https://auth.chrisvouga.dev/realms/projects",
             "MOVIEFINDER_OIDC_CLIENT_ID": "app-0067b6ae-9579-4afb-8f3c-3be747f4f26f",
             "MOVIEFINDER_DATABASE_ALLOCATION": "moviefinder",

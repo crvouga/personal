@@ -75,6 +75,14 @@ export type RailwayPlatformConfig = {
 
 export type ServiceKind = "railway" | "tunnel";
 
+export type ServiceAliasSpec = {
+  readonly hostname: string;
+  readonly service: string;
+  readonly zone: string;
+  readonly existing_record_id?: string;
+  readonly proxied?: boolean;
+};
+
 export type ServiceSpec = {
   readonly id: string;
   readonly kind?: ServiceKind;
@@ -268,6 +276,7 @@ export type InfraConfig = {
   readonly object_stores?: readonly ObjectStoreSpec[];
   readonly tunnels?: readonly TunnelSpec[];
   readonly services: readonly ServiceSpec[];
+  readonly aliases?: readonly ServiceAliasSpec[];
 };
 
 /** @deprecated Alias — use InfraConfig */

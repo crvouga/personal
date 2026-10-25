@@ -59,3 +59,7 @@ export async function listRecords(ctx: HealthContext, zone: Zone) {
 export async function dnssec(ctx: HealthContext, zone: Zone) {
   return asRecord((await cfGet(ctx, `/zones/${zone.id}/dnssec`)).result);
 }
+
+export async function sslMode(ctx: HealthContext, zone: Zone) {
+  return asRecord((await cfGet(ctx, `/zones/${zone.id}/settings/ssl`)).result).value;
+}
