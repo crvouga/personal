@@ -2335,7 +2335,7 @@
         "location": "eastus",
         "account": "crvougafleet",
         "profile": "fleet-installer",
-        "identity_validation_id": null
+        "identity_validation_id": "736bedf1-49ee-40f8-a76e-2febf73bcfad"
       },
       "fleet_cache": {
         "signing_key_fingerprint": "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc"
