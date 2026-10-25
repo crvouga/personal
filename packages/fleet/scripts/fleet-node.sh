@@ -118,6 +118,8 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     r"|(?i:x-vault-token:)\s*\S+"
 #     r"|(?i:fleet\.enroll=|FLEET_ENROLL_TOKEN=)\S+"
 #     r"|--token(?:=|\s+)\S+"
+#     r"|\bgh[opsur]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}"
+#     r"|\b[A-Z][A-Z0-9_]*(?:TOKEN|PASSWORD|SECRET|PRIVATE_KEY)[A-Z0-9_]*=\S+"
 # )
 #
 #
