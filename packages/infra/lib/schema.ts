@@ -80,6 +80,7 @@ export type ServiceAliasSpec = {
   readonly service: string;
   readonly zone: string;
   readonly existing_record_id?: string;
+  readonly proxied?: boolean;
 };
 
 export type ServiceSpec = {

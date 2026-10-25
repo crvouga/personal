@@ -3,6 +3,18 @@ import { checkDomains } from './check-domains.js';
 import { fakeContext, fakeFetch } from './fixtures.test-support.js';
 import { retainedRegistrar } from '../domains/checks.js';
 import type { DomainSpec } from '../domains/model.js';
+import { sslMode } from '../domains/cloudflare.js';
+
+test('origin TLS policy is read from Cloudflare without mutations or credential fallback', async () => {
+  const zone = { id: 'zone-id', name: 'application.app', status: 'active', name_servers: [] };
+  const seen: string[] = [];
+  const ctx = fakeContext({ env: { CLOUDFLARE_API_TOKEN: 'fixture-only' }, fetch: fakeFetch({
+    'https://api.cloudflare.com/client/v4/zones/zone-id/settings/ssl': { body: { success: true, result: { value: 'full' } } },
+  }, seen) });
+  expect(await sslMode(ctx, zone)).toBe('full');
+  expect(seen).toEqual(['https://api.cloudflare.com/client/v4/zones/zone-id/settings/ssl']);
+  await expect(sslMode({ ...ctx, env: {} }, zone)).rejects.toThrow('required');
+});
 
 const domain = 'example.dev';
 const spec: DomainSpec = {

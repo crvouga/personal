@@ -2,7 +2,7 @@
 import { errorMessage, mapLimit, type HealthContext } from './context.js';
 import { fail, skip, type CheckResult } from './report.js';
 import { absentDs, probe, retainedRegistrar } from '../domains/checks.js';
-import { dnssec, listZones, listRecords } from '../domains/cloudflare.js';
+import { dnssec, listZones, listRecords, sslMode } from '../domains/cloudflare.js';
 import { answers, delegation, query, sameSet, verifyRecords } from '../domains/dns.js';
 import { normalizeName, RESOLVERS, validateSpec, type Zone } from '../domains/model.js';
 import { settingsKey } from '../domains/records.js';
@@ -32,6 +32,10 @@ export async function checkDomains(ctx: HealthContext): Promise<readonly CheckRe
       if (cloudflareDns && accountError) results.push(fail(`${domain}: Cloudflare account read`, accountError));
       if (cloudflareDns && canReadCloudflare && !accountError && !zone) throw new Error('Existing managed zone is missing from the account');
       if (cloudflareDns && zone) {
+      if (spec.ssl_mode) results.push(await probe(`${domain}: origin TLS mode`, async () => {
+        if (await sslMode(ctx, zone) !== spec.ssl_mode) throw new Error('Cloudflare origin TLS mode differs from inventory');
+        return `Explicit ${spec.ssl_mode} origin TLS policy matches inventory`;
+      }));
       results.push(await probe(`${domain}: delegation`, async () => {
         if (zone.status !== 'active') throw new Error(`zone is ${zone.status}; expected active`);
         const expected = zone.name_servers.map(normalizeName);

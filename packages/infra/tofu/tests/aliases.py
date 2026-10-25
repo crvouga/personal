@@ -20,9 +20,10 @@ terraform {
     railway = { source = "terraform-community-providers/railway", version = "= 0.6.2" }
   }
 }
+variable "proxy_alias" { default = false }
 locals {
   config = {
-    aliases = [{ hostname = "www.application.app", service = "app", zone = "application.app" }]
+    aliases = [{ hostname = "www.application.app", service = "app", zone = "application.app", proxied = var.proxy_alias }]
     domains = { "application.app" = { existing_zone_id = "83db052d18159889dd290724ac7d52d9" } }
   }
   services = { app = { port = 8080 } }

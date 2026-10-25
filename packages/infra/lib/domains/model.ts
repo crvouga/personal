@@ -9,6 +9,7 @@ export type DomainSpec = {
   readonly existing_zone_id?: string;
   readonly records: Readonly<Record<string, DnsRecord>>;
   readonly dnssec_status: 'disabled' | 'active';
+  readonly ssl_mode?: 'full' | 'strict';
   readonly https: readonly { readonly url: string; readonly status: number; readonly location?: string }[];
 };
 

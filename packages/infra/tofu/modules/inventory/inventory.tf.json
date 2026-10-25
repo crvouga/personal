@@ -281,6 +281,7 @@
         },
         "moviefinder.app": {
           "manage_zone": true,
+          "ssl_mode": "full",
           "records": {
             "a-f3b832b7b4ffd5ce": {
               "name": "moviefinder.app",
@@ -1705,7 +1706,8 @@
           "hostname": "www.moviefinder.app",
           "service": "moviefinder",
           "zone": "moviefinder.app",
-          "existing_record_id": "a99538f44b05cf3e3b61c48c5e0eedde"
+          "existing_record_id": "a99538f44b05cf3e3b61c48c5e0eedde",
+          "proxied": true
         }
       ],
       "auth_relay": {

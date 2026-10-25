@@ -7,6 +7,15 @@ mock_provider "railway" {
     }
   }
 }
+
+run "proxied_additional_domain" {
+  command = plan
+  variables { proxy_alias = true }
+  assert {
+    condition     = cloudflare_dns_record.alias["www.application.app"].proxied && railway_custom_domain.alias["www.application.app"].service_id == module.service["app"].id
+    error_message = "Cloudflare proxying must retain the same service registration and target."
+  }
+}
 mock_provider "cloudflare" {}
 override_data {
   target = data.terraform_remote_state.foundation

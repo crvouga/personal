@@ -307,6 +307,11 @@ Cloudflare apex redirect preserves paths and query strings when sending
 verification and traffic DNS. Apply the foundation DNS ownership handoff before
 fleet imports the existing www record ID and replaces the obsolete AAAA record
 with its Railway CNAME (the pinned provider requires replacement for type changes).
+The alias uses Cloudflare proxying and the zone's explicit `full` TLS mode,
+Railway's documented configuration: browsers validate Cloudflare's certificate,
+and Cloudflare encrypts the origin connection even while Railway's custom-domain
+certificate is blocked by a Let's Encrypt limit. `full` does not validate the
+origin certificate's hostname; the primary zone's `strict` policy is unchanged.
 Domain HTTPS, service readiness, DNS and
 TLS health checks cover the additional hostname.
 

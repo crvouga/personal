@@ -19,7 +19,7 @@ resource "cloudflare_dns_record" "alias" {
   type     = "CNAME"
   content  = railway_custom_domain.alias[each.key].dns_record_value
   ttl      = 1
-  proxied  = false
+  proxied  = try(each.value.proxied, false)
 }
 
 resource "cloudflare_dns_record" "alias_verification" {
