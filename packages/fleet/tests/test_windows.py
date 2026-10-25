@@ -105,8 +105,19 @@ class BootMaterialTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             iso = Path(tmp) / "i.iso"
             iso.write_bytes(iso_fixture.build(tree))
-            with self.assertRaises(ValueError):
+            with self.assertRaises(decide.Invariant) as caught:
                 decide.iso_boot_material(iso, "ci")
+            self.assertIn("latest Fleet installer", caught.exception.fix, "a layout this program does not know points at a newer installer")
+
+    def test_an_image_without_the_boot_marker_is_refused_before_windows_changes(self):
+        tree = iso_fixture.installer_tree()
+        del tree["EFI"]["nixos-installer-image"]
+        with tempfile.TemporaryDirectory() as tmp:
+            iso = Path(tmp) / "i.iso"
+            iso.write_bytes(iso_fixture.build(tree))
+            with self.assertRaises(decide.Invariant) as caught:
+                decide.iso_boot_material(iso, "ci")
+            self.assertIn("nixos-installer-image", caught.exception.context["problem"])
 
 
 class FindingsTest(unittest.TestCase):

@@ -655,6 +655,11 @@ def checked_marker(directory, name):
     invariant(marker.get("status") == name, f"state marker {name} is malformed", fix, file=str(path), found=marker)
     for key in MARKER_STATUS[name]:
         invariant(key in marker, f"state marker {name} lacks {key}", fix, file=str(path), found=marker)
+    if name == "withdrawn" and marker.get("role") == "unknown":
+        # Older `fleet-remove` runs wrote this when node.conf named no role. The marker only
+        # says the runner is withdrawn; an unknown role is no corruption, so it is not refused.
+        log(f"state marker {name} names role=unknown (written by an older version); reading it without a role", "WARN")
+        marker = {key: value for key, value in marker.items() if key != "role"}
     if "role" in marker:
         invariant(marker["role"] in ROLES, f"state marker {name} names an unknown role", fix, file=str(path), role=marker["role"])
     return marker
@@ -755,7 +760,8 @@ def installer_parts(url):
     except (ValueError, UnicodeError) as exc:
         raise RuntimeError("the installer parts manifest is not JSON") from exc
     invariant(isinstance(document, dict) and document.get("version") == 1,
-              "the installer parts manifest has an unsupported format")
+              "the installer parts manifest has an unsupported format", NEWER_RELEASE_FIX,
+              version=document.get("version") if isinstance(document, dict) else None)
     parts = document.get("parts")
     invariant(isinstance(parts, list) and 0 < len(parts) <= 128,
               "the installer parts manifest has an invalid part count")
@@ -785,7 +791,13 @@ def stream_installer_parts(url, out, progress=None, check_cancel=None):
         part_digest = hashlib.sha256()
         size = 0
         asset = urllib.parse.urljoin(url, part["name"])
-        with urllib.request.urlopen(asset, timeout=30) as reply:
+        try:
+            reply = urllib.request.urlopen(asset, timeout=30)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:  # publication deletes and re-uploads parts
+                raise ReleaseChanging(f"installer part {part['name']} is missing; the release is probably being published") from exc
+            raise
+        with reply:
             while True:
                 if check_cancel:
                     check_cancel()
@@ -793,15 +805,18 @@ def stream_installer_parts(url, out, progress=None, check_cancel=None):
                 if not block:
                     break
                 size += len(block)
-                invariant(size <= part["size"], "an installer part is larger than declared", part=part["name"])
+                if size > part["size"]:
+                    raise ReleaseChanging(f"installer part {part['name']} is larger than its manifest says; the release is probably being published")
                 out.write(block)
                 part_digest.update(block)
                 digest.update(block)
                 written += len(block)
                 if progress:
                     progress(written, document["size"])
-        invariant(size == part["size"] and part_digest.hexdigest() == part["sha256"],
-                  "an installer part does not match its checksum or size", part=part["name"])
+        if size != part["size"] or part_digest.hexdigest() != part["sha256"]:
+            # During publication new parts sit beside the old manifest for minutes. The
+            # caller waits and starts again; a part that stays wrong ends that wait.
+            raise ReleaseChanging(f"installer part {part['name']} does not match its manifest; the release is probably being published")
     invariant(digest.hexdigest() == document["sha256"], "the assembled installer does not match its checksum")
     return written, digest.hexdigest()
 
@@ -828,11 +843,20 @@ def fetch_installer(dest):
             try:
                 curl_to(iso_url, staged, keep=False)
             except (OSError, RuntimeError) as direct_error:
-                try:
-                    with open(staged, "wb") as out:
-                        stream_installer_parts(iso_url, out)
-                except (OSError, RuntimeError) as multipart_error:
-                    raise RuntimeError(f"{direct_error}; multipart release: {multipart_error}") from multipart_error
+                for attempt in range(3):
+                    try:
+                        with open(staged, "wb") as out:
+                            stream_installer_parts(iso_url, out)
+                        break
+                    except (OSError, RuntimeError) as multipart_error:
+                        if attempt == 2:
+                            raise RuntimeError(f"{direct_error}; multipart release: {multipart_error}") from multipart_error
+                        wait = 30 if isinstance(multipart_error, ReleaseChanging) else 2 * (attempt + 1)
+                        say(f"The download was interrupted ({multipart_error}). Trying again in {wait} seconds ({attempt + 2}/3).")
+                        time.sleep(wait)
+        except Invariant as broken:
+            say(f"Why: {broken.what}")
+            return fail(f"Next: {broken.fix}")
         except (OSError, RuntimeError) as exc:
             say(f"Why: {exc}")
             return fail("Next: the installer could not be downloaded. Check the network and run this program again. Nothing was written.")
@@ -1150,6 +1174,8 @@ def stage_reboot(os_name, role, iso, token=None, vault=None, wifi=None):
         log("rebooting into the installer")
         execute = run_logged([tool, "-e"])
         if execute.returncode != 0:
+            # The loaded kernel carries the enrollment token; a later kexec reboot must not use it.
+            run_logged([tool, "-u"])
             say(flash)
             return execute.returncode or 1
         return 0
@@ -1185,6 +1211,12 @@ GUID_RE = re.compile(r"\{[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\}"
 BOOT_LOADER_PARTS = ("EFI", "fleet", "grubx64.efi")
 BOOT_LOADER_FIRMWARE_PATH = "\\" + "\\".join(BOOT_LOADER_PARTS)
 BOOT_DESCRIPTION = "Fleet installer"
+INSTALLER_IMAGE_MARKER = "EFI/nixos-installer-image"
+NEWER_RELEASE_FIX = ("This Fleet installer does not understand the published release; it is probably older than the release. "
+                     "Download the latest Fleet installer from the fleet-installer release page and run it. Nothing was erased.")
+WINDOWS_JOURNAL_NAME = "windows-staging.json"
+WINDOWS_RECOVERY_FIX = ("Some changes from the conversion are still on this computer. Follow 'Remove everything by hand' in docs/windows.md "
+                        "to remove them, then run the installer again. Until then, do not choose the Fleet installer in the boot menu.")
 # What windows_findings last learned, so the plan printed by doctor and --plan
 # does not need a second (slow) storage query.
 WINDOWS = {"facts": None, "iso_size": None}
@@ -1230,6 +1262,7 @@ def ps_facts_script():
         "$parts = @(Get-Partition -DiskNumber $c.DiskNumber); "
         f"$esps = @($parts | Where-Object {{ $_.GptType -eq {esp} }} | ForEach-Object {{ [PSCustomObject]@{{ Number = [int]$_.PartitionNumber; Size = [int64]$_.Size }} }}); "
         f"$dynamic = (@($parts | Where-Object {{ $_.GptType -eq {ldm_a} -or $_.GptType -eq {ldm_b} }}).Count -gt 0); "
+        f"$linux = @($parts | Where-Object {{ $_.GptType -eq {ps_literal(LINUX_DATA_GUID)} }} | ForEach-Object {{ [PSCustomObject]@{{ Number = [int]$_.PartitionNumber; Size = [int64]$_.Size }} }}); "
         "$secure = $null; try { $secure = [bool](Confirm-SecureBootUEFI) } catch { }; "
         "$fw = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control').PEFirmwareType; "
         "$memory = $null; try { $memory = [int64](Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory } catch { }; "
@@ -1238,7 +1271,7 @@ def ps_facts_script():
         "[PSCustomObject]@{ Letter = $letter; DiskNumber = [int]$c.DiskNumber; PartitionNumber = [int]$c.PartitionNumber; "
         "Size = [int64]$c.Size; SizeMin = [int64]$limit.SizeMin; SizeMax = [int64]$limit.SizeMax; "
         "Style = [string]$disk.PartitionStyle; BusType = [string]$disk.BusType; LogicalSectorSize = [int]$disk.LogicalSectorSize; "
-        "Esps = $esps; Dynamic = $dynamic; SecureBoot = $secure; Firmware = [int]$fw; Memory = $memory; OnBattery = $battery; "
+        "Esps = $esps; LinuxParts = $linux; Dynamic = $dynamic; SecureBoot = $secure; Firmware = [int]$fw; Memory = $memory; OnBattery = $battery; "
         "BitLocker = $bitlocker } | ConvertTo-Json -Compress -Depth 4"
     )
 
@@ -1274,8 +1307,12 @@ def ps_remove_partition_script(disk, number):
 
 
 def ps_mount_esp_script():
-    """Mount the EFI system partition Windows booted from on a free drive letter; print its root and letter."""
+    """Mount the EFI system partition Windows booted from on a free drive letter; print its root and letter.
+    One that already has a letter (left mounted by a run that stopped) is reused, never mounted twice."""
     return (
+        "$sys = Get-Partition -DriveLetter $env:SystemDrive.Substring(0, 1); "
+        f"$held = @(Get-Partition -DiskNumber $sys.DiskNumber | Where-Object {{ $_.GptType -eq {ps_literal(ESP_GUID)} -and [int]$_.DriveLetter -ge 65 }}); "
+        "if ($held.Count -gt 0) { $l = [string]$held[0].DriveLetter; [PSCustomObject]@{ Root = ($l + ':\\'); Letter = $l; Reused = $true } | ConvertTo-Json -Compress; return }; "
         "$letter = $null; "
         "foreach ($candidate in 'Z','Y','X','W','V','U','T','S','R','Q','P') { if (-not (Test-Path ($candidate + ':\\'))) { $letter = $candidate; break } }; "
         "if (-not $letter) { throw 'no free drive letter for the EFI system partition' }; "
@@ -1287,6 +1324,15 @@ def ps_mount_esp_script():
 
 def ps_unmount_script(letter):
     return f"& mountvol {ps_literal(ps_letter(letter) + ':')} /D | Out-Null; if ($LASTEXITCODE -ne 0) {{ throw 'mountvol could not unmount the EFI system partition' }}"
+
+
+def ps_linux_partitions_script(disk):
+    """The Linux data partitions on a disk: where an unfinished run may have left the installer."""
+    return (
+        f"$found = @(Get-Partition -DiskNumber {ps_number(disk)} | Where-Object {{ $_.GptType -eq {ps_literal(LINUX_DATA_GUID)} }} | "
+        "ForEach-Object { [PSCustomObject]@{ Number = [int]$_.PartitionNumber; Offset = [int64]$_.Offset; Size = [int64]$_.Size; Guid = [string]$_.Guid } }); "
+        "[PSCustomObject]@{ Parts = $found } | ConvertTo-Json -Compress -Depth 4"
+    )
 
 
 def ps_partition_by_letter_script(letter):
@@ -1333,6 +1379,7 @@ def all_powershell_scripts():
         "mount-esp": ps_mount_esp_script(),
         "unmount-esp": ps_unmount_script("Z"),
         "partition-by-letter": ps_partition_by_letter_script("Z"),
+        "linux-partitions": ps_linux_partitions_script(0),
         "memory": ps_memory_script(),
         "disks": ps_disks_script(),
     }
@@ -1494,6 +1541,16 @@ def windows_findings(iso_size, disk_path=None, strict=True, iso_path=None):
         found.append(finding("efi-partition", "fail", "no EFI system partition on the system disk", "Make an install USB with the word flash."))
     else:
         found.append(finding("efi-partition", "ok", f"partition {facts['EspNumber']}"))
+    journal = WindowsJournal().peek()
+    if journal is not None:
+        found.append(finding("earlier-run", "info", "an earlier conversion did not finish; it is taken back automatically before this one starts"))
+    else:
+        leftovers = [item for item in (facts.get("LinuxParts") or []) if isinstance(item, dict)]
+        if leftovers:
+            sizes = ", ".join(f"partition {item.get('Number')} ({int(item.get('Size') or 0) // MIB} MiB)" for item in leftovers)
+            found.append(finding("leftover-partition", "warn", f"the system disk already has Linux data partitions: {sizes}",
+                                 "If an earlier Fleet installer left them, delete them in Disk Management and extend C: (docs/windows.md), "
+                                 "so only one copy of the installer is on this disk."))
     size = iso_size or ESTIMATED_ISO
     need = windows_need(size)
     # The download lands on C: unless it goes elsewhere, and a file that is there counts as used space:
@@ -1501,6 +1558,9 @@ def windows_findings(iso_size, disk_path=None, strict=True, iso_path=None):
     copy = padded_size(size) if iso_path is not None and not os.path.isfile(iso_path) and installer_on_drive(iso_path, facts["Letter"]) else 0
     shrinkable = int(facts.get("Size") or 0) - int(facts.get("SizeMin") or 0)
     letter = facts["Letter"]
+    if journal is not None and str(journal.get("letter")) == str(letter):
+        # Taking back the earlier run gives this space back first.
+        shrinkable += max(0, int(journal.get("original_size") or 0) - int(facts.get("Size") or 0))
     if shrinkable >= need + copy:
         found.append(finding("shrink", "ok", f"{letter}: can give up {shrinkable // 1024 ** 3} GiB, the installer needs {(need + copy) // MIB} MiB"))
     else:
@@ -1638,7 +1698,7 @@ def grub_config(role, linux_path, initrd_path, cmdline, wifi=False):
     return (
         "set timeout=3\n"
         "set default=0\n"
-        "search --no-floppy --set=root --file /EFI/nixos-installer-image\n"
+        f"search --no-floppy --set=root --file /{INSTALLER_IMAGE_MARKER}\n"
         f"{search_wifi}"
         f"menuentry 'Fleet installer: ERASES the internal disk and installs {role}' {{\n"
         f"    linux {linux_path} {cmdline}\n"
@@ -1647,13 +1707,26 @@ def grub_config(role, linux_path, initrd_path, cmdline, wifi=False):
     )
 
 
+def _iso_has(files, path):
+    key = path.lstrip("/")
+    return key in files or key.lower() in {name.lower() for name in files}
+
+
 def iso_boot_material(iso_path, role):
-    """The role's boot entry and GRUB program, read out of the installer image."""
-    with Path(iso_path).open("rb") as handle:
-        files = _iso_index(handle)
-        config = _iso_bytes(handle, files, "isolinux/isolinux.cfg").decode("utf-8", "replace")
-        block = _choose_block(_boot_blocks(config), role)
-        grub = _iso_bytes(handle, files, "EFI/BOOT/BOOTX64.EFI")
+    """The role's boot entry and GRUB program, read out of the installer image. Everything
+    the boot needs is checked here, before Windows is changed: an image with a layout this
+    program does not know (a newer release) stops with nothing changed."""
+    try:
+        with Path(iso_path).open("rb") as handle:
+            files = _iso_index(handle)
+            config = _iso_bytes(handle, files, "isolinux/isolinux.cfg").decode("utf-8", "replace")
+            block = _choose_block(_boot_blocks(config), role)
+            grub = _iso_bytes(handle, files, "EFI/BOOT/BOOTX64.EFI")
+            missing = [path for path in (INSTALLER_IMAGE_MARKER, block["linux"], block["initrd"]) if not _iso_has(files, path)]
+            if missing:
+                raise ValueError("missing " + ", ".join(missing))
+    except (OSError, ValueError, KeyError) as exc:
+        invariant(False, "the installer image does not have the boot layout this installer expects", NEWER_RELEASE_FIX, role=role, problem=str(exc))
     return block["linux"], block["initrd"], block.get("append", ""), grub
 
 
@@ -1671,14 +1744,187 @@ class WindowsUndo:
         other.steps = []
 
     def run(self):
+        """Take every step back, newest first. Returns what could not be taken back."""
+        failed = []
         for what, action in reversed(self.steps):
             try:
                 action()
                 log(f"undo ok: {what}")
             except Exception as exc:  # best effort: report every step, stop on none
-                log(f"undo FAILED: {what}: {exc}", "ERROR")
+                failed.append(what)
+                log(f"undo FAILED: {what}: {exc} {getattr(exc, 'context', '')}", "ERROR")
                 say(f"Could not undo: {what}. See the log; Windows disk tools can finish it.")
         self.steps = []
+        return failed
+
+
+class WindowsJournal:
+    """Every change a Windows conversion makes, written to disk before it is made. A run that
+    is killed (Task Manager, a power cut) cannot undo itself in memory; the next run reads
+    this and takes the changes back before it starts. It is kept after the restart is
+    scheduled too: `shutdown /a` leaves the one-time boot armed until the next run."""
+
+    VERSION = 1
+
+    def __init__(self, directory=None):
+        self.path = Path(directory or state_dir()) / WINDOWS_JOURNAL_NAME
+        self.data = {}
+
+    def peek(self):
+        """The record of an unfinished run, or None. Never raises: the review only reports it."""
+        try:
+            return self.load()
+        except Invariant:
+            return {"unreadable": True}
+
+    def load(self):
+        if not self.path.is_file():
+            return None
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            invariant(False, "the record of an earlier Windows conversion cannot be read", WINDOWS_RECOVERY_FIX + f" Then delete {self.path}.",
+                      file=str(self.path), error=str(exc))
+        invariant(isinstance(data, dict) and data.get("version") == self.VERSION,
+                  "the record of an earlier Windows conversion was written by a different installer version",
+                  "Run the latest Fleet installer: it takes the earlier conversion back. " + NEWER_RELEASE_FIX,
+                  file=str(self.path), version=data.get("version") if isinstance(data, dict) else None)
+        self.data = data
+        return data
+
+    def record(self, **values):
+        self.data.update(values)
+        self.data["version"] = self.VERSION
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_name(self.path.name + ".tmp")
+        write_durably(temporary, json.dumps(self.data, sort_keys=True).encode("utf-8"))
+        os.replace(temporary, self.path)
+
+    def clear(self):
+        self.path.unlink(missing_ok=True)
+        self.data = {}
+
+
+def is_fleet_grub_config(data):
+    return b"Fleet installer: ERASES" in bytes(data or b"")
+
+
+def boot_option_description(option):
+    """The description of an EFI_LOAD_OPTION (after UINT32 attributes and UINT16 path length)."""
+    raw = bytes(option or b"")[6:]
+    end = next((index for index in range(0, len(raw) - 1, 2) if raw[index:index + 2] == b"\0\0"), None)
+    return raw[:end].decode("utf-16-le", "replace") if end is not None else None
+
+
+def bcd_sequence(shown):
+    """The {fwbootmgr} one-time boot entry in `bcdedit /enum {fwbootmgr}` output, if any."""
+    match = re.search(r"bootsequence\s+(" + GUID_RE.pattern + ")", shown or "", re.I)
+    return match.group(1) if match else None
+
+
+def _recover_bcd(entry, previous):
+    if bcd_sequence(bcd("/enum", "{fwbootmgr}")) == entry:
+        if previous and previous != entry:
+            bcd("/set", "{fwbootmgr}", "bootsequence", previous)
+        else:
+            bcd("/deletevalue", "{fwbootmgr}", "bootsequence")
+    tool = os.environ.get("FLEET_BCDEDIT", "bcdedit")
+    present = run_logged([tool, "/enum", entry], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
+    if present.returncode == 0:
+        bcd("/delete", entry)  # the default /cleanup also takes it out of the display order
+
+
+def _recover_nvram(firmware, number, previous_next):
+    name = boot_variable_name(number)
+    chosen = firmware.read("BootNext")
+    if chosen is not None and chosen[0] == struct.pack("<H", number):
+        if previous_next:
+            firmware.write("BootNext", bytes.fromhex(previous_next[0]), int(previous_next[1]))
+        else:
+            firmware.delete("BootNext")
+    order = firmware.read("BootOrder")
+    if order is not None and number in parse_boot_order(order[0]):
+        firmware.write("BootOrder", b"".join(struct.pack("<H", item) for item in parse_boot_order(order[0]) if item != number), order[1])
+    stored = firmware.read(name)
+    # Only an option this program wrote: the number may have been reused since.
+    if stored is not None and boot_option_description(stored[0]) == BOOT_DESCRIPTION:
+        firmware.delete(name)
+
+
+def _recover_esp(data):
+    mount = json_from_output(windows_ps(ps_mount_esp_script()))
+    esp, mounted = Path(mount["Root"]), mount["Letter"]
+    try:
+        loader = esp.joinpath(*BOOT_LOADER_PARTS)
+        if loader.parent.exists():
+            shutil.rmtree(loader.parent)
+        cfg = esp / "EFI" / "BOOT" / "grub.cfg"
+        saved = data.get("grub_cfg_saved")
+        if saved is not None:
+            write_durably(cfg, bytes.fromhex(saved))
+        elif cfg.is_file() and is_fleet_grub_config(cfg.read_bytes()):
+            cfg.unlink()
+    finally:
+        windows_ps(ps_unmount_script(mounted))
+
+
+def _recover_partition(data):
+    disk = int(data["disk"])
+    listed = json_from_output(windows_ps(ps_linux_partitions_script(disk))).get("Parts") or []
+    parts = [listed] if isinstance(listed, dict) else [item for item in listed if isinstance(item, dict)]
+    guid = str(data.get("partition_guid") or "").lower()
+    if guid:
+        matches = [item for item in parts if str(item.get("Guid") or "").lower() == guid]
+    else:  # killed between creating the partition and recording it: known by its exact size
+        matches = [item for item in parts if int(item.get("Size") or 0) == int(data["partition_size"])]
+    invariant(len(matches) <= 1, "more than one partition could be the earlier installer partition", WINDOWS_RECOVERY_FIX,
+              found=[item.get("Number") for item in matches])
+    for item in matches:
+        windows_ps(ps_remove_partition_script(disk, int(item["Number"])))
+
+
+def recover_windows_staging(firmware=None, directory=None):
+    """Take back what an unfinished earlier conversion changed, from its record. Every
+    step checks what is there first, so running it twice changes nothing the second
+    time. Returns the (now empty) journal for the next run to record into."""
+    journal = WindowsJournal(directory)
+    data = journal.load()
+    if not data:
+        return journal
+    say("An earlier conversion on this computer did not finish. Taking back what it changed first.")
+    failed = []
+
+    def step(what, action):
+        try:
+            action()
+            log(f"recovered: {what}")
+        except Exception as exc:  # each step on its own; report all of them
+            failed.append(what)
+            log(f"recovery FAILED: {what}: {exc} {getattr(exc, 'context', '')}", "ERROR")
+
+    if data.get("restart_scheduled"):
+        step("stop the scheduled restart", lambda: run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True,
+                                                               text=True, errors="replace", stdin=subprocess.DEVNULL))
+    if data.get("bcd_entry"):
+        step("remove the Windows boot manager entry", lambda: _recover_bcd(data["bcd_entry"], data.get("bcd_previous_sequence")))
+    if data.get("boot_number") is not None:
+        if firmware is None:
+            failed.append("remove the firmware boot option (UEFI variables are not available here)")
+        else:
+            step("remove the firmware boot option", lambda: _recover_nvram(firmware, int(data["boot_number"]), data.get("boot_next_before")))
+    if data.get("esp_touched") or data.get("esp_letter"):
+        step("remove the boot loader from the EFI system partition", lambda: _recover_esp(data))
+    if data.get("partition_size"):
+        step("remove the installer partition", lambda: _recover_partition(data))
+    if data.get("original_size"):
+        step(f"give {data.get('letter')}: its space back",
+             lambda: windows_ps(ps_restore_script(data["letter"], int(data["original_size"])), timeout=7200))
+    invariant(not failed, "an earlier unfinished conversion could not be taken back completely", WINDOWS_RECOVERY_FIX,
+              failed="; ".join(failed), record=str(journal.path))
+    journal.clear()
+    WINDOWS["facts"] = None
+    say("The earlier conversion was taken back.")
+    return journal
 
 
 def bcd(*args):
@@ -1689,17 +1935,23 @@ def bcd(*args):
     return done.stdout
 
 
-def bcd_one_time_boot(undo):
+def bcd_one_time_boot(undo, journal=None):
     """Mechanism one: a Windows boot manager entry for the loader, run once. Returns its id."""
+    previous = bcd_sequence(bcd("/enum", "{fwbootmgr}"))
     copied = GUID_RE.search(bcd("/copy", "{bootmgr}", "/d", BOOT_DESCRIPTION))
     invariant(copied is not None, "bcdedit gave no id for the new boot entry")
     entry = copied.group(0)
+    if journal is not None:
+        journal.record(bcd_entry=entry, bcd_previous_sequence=previous)
     undo.add("delete the firmware boot entry", lambda: bcd("/delete", entry))
     bcd("/set", entry, "path", BOOT_LOADER_FIRMWARE_PATH)
     undo.add("take the entry out of the firmware boot menu", lambda: bcd("/set", "{fwbootmgr}", "displayorder", entry, "/remove"))
     # Last in the normal order, so a firmware that ignores the one-time choice starts Windows, not the installer.
     bcd("/set", "{fwbootmgr}", "displayorder", entry, "/addlast")
-    undo.add("clear the one-time boot choice", lambda: bcd("/deletevalue", "{fwbootmgr}", "bootsequence"))
+    if previous:
+        undo.add("restore the earlier one-time boot choice", lambda: bcd("/set", "{fwbootmgr}", "bootsequence", previous))
+    else:
+        undo.add("clear the one-time boot choice", lambda: bcd("/deletevalue", "{fwbootmgr}", "bootsequence"))
     bcd("/set", "{fwbootmgr}", "bootsequence", entry)
     shown = bcd("/enum", "{fwbootmgr}")
     invariant(re.search(r"bootsequence\s+" + re.escape(entry), shown, re.I) is not None,
@@ -1924,7 +2176,7 @@ def free_boot_number(firmware, in_order):
     invariant(False, "the firmware has no free boot option number")
 
 
-def nvram_one_time_boot(firmware, part, sector, undo):
+def nvram_one_time_boot(firmware, part, sector, undo, journal=None):
     """Mechanism two: a Boot#### load option for the loader, appended to BootOrder (so
     firmware that discards options it does not list keeps it, and never first), and
     BootNext pointed at it. Every write registers its undo first. Returns the number."""
@@ -1932,13 +2184,15 @@ def nvram_one_time_boot(firmware, part, sector, undo):
     current = parse_boot_order(order[0]) if order else []
     number = free_boot_number(firmware, current)
     name, option = boot_variable_name(number), loader_load_option(part, sector)
+    previous = firmware.read("BootNext")
+    if journal is not None:
+        journal.record(boot_number=number, boot_next_before=[previous[0].hex(), previous[1]] if previous else None)
     undo.add(f"delete the firmware boot option {name}", lambda: firmware.delete(name))
     firmware.write(name, option)
     if order is not None:
         original, attributes = order
         undo.add("restore the firmware boot order", lambda: firmware.write("BootOrder", original, attributes))
         firmware.write("BootOrder", original + struct.pack("<H", number), attributes)
-    previous = firmware.read("BootNext")
     if previous is None:
         undo.add("clear the firmware one-time boot choice", lambda: firmware.delete("BootNext"))
     else:
@@ -1993,6 +2247,10 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
     writer = writer or write_region
     invariant(role in ROLES, "refusing to stage an unknown role", role=role)
     iso_size = os.path.getsize(iso)
+    if firmware == "auto":
+        firmware = open_firmware()
+    # A run that was killed part way left changes nobody took back; take them back first.
+    journal = recover_windows_staging(firmware)
     WINDOWS["facts"] = None  # the download changed what C: can give up; ask again
     findings = windows_findings(iso_size, chosen["path"] if chosen else None, iso_path=iso)
     problems = [item for item in findings if item["status"] == "fail"]
@@ -2012,15 +2270,18 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
     sector = int(facts.get("LogicalSectorSize") or 512)
     invariant(WRITE_SECTOR % sector == 0, "the disk's sector size does not divide the write alignment", sector=sector)
     original_size = int(facts["Size"])
-    if firmware == "auto":
-        firmware = open_firmware()
     undo = WindowsUndo()
     restart_scheduled = False
+    esp_mounted = {"letter": None}
     try:
+        # Recorded before each change, so a killed run can be taken back by the next one.
+        journal.record(letter=letter, disk=disk, original_size=original_size, role=role, started=_stamp())
         say(f"Making room: shrinking {letter}: by {need // MIB} MiB.")
         undo.add(f"give {letter}: its space back", lambda: windows_ps(ps_restore_script(letter, original_size), timeout=7200))
         windows_ps(ps_shrink_script(letter, original_size - need), timeout=7200)
+        journal.record(partition_size=padded_size(iso_size))
         created = json_from_output(windows_ps(ps_new_partition_script(disk, padded_size(iso_size))))
+        journal.record(partition_guid=created.get("Guid"))
         undo.add("remove the installer partition", lambda: windows_ps(ps_remove_partition_script(disk, created["Number"])))
         invariant(created["Size"] >= padded_size(iso_size) and created["Offset"] % WRITE_SECTOR == 0 and created["Offset"] % sector == 0,
                   "Windows made a partition that cannot hold the installer", created=created)
@@ -2030,23 +2291,29 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         say("Placing the boot loader on the EFI system partition.")
         mount = json_from_output(windows_ps(ps_mount_esp_script()))
         esp, mounted = Path(mount["Root"]), mount["Letter"]
-        undo.add("unmount the EFI system partition", lambda: windows_ps(ps_unmount_script(mounted)))
+        esp_mounted["letter"] = mounted
+        journal.record(esp_letter=mounted)
+        undo.add("unmount the EFI system partition", lambda: esp_mounted["letter"] and windows_ps(ps_unmount_script(esp_mounted["letter"])))
         loader = esp.joinpath(*BOOT_LOADER_PARTS)
         free = shutil.disk_usage(esp).free + (loader.stat().st_size if loader.is_file() else 0)
         invariant(free >= len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
                   "Windows keeps some EFI system partitions nearly full. Free space there (docs/windows.md shows how), or make an install USB with the word flash.",
                   free=free, need=len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK)
-        undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent, ignore_errors=True))
+        cfg = esp / "EFI" / "BOOT" / "grub.cfg"
+        # A grub.cfg this program wrote earlier is not the owner's: never keep or restore it.
+        saved = cfg.read_bytes() if cfg.is_file() and not is_fleet_grub_config(cfg.read_bytes()) else None
+        journal.record(esp_touched=True, grub_cfg_saved=saved.hex() if saved is not None else None)
+        undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent) if loader.parent.exists() else None)
+        if loader.parent.exists():
+            shutil.rmtree(loader.parent)  # no stale file (an old Wi-Fi handoff) survives into this run
         loader.parent.mkdir(parents=True, exist_ok=True)
         write_durably(loader, grub)
         if wireless_initrd:
             private = loader.parent / "fleet-wifi.initrd"
             write_durably(private, wireless_initrd)
             invariant(private.read_bytes() == wireless_initrd, "the Wi-Fi boot handoff did not read back correctly")
-        cfg = esp / "EFI" / "BOOT" / "grub.cfg"
         cfg.parent.mkdir(parents=True, exist_ok=True)
-        saved = cfg.read_bytes() if cfg.is_file() else None
-        undo.add("restore the boot config", (lambda: cfg.write_bytes(saved)) if saved is not None else (lambda: cfg.unlink()))
+        undo.add("restore the boot config", (lambda: cfg.write_bytes(saved)) if saved is not None else (lambda: cfg.unlink(missing_ok=True)))
         write_durably(cfg, config.encode("utf-8"))
         invariant(cfg.read_text(encoding="utf-8") == config and loader.read_bytes() == grub, "the EFI system partition did not keep the boot loader")
         say("Telling the firmware to start the installer once.")
@@ -2054,7 +2321,7 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         entry = None
         attempt = WindowsUndo()
         try:
-            entry = bcd_one_time_boot(attempt)
+            entry = bcd_one_time_boot(attempt, journal)
             verified.append(f"bcdedit entry {entry}")
             undo.extend(attempt)
         except (Invariant, OSError) as exc:
@@ -2067,7 +2334,7 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
                 part = json_from_output(windows_ps(ps_partition_by_letter_script(mounted)))
                 invariant(int(part["DiskNumber"]) == disk and part.get("GptType", "").lower() == ESP_GUID,
                           "the mounted EFI system partition is not on the disk being converted", part=part)
-                number, option = nvram_one_time_boot(firmware, part, int(part.get("LogicalSectorSize") or sector), attempt)
+                number, option = nvram_one_time_boot(firmware, part, int(part.get("LogicalSectorSize") or sector), attempt, journal)
                 wrong = verify_nvram(firmware, number, option)
                 invariant(not wrong, "the firmware did not keep the boot option", problems=wrong)
                 verified.append(f"firmware option {boot_variable_name(number)}")
@@ -2081,18 +2348,34 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         log("one-time boot installed: " + (", ".join(verified) or "none"))
         invariant(bool(verified), "no one-time boot entry could be installed and verified",
                   "Windows was left as it was. Make an install USB with the word flash.", problems="; ".join(problems))
+        # Nothing else needs the EFI system partition; leave no drive letter behind.
+        windows_ps(ps_unmount_script(mounted))
+        esp_mounted["letter"] = None
+        journal.record(esp_letter=None)
         shutdown = os.environ.get("FLEET_SHUTDOWN", "shutdown")
         restart = run_logged([shutdown, "/r", "/t", "15", "/c", "Fleet installer: this computer will erase its disk and become a " + role + " node."],
                              capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
-        invariant(restart.returncode == 0, "Windows would not schedule the restart", "Restart the computer by hand now; it will boot the installer once.", code=restart.returncode)
+        invariant(restart.returncode == 0, "Windows would not schedule the restart",
+                  "Every change was taken back. Restart Windows once (a pending update or another program may hold the restart), then run the installer again.",
+                  code=restart.returncode)
         restart_scheduled = True
+        journal.record(restart_scheduled=True)
         log("the restart is scheduled for 15 seconds from now")
         say("This computer restarts in 15 seconds into the installer, which then erases its disk. "
-            "`shutdown /a` stops the restart but leaves the one-time boot armed: remove it as docs/windows.md says, or the next restart starts the installer.")
-    except BaseException:
+            "`shutdown /a` stops the restart but leaves the one-time boot armed: run the installer again to take it back "
+            "(or remove it as docs/windows.md says), or the next restart starts the installer.")
+    except BaseException as error:
         if restart_scheduled:
             run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
-        undo.run()
+        failed = undo.run()
+        if not failed:
+            journal.clear()
+        elif isinstance(error, Exception):
+            # The original fix would claim Windows was left as it was. Say what is still there;
+            # the journal stays, so the next run takes the rest back.
+            raise Invariant(f"the conversion stopped ({getattr(error, 'what', error)}) and some changes could not be taken back",
+                            WINDOWS_RECOVERY_FIX + " Running the installer again also tries to take them back.",
+                            {"not_undone": "; ".join(failed), "record": str(journal.path)}) from error
         raise
     discard_installer_copy(iso)
     return 0
@@ -2340,6 +2623,9 @@ def preflight(os_name, role, action, token, directory, need_root=True, ssh_key=N
         found.append(finding("network", "ok", "the installer release is reachable"))
         if size:
             free = shutil.disk_usage(directory).free if Path(directory).exists() else None
+            staged = Path(directory) / "fleet-installer.iso"
+            if free is not None and staged.is_file():
+                free += staged.stat().st_size  # a copy from an earlier attempt is reused or replaced, never kept twice
             if free is not None and free < size * 1.25:
                 found.append(finding("space", "fail", f"{free // GIB} GiB free in {directory}, the installer needs about {size * 5 // 4 // GIB + 1} GiB",
                                      f"Free disk space in {directory}, then run this program again."))
@@ -2905,13 +3191,15 @@ def check_release_readiness(role, expected_sha, iso_url):
     invariant(len(raw) <= 65536, 'the release readiness manifest is too large')
     try:
         document = json.loads(raw)
-        invariant(document['version'] == 1, 'the release readiness version is unsupported')
+        invariant(document['version'] == 1, 'the release readiness version is unsupported', NEWER_RELEASE_FIX, version=document['version'])
         blocked = document['roles'][role]['blocked']
         invariant(isinstance(blocked, list) and all(isinstance(value, str) for value in blocked), 'the release readiness checks are malformed')
         if document['imageSha256'] != expected_sha:
             raise ReleaseChanging('The installer release is being updated; waiting for matching metadata before downloading.')
-    except (KeyError, ValueError, TypeError):
-        invariant(False, 'FLEET_RELEASE_READINESS_INVALID: publish a complete current installer release')
+    except (KeyError, ValueError, TypeError) as exc:
+        invariant(False, 'FLEET_RELEASE_READINESS_INVALID: the release readiness manifest is incomplete or newer than this installer',
+                  'Download the latest Fleet installer and try again. If it repeats, the release is incomplete: re-run the Fleet workflow. Nothing was erased.',
+                  role=role, problem=f"{type(exc).__name__}: {exc}")
     invariant(not blocked, 'FLEET_PLATFORM_NOT_READY: ' + '; '.join(blocked),
               'The platform administrator must resolve the configuration errors and publish the installer. No image was downloaded and nothing was erased.')
 
@@ -2924,7 +3212,7 @@ def check_installer_readiness(iso, role):
             raw = _iso_bytes(handle, _iso_index(handle), "fleet-readiness.json")
         invariant(len(raw) <= 65536, "the installer readiness manifest is too large")
         manifest = json.loads(raw)
-        invariant(manifest.get("version") == 1, "the installer readiness manifest has an unsupported version")
+        invariant(manifest.get("version") == 1, "the installer readiness manifest has an unsupported version", NEWER_RELEASE_FIX, version=manifest.get("version"))
         blocked = manifest["roles"][role]["blocked"]
         invariant(isinstance(blocked, list) and all(isinstance(item, str) for item in blocked), "the installer readiness checks are malformed")
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
@@ -2945,10 +3233,13 @@ def perform_install(os_name, role, iso, token, vault, directory, chosen, on_prog
     check_installer_readiness(iso, role)
     handoff = {"wifi": network} if network is not None else {}
     previously_withdrawn = bool(checked_marker(directory, "withdrawn"))
+    # An earlier attempt that was killed before its cleanup left `handoff` with the duty to
+    # restore the CI runner. That withdrawal belongs to this reinstall too: keep the duty.
+    inherited = previously_withdrawn and read_kv(Path(directory) / "handoff").get("restore_ci") == "1"
     started = False
     try:
         retire_runner_for_install(directory)
-        restore_ci = not previously_withdrawn and bool(checked_marker(directory, "withdrawn"))
+        restore_ci = inherited or (not previously_withdrawn and bool(checked_marker(directory, "withdrawn")))
         write_text(Path(directory) / "handoff", f"role={role}\ndisk={chosen['disk_id']}\nstatus=staged\nrestore_ci={int(restore_ci)}\n")
         if os_name == "Windows":
             staged = stage_windows(role, str(iso), token, vault, chosen, on_progress, **handoff)
@@ -2960,7 +3251,7 @@ def perform_install(os_name, role, iso, token, vault, directory, chosen, on_prog
     finally:
         if not started:
             (Path(directory) / "handoff").unlink(missing_ok=True)
-        if not started and not previously_withdrawn and checked_marker(directory, "withdrawn"):
+        if not started and (inherited or not previously_withdrawn) and checked_marker(directory, "withdrawn"):
             # Staging failed before the live installer could erase anything.
             # Undo only this reinstall's withdrawal; intentional removals stay.
             (Path(directory) / "withdrawn").unlink()
@@ -3084,7 +3375,7 @@ def cmd_remove():
         say(plan["next"])
     if plan["power_off"]:
         if not withdrawn:
-            write_text(directory / "withdrawn", f"status=withdrawn\nrole={role or 'unknown'}\n")
+            write_text(directory / "withdrawn", "status=withdrawn\n" + (f"role={role}\n" if role in ROLES else ""))
         say("The machine can be powered off.")
         retire_from_fleet_api()
         return power_off(role)
