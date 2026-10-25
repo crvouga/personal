@@ -21,6 +21,7 @@ from pathlib import Path
 
 import bootstrap  # noqa: F401
 import decide
+import diagnostics
 import elevate
 import imaging
 import fleet_tls
@@ -33,6 +34,8 @@ except ImportError:
     VERSION = "dev"
 MAX_BODY = 64 * 1024
 TOKEN_MAX = 512
+PROBLEM_FIELD_MAX = 4000
+QUIET_STEPS = (None, "", "log", "verify")  # helper steps that change nothing
 PLAN_TTL = 15 * 60
 
 OS_LABEL = {"Darwin": "macOS"}
@@ -89,7 +92,9 @@ class Job:
         self.log = []
         self.result = None
         self.mode = None
+        self.role = None
         self.step = None
+        self.changed = False  # the privileged helper may have changed this computer
         self.cancel = threading.Event()
         self.lock = threading.Lock()
 
@@ -124,7 +129,8 @@ class Job:
 
     def snapshot(self):
         with self.lock:
-            return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "percent": self.percent, "message": self.message, "log": list(self.log), "result": self.result}
+            return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "role": self.role, "percent": self.percent,
+                    "message": self.message, "log": list(self.log), "result": self.result}
 
 
 class Wizard:
@@ -183,7 +189,8 @@ class Wizard:
             "usb": self.usb_choices(disks),
             "internal": {"ok": internal["ok"], "plain": internal.get("plain"), "id": internal.get("disk_id")},
             "here_blockers": self.here_blockers(disks, internal),
-            "release": {"ok": error is None, "error": error, "size": size, "advice": fleet_tls.advice(error)},
+            "release": {"ok": error is None, "error": error, "size": size, "advice": fleet_tls.advice(error),
+                        "guidance": diagnostics.guidance(str(error), fleet_tls.advice(error), changed=False) if error else None},
             "log": decide.LOG["path"],
         }
 
@@ -270,6 +277,7 @@ class Wizard:
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"), "a job is already running")
             self.job = Job()
             self.job.mode = plan["mode"]
+            self.job.role = plan["role"]
             self.job.move("downloading")
             job = self.job
             self.plan = None  # acknowledgement is single-use, even if the run fails
@@ -299,7 +307,9 @@ class Wizard:
             job.move("working")
             self.run_helper(job, plan, target, sha)
         except imaging.Cancelled:
-            job.move("cancelled", {"ok": False, "message": "Cancelled. Nothing was erased.", "fix": "", "log": decide.LOG["path"]})
+            job.move("cancelled", {"ok": False, "message": "Cancelled. Nothing was erased.", "fix": "", "log": decide.LOG["path"],
+                                   "guidance": {"summary": "", "steps": ["Press Try again to review the same installation again."], "retry": True,
+                                                "safety": "Nothing on this computer was erased or changed."}})
         except decide.Invariant as broken:
             self.fail(job, f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", broken.fix)
         except Exception as exc:
@@ -319,10 +329,31 @@ class Wizard:
         return {**plan, "token": token}
 
     def fail(self, job, message, fix, log=None):
-        job.move("failed", {"ok": False, "message": decide.redact(message), "fix": fix, "log": log or decide.LOG["path"]})
+        message = decide.redact(message)
+        decide.log(f"job failed: {message} fix={fix}", "ERROR")
+        job.move("failed", {"ok": False, "message": message, "fix": fix, "log": log or decide.LOG["path"],
+                            "guidance": diagnostics.guidance(message, fix, changed=job.changed)})
+
+    def follow(self, job, path, offset, unreadable):
+        """Show the helper's new progress. Unreadable progress never ends the job:
+        the helper may be writing a disk, so the window keeps waiting for it."""
+        try:
+            rows, offset = elevate.read_progress(path, offset)
+        except OSError as exc:
+            if not unreadable:
+                decide.log(f"helper progress is unreadable: {type(exc).__name__}: {exc}", "WARN")
+                job.changed = True  # unknown, so assume the worst
+                job.note("The administrator step is running, but its progress cannot be shown here. Waiting for it to finish.")
+            return offset, True
+        for row in rows:
+            if row.get("step") not in QUIET_STEPS:
+                job.changed = True
+            job.note(row.get("message", ""), row.get("percent"), row.get("step"))
+        return offset, unreadable
 
     def run_helper(self, job, plan, iso, sha):
         scratch = imaging.scratch_dir("fleet-job-")
+        process = None
         try:
             request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
                        "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"], "wifi": plan.get("wifi")}
@@ -334,20 +365,24 @@ class Wizard:
                 process = elevate.start(self.os_name, elevate.helper_argv(scratch))
             except elevate.ElevationUnavailable as exc:
                 return self.fail(job, str(exc), "Run the installer with administrator rights.")
-            offset = 0
+            offset, unreadable = 0, False
             while process.poll() is None:
-                rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
-                for row in rows:
-                    job.note(row.get("message", ""), row.get("percent"), row.get("step"))
+                offset, unreadable = self.follow(job, scratch / "progress.jsonl", offset, unreadable)
                 time.sleep(0.25)
-            rows, offset = elevate.read_progress(scratch / "progress.jsonl", offset)
-            for row in rows:
-                job.note(row.get("message", ""), row.get("percent"), row.get("step"))
+            offset, unreadable = self.follow(job, scratch / "progress.jsonl", offset, unreadable)
             result_file = scratch / "result.json"
-            if not result_file.is_file():
+            try:
+                text = result_file.read_text(encoding="utf-8") if result_file.is_file() else None
+            except OSError as exc:
+                return self.fail(job, f"The administrator step finished (exit code {process.returncode}), but the installer could not read the administrator step's result "
+                                      f"({type(exc).__name__}: {exc}).", "Read the log to see what it did before trying again.")
+            if text is None:
+                if unreadable:
+                    return self.fail(job, f"The administrator step finished (exit code {process.returncode}), but the installer could not read the administrator step's result.",
+                                     "Read the log to see what it did before trying again.")
                 return self.fail(job, f"The privileged step ended without a result (exit code {process.returncode}). The permission prompt was probably declined.",
                                  "Run the wizard again and accept the permission prompt.")
-            result = json.loads(result_file.read_text(encoding="utf-8"))
+            result = json.loads(text)
             decide.invariant(isinstance(result, dict) and isinstance(result.get("ok"), bool), "the helper wrote a malformed result", result=result)
             if result["ok"]:
                 decide.invariant(process.returncode == 0, "the helper reported success but exited with an error", code=process.returncode)
@@ -355,7 +390,37 @@ class Wizard:
             else:
                 self.fail(job, result.get("message", ""), result.get("fix", ""), result.get("log"))
         finally:
-            shutil.rmtree(scratch, ignore_errors=True)
+            try:
+                if process is not None and process.poll() is None:
+                    # Never delete the folder from under a helper that may be writing a disk.
+                    decide.log("waiting for the privileged helper to exit before cleaning up", "WARN")
+                    process.wait()
+            finally:
+                shutil.rmtree(scratch, ignore_errors=True)
+
+    # ---- diagnostics -------------------------------------------------------
+
+    def diagnostic(self, body):
+        """A copyable report and a pre-filled GitHub issue for the current job,
+        or for an error the page met outside a job."""
+        problem = body.get("problem")
+        decide.invariant(problem is None or isinstance(problem, dict), "the diagnostic problem must be an object")
+        problem = {key: str(value)[:PROBLEM_FIELD_MAX] for key, value in (problem or {}).items()
+                   if key in ("message", "fix", "where", "mode", "role") and value is not None}
+        if problem.get("message"):
+            problem["guidance"] = diagnostics.guidance(problem["message"], problem.get("fix", ""))
+        job = self.job.snapshot()
+        if job["state"] == "idle":
+            job = None
+        try:
+            elevation = elevate.mode_for(self.os_name)
+        except decide.Invariant as broken:
+            elevation = broken.what
+        facts = diagnostics.system_facts(OS_LABEL.get(self.os_name, self.os_name), elevate.is_admin(self.os_name), elevation)
+        build = lambda lines: diagnostics.report(VERSION, facts, job, problem, lines, decide.LOG["path"])  # noqa: E731
+        message = problem.get("message") or ((job or {}).get("result") or {}).get("message") or (job or {}).get("message")
+        title = diagnostics.issue_title(message)
+        return {"report": build(diagnostics.LOG_TAIL), "title": title, "issue_url": diagnostics.issue_url(title, build)}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -426,6 +491,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, self.wizard.make_plan(self.body()))
             if method == "POST" and path == "/api/run":
                 return self.reply(200, self.wizard.start(self.body()))
+            if method == "POST" and path == "/api/diagnostic":
+                return self.reply(200, self.wizard.diagnostic(self.body()))
             if method == "POST" and path == "/api/quit":
                 self.reply(200, {"quit": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -436,12 +503,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"error": "not found"})
         except decide.Invariant as broken:
             decide.log(f"refused: {broken.what} {broken.context}")
-            return self.reply(409, {"error": broken.what, "fix": broken.fix, "context": broken.context})
+            return self.reply(409, {"error": broken.what, "fix": broken.fix, "context": broken.context,
+                                    "guidance": diagnostics.guidance(broken.what, broken.fix, changed=None)})
         except (ValueError, KeyError) as exc:
             return self.reply(400, {"error": f"bad request: {exc}", "fix": "Reload the page."})
         except Exception as exc:
             decide.log(traceback.format_exc(), "ERROR")
-            return self.reply(500, {"error": f"{type(exc).__name__}: {exc}", "fix": "Read the log, then run the wizard again.", "log": decide.LOG["path"]})
+            error = f"{type(exc).__name__}: {exc}"
+            return self.reply(500, {"error": error, "fix": "Read the log, then run the wizard again.", "log": decide.LOG["path"],
+                                    "guidance": diagnostics.guidance(error, "", changed=None)})
 
     def do_GET(self):
         self.route("GET")

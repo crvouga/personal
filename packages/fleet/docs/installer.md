@@ -272,6 +272,14 @@ An interrupted USB write leaves an incomplete stick. Keep it plugged in, restart
 
 Every failure says what happened and what to do next, and names a log file. The wizard keeps its log in the `.fleet/logs` folder in your home directory, and the installed node keeps `/nix/fleet-state/logs/install.log`. Nothing is erased before the review page's confirmation, and a USB stick is only reported as ready after the wizard reads it back and proves it holds the verified installer.
 
+A failure page lists numbered recovery steps, says whether anything on the computer could have changed, and offers:
+
+- **Try again**, which reviews the same choices again (you confirm the erase again; nothing is reused silently).
+- **Copy diagnostic report**, which puts the error, this computer's details, the job's steps and the recent log lines on the clipboard, ready to paste to an agent. Secrets are redacted.
+- **Report on GitHub**, which opens a pre-filled public issue in this repository and also copies the full report. Review the issue before you submit it.
+
+If the administrator step is still running when something goes wrong, the wizard keeps waiting for it rather than reporting a result it cannot know.
+
 | You see                                           | Do this                                                                                 |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | "The installer download cannot be reached"        | Check the internet connection. If it is fine, the installer has not been published yet. |
@@ -279,4 +287,5 @@ Every failure says what happened and what to do next, and names a log file. The 
 | "does not match its checksum"                     | Run the wizard again. If it repeats, the release is broken; re-run the Fleet workflow.  |
 | "does not hold the installer after writing"       | The USB stick or its port is faulty. Try another stick or port.                         |
 | "The permission prompt was probably declined"     | Run the wizard again and accept the prompt.                                             |
+| "Permission denied" on a `fleet-job-…` file       | Download the latest installer (issue #140 fixed this), then press **Try again**.        |
 | "Disks were plugged or unplugged since you chose" | Run the wizard again.                                                                   |

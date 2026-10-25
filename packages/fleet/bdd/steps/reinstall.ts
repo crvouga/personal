@@ -192,17 +192,21 @@ Then(
     await expect(
       page.getByRole('button', { name: 'Copy diagnostic report', exact: true })
     ).toBeVisible();
+    await expect(page.locator('#diagnostic-report')).toHaveValue(/## System/);
+    await expect(
+      page.getByRole('button', { name: 'Report on GitHub', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('What to do:')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
   }
 );
 When(
   'I restore the boot handoff and retry the hard reinstall',
   async ({ page, world }) => {
     await unlink(join(required(world.wizard).directory, 'fail-boot'));
-    await page.getByRole('button', { name: 'Start over' }).click();
-    await page.getByRole('button', { name: /Turn THIS computer/ }).click();
-    await page.locator('input[name="role"][value="ci"]').check();
-    await page.getByRole('checkbox', { name: /Hard reinstall/ }).check();
-    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    // Try again reviews the same choices, so the hard reinstall is not re-entered.
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByText(/Hard reinstall: replace/)).toBeVisible();
     await page.locator('#ack').check();
     await page.getByRole('button', { name: 'Erase and install' }).click();
   }
