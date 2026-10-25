@@ -63,16 +63,45 @@ def file_sddl(path):
         kernel.LocalFree(descriptor)
 
 
+def trustee_in_sddl(sid):
+    """How Windows writes this SID inside SDDL: a well-known one becomes an alias
+    (the built-in Administrator, RID 500, prints as LA)."""
+    import ctypes
+    from ctypes import wintypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
+                                                                            ctypes.POINTER(wintypes.LPWSTR), ctypes.c_void_p]
+    advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    descriptor = ctypes.c_void_p()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(f"D:(A;;FA;;;{sid})", 1, ctypes.byref(descriptor), None):
+        raise OSError(ctypes.get_last_error(), "ConvertStringSecurityDescriptorToSecurityDescriptorW failed")
+    try:
+        text = wintypes.LPWSTR()
+        if not advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW(descriptor, 1, 4, ctypes.byref(text), None):
+            raise OSError(ctypes.get_last_error(), "ConvertSecurityDescriptorToStringSecurityDescriptorW failed")
+        value = text.value
+        kernel.LocalFree(text)
+    finally:
+        kernel.LocalFree(descriptor)
+    return value.rsplit(";", 1)[1].rstrip(")")
+
+
 @unittest.skipUnless(os.name == "nt", "needs the Windows security API")
 class WindowsJobFolderTests(unittest.TestCase):
     def test_every_file_in_the_job_folder_grants_this_user_by_sid_whoever_owns_it(self):
         scratch = imaging.scratch_dir("fleet-acl-test-")
         try:
             (scratch / "progress.jsonl").write_text("{}\n", encoding="utf-8")
-            sid = imaging.windows_user_sid()
+            user = trustee_in_sddl(imaging.windows_user_sid())
             folder, inside = file_sddl(scratch), file_sddl(scratch / "progress.jsonl")
-            self.assertIn(f";;;{sid})", folder)
-            self.assertIn(f";;;{sid})", inside, "inherited by files the elevated helper creates")
+            self.assertIn(f";;;{user})", folder)
+            self.assertIn(f";;;{user})", inside, "inherited by files the elevated helper creates")
             self.assertNotIn(";;;OW)", folder, "OWNER RIGHTS would follow the Administrators owner instead of this user")
             self.assertNotIn(";;;WD)", folder, "the folder holds an enrollment token and must stay private")
             self.assertEqual((scratch / "progress.jsonl").read_text(encoding="utf-8"), "{}\n")
@@ -310,6 +339,7 @@ class PermissionPromptTests(WizardCase):
         self.assertFalse(Path(seen["directory"]).exists(), "the folder is cleaned once the prompt closes")
         _status, plan = self.usb_plan()
         self.assertEqual(self.run_plan(plan)[0], 200, "a new attempt can start right away")
+        self.wait_job()  # let it finish before the test folder is removed
 
     def test_cancel_after_the_helper_claimed_its_request_is_refused(self):
         release, seen = threading.Event(), {}
