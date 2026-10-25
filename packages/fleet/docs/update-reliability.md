@@ -10,6 +10,8 @@ This applies after converting a Windows machine to its NixOS Fleet role too.
 3. Each online node polls after its previous attempt finishes: normally 300
    seconds plus up to 30 seconds of jitter and one second of timer accuracy.
    Boot schedules an attempt after 15 seconds plus that jitter.
+   Monotonic boot/retry timers do not use `Persistent`: its saved timestamp
+   can suppress the first post-reboot attempt with the pinned systemd version.
 4. An offline node keeps its existing generation. On reconnect or reboot, the
    same timer retries and selects current `main`, skipping missed intermediate
    commits. Delayed cache publication needs no additional commit or node action.
@@ -51,7 +53,8 @@ setting still pauses updates until the operator clears it.
   competing writers and interruption after profile selection, with
   previous-generation and success-marker assertions.
 - `checks.update-units` verifies every deployable role and capability variant
-  retains the boot timer, repeated scheduling and uninterrupted updater service.
+  retains the boot timer, repeated scheduling and uninterrupted updater service,
+  without a persistent timestamp that could strand the timer after reboot.
 - `checks.follow-up` runs a NixOS VM with a real systemd timer, Git checkout,
   system profile and command timeouts. It exercises slow updates, offline
   reboot, multiple missed releases, delayed cache publication, timer-breaking

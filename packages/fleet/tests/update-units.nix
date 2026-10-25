@@ -9,6 +9,7 @@
     && lib.elem "timers.target" timer.wantedBy
     && (timer.timerConfig.OnBootSec or null) != null
     && (timer.timerConfig.OnUnitInactiveSec or null) != null
+    && !(timer.timerConfig.Persistent or false)
     && service.serviceConfig.Type == "oneshot"
     && !(service.serviceConfig.RemainAfterExit or false)
     && !service.restartIfChanged

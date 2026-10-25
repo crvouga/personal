@@ -74,7 +74,9 @@ in {
       OnBootSec = "15s";
       # Schedule from completion, including failed attempts and long drains.
       OnUnitInactiveSec = "${toString repo.pollSeconds}s";
-      Persistent = true;
+      # Persistent is for calendar timers. With systemd 260, its saved realtime
+      # trigger can suppress an overdue OnBootSec without a monotonic retry
+      # timestamp after reboot. OnBootSec starts recovery on every boot.
       RandomizedDelaySec = "30s";
       AccuracySec = "1s";
     };
