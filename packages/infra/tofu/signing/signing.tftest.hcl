@@ -28,7 +28,14 @@ mock_provider "azapi" {
     }
   }
 }
-mock_provider "github" {}
+mock_provider "github" {
+  mock_data "github_rest_api" {
+    defaults = {
+      code = 200
+      body = "{\"use_default\":true,\"use_immutable_subject\":true,\"sub_claim_prefix\":\"repo:example@123/workspace@456\"}"
+    }
+  }
+}
 
 variables {
   state_passphrase = "test-only-state-passphrase-not-for-live-use"
@@ -105,9 +112,48 @@ run "bootstrap_waits_for_personal_identity_validation" {
     error_message = "Only the pinned operator may verify identity, scoped to this signing account."
   }
   assert {
-    condition     = azurerm_federated_identity_credential.main[0].subject == "repo:example/workspace:ref:refs/heads/main" && azurerm_federated_identity_credential.main[0].issuer == "https://token.actions.githubusercontent.com" && azurerm_federated_identity_credential.main[0].audience == tolist(["api://AzureADTokenExchange"])
+    condition     = azurerm_federated_identity_credential.main[0].subject == "repo:example@123/workspace@456:ref:refs/heads/main" && azurerm_federated_identity_credential.main[0].issuer == "https://token.actions.githubusercontent.com" && azurerm_federated_identity_credential.main[0].audience == tolist(["api://AzureADTokenExchange"])
     error_message = "Federation must permit this repository's main branch only, never PRs, environments or other repositories."
   }
+}
+
+run "legacy_default_subject_uses_the_actual_github_prefix" {
+  command = plan
+  override_data {
+    target = data.github_rest_api.oidc[0]
+    values = { code = 200, body = "{\"use_default\":true,\"sub_claim_prefix\":\"repo:example/workspace\"}" }
+  }
+  assert {
+    condition     = azurerm_federated_identity_credential.main[0].subject == "repo:example/workspace:ref:refs/heads/main"
+    error_message = "Repositories using the legacy default must retain their actual main-only subject."
+  }
+}
+
+run "missing_subject_blocks_activation" {
+  command = plan
+  override_data {
+    target = data.github_rest_api.oidc[0]
+    values = { code = 200, body = "{\"use_default\":true}" }
+  }
+  expect_failures = [data.github_rest_api.oidc]
+}
+
+run "custom_subject_blocks_activation" {
+  command = plan
+  override_data {
+    target = data.github_rest_api.oidc[0]
+    values = { code = 200, body = "{\"use_default\":false,\"sub_claim_prefix\":\"repo:example@123/workspace@456\"}" }
+  }
+  expect_failures = [data.github_rest_api.oidc]
+}
+
+run "other_repository_subject_blocks_activation" {
+  command = plan
+  override_data {
+    target = data.github_rest_api.oidc[0]
+    values = { code = 200, body = "{\"use_default\":true,\"sub_claim_prefix\":\"repo:attacker@123/workspace@456\"}" }
+  }
+  expect_failures = [data.github_rest_api.oidc]
 }
 
 run "validated_profile_activates_restricted_publisher" {

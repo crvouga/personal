@@ -64,7 +64,7 @@ resource "azurerm_federated_identity_credential" "main" {
   user_assigned_identity_id = azurerm_user_assigned_identity.publisher[0].id
   issuer                    = "https://token.actions.githubusercontent.com"
   audience                  = ["api://AzureADTokenExchange"]
-  subject                   = "repo:${local.repository}:ref:refs/heads/main"
+  subject                   = "${local.github_subject_prefix}:ref:refs/heads/main"
 }
 
 # Identity validation is deliberately absent here: Microsoft only supports the

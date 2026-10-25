@@ -13,6 +13,7 @@ const digest = 'a'.repeat(64);
 const revision = 'b'.repeat(40);
 export const profilePath = `${signingAccountPath(signing)}/certificateProfiles/fleet-installer`;
 export const variablePath = '/repos/acme/workspace/actions/variables/FLEET_WINDOWS_SIGNING';
+export const oidcPath = '/repos/acme/workspace/actions/oidc/customization/sub';
 export const releasePath = '/repos/acme/workspace/releases/tags/fleet-installer';
 export const proofPath = '/acme/workspace/releases/download/fleet-installer/fleet-installer-windows-x64.signature.json';
 export const sourcePath = '/repos/acme/workspace/actions/runs/123';
@@ -25,7 +26,8 @@ export function signingFixture() {
     [signingAccountPath(signing)]: { body: { location: 'eastus', properties: { sku: { name: 'Basic' }, provisioningState: 'Succeeded', accountUri: 'https://eus.codesigning.azure.net/' } } },
     [profilePath]: { body: { properties: { provisioningState: 'Succeeded', status: 'Active', profileType: 'PublicTrust', identityValidationId: signing.identity_validation_id, certificates: [{ status: 'Active', subjectName: publisher }] } } },
     [identityPath]: { body: { properties: { principalId: 'publisher-principal', clientId: 'publisher-client' } } },
-    [`${identityPath}/federatedIdentityCredentials`]: { body: { value: [{ name: 'github-main', properties: { issuer: 'https://token.actions.githubusercontent.com', subject: 'repo:acme/workspace:ref:refs/heads/main', audiences: ['api://AzureADTokenExchange'] } }] } },
+    [`${identityPath}/federatedIdentityCredentials`]: { body: { value: [{ name: 'github-main', properties: { issuer: 'https://token.actions.githubusercontent.com', subject: 'repo:acme@123/workspace@456:ref:refs/heads/main', audiences: ['api://AzureADTokenExchange'] } }] } },
+    [oidcPath]: { body: { use_default: true, use_immutable_subject: true, sub_claim_prefix: 'repo:acme@123/workspace@456' } },
     [rolesPath]: { body: { value: [{ properties: { principalId: 'publisher-principal', scope: profilePath, roleDefinitionId: '/providers/Microsoft.Authorization/roleDefinitions/2837e146-70d7-4cfd-ad55-7efa6464f958' } }] } },
     [variablePath]: { body: { value: JSON.stringify({ tenant_id: signing.tenant_id, subscription_id: signing.subscription_id, client_id: 'publisher-client', endpoint: 'https://eus.codesigning.azure.net/', account: signing.account, profile: signing.profile, publisher }) } },
     [releasePath]: { body: { assets: [{ name: 'fleet-installer-windows-x64.exe', digest: `sha256:${digest}` }, { name: 'fleet-installer-windows-x64.signature.json' }] } },
