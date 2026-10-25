@@ -48,6 +48,31 @@ class SyncRecoveryTests(unittest.TestCase):
         self.assertEqual((node.state / 'last-success').read_text().strip(), expected)
         self.assertFalse(any(checkout.glob('*.lock')))
 
+    def test_new_commit_after_interruption_preserves_the_healthy_rollback_target(self):
+        node = self.node
+        roots = node.root / 'gcroots'
+        node.env['FLEET_GC_ROOTS'] = str(roots)
+        node.commit('healthy')
+        self.assertEqual(node.run_sync().returncode, 0)
+        healthy = node.profile.resolve()
+        (node.root / 'fail-health').touch()
+        node.commit('interrupted')
+        self.assertNotEqual(node.run_sync().returncode, 0)
+        revision = node._git(['-C', str(node.origin), 'rev-parse', 'HEAD']).stdout.strip()
+        candidate = node.root / 'closures' / revision
+        # The updater records this candidate before selecting its profile.
+        self.assertEqual((node.state / 'pending-generation').read_text().strip(), str(candidate.resolve()))
+        node.profile.unlink()
+        node.profile.symlink_to(candidate)
+        node.commit('new-release-during-outage')
+        retried = node.run_sync()
+        self.assertNotEqual(retried.returncode, 0)
+        self.assertEqual(node.profile.resolve(), healthy)
+        self.assertEqual((roots / 'fleet-update-previous').resolve(), healthy)
+        (node.root / 'fail-health').unlink()
+        self.assertEqual(node.run_sync().returncode, 0)
+        self.assertFalse((node.state / 'pending-generation').exists())
+
     def test_live_update_lock_preserves_the_running_generation_and_git_writer(self):
         node = self.node
         node.commit('initial')

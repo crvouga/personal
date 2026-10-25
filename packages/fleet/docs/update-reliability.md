@@ -32,7 +32,8 @@ from the private checkout automatically.
 The previous generation stays GC-rooted while a candidate is unverified. If
 power loss leaves the system profile on that candidate, the next attempt keeps
 the saved rollback target instead of mistaking the candidate for a known-good
-previous generation.
+previous generation. The pending candidate is recorded before profile selection,
+so this also works when another release arrives during the interruption.
 
 Fetch, substitution, profile selection, activation, rollback and runner recovery
 are bounded. Commands that ignore termination are killed after a grace period.

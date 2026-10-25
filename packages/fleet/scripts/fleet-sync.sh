@@ -138,6 +138,7 @@ cleanup() {
   fi
   if [ "$status" -eq 0 ]; then
     printf '%s\n' "${revision:-unknown}" > "$state_dir/last-success"
+    rm -f "$state_dir/pending-generation"
   fi
   exit "$status"
 }
@@ -213,9 +214,10 @@ roots=${FLEET_GC_ROOTS:-/nix/var/nix/gcroots}
 rollback_root=$roots/fleet-update-previous
 # The profile can already name an unverified candidate after a power loss.
 # Keep the saved previous generation rather than overwriting its recovery root.
-if [ "$previous" = "$toplevel" ] \
-  && [ "$(cat "$state_dir/last-success" 2>/dev/null || true)" != "$revision" ] \
-  && [ -e "$rollback_root" ]; then
+if [ -e "$rollback_root" ] && { \
+  { [ "$previous" = "$toplevel" ] \
+    && [ "$(cat "$state_dir/last-success" 2>/dev/null || true)" != "$revision" ]; } \
+  || [ "$previous" = "$(cat "$state_dir/pending-generation" 2>/dev/null || true)" ]; }; then
   saved_previous=$(readlink -f "$rollback_root" || true)
   if [ -n "$saved_previous" ] && [ "$saved_previous" != "$toplevel" ] \
     && [ -x "$saved_previous/bin/switch-to-configuration" ]; then
@@ -228,6 +230,10 @@ if [ -n "$previous" ] && { [[ "$previous" == /nix/store/* ]] || [ -n "${FLEET_GC
 fi
 
 apply() {
+  # Persist before profile selection, so a later main commit cannot turn an
+  # interrupted, unverified candidate into the next update's rollback target.
+  printf '%s\n' "$toplevel" > "$state_dir/pending-generation.next"
+  mv -f "$state_dir/pending-generation.next" "$state_dir/pending-generation"
   if ! bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$nix_env" -p "$profile" --set "$toplevel"; then
     rollback "$1" 'FLEET_PROFILE_FAILED: could not select the requested generation'
   fi
