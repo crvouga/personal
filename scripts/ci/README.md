@@ -65,6 +65,11 @@ required release. Required continues to cover Check and Fleet for the existing
 ruleset. Publishing still waits for successful validation. Optional credentials
 never enter task caches and their probes do not delay required statuses.
 
+The installer release uses `!cancelled()` and explicitly requires successful
+Check, Nix and installer jobs. This avoids GitHub's implicit `success()` guard
+skipping the release when an unaffected integration upstream of Check skipped.
+Fleet still fails if a required release does not succeed.
+
 Fleet PR selection uses the actual tested merge tree, with rename detection
 disabled so both deleted and added paths contribute. Documentation-only Fleet
 PRs skip binary builds and Fleet integration. Changes confined to known role,

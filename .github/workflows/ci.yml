@@ -671,7 +671,9 @@ jobs:
           retention-days: 14
   release:
     name: Release installer
-    if: needs.check.outputs.fleet == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request'))
+    # Check already validates conditional lanes; their skipped ancestors must
+    # not trigger GitHub's implicit success() guard on this release job.
+    if: "!cancelled() && needs.check.result == 'success' && needs.nix.result == 'success' && needs.installer.result == 'success' && needs.check.outputs.fleet == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request'))"
     needs:
       - check
       - nix
