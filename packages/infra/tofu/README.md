@@ -289,7 +289,12 @@ uses embedded PostgreSQL and never connects to the shared development URL.
 
 `MOVIEFINDER_AUTH_SECRET` is a new generated Vault field, delivered through the
 fleet alongside DATABASE_URL and TMDB_API_READ_ACCESS_TOKEN. No existing auth
-key or secret input is rotated. Optional OAuth and mail remain unconfigured.
+key or secret input is rotated. Production Google sign-in uses the shared relay
+registration `app-0067b6ae-9579-4afb-8f3c-3be747f4f26f`, registered through the
+authorized production operator console on 2026-10-25. Its sole callback is
+`https://moviefinder.chrisvouga.dev/api/auth/callback/auth-relay`; its lease expires
+2027-10-25 and must be renewed through the relay console before then. The public
+issuer/client ID are projected by the service inventory. Mail remains unconfigured.
 Apply the approved foundation allocation before running MovieFinder's guarded
 production Atlas workflow. No application DDL is reconciled by this platform.
 

@@ -3,12 +3,87 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
 import { sourceFiles as repositorySources } from './ci/source-files';
+import { deploymentQuery } from '../packages/infra/lib/railway-deployments';
 
 const repo = join(import.meta.dirname, '..');
 const tofu = 'packages/infra/tofu/';
 // AGENTS.md permits read-only health probes. Audit this single adapter's
 // fetch options structurally rather than exempting a directory or provider.
 const readOnlyCloudflare = 'packages/infra/lib/domains/cloudflare.ts';
+const readOnlyRailway = 'packages/infra/lib/railway-deployments.ts';
+
+function deploymentReads(text: string): void {
+  const source = ts.createSourceFile(
+    'reader.ts',
+    text,
+    ts.ScriptTarget.Latest,
+    true
+  );
+  const requests: ts.CallExpression[] = [];
+  const queries: ts.VariableDeclaration[] = [];
+  function visit(node: ts.Node): void {
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.name.getText(source) === 'deploymentQuery'
+    )
+      queries.push(node);
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(source) === 'request'
+    )
+      requests.push(node);
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  expect(queries).toHaveLength(1);
+  expect(ts.isNoSubstitutionTemplateLiteral(queries[0]!.initializer!)).toBe(
+    true
+  );
+  expect(
+    (queries[0]!.initializer as ts.NoSubstitutionTemplateLiteral).text
+  ).toBe(deploymentQuery);
+  expect(deploymentQuery).toMatch(/^query Rollout\(/);
+  expect(deploymentQuery).not.toMatch(/\b(mutation|subscription)\b/);
+  expect(requests).toHaveLength(1);
+  const options = requests[0]!.arguments[1]!;
+  if (!ts.isObjectLiteralExpression(options))
+    throw new Error('Explicit read options required');
+  const fields = options.properties;
+  expect(fields.every(ts.isPropertyAssignment)).toBe(true);
+  expect(fields.map((field) => field.name!.getText(source)).sort()).toEqual([
+    'body',
+    'headers',
+    'method',
+    'signal',
+  ]);
+  const field = (name: string) =>
+    (
+      fields.find(
+        (field) => field.name!.getText(source) === name
+      ) as ts.PropertyAssignment
+    ).initializer;
+  expect(field('method').getText(source)).toBe("'POST'");
+  const body = field('body');
+  if (
+    !ts.isCallExpression(body) ||
+    body.expression.getText(source) !== 'JSON.stringify'
+  )
+    throw new Error('Fixed query body required');
+  const payload = body.arguments[0]!;
+  if (!ts.isObjectLiteralExpression(payload))
+    throw new Error('Explicit query payload required');
+  expect(payload.properties.every(ts.isPropertyAssignment)).toBe(true);
+  expect(
+    payload.properties.map((field) => field.name!.getText(source)).sort()
+  ).toEqual(['query', 'variables']);
+  const query = payload.properties.find(
+    (field) => field.name!.getText(source) === 'query'
+  ) as ts.PropertyAssignment;
+  expect(query.initializer.getText(source)).toBe('deploymentQuery');
+  expect(text).not.toMatch(
+    /child_process|Bun\.spawn|node:https|node:http|XMLHttpRequest|\bfetch\s*\(/
+  );
+}
 
 function getOnlyFetches(text: string): number {
   const source = ts.createSourceFile(
@@ -88,6 +163,10 @@ describe('OpenTofu infrastructure ownership', () => {
         expect(text).not.toMatch(
           /child_process|Bun\.spawn|node:https|node:http|XMLHttpRequest/
         );
+        return false;
+      }
+      if (file === readOnlyRailway) {
+        deploymentReads(text);
         return false;
       }
       return /backboard\.railway\.(?:app|com)|api\.cloudflare\.com|api\.planetscale\.com/.test(

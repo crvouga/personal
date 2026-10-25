@@ -174,13 +174,26 @@ jobs:
           SERVICE_IDS: ${{ steps.plan.outputs.service_ids }}
           PUBLISH_FRESH: ${{ github.event_name == 'schedule' }}
         run: bun scripts/ci/publish.ts
+      - name: Record rollout start
+        id: rollout
+        if: steps.plan.outputs.services == 'true'
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Deploy services
+        id: services
         if: steps.plan.outputs.services == 'true'
         uses: ./.github/actions/tofu
         with:
           root: fleet
           service_ids: ${{ steps.plan.outputs.service_ids }}
           image_tag: ${{ steps.plan.outputs.image_tag }}
+      - name: Verify active service deployments
+        if: steps.plan.outputs.services == 'true'
+        timeout-minutes: 17
+        env:
+          SERVICE_IDS: ${{ steps.plan.outputs.service_ids }}
+          ROLLOUT_CHANGES: ${{ steps.services.outputs.changed_resources }}
+          ROLLOUT_STARTED_AT: ${{ steps.rollout.outputs.started_at }}
+        run: bun scripts/ci/service-readiness.ts
       - name: Load public endpoints
         run: bun run packages/infra/scripts/print-platform-env.ts --format github >> "$GITHUB_ENV"
       - name: Check public services

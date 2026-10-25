@@ -137,6 +137,14 @@ run "email_service_contract" {
 run "moviefinder_ownership" {
   command = plan
   assert {
+    condition = one([for service in output.config.services :
+      try(service.env.MOVIEFINDER_OIDC_ISSUER, "") == "https://${output.config.auth_relay.instances.production.hostname}/realms/${output.config.auth_relay.instances.production.realm}" &&
+      startswith(try(service.env.MOVIEFINDER_OIDC_CLIENT_ID, ""), "app-")
+      if service.id == "moviefinder"
+    ])
+    error_message = "MovieFinder must retain its registered production Google sign-in settings."
+  }
+  assert {
     condition     = one([for service in output.config.services : service if service.id == "moviefinder"]).github_repo == "crvouga/moviefinder" && one([for service in output.config.services : service if service.id == "moviefinder"]).database_schema == "moviefinder"
     error_message = "The new MovieFinder service and schema must belong to its own application repository."
   }
