@@ -30,7 +30,7 @@ class SyncTests(unittest.TestCase):
         self.flake.mkdir(parents=True)
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        write_executable(self.bin / "timeout", "#!/bin/bash\nshift\nexec \"$@\"\n")
+        write_executable(self.bin / "timeout", "#!/bin/bash\ncase \"$1\" in --kill-after=*) shift;; esac\nshift\nexec \"$@\"\n")
         self.log = self.root / "actions"
         self.nix_log = self.root / "nix-args"
         self.profile = self.root / "profile"
@@ -121,13 +121,11 @@ class SyncTests(unittest.TestCase):
             """)
         write_executable(self.bin / "resume", f"#!/bin/bash\nprintf '%s\\n' resume >> {self.log}\n")
         write_executable(self.bin / "cattle", """\
-            #!/bin/bash
-            if [ "${1:-}" = print-id ]; then
-              if [ -n "${FAIL_ID:-}" ]; then exit 1; fi
-              printf '%s\\n' abcd
-              exit 0
-            fi
-            exit 1
+            import os,sys
+            if sys.argv[1:] == ['print-id'] and not os.environ.get('FAIL_ID'):
+                print('abcd')
+            else:
+                sys.exit(1)
             """)
         write_executable(self.bin / "health", f"""\
             #!/bin/bash
@@ -148,7 +146,7 @@ class SyncTests(unittest.TestCase):
             "FLEET_GIT": "git",
             "FLEET_PROFILE": str(self.profile),
             "BOOTED_SYSTEM": str(self.booted),
-            "PYTHON": "bash",
+            "PYTHON": sys.executable,
             "CATTLE_PY": str(self.bin / "cattle"),
             "FLEET_HEALTH": str(self.bin / "health"),
             "FLEET_REPORT": str(self.root / "health-failure"),
@@ -257,7 +255,7 @@ class SyncTests(unittest.TestCase):
         previous = self.profile.resolve()
         self.seed_booted()
         self.commit("KERNEL_CHANGE", "1")
-        write_executable(self.bin / "systemctl", "#!/bin/bash\nexit 1\n")
+        write_executable(self.bin / "systemctl", "#!/bin/bash\nif [ \"$1\" = reboot ]; then exit 1; fi\nexit 0\n")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.profile.resolve(), previous)
@@ -436,9 +434,8 @@ class SyncTests(unittest.TestCase):
         write_executable(self.bin / "systemctl", f"""\
             #!/bin/bash
             if [ "$1" = cat ]; then exit 0; fi
-            if [ "$1" = is-failed ]; then
-              echo failed
-              exit 0
+            if [ "$1" = is-active ]; then
+              exit 3
             fi
             if [ "$1" = reboot ]; then printf '%s\\n' reboot >> {self.log}; fi
             exit 0
@@ -447,7 +444,7 @@ class SyncTests(unittest.TestCase):
         self.commit("bad")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("fleet-sync.timer is failed", result.stderr)
+        self.assertIn("fleet-sync.timer is not active", result.stderr)
         self.assertEqual(self.profile.resolve(), kept)
 
     def test_missing_id_does_not_drain(self):

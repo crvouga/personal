@@ -148,6 +148,13 @@ The root `.github/workflows/ci.yml` is the single pipeline definition. It runs o
 
 A rollback is a revert pull request through the same checks and the same queue. The previous commit's systems are already in the cache. systemd-boot keeps `bootGenerationLimit` generations (8), selectable from the console. There is no force-push rollback.
 
+Automatic catch-up is a required release contract. Keep `fleet-sync` enabled at
+boot, schedule retries after attempts finish, and let an updater finish when its
+own unit changes. `checks.update-units` covers every role; `checks.follow-up`
+must exercise timer-driven offline/reboot recovery and real generation switches.
+See [update reliability](docs/update-reliability.md) for fault scenarios and
+the distinction between fixture substitution and physical-machine acceptance.
+
 `main` requires a pull request, the `Check` and `Fleet` checks (with a temporary `Required` compatibility status until the ruleset migration is applied), and the merge queue. Direct pushes and force pushes are refused. That ruleset is OpenTofu in `packages/infra` (`inventory.tf.json` and `foundation/repository.tf`). Declaring it is not applying it. Apply a reviewed plan. Do not apply it from this package.
 
 One path changes a node. Open a pull request, let `Check` and `Fleet` pass on GitHub-hosted runners, and let the merge queue land it on `main`. Nodes pull that commit. Do not push `main` directly, force-push it, or change a node by hand.

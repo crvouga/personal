@@ -89,6 +89,11 @@ export const ADVICE: Advice[] = [
   ),
   when(
     'domains',
+    /origin TLS mode/,
+    'Review the domain ssl_mode in the OpenTofu inventory and a saved foundation plan; apply through the deployment workflow. For Railway aliases, follow the documented Cloudflare proxy policy and verify public TLS before changing origin TLS settings.'
+  ),
+  when(
+    'domains',
     /advisory/,
     'Advisory for an unused domain; ignore unless you plan to use it.'
   ),
