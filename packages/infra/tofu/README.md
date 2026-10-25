@@ -14,6 +14,15 @@ All 14 domains remain managed through Squarespace Domains, retaining their exist
 | `vault`      | KV mount, policies, GitHub JWT auth/roles, userpass users, periodic runtime token, generated credentials, complete dev/prd KV documents (including the generated fleet API credentials) and the `fleet/<role>` documents (`fleet_age_keys` plus a generated `api_token`)                                                                                                                                                                                                               |
 | `fleet`      | Every remaining Railway service (including `fleet-api`), image revision, environment variables, domain and DNS record                                                                                                                                                                                                                                                                                                                                                                  |
 
+The dedicated `signing` root owns Fleet's Azure Windows publisher account,
+managed identity and main-only federation, public certificate profile, scoped
+signer role and derived `FLEET_WINDOWS_SIGNING` GitHub Actions variable. It uses
+`signing.tfstate` in the same encrypted R2 backend and remains separate from
+platform deployment so personal identity enrollment cannot block provisioning.
+Run `bun run infra:signing <OpenTofu command>`; see the
+[staged setup guide](../../fleet/docs/windows-signing.md). Azure CLI is used only
+for authentication and read-only discovery, never resource provisioning.
+
 All state and saved plans are encrypted with OpenTofu's PBKDF2/AES-GCM support. `foundation`, `bootstrap`, `vault` and `fleet` use locked R2 S3 backends. The legacy Fly API returned no apps, so there are no surviving Fly resources to adopt.
 
 `state` keeps its own encrypted local state to break the backend bootstrap cycle; back it up outside the repository with its passphrase. Never delete the only copy of that state.

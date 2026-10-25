@@ -1,4 +1,9 @@
-import { INSTALLERS, INSTALLER_RELEASE, installerUrl } from '../lib/installers';
+import {
+  INSTALLERS,
+  INSTALLER_RELEASE,
+  WINDOWS_DOWNLOAD_GUIDE,
+  installerUrl,
+} from '../lib/installers';
 
 function InstallerChoices() {
   return (
@@ -74,12 +79,13 @@ export function InstallerDownloads() {
         </summary>
         <p class="mt-2 text-fg-2">
           “Isn’t commonly downloaded” is a Microsoft SmartScreen reputation
-          warning. New or unsigned releases may trigger it. Keep Windows
+          warning. New or unsigned releases may trigger it. Compare the
+          download’s SHA-256 with the release before opening it. Keep Windows
           protection enabled; organization policy may prevent running it. You
           can prepare installer USB media on another permitted computer.
         </p>
-        <a href="https://github.com/crvouga/workspace/issues/130">
-          Windows signing status
+        <a href={WINDOWS_DOWNLOAD_GUIDE}>
+          Windows download and verification guide
         </a>
       </details>
       <InstallerChoices />

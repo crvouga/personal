@@ -26,6 +26,7 @@ import decide  # noqa: E402
 import helper  # noqa: E402
 import imaging  # noqa: E402
 import server  # noqa: E402
+import fleet_tls  # noqa: E402
 
 
 def readable_streams():
@@ -143,6 +144,8 @@ def main(argv):
     readable_streams()
     if argv[:1] == ["--helper"]:
         return helper.run(argv[1])
+    if "--selftest-https" in argv:
+        return fleet_tls.selftest()
     if "--selftest" in argv:
         return selftest()
     if "--version" in argv:

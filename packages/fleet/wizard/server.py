@@ -23,6 +23,7 @@ import bootstrap  # noqa: F401
 import decide
 import elevate
 import imaging
+import fleet_tls
 import preparation
 import fleet_wifi
 
@@ -182,7 +183,7 @@ class Wizard:
             "usb": self.usb_choices(disks),
             "internal": {"ok": internal["ok"], "plain": internal.get("plain"), "id": internal.get("disk_id")},
             "here_blockers": self.here_blockers(disks, internal),
-            "release": {"ok": error is None, "error": error, "size": size},
+            "release": {"ok": error is None, "error": error, "size": size, "advice": fleet_tls.advice(error)},
             "log": decide.LOG["path"],
         }
 

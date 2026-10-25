@@ -14,6 +14,7 @@ import { checkServices, checkTunnels } from "./check-services.js";
 import { checkStorage } from "./check-storage.js";
 import { checkTls } from "./check-tls.js";
 import { checkVault } from "./check-vault.js";
+import { checkWindowsSigning } from './check-windows-signing.js';
 import { errorMessage, type HealthContext } from "./context.js";
 import { fail, type CheckResult, type GroupReport, type HealthReport } from "./report.js";
 
@@ -25,6 +26,7 @@ export type HealthGroup = {
 };
 
 export const HEALTH_GROUPS: readonly HealthGroup[] = [
+  { id: 'windows-signing', title: 'Windows publisher', covers: 'Azure signing account and verified public certificate profile', run: checkWindowsSigning },
   { id: "auth", title: "Authentication relay", covers: "OIDC discovery, JWKS and broker readiness", run: checkAuthRelay },
   { id: "inventory", title: "Inventory", covers: "offline consistency of the OpenTofu inventory", run: checkInventory },
   { id: "dns", title: "DNS", covers: "Cloudflare delegation and every declared record", run: checkDns },

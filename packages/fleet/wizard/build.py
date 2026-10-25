@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FILES = ("main.py", "bootstrap.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "preparation.py", "fleet_wifi.py", "wifi_capture.py", "server.py", "index.html", "admin.css", "theme.js")
+FILES = ("main.py", "bootstrap.py", "fleet_tls.py", "helper.py", "imaging.py", "leases.py", "elevate.py", "preparation.py", "fleet_wifi.py", "wifi_capture.py", "server.py", "index.html", "admin.css", "theme.js")
 
 
 def target_name():
@@ -57,6 +57,7 @@ def main(argv):
             "--add-data", f"{stage / 'theme.js'}{separator}.",
             "--hidden-import", "decide", "--hidden-import", "_version",
             "--hidden-import", "fleet_wifi", "--hidden-import", "wifi_capture",
+            "--hidden-import", "certifi", "--collect-data", "certifi",
         ]
         if system == "macos":
             command += ["--windowed", "--osx-bundle-identifier", "dev.chrisvouga.fleet-installer"]
@@ -87,6 +88,12 @@ def main(argv):
         print(done.stdout, done.stderr, flush=True)
         if done.returncode != 0 or "SELFTEST OK" not in done.stdout:
             print("the built installer failed its own selftest", file=sys.stderr)
+            final.unlink(missing_ok=True)
+            return 1
+        network = subprocess.run([str(binary), "--selftest-https"], env=env, capture_output=True, text=True, timeout=120, check=False)
+        print(network.stdout, network.stderr, flush=True)
+        if network.returncode != 0 or "HTTPS SELFTEST OK" not in network.stdout:
+            print("the built installer failed verified HTTPS; it will not be published", file=sys.stderr)
             final.unlink(missing_ok=True)
             return 1
         return 0
