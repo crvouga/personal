@@ -1,4 +1,8 @@
 locals {
+  publisher = try(one(distinct([
+    for certificate in azapi_resource.profile[0].output.properties.certificates : certificate.subjectName
+    if certificate.status == "Active" && trimspace(certificate.subjectName) != ""
+  ])), null)
   release_config = local.ready ? {
     tenant_id       = local.config.tenant_id
     subscription_id = local.config.subscription_id
@@ -6,7 +10,7 @@ locals {
     endpoint        = azurerm_trusted_signing_account.installer[0].account_uri
     account         = azurerm_trusted_signing_account.installer[0].name
     profile         = azapi_resource.profile[0].name
-    publisher       = azapi_resource.profile[0].output.properties.subjectName
+    publisher       = local.publisher
   } : null
 }
 

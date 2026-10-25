@@ -31,6 +31,8 @@ class TokenTests(unittest.TestCase):
         prefix = 'ci-aaaa-' + '1' * 32
         runners = [{'name': prefix + '-slot-1', 'status': 'online'},
                    {'name': prefix + '-slot-2', 'status': 'offline'},
+                   {'name': prefix + '-slot-65', 'status': 'online'},
+                   {'name': prefix + '-unrelated', 'status': 'online'},
                    {'name': 'ci-aaaa-' + '2' * 32 + '-slot-1', 'status': 'online'}]
         output = io.StringIO()
         with patch.object(token, 'app_token', return_value='fixture'), \
@@ -38,7 +40,8 @@ class TokenTests(unittest.TestCase):
                 patch.object(sys, 'argv', ['runner-control', 'status', 'repository', 'example/private', '1', '2', 'key', prefix]), \
                 contextlib.redirect_stdout(output):
             token.main()
-        self.assertEqual(json.loads(output.getvalue()), {'registered': 2, 'online': 1})
+        self.assertEqual(json.loads(output.getvalue()), {'registered': 4, 'online': 3,
+                                                        'onlineNames': [prefix + '-slot-1']})
         self.assertTrue(all(call.args[0] == 'GET' for call in request.call_args_list))
 
     def test_registration_token_is_written_atomically_without_stdout(self):

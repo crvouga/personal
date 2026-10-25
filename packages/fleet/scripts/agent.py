@@ -38,6 +38,7 @@ if HERE not in sys.path:
 import cattle  # noqa: E402  (sibling module; the Nix derivation puts all three scripts together)
 import fleetconf  # noqa: E402
 import node_readiness  # noqa: E402
+import telemetry  # noqa: E402
 
 VERSION = "1"
 DEFAULT_INTERVAL = 60
@@ -142,6 +143,7 @@ class Paths:
         self.sys = Path(env.get("FLEET_SYS") or "/sys")
         self.nix_mount = env.get("FLEET_NIX_MOUNT") or "/nix"
         self.boot_mount = env.get("FLEET_BOOT_MOUNT") or "/boot"
+        self.root_mount = env.get("FLEET_ROOT_MOUNT") or "/"
         self.applied = Path(env.get("FLEET_CONFIG") or self.state.parent / "config.json")
         self.systemctl = env.get("FLEET_SYSTEMCTL") or "systemctl"
         self.systemd_run = env.get("FLEET_SYSTEMD_RUN") or "systemd-run"
@@ -246,6 +248,9 @@ class Agent:
         self.last_drain_attempt = None
         self.loaded = False
         self.applied_once = False
+        self.services_unknown = False
+        self.telemetry = telemetry.Collector(paths, self.command, self.clock,
+            lambda value: redact(value, [self.secret or "", self._token() or ""]))
 
     # logging -----------------------------------------------------------------
 
@@ -384,6 +389,7 @@ class Agent:
 
     def failed_units(self):
         code, out = self.command([self.paths.systemctl, "--failed", "--plain", "--no-legend", "--no-pager"], 10)
+        self.services_unknown = code != 0
         if code != 0:
             return []
         units = []
@@ -407,11 +413,10 @@ class Agent:
     def runners(self, identity):
         if identity["role"] != "ci":
             return None
-        text = (read_text(self.paths.run / "slot-count", 32) or "").strip()
-        if not text.isdigit():
+        count, selected, busy = telemetry.configured_slots(self.paths)
+        if count is None:
             return None
-        busy = sum(1 for marker in self.paths.run.glob("*/busy") if marker.is_file())
-        return {"slots": int(text), "busy": busy}
+        return {"slots": len(selected), "busy": len(busy)}
 
     def revision(self):
         value = (read_text(self.paths.etc / "revision", 256) or "").strip()
@@ -477,7 +482,11 @@ class Agent:
         arch = identity["arch"]
         if not arch:
             arch = os.uname().machine
-        return {
+        failed_units = self.failed_units()
+        readiness = node_readiness.issues(self.paths, identity, self.command, self._token(), self.settings)
+        if self.services_unknown:
+            readiness = ["FLEET_SERVICE_STATUS_UNKNOWN: systemd service health could not be verified."] + readiness[:11]
+        body = {
             "v": 1,
             "nodeId": identity["id"],
             "role": identity["role"],
@@ -501,13 +510,33 @@ class Agent:
                 "healthFailure": clip(redact(failure[1], [self.secret or ""]), 300) if failure else None,
                 "paused": self.settings.get("sync.paused") is True,
             },
-            "failedUnits": self.failed_units(),
+            "failedUnits": failed_units,
             "runners": self.runners(identity),
             "readiness": {"issues": [clip(redact(item, [self.secret or "", self._token() or ""]), 500)
-                for item in node_readiness.issues(self.paths, identity, self.command, self._token(), self.settings)]},
+                for item in readiness]},
             "agent": {"version": VERSION, "configRevision": self.config_revision},
             "events": events,
         }
+        try:
+            body["telemetry"] = self.telemetry.collect(identity, failed_units, self.services_unknown)
+        except Exception:
+            # One broken sensor must never hide the heartbeat or leak its raw
+            # exception. Missing telemetry remains unknown to older servers.
+            body["telemetry"] = {"sampledAt": iso(self.clock.time()), "cpuUsagePercent": None,
+                "filesystems": [], "temperatures": [], "power": [], "swap": None,
+                "network": [], "runnerSlots": [], "logs": [],
+                "issues": ["Telemetry collection failed; measurements are unknown and will be retried."]}
+        while len(json.dumps(body, separators=(",", ":")).encode()) > 48 * 1024:
+            for key in ("logs", "temperatures", "power", "network", "runnerSlots", "filesystems"):
+                if body["telemetry"][key]:
+                    body["telemetry"][key].pop()
+                    issue = "Telemetry was bounded to fit the heartbeat request budget."
+                    if issue not in body["telemetry"]["issues"] and len(body["telemetry"]["issues"]) < 16:
+                        body["telemetry"]["issues"].append(issue)
+                    break
+            else:
+                break
+        return body
 
     # talking to the API -------------------------------------------------------
 

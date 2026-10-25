@@ -23,6 +23,7 @@ const READERS: Readonly<Record<string, readonly string[]>> = {
   dateOrNull: ['timestamptz'],
   textList: ['text[]'],
   jsonObject: ['jsonb'],
+  telemetryOrNull: ['jsonb'],
 };
 
 /** SQL casts, by the column types that accept them. */
@@ -116,9 +117,12 @@ describe('what PgStore reads', () => {
         if (found?.nullable === false)
           expect(reader.endsWith('OrNull')).toBe(false);
         if (found?.nullable === true)
-          expect(['textOrNull', 'numberOrNull', 'dateOrNull']).toContain(
-            reader
-          );
+          expect([
+            'textOrNull',
+            'numberOrNull',
+            'dateOrNull',
+            'telemetryOrNull',
+          ]).toContain(reader);
       }
     }
   });
@@ -222,6 +226,7 @@ describe('what PgStore writes', () => {
     const known = new Set<string>([
       'jsonb_array_elements',
       'pg_advisory_xact_lock',
+      'row_number',
       ...Object.keys(SCHEMA),
     ]);
     for (const columns of Object.values(SCHEMA))

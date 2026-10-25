@@ -1090,9 +1090,24 @@ class PageTests(unittest.TestCase):
             self.assertIn(needed, html)
 
     def test_the_selftest_the_packaged_app_runs_passes_from_source(self):
-        done = subprocess.run([sys.executable, str(WIZARD / "main.py"), "--selftest"], capture_output=True, text=True, check=False, timeout=120)
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("SELFTEST OK", done.stdout)
+        # Builds and source tests run concurrently on Windows. Each simulated
+        # device must keep real locking without colliding with another selftest.
+        with tempfile.TemporaryDirectory() as tmp:
+            processes = [subprocess.Popen(
+                [sys.executable, str(WIZARD / "main.py"), "--selftest"],
+                env=dict(os.environ, FLEET_STATE=str(Path(tmp) / str(index))),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            ) for index in range(2)]
+            try:
+                for process in processes:
+                    stdout, stderr = process.communicate(timeout=120)
+                    self.assertEqual(process.returncode, 0, stdout + stderr)
+                    self.assertIn("SELFTEST OK", stdout)
+            finally:
+                for process in processes:
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait()
 
 
 if __name__ == "__main__":

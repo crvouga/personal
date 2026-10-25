@@ -26,6 +26,8 @@ export type FleetNode = {
   readonly status: string;
   readonly rolledBack: boolean;
   readonly failedUnits: readonly string[];
+  readonly readinessIssues: readonly string[] | null;
+  readonly syncFailure: string | null;
 };
 
 /** Reads one NodeView defensively; anything that is not an object with a status is dropped. */
@@ -44,6 +46,8 @@ export function readNode(value: unknown): FleetNode | undefined {
     status,
     rolledBack: asRecord(facts['sync'])['rolledBack'] === true,
     failedUnits: asStrings(facts['failedUnits']),
+    readinessIssues: Array.isArray(asRecord(facts['readiness'])['issues']) ? asStrings(asRecord(facts['readiness'])['issues']) : null,
+    syncFailure: typeof asRecord(facts['sync'])['healthFailure'] === 'string' ? String(asRecord(facts['sync'])['healthFailure']) : null,
   };
 }
 
@@ -88,6 +92,9 @@ function degraded(nodes: readonly FleetNode[]): readonly string[] {
       'failed units',
       withUnits.map((node) => `${node.label} (${names(node.failedUnits)})`),
     ],
+    ['readiness unknown', live.filter((node) => node.readinessIssues === null).map((node) => node.label)],
+    ['not ready', live.filter((node) => node.readinessIssues !== null && node.readinessIssues.length > 0).map((node) => `${node.label} (${names(node.readinessIssues ?? [])})`)],
+    ['sync failure', live.filter((node) => node.syncFailure).map((node) => `${node.label} (${node.syncFailure})`)],
   ];
   return groups
     .filter(([, labels]) => labels.length > 0)
@@ -105,6 +112,7 @@ function counts(nodes: readonly FleetNode[]): string {
 
 /** Judges a node list: fail when an approved node is offline, warn on anything degraded. */
 export function judgeNodes(nodes: readonly FleetNode[]): CheckResult {
+  if (nodes.length === 0) return warn(NAME, 'no nodes have registered yet; installed runner readiness is unverified');
   const offline = nodes
     .filter((node) => node.status === 'offline')
     .map((node) => node.label);

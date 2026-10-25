@@ -19,8 +19,12 @@ mock_provider "azurerm" {
 mock_provider "azapi" {
   mock_resource "azapi_resource" {
     defaults = {
-      id     = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/fleet-windows-signing/providers/Microsoft.CodeSigning/codeSigningAccounts/fleetsigningtest/certificateProfiles/fleet-installer"
-      output = { properties = { subjectName = "CN=Fleet Test, O=Fleet Test, C=US" } }
+      id = "/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/fleet-windows-signing/providers/Microsoft.CodeSigning/codeSigningAccounts/fleetsigningtest/certificateProfiles/fleet-installer"
+      output = { properties = { certificates = [
+        { status = "Active", subjectName = "CN=Fleet Test, O=Fleet Test, C=US" },
+        { status = "Active", subjectName = "CN=Fleet Test, O=Fleet Test, C=US" },
+        { status = "Revoked", subjectName = "CN=Old Publisher, C=US" }
+      ] } }
     }
   }
 }
@@ -28,6 +32,24 @@ mock_provider "github" {}
 
 variables {
   state_passphrase = "test-only-state-passphrase-not-for-live-use"
+}
+
+override_module {
+  target = module.inventory
+  outputs = { config = {
+    github = { infra_repo = "example/workspace" }
+    fleet_windows_signing = {
+      enabled                = true
+      subscription_id        = "11111111-1111-4111-8111-111111111111"
+      tenant_id              = "44444444-4444-4444-8444-444444444444"
+      operator_object_id     = "55555555-5555-4555-8555-555555555555"
+      resource_group         = "fleet-windows-signing"
+      location               = "eastus"
+      account                = "fleetsigningtest"
+      profile                = "fleet-installer"
+      identity_validation_id = "66666666-6666-4666-8666-666666666666"
+    }
+  } }
 }
 
 run "disabled_account_does_not_provision" {
@@ -90,23 +112,6 @@ run "bootstrap_waits_for_personal_identity_validation" {
 
 run "validated_profile_activates_restricted_publisher" {
   command = plan
-  override_module {
-    target = module.inventory
-    outputs = { config = {
-      github = { infra_repo = "example/workspace" }
-      fleet_windows_signing = {
-        enabled                = true
-        subscription_id        = "11111111-1111-4111-8111-111111111111"
-        tenant_id              = "44444444-4444-4444-8444-444444444444"
-        operator_object_id     = "55555555-5555-4555-8555-555555555555"
-        resource_group         = "fleet-windows-signing"
-        location               = "eastus"
-        account                = "fleetsigningtest"
-        profile                = "fleet-installer"
-        identity_validation_id = "66666666-6666-4666-8666-666666666666"
-      }
-    } }
-  }
   assert {
     condition     = azapi_resource.profile[0].body.properties.profileType == "PublicTrust" && !azapi_resource.profile[0].body.properties.includeStreetAddress && !azapi_resource.profile[0].body.properties.includePostalCode
     error_message = "The profile must provide public trust without publishing the operator's street address or postal code."
@@ -119,4 +124,27 @@ run "validated_profile_activates_restricted_publisher" {
     condition     = jsondecode(github_actions_variable.signing[0].value).publisher == "CN=Fleet Test, O=Fleet Test, C=US" && jsondecode(github_actions_variable.signing[0].value).client_id == "22222222-2222-4222-8222-222222222222"
     error_message = "Release configuration must use Azure's actual verified subject and generated identity, not hand-copied values."
   }
+}
+
+run "missing_active_subject_blocks_activation" {
+  command = plan
+  override_resource {
+    target = azapi_resource.profile[0]
+    values = { output = { properties = { certificates = [
+      { status = "Revoked", subjectName = "CN=Fleet Test, C=US" }
+    ] } } }
+  }
+  expect_failures = [azapi_resource.profile]
+}
+
+run "conflicting_active_subjects_block_activation" {
+  command = plan
+  override_resource {
+    target = azapi_resource.profile[0]
+    values = { output = { properties = { certificates = [
+      { status = "Active", subjectName = "CN=Fleet Test, C=US" },
+      { status = "Active", subjectName = "CN=Unexpected Publisher, C=US" }
+    ] } } }
+  }
+  expect_failures = [azapi_resource.profile]
 }

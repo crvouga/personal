@@ -45,7 +45,9 @@ export class PgStore implements Store {
   constructor(private readonly db: Db) {}
 
   async health(): Promise<void> {
-    await this.db`select 1 as ok`;
+    // Readiness includes the additive schema required by heartbeat ingestion.
+    // An old schema must refuse traffic instead of passing select 1 then losing reports.
+    await this.db`select telemetry from fleet.heartbeats limit 0`;
   }
 
   registerNode(

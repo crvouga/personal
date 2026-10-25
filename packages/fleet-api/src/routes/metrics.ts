@@ -6,6 +6,7 @@ import { ROLES, type NodeStatus, type NodeView } from '../types';
 
 import { adminRoute } from './guards';
 import { loadViews } from './node-views';
+import { resourceMetrics } from './resource-metrics';
 
 const STATUSES: readonly NodeStatus[] = [
   'online',
@@ -82,12 +83,16 @@ function runnerSlots(views: readonly NodeView[]): string[] {
 }
 
 /** Prometheus text exposition. Admin only: hostnames are not public. */
-export function renderMetrics(views: readonly NodeView[]): string {
+export function renderMetrics(
+  views: readonly NodeView[],
+  now: Date = new Date()
+): string {
   return (
     [
       ...countsByStatusAndRole(views),
       ...perNode(views),
       ...runnerSlots(views),
+      ...resourceMetrics(views, now),
     ].join('\n') + '\n'
   );
 }
@@ -96,9 +101,10 @@ export function mountMetrics(app: Hono, deps: AppDeps): void {
   app.get(
     '/metrics',
     adminRoute(deps, async (c) => {
-      const text = renderMetrics(await loadViews(deps));
+      const text = renderMetrics(await loadViews(deps), deps.now());
       return c.body(text, 200, {
         'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
+        'Cache-Control': 'no-store',
       });
     })
   );

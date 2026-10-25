@@ -82,7 +82,7 @@ resource "azapi_resource" "profile" {
       includePostalCode    = false
     }
   }
-  response_export_values = ["properties.subjectName"]
+  response_export_values = ["properties.certificates"]
   lifecycle {
     prevent_destroy = true
     precondition {
@@ -90,8 +90,11 @@ resource "azapi_resource" "profile" {
       error_message = "Activate only with Microsoft's completed identity-validation ID, never an empty or placeholder value."
     }
     postcondition {
-      condition     = try(trimspace(self.output.properties.subjectName) != "", false)
-      error_message = "Azure must return a verified certificate subject before release signing can be activated."
+      condition = try(length(distinct([
+        for certificate in self.output.properties.certificates : certificate.subjectName
+        if certificate.status == "Active" && trimspace(certificate.subjectName) != ""
+      ])) == 1, false)
+      error_message = "Azure must return active certificates with one unambiguous verified subject before release signing can be activated."
     }
   }
 }

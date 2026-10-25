@@ -89,7 +89,7 @@ def selftest():
     os.environ["FLEET_INSTALLER_SHA256_URL"] = (work / "fleet-installer.iso.sha256").as_uri()
     # Packaged selftests must be deterministic and never depend on the host's
     # real disk count, attached storage, permissions, or diskutil latency.
-    usb = {"path": "/dev/sdz", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
+    usb = {"path": f"/dev/{work.name}", "tran": "usb", "rm": True, "hotplug": True, "usb": True, "internal": False,
            "mounted": False, "whole": True, "size": 10**9, "model": "Selftest", "serial": "ST1"}
     (work / "disks.json").write_text(json.dumps([usb]))
     os.environ["FLEET_DISKS_FILE"] = str(work / "disks.json")

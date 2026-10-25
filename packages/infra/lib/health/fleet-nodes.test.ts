@@ -48,6 +48,7 @@ const view = ({
   facts: {
     failedUnits,
     sync: { rolledBack, healthFailure: null, paused: false },
+    readiness: { issues: [] },
   },
 });
 
@@ -150,11 +151,24 @@ describe('fleet nodes', () => {
     expect(result.detail).toContain('stale: b');
   });
 
-  test('a fleet with no nodes is not an error', async () => {
+  test('a fleet with no nodes cannot claim installed runner readiness', async () => {
     expect((await run([]))[0]).toMatchObject({
-      status: 'pass',
-      detail: 'no nodes have registered yet',
+      status: 'warn',
+      detail: 'no nodes have registered yet; installed runner readiness is unverified',
     });
+  });
+
+  test('online heartbeat alone does not hide unknown readiness or broken synchronization', () => {
+    const unknown = { ...view({ label: 'ci-1', status: 'online' }), facts: {} };
+    const broken = {
+      ...view({ label: 'ci-2', status: 'online' }),
+      facts: { readiness: { issues: ['GitHub runner registration has not been verified'] }, sync: { healthFailure: 'cached revision cannot be activated' } },
+    };
+    const result = judgeNodes(readNodes([unknown, broken])!);
+    expect(result.status).toBe('warn');
+    expect(result.detail).toContain('readiness unknown: ci-1');
+    expect(result.detail).toContain('not ready: ci-2');
+    expect(result.detail).toContain('sync failure: ci-2');
   });
 
   test('long lists are summarized', () => {
@@ -194,7 +208,7 @@ describe('fleet nodes', () => {
         fetch: nodesFetch([], 200, sent),
       })
     );
-    expect(results[0]!.status).toBe('pass');
+    expect(results[0]!.status).toBe('warn');
     expect(sent).toEqual(['Bearer vault-token-value']);
   });
 

@@ -30,6 +30,17 @@ export function NodeCharts({
     { key: 'load', title: 'Load (1 min)', color: 'indigo.5' },
     { key: 'memory', title: 'Memory used', color: 'teal.5' },
     { key: 'disk', title: 'Disk used', color: 'orange.5' },
+    { key: 'cpu', title: 'CPU utilization (%)', color: 'blue.5' },
+    {
+      key: 'temperature',
+      title: 'Highest reported sensor (°C)',
+      color: 'red.5',
+    },
+    {
+      key: 'power',
+      title: 'Largest reported power domain (W)',
+      color: 'yellow.5',
+    },
     ...(entry.facts.slots === null
       ? []
       : [{ key: 'busy', title: 'Runner slots busy', color: 'violet.5' }]),
@@ -48,8 +59,10 @@ export function NodeCharts({
             aria-label="Availability"
           />
           <Text size="xs" c="dimmed">
-            Received heartbeats, not an uptime guarantee. Charts show 15-minute
-            averages; gaps mean no report was received.
+            Received heartbeat samples, not an uptime guarantee. History is
+            bounded to 1,440 samples across the window; charts show 15-minute
+            averages of those samples. Gaps mean no returned sample in that
+            period.
           </Text>
         </Stack>
       </Paper>
@@ -116,7 +129,11 @@ function MetricChart({
         <Title order={3} size="h5">
           {metric.title}
         </Title>
-        {data.length ? (
+        {data.some(
+          (point) =>
+            typeof (point as unknown as Record<string, unknown>)[metric.key] ===
+            'number'
+        ) ? (
           <LineChart
             h={200}
             data={data}
@@ -130,7 +147,7 @@ function MetricChart({
             ]}
             curveType="linear"
             yAxisProps={
-              metric.key === 'memory' || metric.key === 'disk'
+              ['memory', 'disk', 'cpu'].includes(metric.key)
                 ? { domain: [0, 100] }
                 : {}
             }
@@ -139,7 +156,7 @@ function MetricChart({
           />
         ) : (
           <Text c="dimmed" size="sm" py="xl">
-            No heartbeat history yet.
+            No measurements reported in this window.
           </Text>
         )}
       </Stack>

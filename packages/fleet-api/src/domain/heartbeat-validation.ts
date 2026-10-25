@@ -1,5 +1,6 @@
 import type { HeartbeatBody, NodeEventInput, Role, Severity } from '../types';
 import { isRole } from '../types';
+import { readTelemetry } from './telemetry-validation';
 
 import {
   isRecord,
@@ -98,6 +99,7 @@ function readRunners(
     problems.list.push('runners needs slots and busy');
     return null;
   }
+  if (busy > slots) problems.list.push('runners.busy must not exceed slots');
   return { slots, busy };
 }
 
@@ -236,6 +238,7 @@ export function validateHeartbeat(input: unknown): HeartbeatResult {
     return { ok: false, errors: ['body must be a JSON object'] };
   const problems: Problems = { list: [] };
   if (input['v'] !== 1) problems.list.push('v must be 1');
+  const telemetry = readTelemetry(problems, input['telemetry']);
   const value: HeartbeatBody = {
     v: 1,
     ...readIdentity(problems, input),
@@ -263,6 +266,7 @@ export function validateHeartbeat(input: unknown): HeartbeatResult {
     runners: readRunners(problems, input['runners']),
     agent: readAgent(problems, input['agent']),
     events: readEvents(problems, input['events']),
+    ...(telemetry ? { telemetry } : {}),
     ...(input['readiness'] === undefined
       ? {}
       : {

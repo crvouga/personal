@@ -57,7 +57,8 @@ def github_issues(paths, identity, run, github, settings):
     repositories = github.get('repositories') or []
     if not 1 <= slots <= 64 or scope not in ('organization', 'repository') or (scope == 'repository' and not repositories):
         return ['FLEET_GITHUB_SCOPE_INVALID: runner registration targets are not configured correctly.']
-    targets = set()
+    prefix = identity.get('runner_prefix', identity['hostname'])
+    targets = {}
     for slot in range(1, slots + 1):
         try:
             assigned = (paths.run / 'assign-used' / f'slot-{slot}').read_text().strip()
@@ -68,21 +69,22 @@ def github_issues(paths, identity, run, github, settings):
         valid = r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+' if target_scope == 'repository' else r'[A-Za-z0-9_.-]+'
         if not isinstance(target, str) or not re.fullmatch(valid, target):
             return ['FLEET_GITHUB_SCOPE_INVALID: runner registration targets are not configured correctly.']
-        targets.add((target_scope, target))
+        targets.setdefault((target_scope, target), set()).add(f'{prefix}-slot-{slot}')
     code, states = run([paths.systemctl, 'is-active', *[f'github-runner-slot-{n}.service' for n in range(1, slots + 1)]], 5)
     if code or states.splitlines().count('active') != slots:
         return ['FLEET_RUNNERS_STARTING: expected runner services are not all active.']
     cache_file = paths.state / 'github-readiness.json'
-    prefix = identity.get('runner_prefix', identity['hostname'])
     cached = document(cache_file)
     evidence = cached.get('targets', {}) if isinstance(cached, dict) and cached.get('prefix') == prefix else {}
     if not isinstance(evidence, dict):
         evidence = {}
-    keys = {target_scope + ':' + target for target_scope, target in targets}
+    expected = {target_scope + ':' + target: names for (target_scope, target), names in targets.items()}
+    def valid_names(value, allowed):
+        return isinstance(value, list) and len(value) <= 64 and all(isinstance(name, str) and name in allowed for name in value)
     now = time.time()
-    evidence = {key: value for key, value in evidence.items() if key in keys and isinstance(value, dict)
+    evidence = {key: value for key, value in evidence.items() if key in expected and isinstance(value, dict)
                 and type(value.get('checked')) in (int, float) and 0 <= now - value['checked'] <= 600
-                and type(value.get('online')) is int and 0 <= value['online'] <= 4096}
+                and valid_names(value.get('onlineNames'), expected[key])}
     deadline = time.monotonic() + 10
     # Oldest/unverified targets go first. Persist each bounded batch so many
     # assigned repositories cannot make the same first request starve the rest.
@@ -99,10 +101,12 @@ def github_issues(paths, identity, run, github, settings):
             str(github['installationId']), str(paths.run.parent / 'secrets/github-app-key'), prefix], remaining)
         try:
             report = json.loads(out)
-            count = report['online']
-            if code or type(count) is not int or not 0 <= count <= 4096:
+            names = report['onlineNames']
+            if code or not valid_names(names, {f'{prefix}-slot-{slot}' for slot in range(1, 65)}):
                 raise ValueError()
-            evidence[key] = {'online': count, 'checked': time.time()}
+            # Keep only the slots assigned here. Old registrations and another
+            # target's extra slots cannot substitute for a missing runner.
+            evidence[key] = {'onlineNames': sorted(set(names) & expected[key]), 'checked': time.time()}
         except (ValueError, KeyError, TypeError):
             evidence.pop(key, None)
             problem = 'FLEET_GITHUB_UNAVAILABLE: GitHub runner registration/online status could not be verified; retrying automatically.'
@@ -113,9 +117,9 @@ def github_issues(paths, identity, run, github, settings):
     os.replace(temporary, cache_file)
     if problem:
         return [problem]
-    if set(evidence) != keys:
+    if set(evidence) != set(expected):
         return ['FLEET_GITHUB_CHECK_PENDING: bounded registration checks are progressing across assigned targets; retrying automatically.']
-    online = sum(value['online'] for value in evidence.values())
+    online = sum(len(set(evidence[key]['onlineNames']) & names) for key, names in expected.items())
     if online < slots:
-        return [f'FLEET_GITHUB_RUNNERS_PENDING: GitHub reports {online} of {slots} expected runners online.']
+        return [f'FLEET_GITHUB_RUNNERS_PENDING: GitHub reports {online} of {slots} expected runners online at their assigned targets.']
     return []

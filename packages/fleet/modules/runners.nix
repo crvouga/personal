@@ -142,8 +142,10 @@ ${builtins.readFile ../scripts/runner_control.py}
     # Admission barrier: a just-dispatched job fails before project code during drain.
     [ ! -e /run/fleet/draining ] || exit 75
     touch "$CI_BUSY_FILE"
+    ${tools.runnerJob}/bin/fleet-runner-job started
   '' else ''
     rm -f "$CI_BUSY_FILE"
+    ${tools.runnerJob}/bin/fleet-runner-job completed
   '');
 in {
   assertions = [
@@ -207,7 +209,10 @@ in {
       UMask = lib.mkForce "0077";
       # ExecStopPost runs after the listener's control group has stopped. A
       # crash must not leave a phantom busy job blocking every later drain.
-      ExecStopPost = "${pkgs.coreutils}/bin/rm -f /run/fleet/${id}/busy";
+      ExecStopPost = [
+        "${pkgs.coreutils}/bin/rm -f /run/fleet/${id}/busy"
+        "${tools.runnerJob}/bin/fleet-runner-job stopped"
+      ];
       ReadWritePaths = [ "/nix/ci-cache/${id}" "/run/fleet/${id}" ]
         ++ lib.optional settings.containers "/run/user/${toString (2000 + lib.lists.findFirstIndex (x: x == id) 0 ids)}";
       # Rootless Podman requires namespaces and mounts; enabled only explicitly.

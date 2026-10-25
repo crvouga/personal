@@ -12,26 +12,14 @@ import {
   Title,
 } from '@mantine/core';
 import type { FleetEntry } from '../ui/lib/fleet-data';
-
-function readinessIssues(entry: FleetEntry): string[] {
-  const { view, facts } = entry;
-  const issues = [...(facts.readinessIssues ?? [])];
-  if (view.approval !== 'approved')
-    issues.unshift(`Fleet membership is ${view.approval}.`);
-  if (view.status !== 'online')
-    issues.unshift('Waiting for a current heartbeat from this node.');
-  if (facts.failedUnits.length)
-    issues.push(`Failed services: ${facts.failedUnits.join(', ')}`);
-  if (facts.healthFailure) issues.push(facts.healthFailure);
-  return issues;
-}
+import { integrationIssues, integrationReady } from '../domain/readiness';
 
 export function NodeReadiness({ entry }: { entry: FleetEntry }) {
   const { view, facts } = entry;
-  const issues = readinessIssues(entry);
+  const issues = integrationIssues(view, facts);
   const known =
     facts.readinessIssues !== null && facts.readinessIssues !== undefined;
-  const ready = known && issues.length === 0 && view.revision !== null;
+  const ready = integrationReady(view, facts);
   const label = ready ? 'Ready' : known ? 'Not ready' : 'Not yet verified';
   const report = JSON.stringify(
     {

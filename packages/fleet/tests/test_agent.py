@@ -485,7 +485,12 @@ class HeartbeatPayloadTests(AgentCase):
         self.assertEqual(validate_heartbeat(body), [])
         documented = self.example()
         # The example's event list holds one entry; the agent reports a boot event.
-        self.assertEqual(self.shape(body), self.shape(documented))
+        # Keep the base protocol compatible with older agents while the
+        # optional telemetry extension depends on the host's available sensors.
+        self.assertEqual(self.shape({key: value for key, value in body.items() if key != "telemetry"}),
+                         self.shape({key: value for key, value in documented.items() if key != "telemetry"}))
+        self.assertEqual(set(body["telemetry"]), {"sampledAt", "cpuUsagePercent", "filesystems", "temperatures",
+            "power", "swap", "network", "runnerSlots", "logs", "issues"})
 
     def test_every_field_is_filled_from_the_machine(self):
         (self.node.run / "slot-1/busy").write_text("1\n")

@@ -74,10 +74,18 @@ export async function loadFleet(deps: AppDeps): Promise<FleetData> {
   const documents: ScopeDocuments = new Map(
     settings.map((row) => [row.scope, row.value as FleetConfig])
   );
-  const offlineAfter =
-    documents.get('fleet')?.alerts?.offlineAfterSeconds ??
-    DEFAULT_OFFLINE_AFTER_SECONDS;
-  const views = rows.map((row) => viewOf(row, now, offlineAfter));
+  const views = rows.map((row) => {
+    const config = resolveConfig({
+      fleet: documents.get('fleet') ?? {},
+      role: documents.get(`role:${row.role}`) ?? {},
+      node: documents.get(`node:${row.id}`) ?? {},
+    });
+    return viewOf(
+      row,
+      now,
+      config.alerts?.offlineAfterSeconds ?? DEFAULT_OFFLINE_AFTER_SECONDS
+    );
+  });
   const summary = summarize(views);
   return {
     now,

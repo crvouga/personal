@@ -69,7 +69,7 @@ describe('overview', () => {
       })
     );
     const page = await html(app, '/');
-    expect(page).toContain('All systems healthy');
+    expect(page).toContain('No operational alerts');
     expect(page).toContain('Nothing needs you right now.');
   });
 

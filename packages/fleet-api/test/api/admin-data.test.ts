@@ -384,6 +384,7 @@ describeApi('GET /metrics', (ctx) => {
     expect((await h.call('GET', '/metrics')).status).toBe(401);
     const reply = await h.admin('GET', '/metrics');
     expect(reply.status).toBe(200);
+    expect(reply.headers.get('cache-control')).toBe('no-store');
     expect(reply.headers.get('content-type')).toBe(
       'text/plain; version=0.0.4; charset=utf-8'
     );
@@ -442,6 +443,18 @@ describeApi('GET /metrics', (ctx) => {
       'fleet_node_up',
       'fleet_node_last_seen_seconds',
       'fleet_runner_slots',
+      'fleet_node_telemetry_fresh',
+      'fleet_node_ready',
+      'fleet_node_memory_bytes',
+      'fleet_node_runner_slots',
+      'fleet_node_cpu_usage_percent',
+      'fleet_node_filesystem_bytes',
+      'fleet_node_temperature_celsius',
+      'fleet_node_power_watts',
+      'fleet_node_network_bytes_per_second',
+      'fleet_node_network_received_bytes',
+      'fleet_node_network_transmitted_bytes',
+      'fleet_node_swap_bytes',
     ]);
   });
 
@@ -462,6 +475,7 @@ describeApi('GET /metrics', (ctx) => {
 describe('renderMetrics', () => {
   test('escapes label values', () => {
     const view = {
+      id: nodeIdOf(1),
       hostname: 'a"b\\c\nd',
       role: 'ci',
       approval: 'approved',

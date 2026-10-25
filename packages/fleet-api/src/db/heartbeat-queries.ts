@@ -4,6 +4,10 @@ import {
   DEFAULT_DISK_ALERT_PERCENT,
 } from '../domain/heartbeat-events';
 import { DEFAULT_HEARTBEAT_SECONDS } from '../domain/status';
+import {
+  compactTelemetry,
+  MAX_HISTORY_POINTS,
+} from '../domain/heartbeat-history';
 import type { HeartbeatBody, HeartbeatPoint, NodeRow } from '../types';
 
 import type { Db } from './client';
@@ -65,11 +69,12 @@ async function insertPoint(
 ): Promise<void> {
   await db`
     insert into fleet.heartbeats
-      (node_id, at, uptime_seconds, load1, mem_used_percent, disk_percent, slots, busy_slots, revision)
+      (node_id, at, uptime_seconds, load1, mem_used_percent, disk_percent, slots, busy_slots, revision, telemetry)
     values (
       ${body.nodeId}::text, ${at.toISOString()}::timestamptz, ${body.uptimeSeconds}::bigint,
       ${body.load1}::real, ${memUsedPercent(body)}::real, ${diskPercent(body)}::real,
-      ${body.runners?.slots ?? null}::int, ${body.runners?.busy ?? null}::int, ${body.revision}::text
+      ${body.runners?.slots ?? null}::int, ${body.runners?.busy ?? null}::int, ${body.revision}::text,
+      ${body.telemetry ? JSON.stringify(compactTelemetry(body.telemetry)) : null}::text::jsonb
     )
     on conflict (node_id, at) do nothing`;
 }
@@ -129,8 +134,19 @@ export async function selectPoints(
   since: Date
 ): Promise<HeartbeatPoint[]> {
   const rows = await db`
-    select * from fleet.heartbeats
-    where node_id = ${id}::text and at >= ${since.toISOString()}::timestamptz
+    select * from (
+      select *, row_number() over (
+        partition by case when n <= ${MAX_HISTORY_POINTS}::int then extract(epoch from (at))
+          else floor(extract(epoch from (at - ${since.toISOString()}::timestamptz)) /
+            greatest(1, extract(epoch from (latest - ${since.toISOString()}::timestamptz)) / ${MAX_HISTORY_POINTS - 1}::int)) end
+        order by at desc
+      ) as rank
+      from (
+        select *, count(*) over () as n, max(at) over () as latest
+        from fleet.heartbeats
+        where node_id = ${id}::text and at >= ${since.toISOString()}::timestamptz
+      ) raw
+    ) sampled where rank = 1
     order by at`;
   return rows.map(toHeartbeatPoint);
 }

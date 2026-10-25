@@ -1,3 +1,5 @@
+import type { Telemetry } from './telemetry';
+export type { Telemetry } from './telemetry';
 /**
  * The vocabulary shared by the API, the dashboard and (by PROTOCOL.md) the
  * node agent. Nothing here touches I/O.
@@ -56,6 +58,7 @@ export interface HeartbeatBody {
   };
   readonly failedUnits: readonly string[];
   readonly readiness?: { readonly issues: readonly string[] };
+  readonly telemetry?: Telemetry;
   readonly runners: { readonly slots: number; readonly busy: number } | null;
   readonly agent: {
     readonly version: string;
@@ -106,6 +109,8 @@ export interface HeartbeatPoint {
   readonly diskPercent: number | null;
   readonly slots: number | null;
   readonly busySlots: number | null;
+  /** Compact chart sample: diagnostics and detailed collections are not archived here. */
+  readonly telemetry?: Telemetry | null;
 }
 
 export interface EventRow {
