@@ -292,7 +292,7 @@ export function AvailabilityStrip(props: {
       </svg>
       <div class="mt-1 flex justify-between text-xs text-fg-3">
         <span>24 h ago</span>
-        <span>green: reported, red: missed</span>
+        <span>green: returned sample, red: no returned sample</span>
         <span>now</span>
       </div>
     </section>

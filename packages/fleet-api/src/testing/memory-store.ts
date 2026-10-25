@@ -1,4 +1,5 @@
 import type { FleetConfig, Scope } from '../config/schema';
+import { boundedHistory, compactTelemetry } from '../domain/heartbeat-history';
 import { diskPercent, readFacts } from '../ui/lib/facts';
 import type { EventQuery, NodePatch, RegisterInput, Store } from '../store';
 import type {
@@ -123,6 +124,9 @@ export class MemoryStore implements Store {
       diskPercent: diskPercent(facts),
       slots: facts.slots,
       busySlots: facts.busySlots,
+      ...(body.telemetry
+        ? { telemetry: compactTelemetry(body.telemetry) }
+        : {}),
     });
     for (const event of body.events) {
       this.pushEvent(
@@ -211,9 +215,10 @@ export class MemoryStore implements Store {
     since: Date
   ): Promise<readonly HeartbeatPoint[]> {
     const points = this.nodes.get(id)?.points ?? [];
-    return points
-      .filter((point) => point.at >= since)
-      .sort((a, b) => a.at.getTime() - b.at.getTime());
+    return boundedHistory(
+      points.filter((point) => point.at >= since),
+      since
+    );
   }
 
   async addEvent(event: EventInput): Promise<void> {

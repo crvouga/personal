@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { checkWindowsSigning } from './check-windows-signing.js';
 import { fakeContext } from './fixtures.test-support.js';
+import { signingFixture } from './windows-signing.test-support.js';
 
 const signing = {
   enabled: true, subscription_id: '11111111-1111-4111-8111-111111111111',
@@ -31,11 +32,19 @@ function context(profileStatus = 'Active') {
 }
 
 test('signing health uses only GETs and distinguishes a ready profile from a disabled one', async () => {
-  const healthy = await checkWindowsSigning(context());
-  expect(healthy.map((result) => result.status)).toEqual(['pass', 'pass']);
+  const healthy = await checkWindowsSigning(signingFixture().ctx);
+  expect(healthy).toHaveLength(7);
+  expect(healthy.every((result) => result.status === 'pass')).toBe(true);
   const broken = await checkWindowsSigning(context('Disabled'));
   expect(broken.map((result) => result.status)).toEqual(['pass', 'fail']);
   expect(JSON.stringify(healthy)).not.toContain('test-reader-token');
+});
+
+test('an active Azure profile alone cannot claim publisher signing is activated', async () => {
+  const fixture = signingFixture();
+  fixture.routes['/repos/acme/workspace/actions/variables/FLEET_WINDOWS_SIGNING'] = { status: 404, body: {} };
+  const results = await checkWindowsSigning(fixture.ctx);
+  expect(results.find((result) => result.name === 'signing workflow configuration')?.status).toBe('fail');
 });
 
 test('missing enrollment, CLI and Azure credentials are skips, never passes or leaked output', async () => {

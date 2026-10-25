@@ -114,9 +114,15 @@ prevent applying its infrastructure.
 
 ## Verification and health
 
-`bun run health --only windows-signing` reads the Azure account and public
-profile through GET requests. Missing Azure credentials or reader permission
-reports **SKIP**, never a pass. Incomplete identity validation is a failure.
+`bun run health --only windows-signing` reads the Azure account, active public
+profile, publisher identity, main-only federation and profile-scoped signing
+role through GET requests. It also checks the Actions variable against the
+actual verified certificate subject and generated client ID. An active Azure
+profile alone cannot pass release readiness. The public EXE's GitHub digest
+must match its signature proof and refer to successful trusted main CI; the
+Windows signing workflow performs actual Authenticode and timestamp validation.
+Missing Azure/GitHub credentials or reader permission reports **SKIP**, never
+a pass. Incomplete identity validation or activation is a failure.
 `--drift` also includes the signing root once it is enabled. `health:fix` points
 back here; it never provisions through Azure APIs.
 

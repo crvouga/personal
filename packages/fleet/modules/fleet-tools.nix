@@ -10,6 +10,8 @@
     cp ${../scripts/fleetconf.py} "$out/fleetconf.py"
     cp ${../scripts/agent.py} "$out/agent.py"
     cp ${../scripts/node_readiness.py} "$out/node_readiness.py"
+    cp ${../scripts/telemetry.py} "$out/telemetry.py"
+    cp ${../scripts/runner_job.py} "$out/runner_job.py"
   '';
 in {
   inherit scripts;
@@ -24,5 +26,8 @@ in {
     export PATH=${lib.makeBinPath [ pkgs.iproute2 pkgs.systemd pkgs.coreutils ]}:$PATH
     export FLEET_API_URL="''${FLEET_API_URL-${apiUrl}}"
     exec ${python} ${scripts}/agent.py "$@"
+  '';
+  runnerJob = pkgs.writeShellScriptBin "fleet-runner-job" ''
+    exec ${python} ${scripts}/runner_job.py "$@"
   '';
 }

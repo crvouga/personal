@@ -42,13 +42,13 @@ export function parseFleetGithub(json: string): FleetGithub {
 /**
  * Node lag is not observable from here. Each node compares itself with
  * origin/main (`fleet-drift.service`). This is not OpenTofu plan drift.
- * TODO: metrics are only on 127.0.0.1:9101. No scraper exists, so a node
- * that stops reporting is invisible outside that machine.
+ * Fleet API heartbeats separately expose revision, readiness and missed beats.
+ * GitHub registration alone does not prove the installed revision is healthy.
  */
 export function checkFleetRevision(): CheckResult {
   return skip(
     "fleet revision",
-    "TODO: no scraper for 127.0.0.1:9101. A silent node is invisible here. fleet-drift.service is the on-node lag signal; this is not OpenTofu plan drift.",
+    "GitHub registration does not prove revision readiness. The fleet-nodes health group checks authenticated heartbeats, readiness, sync failures and offline state; fleet-drift.service reports revision lag on the node.",
   );
 }
 

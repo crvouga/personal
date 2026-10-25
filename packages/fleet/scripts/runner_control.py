@@ -78,7 +78,10 @@ def main():
         if len(args) != 1:
             raise ValueError("runner status requires the node hostname")
         runners = matching_runners(args[0], list_runners(scope, target, access))
-        print(json.dumps({"registered": len(runners), "online": sum(r.get("status") == "online" for r in runners)}))
+        slots = {args[0] + "-slot-" + str(slot) for slot in range(1, 65)}
+        online_names = sorted({r["name"] for r in runners if r.get("status") == "online" and r["name"] in slots})
+        print(json.dumps({"registered": len(runners), "online": sum(r.get("status") == "online" for r in runners),
+                          "onlineNames": online_names}))
         return
     if mode == "register":
         if len(args) != 1:

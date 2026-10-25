@@ -21,6 +21,24 @@ class ReportUnavailable(Exception):
     pass
 
 
+def latest_progress(path):
+    """Read a bounded tail so long-running installs keep reporting new work."""
+    try:
+        with path.open('rb') as stream:
+            stream.seek(0, os.SEEK_END)
+            start = max(0, stream.tell() - 65536)
+            stream.seek(start)
+            tail = stream.read(65536)
+        # An offset may start inside UTF-8 or a line. Discard that partial
+        # line, retaining complete recent lines and replacement-safe decoding.
+        if start:
+            tail = tail.partition(b'\n')[2]
+        lines = tail.decode('utf-8', 'replace').splitlines()
+        return lines[-1] if lines else None
+    except OSError:
+        return None
+
+
 class BootstrapReporter:
     def __init__(self, toplevel, role, token_file, identity=None, http=None):
         metadata = json.loads((Path(toplevel) / 'etc/fleet/bootstrap.json').read_text())
@@ -95,8 +113,7 @@ def main(args):
         log = Path(os.environ.get('FLEET_INSTALL_LOG', '/run/fleet-install.log'))
         while True:
             os.kill(pid, 0)
-            latest = (agent.read_text(log, 65536) or '').splitlines()[-1:]
-            detail = agent.redact(latest[0] if latest else message, [current, reporter.token])
+            detail = agent.redact(latest_progress(log) or message, [current, reporter.token])
             reporter.report('FLEET_INSTALLING: ' + detail)
             time.sleep(20)
     except Exception:

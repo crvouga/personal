@@ -35,7 +35,7 @@ async function databaseAnswers(
   }
 }
 
-/** Public. 200 only while the database answers `select 1`; Railway and `bun run health` use it. */
+/** Public. 200 only while the database and required schema answer; Railway and `bun run health` use it. */
 export function mountHealth(
   app: Hono,
   store: Store,

@@ -172,6 +172,11 @@ table "heartbeats" {
     null = true
     type = integer
   }
+  # Optional bounded hardware samples; older agents and historical rows stay null.
+  column "telemetry" {
+    null = true
+    type = jsonb
+  }
   column "revision" {
     null = true
     type = text

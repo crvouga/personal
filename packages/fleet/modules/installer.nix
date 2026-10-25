@@ -7,6 +7,8 @@
     cp ${../scripts/bootstrap_report.py} "$out/bootstrap_report.py"
     cp ${../scripts/agent.py} "$out/agent.py"
     cp ${../scripts/node_readiness.py} "$out/node_readiness.py"
+    cp ${../scripts/telemetry.py} "$out/telemetry.py"
+    cp ${../scripts/runner_job.py} "$out/runner_job.py"
     cp ${../scripts/cattle.py} "$out/cattle.py"
     cp ${../scripts/fleetconf.py} "$out/fleetconf.py"
   '';

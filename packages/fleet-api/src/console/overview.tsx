@@ -34,7 +34,7 @@ export function Overview({ state }: { state: ConsoleState }) {
         color={health.level === 'ok' ? 'teal' : 'orange'}
         title={
           health.level === 'ok'
-            ? 'All systems healthy'
+            ? 'No operational alerts'
             : `${health.needAttention} machines need attention`
         }
       >

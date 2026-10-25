@@ -148,7 +148,7 @@ State-changing browser requests also require a same-origin `Origin` header (CSRF
 
 ## Public endpoints
 
-- `GET /health` - `200 { "ok": true }` when the process is up and the database answers `select 1`; `503` otherwise. Used by Railway and `bun run health`.
+- `GET /health` - `200 { "ok": true }` when the process is up and the database can read the required heartbeat schema; `503` otherwise. Used by Railway and `bun run health`.
 - `GET /assets/app.css` - the compiled stylesheet.
 
 ## Dashboard (cookie session)
@@ -202,3 +202,81 @@ Details the sections above leave open. `test/api/**` and `test/db/**` pin every 
 ### Background work
 
 No offline notice is sent in the first two minutes after the process starts, so an API outage does not announce the whole fleet when it ends. A notice is recorded before the webhook is tried; webhook failures (timeout 5 s, no redirects, https only) are logged and never repeated.
+
+## Extended telemetry (optional v1 field)
+
+A new agent may include `telemetry` in each heartbeat. Its absence means an
+older agent or unavailable collection; it never means zero usage. The object
+is validated and stored in full in the latest node `facts`. Heartbeat history
+retains a compact nullable JSONB metric summary for the existing seven-day
+retention: sample time, CPU utilization, at most one hottest temperature sensor
+and one largest measured power domain (including its name and source).
+Historical arrays for filesystems, network, jobs, diagnostics and issues are
+empty; swap is null. Full lifecycle/service diagnostics belong to the current
+snapshot, not a raw log archive. Unknown keys
+are discarded. Existing agents do not need a protocol-version change.
+
+- `sampledAt`: ISO 8601 UTC timestamp ending in `Z`.
+- `cpuUsagePercent`: measured CPU utilization (0–100), or `null` while the
+  first counter delta is warming up or the measurement is unavailable. Load
+  average remains a separate metric.
+- `filesystems`: up to 16 `{ mount, totalBytes, usedBytes, availableBytes }`
+  records. Counts are nonnegative safe integers; used plus available cannot
+  exceed total (reserved space may account for the remainder).
+- `temperatures`: up to 64 `{ name, celsius }` sensor readings, −100–250 °C.
+- `power`: up to 32 `{ name, watts, source }` records; `source` is `hwmon` or
+  `powercap`. These are individual hardware domains and may overlap; they do
+  not establish whole-machine or wall power. Unsupported hardware reports an
+  empty array and a diagnostic issue instead of invented zero watts.
+- `swap`: `{ totalBytes, usedBytes }`, or `null` when unavailable.
+- `network`: up to 32 `{ name, receivedBytes, transmittedBytes,
+receiveBytesPerSecond, transmitBytesPerSecond }` records. Counter deltas are
+  `null` on first collection, interface reset or unavailable samples.
+- `runnerSlots`: up to 64 `{ slot, state, repository, runId, jobName,
+startedAt, finishedAt, result }` records. State is `idle`, `busy` or `offline`.
+  Unknown metadata is `null`; times are ISO UTC. GitHub repository names are
+  restricted to two safe path segments and run IDs to positive decimal
+  strings. Links always target `https://github.com/<owner>/<repo>/actions/runs/<id>`.
+  Hook completion proves the completion hook ran, not a trustworthy job result;
+  GitHub remains authoritative for outcomes and complete authenticated job logs.
+- `logs`: up to 40 `{ at, source, level, message }` diagnostic summaries, with
+  `info`, `warn` or `error` levels. Sources are `systemd` and `runner:slot-1`
+  through `runner:slot-64`; messages use the allowlisted failed-service and
+  runner-start/completed/interrupted summaries. Arbitrary journald, runner
+  stdout, environment variables, tokens and job output are not ingested.
+- `issues`: up to 16 diagnostic strings. Labels/job names are at most 120
+  characters, diagnostic messages at most 500. Named collections reject
+  duplicate identifiers. Existing request bodies remain capped at 64 KiB.
+
+The existing `runners.busy` count cannot exceed `runners.slots`. The dashboard
+shows sample time and explicitly labels stale samples; missing sensors and
+unmeasured rates remain unavailable. CPU, highest reported temperature and
+largest reported power-domain charts use the stored samples with gaps for
+unknown values. Power domains are never summed as if they were independent.
+History endpoints return at most 1,440 points across the requested window.
+When more reports exist, adaptive time buckets retain the latest actual sample
+in each bucket, including the newest report, without filling gaps. Charts
+average the returned samples; a gap means no returned sample in that period,
+not a precise outage measurement. Low-frequency histories are unchanged.
+
+Protected `/metrics` also exposes `fleet_node_telemetry_fresh`,
+`fleet_node_ready`, `fleet_node_memory_bytes`, `fleet_node_runner_slots`,
+`fleet_node_cpu_usage_percent`, `fleet_node_filesystem_bytes`,
+`fleet_node_temperature_celsius`, `fleet_node_power_watts`,
+`fleet_node_network_bytes_per_second`, interface byte counters and
+`fleet_node_swap_bytes`. Resource series are omitted when the node or sample
+is stale; unavailable measurements are omitted rather than exported as zero.
+Telemetry freshness and readiness remain explicit 0/1 gauges. All metrics
+responses are `Cache-Control: no-store` and retain administrator authorization.
+
+### Schema-first rollout
+
+Before deploying this API revision, apply the reviewed additive foundation
+OpenTofu plan for nullable `fleet.heartbeats.telemetry`. Old server revisions
+ignore this column; old agent heartbeats remain accepted by the new server.
+Then deploy the API/dashboard before updated agents. `PgStore.health()` now
+reads the required telemetry column with `LIMIT 0`; a missing column yields
+readiness HTTP 503 instead of passing a shallow probe and losing heartbeats.
+There is no runtime DDL, automatic migration or secret seeding. Keep the column
+when rolling back the application. Local scratch-database tests are rollout
+evidence, not proof that this schema is applied to production.

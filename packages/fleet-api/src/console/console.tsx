@@ -61,6 +61,7 @@ function Console() {
           </Button>
         </Group>
         <ErrorNotice message={resource.error} retry={resource.reload} />
+        <SnapshotNotice error={resource.error} at={resource.data.fleet.now} />
         {resource.data.path !== path ? (
           resource.error ? null : (
             <Center mih={220}>
@@ -139,5 +140,15 @@ function InitialLoading({
         )}
       </Stack>
     </Center>
+  );
+}
+
+function SnapshotNotice({ error, at }: { error: string; at: Date }) {
+  if (!error) return null;
+  return (
+    <Alert color="orange" title="Showing the last successful report">
+      Live refresh failed. The displayed metrics and job states may be stale;
+      the last snapshot was received at {at.toLocaleString()}.
+    </Alert>
   );
 }

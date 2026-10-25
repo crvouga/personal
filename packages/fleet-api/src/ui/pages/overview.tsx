@@ -23,12 +23,12 @@ const BANNER: Record<
   ok: {
     tone: tw('border-ok-dot/40 bg-ok-soft text-ok'),
     icon: 'check',
-    title: 'All systems healthy',
+    title: 'No operational alerts',
   },
   info: {
     tone: tw('border-ok-dot/40 bg-ok-soft text-ok'),
     icon: 'check',
-    title: 'All systems healthy',
+    title: 'No operational alerts',
   },
   warn: {
     tone: tw('border-warn-dot/50 bg-warn-soft text-warn'),

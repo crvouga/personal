@@ -267,3 +267,29 @@ tracked in [Bun #32004](https://github.com/oven-sh/bun/issues/32004) and
 1.4 stable. The pool contention regression runs transactions and ordinary
 parameterized queries with more workers than connections and awaits every result.
 Test timeout limits remain unchanged. Dependencies are not patched.
+
+## Hardware and runner observability
+
+New agents report measured CPU utilization, memory, per-mount capacity,
+network counters/rates, swap, available temperature sensors and hardware power
+domains. The node dashboard shows the sample timestamp, explicit stale status,
+24-hour CPU/temperature/power charts, individual runner lifecycle records and
+bounded failed-service diagnostics. Latest node facts retain the complete bounded
+snapshot; seven-day history stores compact CPU/temperature/power summaries,
+never repeated job/log arrays. Node history responses contain at most 1,440
+representative points spanning the window. Missing hardware measurements stay
+unavailable; power domains may overlap and do not imply wall power. All of this
+is available through the authenticated node API and freshness-aware protected
+Prometheus metrics. See [the telemetry contract and rollout order](PROTOCOL.md#extended-telemetry-optional-v1-field).
+
+Runner lifecycle metadata links directly to the validated GitHub run for its
+authoritative outcome and complete authenticated job logs. Fleet stores only
+allowlisted service and start/completed/interrupted summaries; arbitrary job
+stdout, environment variables and credentials are not uploaded. An offline
+machine's last busy count does not establish which jobs are running now.
+
+Apply the reviewed additive OpenTofu/Atlas schema plan **before** deploying the
+new API; then deploy agents. The required nullable heartbeat telemetry column
+preserves compatibility with older agents and API rollbacks. Readiness refuses
+a database missing that column. No live schema or deployment is implied by
+local tests.

@@ -1,7 +1,10 @@
 import type { NodeRow } from '../../types';
+import type { Telemetry } from '../../telemetry';
+import { telemetryOf } from '../../domain/telemetry-validation';
 
 /** What a node last reported, read defensively from the stored JSON. */
 export interface NodeFacts {
+  readonly telemetry: Telemetry | null;
   readonly readinessIssues?: readonly string[] | null;
   readonly capabilities: readonly string[];
   readonly bootId: string | null;
@@ -66,6 +69,7 @@ export function readFacts(row: Pick<NodeRow, 'facts'>): NodeFacts {
   const total = num(memory['totalMiB']);
   const available = num(memory['availableMiB']);
   return {
+    telemetry: telemetryOf(facts['telemetry']),
     readinessIssues: Array.isArray(record(facts['readiness'])['issues'])
       ? strings(record(facts['readiness'])['issues'])
       : null,

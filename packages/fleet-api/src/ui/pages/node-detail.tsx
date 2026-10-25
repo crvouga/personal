@@ -18,6 +18,7 @@ import {
 } from '../lib/format';
 import { availability, bucketize } from '../lib/series';
 import { cx, tw } from '../lib/tw';
+import { TelemetrySnapshot } from './node-telemetry';
 import {
   EditPanel,
   EffectiveConfig,
@@ -316,6 +317,7 @@ export function NodeDetailBody(props: NodeDetailProps) {
       <div class="grid gap-6 lg:grid-cols-3">
         <div class="space-y-6 lg:col-span-2">
           <Charts entry={entry} points={points} now={data.now} />
+          <TelemetrySnapshot entry={entry} now={data.now} />
           <EffectiveConfig view={entry.view} documents={data.documents} />
           <NodeTimeline events={events} now={data.now} />
         </div>

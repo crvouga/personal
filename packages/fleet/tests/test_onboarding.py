@@ -172,15 +172,16 @@ class OnboardingTests(unittest.TestCase):
         (self.root / 'sync').mkdir()
         (self.root / 'sync/last-success').write_text('a' * 40)
         paths = SimpleNamespace(etc=self.etc, run=runtime, state=self.root / 'agent', systemctl='systemctl')
-        run = mock.Mock(side_effect=lambda args, timeout: (0, '{"online":1}') if args[0].endswith('runner-control') else (0, 'active'))
         identity = {'role': 'ci', 'hostname': 'ci-aaaa', 'runner_prefix': 'ci-aaaa-' + 'a' * 32}
+        run = mock.Mock(side_effect=lambda args, timeout: (0, json.dumps({'online': 1,
+            'onlineNames': [identity['runner_prefix'] + '-slot-1']})) if args[0].endswith('runner-control') else (0, 'active'))
         self.assertEqual(node_readiness.issues(paths, identity, run, True, {}), [])
         self.assertIn(identity['runner_prefix'], run.call_args.args[0])
         (self.root / 'sync/last-success').write_text('b' * 40)
         self.assertTrue(any('UPDATE_CHECK_PENDING' in issue for issue in node_readiness.issues(paths, identity, run, True, {})))
         (self.root / 'sync/last-success').write_text('a' * 40)
         (paths.state / 'github-readiness.json').unlink()
-        run.side_effect = lambda args, timeout: (0, '{"online":0}') if args[0].endswith('runner-control') else (0, 'active')
+        run.side_effect = lambda args, timeout: (0, '{"online":0,"onlineNames":[]}') if args[0].endswith('runner-control') else (0, 'active')
         self.assertIn('GITHUB_RUNNERS_PENDING', node_readiness.issues(paths, identity, run, True, {})[0])
 
     def test_bounded_github_checks_rotate_and_include_repository_overrides_of_organization_slots(self):
@@ -195,7 +196,8 @@ class OnboardingTests(unittest.TestCase):
         def run(args, timeout):
             if args[0].endswith('runner-control'):
                 calls.append(args[2:4])
-                return 0, '{"online":1}'
+                slot = '1' if args[2] == 'repository' else '2'
+                return 0, json.dumps({'online': 1, 'onlineNames': [identity['runner_prefix'] + '-slot-' + slot]})
             return 0, 'active\nactive'
         with mock.patch.object(node_readiness.time, 'monotonic', side_effect=[0, 1, 10]):
             self.assertIn('GITHUB_CHECK_PENDING', node_readiness.github_issues(paths, identity, run, github, {})[0])

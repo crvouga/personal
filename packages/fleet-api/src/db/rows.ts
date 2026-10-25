@@ -9,6 +9,9 @@ import type {
   SettingsRow,
 } from '../types';
 import { isRole } from '../types';
+import type { Telemetry } from '../telemetry';
+import { telemetryOf } from '../domain/telemetry-validation';
+import { compactTelemetry } from '../domain/heartbeat-history';
 
 /** One result row as the driver returns it. Converted before leaving src/db. */
 export type Row = Readonly<Record<string, unknown>>;
@@ -124,6 +127,9 @@ export function toHeartbeatPoint(row: Row): HeartbeatPoint {
     diskPercent: numberOrNull(row, 'disk_percent'),
     slots: numberOrNull(row, 'slots'),
     busySlots: numberOrNull(row, 'busy_slots'),
+    ...(row['telemetry'] === null || row['telemetry'] === undefined
+      ? {}
+      : { telemetry: telemetryOrNull(row, 'telemetry') }),
   };
 }
 
@@ -157,4 +163,9 @@ export function toSettingsHistoryRow(row: Row): SettingsHistoryRow {
     changedAt: dateOf(row, 'changed_at'),
     changedBy: textOrNull(row, 'changed_by'),
   };
+}
+
+export function telemetryOrNull(row: Row, key: string): Telemetry | null {
+  const sample = telemetryOf(row[key]);
+  return sample ? compactTelemetry(sample) : null;
 }
