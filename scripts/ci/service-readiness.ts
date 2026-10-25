@@ -30,8 +30,14 @@ export function rolloutState(
     return 'pending';
   if (['FAILED', 'CRASHED', 'REMOVED', 'SKIPPED'].includes(latest.status))
     return 'failed';
-  return latest.status === 'SUCCESS' &&
-    rollout.active.some((d) => d.id === latest.id && d.status === 'SUCCESS')
+  // Railway retains SLEEPING for a successfully deployed image scaled to zero.
+  // Public readiness probes below this gate wake it and still must pass.
+  if (latest.status === 'SLEEPING' && rollout.active.length === 0)
+    return 'ready';
+  return ['SUCCESS', 'SLEEPING'].includes(latest.status) &&
+    rollout.active.some(
+      (d) => d.id === latest.id && ['SUCCESS', 'SLEEPING'].includes(d.status)
+    )
     ? 'ready'
     : 'pending';
 }
@@ -85,32 +91,39 @@ export function rolloutTargets(input: {
   tags: Record<string, string>;
   changes: string[];
   startedAt: number;
+  explicitSelection?: boolean;
+  revision?: string;
 }): Target[] {
   const config = loadServicesConfig();
   if (!input.selected.length || !Number.isFinite(input.startedAt))
     throw new Error('Missing rollout selection or start time');
   const services = deployableServices(config);
-  return input.selected.map((name) => {
-    const service = services.find((service) => service.id === name);
-    if (!service || !input.ids[name] || !input.tags[name])
-      throw new Error(`Missing rollout state for ${name}`);
-    const prefix = `module.service[${JSON.stringify(name)}].`;
-    const changed = input.changes.some(
-      (address) =>
-        address.startsWith(prefix) &&
-        /\.(railway_service|railway_variable_collection|graphql_mutation)\./.test(
-          address
-        )
+  return input.selected
+    .map((name) => {
+      const service = services.find((service) => service.id === name);
+      if (!service || !input.ids[name] || !input.tags[name])
+        throw new Error(`Missing rollout state for ${name}`);
+      const prefix = `module.service[${JSON.stringify(name)}].`;
+      const changed = input.changes.some(
+        (address) =>
+          address.startsWith(prefix) &&
+          /\.(railway_service|railway_variable_collection)\./.test(address)
+      );
+      return {
+        name,
+        serviceId: input.ids[name],
+        image:
+          service.image ??
+          `ghcr.io/${config.image_owner}/${config.image_prefix}-${name}:${input.tags[name]}`,
+        ...(changed ? { after: input.startedAt } : {}),
+      };
+    })
+    .filter(
+      (target) =>
+        input.explicitSelection ||
+        input.tags[target.name] === input.revision ||
+        target.after !== undefined
     );
-    return {
-      name,
-      serviceId: input.ids[name],
-      image:
-        service.image ??
-        `ghcr.io/${config.image_owner}/${config.image_prefix}-${name}:${input.tags[name]}`,
-      ...(changed ? { after: input.startedAt } : {}),
-    };
-  });
 }
 
 async function main() {
@@ -123,6 +136,10 @@ async function main() {
     tags: output('fleet', 'image_tags'),
     changes: JSON.parse(process.env.ROLLOUT_CHANGES!),
     startedAt: Date.parse(process.env.ROLLOUT_STARTED_AT!),
+    explicitSelection: ['repository_dispatch', 'workflow_dispatch'].includes(
+      process.env.GITHUB_EVENT_NAME ?? ''
+    ),
+    revision: process.env.GITHUB_SHA,
   });
   const results = await Promise.allSettled(
     targets.map((target) =>

@@ -55,6 +55,18 @@ test('an old healthy deployment cannot hide failure, pending activation, wrong i
   expect(rolloutState(target, { latest: undefined, active: [] })).toBe(
     'pending'
   );
+  expect(rolloutState(target, { ...observation('SLEEPING'), active: [] })).toBe(
+    'ready'
+  );
+  expect(
+    rolloutState(target, {
+      ...observation('SLEEPING'),
+      active: [{ id: 'new', status: 'SLEEPING' }],
+    })
+  ).toBe('ready');
+  expect(
+    rolloutState(target, observation('SLEEPING', { meta: { image: 'old' } }))
+  ).toBe('pending');
 });
 
 test('polling waits for activation and fails closed on terminal failure, query failure and timeout', async () => {
@@ -98,8 +110,13 @@ test('rollout targets require a new deployment for changed variables even when t
     tags: { moviefinder: 'commit' },
     changes: [] as string[],
     startedAt: 123,
+    explicitSelection: true,
   };
   expect(rolloutTargets(input)[0]!.after).toBeUndefined();
+  expect(rolloutTargets({ ...input, explicitSelection: false })).toEqual([]);
+  expect(
+    rolloutTargets({ ...input, explicitSelection: false, revision: 'commit' })
+  ).toHaveLength(1);
   input.changes = [
     'module.service["moviefinder"].railway_variable_collection.this',
   ];
@@ -107,10 +124,15 @@ test('rollout targets require a new deployment for changed variables even when t
     after: 123,
     image: 'ghcr.io/crvouga/chrisvouga-moviefinder:commit',
   });
+  expect(rolloutTargets({ ...input, explicitSelection: false })[0]!.after).toBe(
+    123
+  );
   input.changes = [
     'module.service["moviefinder"].cloudflare_dns_record.traffic',
   ];
   expect(rolloutTargets(input)[0]!.after).toBeUndefined();
+  input.changes = ['module.service["moviefinder"].graphql_mutation.settings'];
+  expect(rolloutTargets({ ...input, explicitSelection: false })).toEqual([]);
   expect(() => rolloutTargets({ ...input, tags: {} })).toThrow(
     'Missing rollout state'
   );
