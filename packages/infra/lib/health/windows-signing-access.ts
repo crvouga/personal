@@ -2,6 +2,7 @@
 import type { InfraConfig } from '../schema.js';
 import { asRecord, type HealthContext, type JsonResponse } from './context.js';
 import { githubApi } from './check-github.js';
+import { checkSigningFederation } from './windows-signing-federation.js';
 import { fail, pass, skip, type CheckResult } from './report.js';
 
 export type SigningConfig = NonNullable<InfraConfig['fleet_windows_signing']>;
@@ -59,16 +60,13 @@ export async function checkSigningAccess(ctx: HealthContext, azure: AzureReader,
   ]);
   const properties = asRecord(asRecord(identity.body)['properties']);
   const principalId = properties['principalId'];
-  const credentials = asRecord(federation.body)['value'];
-  const credential = Array.isArray(credentials) && credentials.length === 1 ? asRecord(credentials[0]) : {};
-  const binding = asRecord(credential['properties']);
   const assignments = asRecord(roles.body)['value'];
   const publisherRoles = Array.isArray(assignments) ? assignments.map(asRecord).map((entry) => asRecord(entry['properties'])).filter((role) => typeof principalId === 'string' && role['principalId'] === principalId) : [];
   const signer = publisherRoles.length === 1 && publisherRoles.every((role) =>
     String(role['scope']).toLowerCase() === profilePath.toLowerCase() && String(role['roleDefinitionId']).toLowerCase().endsWith(SIGNER_ROLE) && !role['condition']) && !asRecord(roles.body)['nextLink'];
   return [
     azureResult('publisher managed identity', identity, typeof principalId === 'string' && typeof properties['clientId'] === 'string'),
-    azureResult('main-only signing federation', federation, credential['name'] === 'github-main' && !asRecord(federation.body)['nextLink'] && binding['issuer'] === 'https://token.actions.githubusercontent.com' && binding['subject'] === `repo:${ctx.config.github?.infra_repo}:ref:refs/heads/main` && JSON.stringify(binding['audiences']) === '["api://AzureADTokenExchange"]'),
+    await checkSigningFederation(ctx, federation),
     azureResult('profile-scoped signing permission', roles, signer),
     await workflowConfiguration(ctx, { ...profile, clientId: properties['clientId'] }),
   ];

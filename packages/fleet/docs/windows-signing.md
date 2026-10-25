@@ -58,6 +58,9 @@ R2 backend with the distinct `signing.tfstate` key.
    bun run infra:signing output -raw identity_validation_url
    ```
 
+   The operator's `GITHUB_TOKEN` must also permit reading the repository's OIDC
+   settings. OpenTofu reads GitHub's actual default subject prefix, including
+   immutable owner/repository IDs, and restricts it to `refs/heads/main`.
    Review the saved plan before applying. Bootstrap creates no certificate
    profile and grants CI no signing permission. Do not create resources or
    role assignments with Azure CLI commands or dashboard buttons.
@@ -95,7 +98,8 @@ addresses in this root. Never replace existing resources to adopt them.
 `Fleet Windows signing` runs only after successful CI for trusted main pushes or
 manual CI runs. It downloads that exact run's tested Windows artifact and never
 executes PR artifacts with signing permissions. Federation accepts only
-`repo:crvouga/workspace:ref:refs/heads/main`; the publisher has no subscription
+GitHub's actual default subject for this repository on `refs/heads/main`,
+including its immutable owner/repository IDs; the publisher has no subscription
 ownership or identity-verification permission. Normal release publication
 excludes EXEs so it cannot overwrite a signed installer with an unsigned build.
 
