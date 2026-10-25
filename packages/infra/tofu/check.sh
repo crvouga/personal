@@ -27,6 +27,6 @@ if [[ "$group" = all || "$group" = modules ]]; then
 fi
 
 if [[ "$group" = all || "$group" = contracts ]]; then
-  python3 tests/run-contracts.py bootstrap railway-settings registry-credentials foundation-controls publisher-handoff foundation vault auth-hosting cloudflare-dns-settings github-secrets domains
+  python3 tests/run-contracts.py bootstrap railway-settings registry-credentials foundation-controls publisher-handoff foundation vault auth-hosting cloudflare-dns-settings github-secrets domains aliases
   bun run --cwd ../../auth-relay test
 fi

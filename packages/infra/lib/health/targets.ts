@@ -38,6 +38,7 @@ export function httpsHostnames(config: InfraConfig): readonly string[] {
   return [
     ...new Set([
       ...publicRailwayServices(config).map((service) => service.hostname as string),
+      ...(config.aliases ?? []).map((alias) => alias.hostname),
       ...tunnelHostnames(config),
       ...redirectHostnames(config),
     ]),

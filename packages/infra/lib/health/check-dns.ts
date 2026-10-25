@@ -79,7 +79,10 @@ function declaredRecord(ctx: HealthContext, record: CloudflareDnsRecordSpec): Pr
 }
 
 export async function checkDns(ctx: HealthContext): Promise<readonly CheckResult[]> {
-  const serviceHosts = publicRailwayServices(ctx.config).map((service) => service.hostname as string);
+  const serviceHosts = [
+    ...publicRailwayServices(ctx.config).map((service) => service.hostname as string),
+    ...(ctx.config.aliases ?? []).map((alias) => alias.hostname),
+  ];
   const records = Object.values(ctx.config.cloudflare?.dns?.records ?? {});
   const recordNames = new Set(records.map((record) => record.name));
   const proxiedHosts = [...tunnelHostnames(ctx.config), ...redirectHostnames(ctx.config)].filter(

@@ -59,6 +59,7 @@ test('distributed OpenTofu groups cover exactly the full local suite', () => {
     'cloudflare-dns-settings',
     'github-secrets',
     'domains',
+    'aliases',
   ]);
   expect(
     groups.filter((command) => command.endsWith(' validate'))
