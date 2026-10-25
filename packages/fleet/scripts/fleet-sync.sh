@@ -209,11 +209,21 @@ previous=""
 if [ -e "$profile" ]; then
   previous=$(readlink -f "$profile" || true)
 fi
-rollback_root=""
+roots=${FLEET_GC_ROOTS:-/nix/var/nix/gcroots}
+rollback_root=$roots/fleet-update-previous
+# The profile can already name an unverified candidate after a power loss.
+# Keep the saved previous generation rather than overwriting its recovery root.
+if [ "$previous" = "$toplevel" ] \
+  && [ "$(cat "$state_dir/last-success" 2>/dev/null || true)" != "$revision" ] \
+  && [ -e "$rollback_root" ]; then
+  saved_previous=$(readlink -f "$rollback_root" || true)
+  if [ -n "$saved_previous" ] && [ "$saved_previous" != "$toplevel" ] \
+    && [ -x "$saved_previous/bin/switch-to-configuration" ]; then
+    previous=$saved_previous
+  fi
+fi
 if [ -n "$previous" ] && { [[ "$previous" == /nix/store/* ]] || [ -n "${FLEET_GC_ROOTS:-}" ]; }; then
-  roots=${FLEET_GC_ROOTS:-/nix/var/nix/gcroots}
   install -d -m 0755 "$roots"
-  rollback_root=$roots/fleet-update-previous
   ln -sfn "$previous" "$rollback_root"
 fi
 

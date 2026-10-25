@@ -27,6 +27,11 @@ lock is inherited by child processes and released when those processes exit.
 Once no writer exists, Git lock files left by interrupted updates are removed
 from the private checkout automatically.
 
+The previous generation stays GC-rooted while a candidate is unverified. If
+power loss leaves the system profile on that candidate, the next attempt keeps
+the saved rollback target instead of mistaking the candidate for a known-good
+previous generation.
+
 Fetch, substitution, profile selection, activation, rollback and runner recovery
 are bounded. Commands that ignore termination are killed after a grace period.
 Activation and rollback default to five minutes each, followed by a 30-second
@@ -43,7 +48,8 @@ setting still pauses updates until the operator clears it.
 - `tests/test_sync_recovery.py` runs the real pull script against a temporary Git
   repository and controlled dependency failures. It covers missed commits,
   delayed cache availability, inactive/disabled timers, stale Git locks and
-  competing writers, with previous-generation and success-marker assertions.
+  competing writers and interruption after profile selection, with
+  previous-generation and success-marker assertions.
 - `checks.update-units` verifies every deployable role and capability variant
   retains the boot timer, repeated scheduling and uninterrupted updater service.
 - `checks.follow-up` runs a NixOS VM with a real systemd timer, Git checkout,

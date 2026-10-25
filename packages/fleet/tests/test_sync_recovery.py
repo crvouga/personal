@@ -11,6 +11,29 @@ class SyncRecoveryTests(unittest.TestCase):
         self.node.setUp()
         self.addCleanup(self.node.tearDown)
 
+    def test_interrupted_profile_selection_keeps_the_saved_rollback_generation(self):
+        node = self.node
+        roots = node.root / 'gcroots'
+        node.env['FLEET_GC_ROOTS'] = str(roots)
+        node.commit('healthy')
+        self.assertEqual(node.run_sync().returncode, 0)
+        healthy = node.profile.resolve()
+        (node.root / 'fail-health').touch()
+        node.commit('unhealthy')
+        self.assertNotEqual(node.run_sync().returncode, 0)
+        revision = node._git(['-C', str(node.origin), 'rev-parse', 'HEAD']).stdout.strip()
+        candidate = node.root / 'closures' / revision
+        self.assertEqual((roots / 'fleet-update-previous').resolve(), healthy)
+        # Power loss after nix-env --set can leave the profile on the candidate,
+        # with no successful health check and the old closure still GC-rooted.
+        node.profile.unlink()
+        node.profile.symlink_to(candidate)
+        retried = node.run_sync()
+        self.assertNotEqual(retried.returncode, 0)
+        self.assertEqual(node.profile.resolve(), healthy)
+        self.assertEqual((roots / 'fleet-update-previous').resolve(), healthy)
+        self.assertNotIn('FLEET_ROLLBACK_UNAVAILABLE', (node.state / 'health-failure').read_text())
+
     def test_abruptly_interrupted_git_locks_are_recovered_without_manual_cleanup(self):
         node = self.node
         node.commit('initial')

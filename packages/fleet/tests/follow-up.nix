@@ -50,7 +50,11 @@ SCRIPT
       echo '${pkgs.systemd}/bin/systemctl start fleet-sync.timer' >> "$work/bin/switch-to-configuration"
     fi
     chmod +x "$work/bin/switch-to-configuration"
-    ${pkgs.nix}/bin/nix-store --add "$work"
+    toplevel=$(${pkgs.nix}/bin/nix-store --add "$work")
+    test -e "$toplevel/kernel"
+    test -e "$toplevel/initrd"
+    test -e "$toplevel/kernel-modules"
+    echo "$toplevel"
   '';
   health = pkgs.writeShellScript "fleet-health" ''
     test ! -e ${state}/fail-health
@@ -73,7 +77,15 @@ in pkgs.testers.runNixOSTest {
     boot.loader.systemd-boot.enable = lib.mkForce false;
     users.users.root.hashedPassword = lib.mkForce null;
     environment.systemPackages = [ pkgs.git ];
-    virtualisation = { memorySize = 2048; cores = 2; writableStore = true; };
+    virtualisation = {
+      memorySize = 2048;
+      cores = 2;
+      diskSize = 4096;
+      writableStore = true;
+      # The normal VM overlay is tmpfs. Recovery tests must retain real store
+      # objects across the reboot, just like an installed node's /nix volume.
+      writableStoreUseTmpfs = false;
+    };
     systemd.timers.fleet-sync.timerConfig = {
       OnBootSec = lib.mkForce "5s";
       RandomizedDelaySec = lib.mkForce "0";
@@ -137,12 +149,22 @@ in pkgs.testers.runNixOSTest {
         machine.start()
         machine.wait_for_unit("multi-user.target")
         machine.wait_for_unit("fleet-sync.timer")
+        machine.succeed(f"test $(cat /nix/var/nix/profiles/system/commit) = {following}")
         machine.succeed("rm -f /run/booted-system; touch ${state}/cache-unavailable; mv ${origin}-offline ${origin}")
         machine.wait_until_succeeds(f"grep -qx {latest} ${state}/lookups")
         machine.succeed(f"test $(cat /nix/fleet-state/sync/last-success) = {following}")
         machine.succeed(f"! grep -qx {missed} ${state}/activations")
         machine.succeed("rm ${state}/cache-unavailable")
         converged(latest)
+
+    with subtest("failed post-activation connectivity rolls back and retries the same revision"):
+        machine.succeed("touch ${state}/fail-health")
+        unhealthy = commit("unhealthy-connectivity")
+        machine.wait_until_succeeds("grep -q 'mode=switch' /nix/fleet-state/sync/health-failure")
+        machine.wait_until_succeeds(f"test $(cat /nix/var/nix/profiles/system/commit) = {latest}")
+        machine.succeed("rm ${state}/fail-health")
+        converged(unhealthy)
+        latest = unhealthy
 
     with subtest("an update that stops its timer rolls back and future code repairs it"):
         machine.succeed("touch ${origin}/packages/fleet/STOP_TIMER")
