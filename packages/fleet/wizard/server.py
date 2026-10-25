@@ -23,6 +23,7 @@ import bootstrap  # noqa: F401
 import decide
 import diagnostics
 import elevate
+import helper
 import imaging
 import fleet_tls
 import preparation
@@ -36,6 +37,8 @@ MAX_BODY = 64 * 1024
 TOKEN_MAX = 512
 PROBLEM_FIELD_MAX = 4000
 QUIET_STEPS = (None, "", "log", "verify")  # helper steps that change nothing
+CANCELLED_GUIDANCE = {"summary": "", "steps": ["Press Try again to review the same installation again."], "retry": True,
+                      "safety": "Nothing on this computer was erased or changed."}
 PLAN_TTL = 15 * 60
 
 OS_LABEL = {"Darwin": "macOS"}
@@ -52,7 +55,7 @@ ROLE_INFO = {
 TRANSITIONS = {
     "idle": ("downloading",),
     "downloading": ("working", "failed", "cancelled"),
-    "working": ("done", "failed"),
+    "working": ("done", "failed", "cancelled"),  # cancelled only before the helper claims its request
     "done": ("downloading",),
     "failed": ("downloading",),
     "cancelled": ("downloading",),
@@ -95,6 +98,7 @@ class Job:
         self.role = None
         self.step = None
         self.changed = False  # the privileged helper may have changed this computer
+        self.scratch = None  # the folder shared with the helper, once there is one
         self.cancel = threading.Event()
         self.lock = threading.Lock()
 
@@ -130,7 +134,9 @@ class Job:
     def snapshot(self):
         with self.lock:
             return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "role": self.role, "percent": self.percent,
-                    "message": self.message, "log": list(self.log), "result": self.result}
+                    "message": self.message, "log": list(self.log), "result": self.result,
+                    # Cancel works while downloading, and while the permission prompt is open.
+                    "cancellable": self.state == "downloading" or (self.state == "working" and self.step is None and not self.changed)}
 
 
 class Wizard:
@@ -140,6 +146,7 @@ class Wizard:
         self.plan = None
         self.job = Job()
         self.lock = threading.Lock()
+        self.approved = {}  # role -> enrollment token approved in this session, reused by a retry
         decide.NET["probe"] = self.probe_installer
         decide.NET["lookup"] = lookup_token_http
 
@@ -293,12 +300,18 @@ class Wizard:
                 if plan['mode'] == 'here':
                     decide.check_release_readiness(plan['role'], checksum, iso_url)
                 return checksum
-            sha = imaging.retry(release, job.note, job.cancel.is_set)
             target = imaging.cache_dir(self.os_name) / "fleet-installer.iso"
-            job.note("Downloading the installer", 0)
-            imaging.download(iso_url, target, sha,
-                             lambda done, total: job.note("", int(done * 100 / total) if total else None),
-                             cancel=job.cancel.is_set, retry_note=job.note)
+
+            def fetch():
+                # If the release changes during the download, its checksum is stale too:
+                # start again from the checksum once the publication has finished.
+                checksum = imaging.retry(release, job.note, job.cancel.is_set)
+                job.note("Downloading the installer", 0)
+                imaging.download(iso_url, target, checksum,
+                                 lambda done, total: job.note("", int(done * 100 / total) if total else None),
+                                 cancel=job.cancel.is_set, retry_note=job.note)
+                return checksum
+            sha = imaging.retry(fetch, job.note, job.cancel.is_set, attempts=1)
             job.note("Download verified", 100)
             if plan["mode"] == "here":
                 decide.check_installer_readiness(target, plan["role"])
@@ -308,8 +321,7 @@ class Wizard:
             self.run_helper(job, plan, target, sha)
         except imaging.Cancelled:
             job.move("cancelled", {"ok": False, "message": "Cancelled. Nothing was erased.", "fix": "", "log": decide.LOG["path"],
-                                   "guidance": {"summary": "", "steps": ["Press Try again to review the same installation again."], "retry": True,
-                                                "safety": "Nothing on this computer was erased or changed."}})
+                                   "guidance": CANCELLED_GUIDANCE})
         except decide.Invariant as broken:
             self.fail(job, f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", broken.fix)
         except Exception as exc:
@@ -319,14 +331,43 @@ class Wizard:
     def enroll(self, job, plan):
         """Ask the repository owner to approve this node on GitHub. Nothing has
         been erased, so a refusal or a timeout ends the job cleanly."""
+        lookup = decide.NET.get("lookup", lookup_token_http)
+        earlier = self.approved.get(plan["role"])
+        if earlier is not None:
+            # A retry after a failure that did not use the token: no second GitHub approval.
+            if lookup(earlier, plan["role"])["status"] != "fail":
+                job.note("Using the approval GitHub gave earlier in this session.")
+                return {**plan, "token": earlier}
+            self.approved.pop(plan["role"], None)
         token, error = decide.self_enroll(plan["role"], notify=job.note, cancel=job.cancel.is_set)
         if error == "cancelled":
             raise imaging.Cancelled()
         decide.invariant(token is not None, f"this computer was not approved ({error})",
                          "Run the wizard again and press 'Submit new issue' on the GitHub page, or paste an enrollment token.")
-        verdict = decide.NET.get("lookup", lookup_token_http)(token, plan["role"])
+        verdict = lookup(token, plan["role"])
         decide.invariant(verdict["status"] != "fail", f"the approval token is not usable ({verdict['detail']})", verdict["fix"])
+        self.approved[plan["role"]] = token
         return {**plan, "token": token}
+
+    def cancel(self):
+        """Cancel the download, or withdraw the request while the permission prompt is still
+        open. Once the helper has claimed its request it runs to the end; that is the point
+        after which a disk may be changing."""
+        job = self.job
+        if job.snapshot()["state"] != "working":
+            job.request_cancel()
+            return {"cancelled": True}
+        wait = "Wait for it to finish. Do not unplug the disk while it is being written."
+        scratch = job.scratch
+        decide.invariant(scratch is not None, "the administrator step is starting", "Press Cancel again in a moment.")
+        try:
+            os.replace(scratch / helper.REQUEST, scratch / helper.WITHDRAWN)
+        except FileNotFoundError:
+            decide.invariant(False, "the administrator step has already started", wait)
+        (scratch / helper.WITHDRAWN).write_text("{}")  # the token must not outlive the request
+        job.cancel.set()
+        decide.log("the request was withdrawn before the helper claimed it")
+        return {"cancelled": True}
 
     def fail(self, job, message, fix, log=None):
         message = decide.redact(message)
@@ -353,7 +394,9 @@ class Wizard:
 
     def run_helper(self, job, plan, iso, sha):
         scratch = imaging.scratch_dir("fleet-job-")
+        job.scratch = scratch
         process = None
+        handed_off = False
         try:
             request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
                        "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"], "wifi": plan.get("wifi")}
@@ -365,8 +408,13 @@ class Wizard:
                 process = elevate.start(self.os_name, elevate.helper_argv(scratch))
             except elevate.ElevationUnavailable as exc:
                 return self.fail(job, str(exc), "Run the installer with administrator rights.")
+            if getattr(process, "hint", None):
+                job.note(process.hint)
             offset, unreadable = 0, False
             while process.poll() is None:
+                if job.cancel.is_set():
+                    handed_off = True
+                    return self.withdrawn(job, process, scratch)
                 offset, unreadable = self.follow(job, scratch / "progress.jsonl", offset, unreadable)
                 time.sleep(0.25)
             offset, unreadable = self.follow(job, scratch / "progress.jsonl", offset, unreadable)
@@ -377,6 +425,10 @@ class Wizard:
                 return self.fail(job, f"The administrator step finished (exit code {process.returncode}), but the installer could not read the administrator step's result "
                                       f"({type(exc).__name__}: {exc}).", "Read the log to see what it did before trying again.")
             if text is None:
+                if (scratch / helper.CLAIMED).exists():
+                    job.changed = True
+                    return self.fail(job, f"The administrator step stopped without reporting a result (exit code {process.returncode}).",
+                                     "Read the log to see how far it got before trying again.")
                 if unreadable:
                     return self.fail(job, f"The administrator step finished (exit code {process.returncode}), but the installer could not read the administrator step's result.",
                                      "Read the log to see what it did before trying again.")
@@ -384,19 +436,39 @@ class Wizard:
                                  "Run the wizard again and accept the permission prompt.")
             result = json.loads(text)
             decide.invariant(isinstance(result, dict) and isinstance(result.get("ok"), bool), "the helper wrote a malformed result", result=result)
+            if result.get("withdrawn"):
+                return job.move("cancelled", {**result, "guidance": CANCELLED_GUIDANCE})
             if result["ok"]:
                 decide.invariant(process.returncode == 0, "the helper reported success but exited with an error", code=process.returncode)
+                self.approved.pop(job.role, None)  # used; never offer it again
                 job.move("done", result)
             else:
                 self.fail(job, result.get("message", ""), result.get("fix", ""), result.get("log"))
         finally:
+            if not handed_off:
+                try:
+                    if process is not None and process.poll() is None:
+                        # Never delete the folder from under a helper that may be writing a disk.
+                        decide.log("waiting for the privileged helper to exit before cleaning up", "WARN")
+                        process.wait()
+                finally:
+                    shutil.rmtree(scratch, ignore_errors=True)
+
+    def withdrawn(self, job, process, scratch):
+        """The request was withdrawn before the helper claimed it. The prompt may still be
+        open: close it where this program can, and clean up whenever the process ends."""
+        job.move("cancelled", {"ok": False, "message": "Cancelled before the administrator step started. Nothing was changed.", "fix": "",
+                               "log": decide.LOG["path"], "guidance": CANCELLED_GUIDANCE})
+        terminate = getattr(process, "terminate", None)
+        if terminate:
+            terminate()
+
+        def clean():
             try:
-                if process is not None and process.poll() is None:
-                    # Never delete the folder from under a helper that may be writing a disk.
-                    decide.log("waiting for the privileged helper to exit before cleaning up", "WARN")
-                    process.wait()
+                process.wait()
             finally:
                 shutil.rmtree(scratch, ignore_errors=True)
+        threading.Thread(target=clean, daemon=True).start()
 
     # ---- diagnostics -------------------------------------------------------
 
@@ -494,12 +566,13 @@ class Handler(BaseHTTPRequestHandler):
             if method == "POST" and path == "/api/diagnostic":
                 return self.reply(200, self.wizard.diagnostic(self.body()))
             if method == "POST" and path == "/api/quit":
+                decide.invariant(self.wizard.job.snapshot()["state"] != "working", "the administrator step is still running",
+                                 "Wait for it to finish; quitting now could leave a disk half written.")
                 self.reply(200, {"quit": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return None
             if method == "POST" and path == "/api/cancel":
-                self.wizard.job.request_cancel()
-                return self.reply(200, {"cancelled": True})
+                return self.reply(200, self.wizard.cancel())
             return self.reply(404, {"error": "not found"})
         except decide.Invariant as broken:
             decide.log(f"refused: {broken.what} {broken.context}")

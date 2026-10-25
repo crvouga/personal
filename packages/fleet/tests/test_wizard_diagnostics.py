@@ -261,6 +261,146 @@ class DiagnosticEndpointTests(WizardCase):
         self.assertEqual(reply["guidance"]["safety"], "")
 
 
+class PermissionPromptTests(WizardCase):
+    """The window and the helper agree on one atomic step, the helper claiming its request.
+    Before it, Cancel withdraws the request; after it, the helper runs to the end."""
+
+    def start_job(self):
+        _status, plan = self.usb_plan()
+        status, reply = self.run_plan(plan)
+        self.assertEqual(status, 200, reply)
+
+    def wait_for(self, condition, timeout=10):
+        end = time.time() + timeout
+        while time.time() < end:
+            _status, job = self.call("GET", "/api/job")
+            if condition(job):
+                return job
+            time.sleep(0.05)
+        self.fail(f"never reached the expected state: {job}")
+
+    def test_cancel_while_the_prompt_is_open_withdraws_the_request_and_changes_nothing(self):
+        accepted, seen = threading.Event(), {}
+
+        def prompt_then_helper(directory):
+            accepted.wait(10)  # the person answers the prompt only after pressing Cancel
+            seen["code"] = helper.run(directory)
+            seen["result"] = json.loads((Path(directory) / "result.json").read_text())
+
+        def start(os_name, argv):
+            seen["directory"] = argv[-1]
+            thread = threading.Thread(target=prompt_then_helper, args=(argv[-1],))
+            thread.start()
+            seen["thread"] = thread
+            return Waitable(thread, 1)
+
+        with mock.patch.object(elevate, "start", start):
+            self.start_job()
+            job = self.wait_for(lambda job: job["state"] == "working" and job["cancellable"])
+            self.assertEqual(self.call("POST", "/api/cancel", {})[0], 200)
+            job = self.wait_for(lambda job: job["state"] == "cancelled")
+            accepted.set()
+            seen["thread"].join(10)
+        self.assertIn("Nothing was changed", job["result"]["message"])
+        self.assertTrue(seen["result"]["withdrawn"], "the helper found its request withdrawn and did nothing")
+        self.assertEqual(self.target.read_bytes(), b"\xee" * 300000)
+        end = time.time() + 5
+        while Path(seen["directory"]).exists() and time.time() < end:
+            time.sleep(0.05)
+        self.assertFalse(Path(seen["directory"]).exists(), "the folder is cleaned once the prompt closes")
+        _status, plan = self.usb_plan()
+        self.assertEqual(self.run_plan(plan)[0], 200, "a new attempt can start right away")
+
+    def test_cancel_after_the_helper_claimed_its_request_is_refused(self):
+        release, seen = threading.Event(), {}
+
+        def claimed(directory):
+            os.replace(Path(directory) / helper.REQUEST, Path(directory) / helper.CLAIMED)
+            release.wait(10)
+
+        def start(os_name, argv):
+            thread = threading.Thread(target=claimed, args=(argv[-1],))
+            thread.start()
+            seen["thread"] = thread
+            return Waitable(thread, 1)
+
+        with mock.patch.object(elevate, "start", start):
+            self.start_job()
+            self.wait_for(lambda job: job["state"] == "working")
+            time.sleep(0.2)
+            status, reply = self.call("POST", "/api/cancel", {})
+            self.assertEqual(status, 409, reply)
+            self.assertIn("already started", reply["error"])
+            self.assertEqual(self.call("POST", "/api/quit", {})[0], 409, "quitting mid-step could leave a disk half written")
+            release.set()
+            job = self.wait_job()
+        self.assertEqual(job["state"], "failed")
+        self.assertIn("stopped without reporting a result", job["result"]["message"], "not 'the prompt was probably declined'")
+        self.assertIn("administrator step had started", job["result"]["guidance"]["safety"])
+
+    def test_a_helper_that_never_started_is_still_a_declined_prompt(self):
+        with mock.patch.object(elevate, "start", lambda os_name, argv: Waitable(None, 1)):
+            self.start_job()
+            job = self.wait_job()
+        self.assertIn("permission prompt was probably declined", job["result"]["message"])
+        self.assertEqual(job["result"]["guidance"]["summary"], "Administrator permission was not given.")
+        self.assertIn("Nothing on this computer", job["result"]["guidance"]["safety"])
+
+
+class ApprovalReuseTests(unittest.TestCase):
+    def test_a_retry_reuses_this_sessions_unused_approval(self):
+        import server
+        wizard = server.Wizard("Linux")
+        wizard.approved["ci"] = "hvs.earlier"
+        job = server.Job()
+        lookup = mock.Mock(return_value={"status": "ok", "detail": "", "fix": ""})
+        with mock.patch.dict(decide.NET, {"lookup": lookup}), mock.patch.object(decide, "self_enroll") as enroll:
+            plan = wizard.enroll(job, {"role": "ci", "token": None})
+        enroll.assert_not_called()
+        self.assertEqual(plan["token"], "hvs.earlier")
+        lookup.return_value = {"status": "fail", "detail": "used", "fix": ""}
+        with mock.patch.dict(decide.NET, {"lookup": lambda token, role: {"status": "ok" if token == "hvs.new" else "fail", "detail": "", "fix": ""}}), \
+                mock.patch.object(decide, "self_enroll", return_value=("hvs.new", None)) as enroll:
+            plan = wizard.enroll(job, {"role": "ci", "token": None})
+        enroll.assert_called_once()
+        self.assertEqual(plan["token"], "hvs.new", "a used or expired approval is replaced by a fresh one")
+
+
+class GuidanceMatchingTests(unittest.TestCase):
+    def test_words_in_the_fix_do_not_change_what_the_failure_is(self):
+        advice = diagnostics.guidance("The Wi-Fi password must be 8 to 63 characters", "Check the Wi-Fi network name and password.")
+        self.assertNotIn("network connection", advice["summary"])
+        self.assertEqual(advice["steps"][0], "Check the Wi-Fi network name and password.")
+
+    def test_a_release_newer_than_the_installer_is_not_offered_a_pointless_retry(self):
+        advice = diagnostics.guidance("the installer parts manifest has an unsupported format (version=2)", decide.NEWER_RELEASE_FIX)
+        self.assertFalse(advice["retry"])
+        self.assertIn("older than the published release", advice["summary"])
+
+    def test_the_command_line_fix_is_not_shown_in_the_wizard(self):
+        advice = diagnostics.guidance("something", "Run `fleet-node doctor` and read the log; do not retry blindly.")
+        self.assertFalse(any("fleet-node doctor" in step for step in advice["steps"]))
+
+    def test_a_publication_in_progress_is_named(self):
+        advice = diagnostics.guidance("the installer release kept changing while it was downloaded (minutes=15)")
+        self.assertIn("being published", advice["summary"])
+
+
+class HelperLogTailTests(unittest.TestCase):
+    def test_a_helper_log_the_window_cannot_open_is_replaced_by_its_reported_end(self):
+        job = {"state": "failed", "result": {"message": "x", "log": "/root/.fleet/logs/helper.log", "log_tail": ["helper line one", "token hvs.SECRET"]}}
+        report = diagnostics.report("v", [], job)
+        self.assertIn("helper line one", report)
+        self.assertIn("token [redacted]", report)
+
+
+class DetachedHelperTests(unittest.TestCase):
+    def test_the_helper_survives_the_terminal_closing(self):
+        with mock.patch.dict(os.environ, {"FLEET_ELEVATE": "none"}), mock.patch.object(elevate.subprocess, "Popen") as popen:
+            elevate.start("Linux", ["helper"])
+        self.assertTrue(popen.call_args.kwargs.get("start_new_session"))
+
+
 class DiagnosticPageTests(unittest.TestCase):
     def test_the_page_offers_retry_copy_and_issue_actions(self):
         html = (WIZARD / "index.html").read_text(encoding="utf-8")

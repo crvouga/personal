@@ -11,6 +11,7 @@ import http.client
 import os
 import re
 import socket
+import ssl
 import tempfile
 import time
 import urllib.error
@@ -46,22 +47,47 @@ def transient(error):
         return error.errno == socket.EAI_AGAIN
     if isinstance(error, (TimeoutError, ConnectionError, http.client.IncompleteRead)):
         return True
+    if isinstance(error, ssl.SSLError) and not isinstance(error, ssl.SSLCertVerificationError):
+        # An EOF or reset inside TLS is an interrupted connection; a certificate failure is not.
+        return "EOF" in str(error).upper() or "RESET" in str(error).upper()
     if isinstance(error, OSError):
         return error.errno in (errno.ECONNRESET, errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ENETUNREACH, errno.EHOSTUNREACH)
     return error.__cause__ is not None and transient(error.__cause__)
 
 
-def retry(action, note=_noop, cancel=None):
-    for attempt in range(3):
+PUBLISH_WAIT = 15 * 60  # a release publication uploads several GiB of parts
+
+
+def retry(action, note=_noop, cancel=None, publish_wait=None, attempts=3):
+    """Network interruptions get `attempts` tries. A release that is being published
+    gets as long as a publication takes, polled every 30 seconds."""
+    publish_wait = PUBLISH_WAIT if publish_wait is None else publish_wait
+    attempt, started = 0, time.monotonic()
+    while True:
         if cancel and cancel():
             raise Cancelled()
         try:
             return action()
+        except decide.ReleaseChanging as changing:
+            if publish_wait <= 0:
+                raise  # the caller restarts from a fresh checksum
+            if time.monotonic() - started >= publish_wait:
+                decide.invariant(False, "the installer release kept changing while it was downloaded",
+                                 "A new release is probably still being published. Wait until the Fleet workflow finishes, then press Try again. Nothing was erased.",
+                                 minutes=publish_wait // 60, last=str(changing))
+            note("A new installer release is being published. Waiting for it to finish before downloading; this can take several minutes.")
+            until = time.monotonic() + min(30, max(publish_wait / 10, 0.05))
+            while time.monotonic() < until:
+                if cancel and cancel():
+                    raise Cancelled()
+                time.sleep(0.1)
+            continue
         except (RuntimeError, OSError, http.client.IncompleteRead) as exc:
-            if attempt == 2 or not transient(exc):
+            attempt += 1
+            if attempt >= attempts or not transient(exc):
                 raise
-            note(f"The network interrupted the download. Retrying automatically ({attempt + 2}/3).")
-            until = time.monotonic() + (2 if isinstance(exc, decide.ReleaseChanging) else 0.5) * (attempt + 1)
+            note(f"The network interrupted the download. Retrying automatically ({attempt + 1}/3).")
+            until = time.monotonic() + 0.5 * attempt
             while time.monotonic() < until:
                 if cancel and cancel():
                     raise Cancelled()
@@ -103,6 +129,9 @@ def probe(url):
     except (urllib.error.URLError, OSError) as exc:
         try:
             return None, decide.installer_parts(url)["size"]
+        except decide.Invariant as broken:
+            # A manifest this installer cannot read (usually a newer release format): say so, never crash the scan.
+            return f"{broken.what}. {broken.fix}", None
         except (urllib.error.URLError, OSError, RuntimeError) as multipart_error:
             return f"{getattr(exc, 'reason', exc)}; multipart release: {multipart_error}", None
 
@@ -125,7 +154,9 @@ def sha256_of(path, progress=_noop, cancel=None):
 
 
 def download(url, dest, expected_sha256, progress=_noop, cancel=None, retry_note=_noop):
-    return retry(lambda: _download_once(url, dest, expected_sha256, progress, cancel), retry_note, cancel)
+    # A release that changes mid-download is not retried here: the expected checksum
+    # itself is stale. The caller fetches the checksum again (see server.run_job).
+    return retry(lambda: _download_once(url, dest, expected_sha256, progress, cancel), retry_note, cancel, publish_wait=0)
 
 
 def _download_once(url, dest, expected_sha256, progress=_noop, cancel=None):
@@ -139,6 +170,7 @@ def _download_once(url, dest, expected_sha256, progress=_noop, cancel=None):
     if dest.is_file() and sha256_of(dest, cancel=cancel) == expected:
         progress(dest.stat().st_size, dest.stat().st_size)
         return dest
+    sweep_partials(dest)
     # Multiple wizard windows must never share a partial download.
     fd, name = tempfile.mkstemp(prefix=dest.name + ".", suffix=".partial", dir=dest.parent)
     os.close(fd)
@@ -199,6 +231,22 @@ def _download_once(url, dest, expected_sha256, progress=_noop, cancel=None):
     os.replace(staged, dest)
     decide.invariant(dest.stat().st_size == written, "the installer on disk is the wrong size", file=str(dest), want=written)
     return dest
+
+
+PARTIAL_STALE = 60 * 60  # a download in progress writes every few seconds
+
+
+def sweep_partials(dest):
+    """Delete partial downloads that nothing has written for an hour: a window that was
+    closed or killed mid-download. Another window's live download is never touched."""
+    now = time.time()
+    for old in Path(dest).parent.glob(Path(dest).name + ".*.partial"):
+        try:
+            if now - old.stat().st_mtime > PARTIAL_STALE:
+                old.unlink()
+                decide.log(f"removed an abandoned partial download {old}")
+        except OSError as exc:
+            decide.log(f"could not remove the partial download {old}: {exc}", "WARN")
 
 
 def padded(size):

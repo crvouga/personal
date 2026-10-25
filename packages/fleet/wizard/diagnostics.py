@@ -24,16 +24,35 @@ ISSUE_TAILS = (LOG_TAIL, 60, 30, 10, 0)
 BUG = "This looks like a bug in the installer, not a problem with this computer."
 REPORT_STEP = "If it happens again, press Copy diagnostic report and paste it to an agent, or press Report on GitHub."
 
-# (pattern, summary, steps, retry). The first match wins; patterns read the
-# message and its fix together, case-insensitively.
+LATEST = "Download the latest Fleet installer from the fleet-installer release page and run it."
+# decide.invariant's default fix is for the command line; a wizard user has no such command.
+CLI_ONLY_FIXES = ("Run `fleet-node doctor`", "Read the log, then run the wizard again")
+
+# (pattern, summary, steps, retry). The first match wins. Patterns read the message
+# only: a fix such as "Check the Wi-Fi network name" must not make a failure look
+# like a network one.
 RULES = (
     (r"privileged step ended without a result|did not start the administrator prompt|was refused",
-     "Administrator permission was not given, so nothing was changed.",
+     "Administrator permission was not given.",
      ["Press Try again, then choose Yes when the computer asks for permission.",
       "If no permission prompt appears, close the installer and start it again as an administrator."], True),
+    (r"stopped without reporting a result",
+     "The administrator step stopped before it could say what it did.",
+     ["Read the log named below to see how far it got.", "Then press Try again: the installer checks everything again and takes back an unfinished conversion.",
+      REPORT_STEP], True),
     (r"cannot ask for administrator rights",
      "This computer cannot show an administrator prompt from here.",
      ["Close this window and start the installer with administrator rights, as described above."], False),
+    (r"newer than this installer|older than the release|unsupported (format|version)|different installer version|boot layout this installer expects",
+     "This installer is older than the published release and cannot read it.",
+     [LATEST], False),
+    (r"FLEET_PLATFORM_NOT_READY|FLEET_INSTALLER_READINESS_MISSING",
+     "The published installer is not ready for this kind of node yet.",
+     ["Nothing was erased. The platform administrator must fix what is listed and publish a new installer; then start the latest installer again."], False),
+    (r"could not be taken back",
+     "Some changes from an unfinished conversion are still on this computer.",
+     ["Press Try again: the installer tries to take them back before anything else.",
+      "If that keeps failing, remove them by hand as docs/windows.md describes ('Remove everything by hand').", REPORT_STEP], True),
     (r"another installer",
      "Another Fleet installer window is using this disk.",
      ["Close the other installer window, or wait for its disk work to finish, then press Try again."], True),
@@ -44,7 +63,10 @@ RULES = (
     (r"disks? (changed|was plugged)|not the one that was chosen|not present (exactly once|uniquely)|disk changed",
      "The disks changed after you reviewed them.",
      ["Check that the right disk is connected and nothing else was plugged in or removed, then press Try again to review it again."], True),
-    (r"image changed|checksum|sha256|release is broken|releasechanging|is publishing",
+    (r"kept changing|being published|releasechanging",
+     "A new installer release was being published while this one downloaded.",
+     ["Wait a few minutes for the publication to finish, then press Try again."], True),
+    (r"image changed|checksum|sha256|release is broken",
      "The downloaded installer did not match its published checksum.",
      ["Press Try again to download it afresh.", "If it keeps failing, a new release is probably publishing. Wait a few minutes and try again."], True),
     (r"certificate.verify.failed",
@@ -54,7 +76,7 @@ RULES = (
     (r"http error 404|404 not found",
      "The installer release could not be found.",
      ["A new release may be publishing. Wait a few minutes, then press Try again."], True),
-    (r"urlerror|urlopen error|nodename|no route to host|timed out|timeout|temporary failure|name or service|getaddrinfo|connection (reset|refused|aborted)|network|could not download|unreachable",
+    (r"urlerror|urlopen error|nodename|no route to host|timed out|temporary failure in name|name or service|getaddrinfo|connection (reset|refused|aborted)|network is unreachable|could not download",
      "The network connection failed.",
      ["Check this computer's internet connection, then press Try again."], True),
     (r"could not read the administrator step's result",
@@ -73,13 +95,12 @@ def guidance(message, fix="", changed=None):
     """{summary, steps, retry, safety} for a failure the person can act on.
     `changed` is whether the privileged helper may have changed this computer;
     None makes no claim either way."""
-    text = f"{message}\n{fix}"
     summary, steps, retry = "", [], True
     for pattern, rule_summary, rule_steps, rule_retry in RULES:
-        if re.search(pattern, text, re.IGNORECASE | re.MULTILINE):
+        if re.search(pattern, str(message or ""), re.IGNORECASE | re.MULTILINE):
             summary, steps, retry = rule_summary, list(rule_steps), rule_retry
             break
-    if fix and fix not in steps and not fix.startswith("Read the log, then run the wizard again"):
+    if fix and fix not in steps and not fix.startswith(CLI_ONLY_FIXES):
         steps.insert(0, fix)
     if not steps:
         steps = ["Press Try again.", REPORT_STEP]
@@ -156,7 +177,14 @@ def report(version, facts, job, problem=None, lines=LOG_TAIL, wizard_log=None):
             logs.append(path)
     for path in logs:
         out += ["", f"## Log {path}"]
-        out += tail(path, lines) if lines else ["(omitted to fit; attach this file)"]
+        if not lines:
+            out += ["(omitted to fit; attach this file)"]
+            continue
+        found = tail(path, lines)
+        if path == result.get("log") and result.get("log_tail") and (not found or found[0].startswith("(could not read")):
+            found = ["(this log belongs to the administrator step; its end, as the step reported it:)",
+                     *[decide.redact(line) for line in result["log_tail"][-lines:]]]
+        out += found
     return "\n".join(out) + "\n"
 
 

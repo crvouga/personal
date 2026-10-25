@@ -711,7 +711,9 @@
           '</p><progress max=100 ' +
           (j.percent == null ? '' : 'value="' + j.percent + '"') +
           '></progress>';
-        if (j.state === 'downloading')
+        // The server allows Cancel until the administrator step claims its work,
+        // including while the permission prompt is still open.
+        if (j.cancellable ?? j.state === 'downloading')
           h += '<p><button onclick="cancelBeforeWrite()">Cancel</button></p>';
         h += '<pre>' + esc(j.log.join('\n')) + '</pre>';
         show(h);

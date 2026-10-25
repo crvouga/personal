@@ -607,7 +607,7 @@ class ServerTests(WizardCase):
         _status, fresh = self.usb_plan()
         self.assertEqual(self.run_plan(fresh)[0], 200)
         self.wait_job()
-        self.assertEqual([p for p in Path(tempfile.gettempdir()).glob("fleet-job-*") if (p / "request.json").exists() and (p / "request.json").read_text() != "{}"], [])
+        self.assertEqual([p for p in Path(tempfile.gettempdir()).glob("fleet-job-*/request*.json") if p.read_text() != "{}"], [])
 
     def test_a_corrupt_release_stops_before_any_disk_is_touched(self):
         self.sumfile.write_text("0" * 64 + "  fleet-installer.iso\n")
@@ -639,7 +639,8 @@ class ServerTests(WizardCase):
         self.assertFalse(result["ok"])
         self.assertIn("refusing to write the installer to this disk", result["message"])
         self.assertEqual(self.target.read_bytes(), b"\xee" * 300000)
-        self.assertEqual((scratch / "request.json").read_text(), "{}")
+        self.assertEqual((scratch / "request.claimed.json").read_text(), "{}", "the token does not outlive the run")
+        self.assertFalse((scratch / "request.json").exists())
         shutil.rmtree(scratch)
 
     def test_the_helper_rechecks_the_image_it_is_given(self):

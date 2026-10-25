@@ -280,6 +280,8 @@ A failure page lists numbered recovery steps, says whether anything on the compu
 
 If the administrator step is still running when something goes wrong, the wizard keeps waiting for it rather than reporting a result it cannot know.
 
+**Cancel** works while the installer downloads and while the permission prompt is open: it withdraws the request, so accepting the prompt afterwards does nothing. Once the administrator step has started, it runs to the end; the wizard will not quit in the middle of it. Closing the terminal does not stop it either. Running the wizard again after an interrupted attempt is always safe: a Windows conversion that never finished is taken back first, an approval GitHub gave earlier in the same session is reused, and a node withdrawn from CI by an interrupted reinstall is restored if the retry fails too.
+
 | You see                                           | Do this                                                                                 |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | "The installer download cannot be reached"        | Check the internet connection. If it is fine, the installer has not been published yet. |
