@@ -189,6 +189,13 @@ restore caches. Local checks do not prove hosted runner or cross-platform timing
 
 ## Publishing and rollout
 
+After OpenTofu applies service changes, CI reads Railway deployment status and
+waits for the selected image's latest deployment to be successful and active.
+Changes to service configuration require a deployment created after that apply
+started, even when the image tag is unchanged. Failed deployments and verification
+errors fail CI before public HTTP checks; an older healthy instance cannot pass
+the rollout gate. This adapter only queries deployment metadata and never deploys.
+
 Automatic deployments rebuild only affected local service images; shared runtime
 or toolchain inputs rebuild all dependent images. Independent local image builds
 run two at a time, and any failure blocks deployment after in-flight work ends.

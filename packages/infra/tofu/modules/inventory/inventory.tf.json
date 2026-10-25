@@ -2307,6 +2307,8 @@
             "PORT": "8080",
             "NODE_ENV": "production",
             "MOVIEFINDER_ORIGIN": "https://moviefinder.chrisvouga.dev",
+            "MOVIEFINDER_OIDC_ISSUER": "https://auth.chrisvouga.dev/realms/projects",
+            "MOVIEFINDER_OIDC_CLIENT_ID": "app-0067b6ae-9579-4afb-8f3c-3be747f4f26f",
             "MOVIEFINDER_DATABASE_ALLOCATION": "moviefinder",
             "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": "30"
           },
