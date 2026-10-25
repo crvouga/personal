@@ -68,6 +68,35 @@ repo=$state_dir/repo
 branch=$BRANCH
 
 install -d -m 0700 "$state_dir"
+# Share one open-file-description lock with our children. A power loss releases
+# it automatically; another invocation cannot race a live Git/activation step.
+exec 9>"$state_dir/update.lock"
+if "${PYTHON:?}" - <<'PY'
+import fcntl,sys
+try:
+    fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    sys.exit(75)
+PY
+then
+  :
+else
+  status=$?
+  if [ "$status" -eq 75 ]; then
+    echo 'sync: another update is running; the timer will retry'
+    exit 0
+  fi
+  exit "$status"
+fi
+# This checkout is only an update cache. With no live writer, Git lock files
+# left by an interrupted fetch/checkout are stale and safe to discard.
+"${PYTHON:?}" - "$repo/.git" <<'PY'
+from pathlib import Path
+import sys
+for path in Path(sys.argv[1]).rglob('*.lock'):
+    if path.is_file():
+        path.unlink()
+PY
 g() {
   if [[ "$REPO_URL" == file:* ]]; then
     "$git" -c "safe.directory=$repo" -c protocol.file.allow=always "$@"
@@ -94,7 +123,7 @@ cleanup() {
   if [ "$drained" -eq 1 ] && [ "$reboot_requested" -eq 0 ]; then
     rm -f "$(dirname "$report_path")/update-draining"
     echo 'sync: update did not reboot; restoring runner admission and services' >&2
-    if [ -z "${RESUME_COMMAND:-}" ] || ! "$RESUME_COMMAND"; then
+    if [ -z "${RESUME_COMMAND:-}" ] || ! bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$RESUME_COMMAND"; then
       install -d -m 0755 "$(dirname "$report_path")"
       printf 'recover failed sync\n' > "$(dirname "$report_path")/agent-drained"
       echo 'FLEET-FAIL sync: runner recovery failed; fleet-resume must succeed before this node can accept jobs' >&2
@@ -139,7 +168,12 @@ fi
 
 g -C "$repo" remote remove origin 2>/dev/null || true
 g -C "$repo" remote add origin "$REPO_URL"
-timeout "${FLEET_FETCH_TIMEOUT:-120}" "$git" -c "safe.directory=$repo" -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
+bounded() {
+  local duration=$1
+  shift
+  timeout --kill-after="${FLEET_TIMEOUT_KILL_AFTER:-30}" "$duration" "$@"
+}
+bounded "${FLEET_FETCH_TIMEOUT:-120}" "$git" -c "safe.directory=$repo" -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
 g -C "$repo" checkout --detach --force "refs/remotes/origin/${branch}"
 
 # An unconfigured cache must wait. Building locally would publish a system
@@ -155,7 +189,7 @@ revision=$(g -C "$repo" rev-parse HEAD)
 # Pin the Git source and revision exactly, including the monorepo directory.
 flake="git+file://${repo}?shallow=1&rev=${revision}&dir=${FLAKE_DIR}#nixosConfigurations.${FLAKE_ATTR}.config.system.build.toplevel"
 failure_reason='the requested revision could not be substituted; verify cache publication, signing key and network connectivity'
-if ! toplevel=$(timeout "${FLEET_SUBSTITUTE_TIMEOUT:-600}" "$nix" build --no-write-lock-file --max-jobs 0 --option connect-timeout 15 --option stalled-download-timeout 60 --option narinfo-cache-negative-ttl 0 --no-link --print-out-paths "$flake"); then
+if ! toplevel=$(bounded "${FLEET_SUBSTITUTE_TIMEOUT:-600}" "$nix" build --no-write-lock-file --max-jobs 0 --option connect-timeout 15 --option stalled-download-timeout 60 --option narinfo-cache-negative-ttl 0 --no-link --print-out-paths "$flake"); then
   echo 'sync: system is not in the binary cache; not building locally' >&2
   exit 1
 fi
@@ -184,18 +218,26 @@ if [ -n "$previous" ] && { [[ "$previous" == /nix/store/* ]] || [ -n "${FLEET_GC
 fi
 
 apply() {
-  if ! "$nix_env" -p "$profile" --set "$toplevel"; then
+  if ! bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$nix_env" -p "$profile" --set "$toplevel"; then
     rollback "$1" 'FLEET_PROFILE_FAILED: could not select the requested generation'
   fi
-  if ! "$toplevel/bin/switch-to-configuration" "$1"; then
+  if ! bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$toplevel/bin/switch-to-configuration" "$1"; then
     rollback "$1" 'FLEET_ACTIVATION_FAILED: generation activation failed before health verification'
   fi
 }
 
-# FLEET_HEALTH replaces the probes in tests. The default probes are the
-# production check: GitHub, the configured cache's nix-cache-info, and a
-# sync unit that still loads and is not already failed.
+# Timer/service checks always run. FLEET_HEALTH replaces only the external
+# connectivity/signature probes in isolated tests.
 health_check() {
+  "$systemctl" cat fleet-sync.service >/dev/null || return 1
+  if ! "$systemctl" is-active --quiet fleet-sync.timer; then
+    echo 'sync: fleet-sync.timer is not active' >&2
+    return 1
+  fi
+  if ! "$systemctl" is-enabled --quiet fleet-sync.timer; then
+    echo 'sync: fleet-sync.timer is not enabled for the next boot' >&2
+    return 1
+  fi
   if [ -n "${FLEET_HEALTH:-}" ]; then
     "$FLEET_HEALTH"
     return
@@ -220,19 +262,12 @@ PY
     ) || return 1
     target_cache=${cache_config%%$'\n'*}
     target_key=${cache_config#*$'\n'}
-    timeout 45 "$nix" store verify --store "$target_cache" --no-contents --sigs-needed 1 \
+    bounded 45 "$nix" store verify --store "$target_cache" --no-contents --sigs-needed 1 \
       --option trusted-public-keys "$target_key" --option narinfo-cache-negative-ttl 0 "$toplevel" || return 1
   fi
   # guard runs this in a conditional, where set -e does not apply.
   "$curl_bin" -fsS --max-time 20 -o /dev/null https://github.com || return 1
   "$curl_bin" -fsS --max-time 20 -o /dev/null "${target_cache%/}/nix-cache-info" || return 1
-  "$systemctl" cat fleet-sync.service >/dev/null || return 1
-  local timer_state
-  timer_state=$("$systemctl" is-failed fleet-sync.timer 2>/dev/null || true)
-  if [ "$timer_state" = failed ]; then
-    echo 'sync: fleet-sync.timer is failed' >&2
-    return 1
-  fi
 }
 
 pending_path=${FLEET_REBOOT_PENDING:-/run/fleet/reboot-pending}
@@ -263,7 +298,8 @@ rollback() {
   printf '%s\n' "$reason" >&2
   report_failure rollback-pending "$reason"
   if [ -n "$previous" ] && [ "$previous" != "$toplevel" ] && [ -x "$previous/bin/switch-to-configuration" ]; then
-    if "$nix_env" -p "$profile" --set "$previous" && "$previous/bin/switch-to-configuration" "$mode"; then
+    if bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$nix_env" -p "$profile" --set "$previous" \
+      && bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$previous/bin/switch-to-configuration" "$mode"; then
       report_failure "$mode" "$reason"
     else
       report_failure rollback-failed "FLEET_ROLLBACK_FAILED: $reason; restoring the previous generation also failed. Automatic sync will retry."
@@ -329,7 +365,7 @@ elif [ "$need_reboot" -eq 1 ]; then
     touch "$(dirname "$report_path")/update-draining"
     printf 'recover interrupted update\n' > "$(dirname "$report_path")/agent-drained"
     export PATH="/run/current-system/sw/bin:${PATH:-}"
-    "$DRAIN_COMMAND" "${DRAIN_TIMEOUT:-7200}"
+    bounded "$((${DRAIN_TIMEOUT:-7200} + 30))" "$DRAIN_COMMAND" "${DRAIN_TIMEOUT:-7200}"
   fi
   apply boot
   guard boot

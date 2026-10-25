@@ -57,6 +57,9 @@ in {
     description = "Pull this role from git";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
+    # An updater must finish its current activation and health/rollback checks
+    # when its own script or unit changes. The next timer run uses the new unit.
+    restartIfChanged = false;
     # path replaces the unit PATH. awk is gawk, not coreutils.
     path = [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.gawk pkgs.nix pkgs.python3 pkgs.curl ];
     serviceConfig = {
@@ -69,9 +72,11 @@ in {
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnBootSec = "15s";
-      OnUnitActiveSec = "${toString repo.pollSeconds}s";
+      # Schedule from completion, including failed attempts and long drains.
+      OnUnitInactiveSec = "${toString repo.pollSeconds}s";
       Persistent = true;
       RandomizedDelaySec = "30s";
+      AccuracySec = "1s";
     };
   };
 }
