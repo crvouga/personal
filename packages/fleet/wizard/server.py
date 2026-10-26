@@ -5,6 +5,7 @@ loopback address, so a web page in the person's browser or another program on
 the machine cannot drive it. Destructive work happens in `helper.py`, started
 through the operating system's own permission prompt.
 """
+import datetime
 import hmac
 import json
 import os
@@ -89,6 +90,13 @@ def lookup_token_http(token, role):
 
 class Job:
     def __init__(self):
+        self.attempt = secrets.token_hex(8)
+        self.started_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        self.started = time.monotonic()
+        self.elapsed = None
+        self.timeline = []
+        self.checks = []
+        self.image = {}
         self.state = "idle"
         self.percent = None
         self.message = ""
@@ -111,7 +119,10 @@ class Job:
                 decide.invariant(isinstance(result, dict) and result.get("ok") is (new == "done"),
                                  "a terminal job must have a matching result", state=new, result=result)
                 self.result = result
+                self.elapsed = time.monotonic() - self.started
             self.state = new
+            self.timeline.append(f"{time.monotonic() - self.started:.1f}s state={new}")
+            decide.log(f"attempt={self.attempt} state={new}")
 
     def request_cancel(self):
         with self.lock:
@@ -121,7 +132,11 @@ class Job:
 
     def note(self, message, percent=None, step=None):
         with self.lock:
-            if step:
+            if step and step != "log":
+                if step != self.step:
+                    self.timeline.append(f"{time.monotonic() - self.started:.1f}s step={step}")
+                    del self.timeline[:-80]
+                    decide.log(f"attempt={self.attempt} step={step}")
                 self.step = step
             if message:
                 message = decide.redact(str(message))
@@ -134,9 +149,13 @@ class Job:
     def snapshot(self):
         with self.lock:
             return {"version": VERSION, "state": self.state, "step": self.step, "mode": self.mode, "role": self.role, "percent": self.percent,
+                    "attempt": self.attempt, "started_at": self.started_at,
+                    "elapsed": round(self.elapsed if self.elapsed is not None else time.monotonic() - self.started, 1),
+                    "timeline": list(self.timeline), "checks": list(self.checks),
+                    "image": dict(self.image),
                     "message": self.message, "log": list(self.log), "result": self.result,
                     # Cancel works while downloading, and while the permission prompt is open.
-                    "cancellable": self.state == "downloading" or (self.state == "working" and self.step is None and not self.changed)}
+                    "cancellable": self.state == "downloading" or (self.state == "working" and self.step in (None, "permission") and not self.changed)}
 
 
 class Wizard:
@@ -285,6 +304,7 @@ class Wizard:
             self.job = Job()
             self.job.mode = plan["mode"]
             self.job.role = plan["role"]
+            self.job.checks = [diagnostics.check_snapshot("review", plan["findings"])]
             self.job.move("downloading")
             job = self.job
             self.plan = None  # acknowledgement is single-use, even if the run fails
@@ -294,7 +314,7 @@ class Wizard:
     def run_job(self, job, plan):
         try:
             iso_url, sum_url = installer_urls()
-            job.note("Looking up the installer checksum")
+            job.note("Looking up the installer checksum", step="checksum")
             def release():
                 checksum = imaging.fetch_checksum(sum_url)
                 if plan['mode'] == 'here':
@@ -306,16 +326,20 @@ class Wizard:
                 # If the release changes during the download, its checksum is stale too:
                 # start again from the checksum once the publication has finished.
                 checksum = imaging.retry(release, job.note, job.cancel.is_set)
-                job.note("Downloading the installer", 0)
+                job.note("Downloading the installer", 0, step="download")
                 imaging.download(iso_url, target, checksum,
                                  lambda done, total: job.note("", int(done * 100 / total) if total else None),
                                  cancel=job.cancel.is_set, retry_note=job.note)
                 return checksum
             sha = imaging.retry(fetch, job.note, job.cancel.is_set, attempts=1)
+            with job.lock:
+                job.image = {"sha256": sha, "bytes": target.stat().st_size}
             job.note("Download verified", 100)
             if plan["mode"] == "here":
+                job.note("Checking the installer for this role", step="readiness")
                 decide.check_installer_readiness(target, plan["role"])
             if plan["mode"] == "here" and not plan["token"] and decide.enroll_enabled():
+                job.note("Waiting for GitHub approval", step="enroll")
                 plan = self.enroll(job, plan)
             job.move("working")
             self.run_helper(job, plan, target, sha)
@@ -323,10 +347,12 @@ class Wizard:
             job.move("cancelled", {"ok": False, "message": "Cancelled. Nothing was erased.", "fix": "", "log": decide.LOG["path"],
                                    "guidance": CANCELLED_GUIDANCE})
         except decide.Invariant as broken:
-            self.fail(job, f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", broken.fix)
+            self.fail(job, f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", broken.fix,
+                      details={"error": diagnostics.exception_details(broken)})
         except Exception as exc:
             decide.log(traceback.format_exc(), "ERROR")
-            self.fail(job, f"{type(exc).__name__}: {exc}", "Read the log, then run the wizard again.")
+            self.fail(job, f"{type(exc).__name__}: {exc}", "Read the log, then run the wizard again.",
+                      details={"error": diagnostics.exception_details(exc)})
 
     def enroll(self, job, plan):
         """Ask the repository owner to approve this node on GitHub. Nothing has
@@ -369,10 +395,11 @@ class Wizard:
         decide.log("the request was withdrawn before the helper claimed it")
         return {"cancelled": True}
 
-    def fail(self, job, message, fix, log=None):
+    def fail(self, job, message, fix, log=None, details=None):
         message = decide.redact(message)
-        decide.log(f"job failed: {message} fix={fix}", "ERROR")
-        job.move("failed", {"ok": False, "message": message, "fix": fix, "log": log or decide.LOG["path"],
+        decide.log(f"attempt={job.attempt} job failed: {message} fix={fix}", "ERROR")
+        kept = {key: value for key, value in (details or {}).items() if key in ("error", "checks", "helper", "log_tail")}
+        job.move("failed", {**kept, "ok": False, "message": message, "fix": fix, "log": log or decide.LOG["path"],
                             "guidance": diagnostics.guidance(message, fix, changed=job.changed)})
 
     def follow(self, job, path, offset, unreadable):
@@ -398,12 +425,12 @@ class Wizard:
         process = None
         handed_off = False
         try:
-            request = {"action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
+            request = {"attempt": job.attempt, "action": "write-usb" if plan["mode"] == "usb" else "install-here", "iso": str(iso), "sha256": sha,
                        "disk_id": plan["disk_id"], "path": plan["path"], "role": plan["role"], "reinstall": plan["reinstall"], "token": plan["token"], "ssh_key": plan["ssh_key"], "wifi": plan.get("wifi")}
             fd = os.open(scratch / "request.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w") as handle:
                 json.dump(request, handle)
-            job.note("Waiting for permission to change the disk")
+            job.note("Waiting for permission to change the disk", step="permission")
             try:
                 process = elevate.start(self.os_name, elevate.helper_argv(scratch))
             except elevate.ElevationUnavailable as exc:
@@ -443,7 +470,7 @@ class Wizard:
                 self.approved.pop(job.role, None)  # used; never offer it again
                 job.move("done", result)
             else:
-                self.fail(job, result.get("message", ""), result.get("fix", ""), result.get("log"))
+                self.fail(job, result.get("message", ""), result.get("fix", ""), result.get("log"), details=result)
         finally:
             if not handed_off:
                 try:
@@ -482,7 +509,13 @@ class Wizard:
         if problem.get("message"):
             problem["guidance"] = diagnostics.guidance(problem["message"], problem.get("fix", ""))
         job = self.job.snapshot()
-        if job["state"] == "idle":
+        with self.lock:
+            plan = self.plan
+        if plan and job["state"] in ("idle", "done", "failed", "cancelled"):
+            job = {"state": "review", "mode": plan["mode"], "role": plan["role"],
+                   "message": "Review complete; installation has not started." if plan["ready"] else "The review has failed checks.",
+                   "checks": [diagnostics.check_snapshot("review", plan["findings"])]}
+        elif job["state"] == "idle":
             job = None
         try:
             elevation = elevate.mode_for(self.os_name)

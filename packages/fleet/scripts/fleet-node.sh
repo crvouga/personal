@@ -1309,14 +1309,13 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         f"$dynamic = (@($parts | Where-Object {{ $_.GptType -eq {ldm_a} -or $_.GptType -eq {ldm_b} }}).Count -gt 0); "
 #         f"$linux = @($parts | Where-Object {{ $_.GptType -eq {ps_literal(LINUX_DATA_GUID)} }} | ForEach-Object {{ [PSCustomObject]@{{ Number = [int]$_.PartitionNumber; Size = [int64]$_.Size }} }}); "
 #         "$secure = $null; try { $secure = [bool](Confirm-SecureBootUEFI) } catch { }; "
-#         "$fw = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control').PEFirmwareType; "
 #         "$memory = $null; try { $memory = [int64](Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory } catch { }; "
 #         "$battery = $false; try { $b = @(Get-CimInstance Win32_Battery); $battery = ($b.Count -gt 0 -and $b[0].BatteryStatus -eq 1) } catch { }; "
 #         "$bitlocker = $null; try { $bitlocker = [string](Get-BitLockerVolume -MountPoint ($letter + ':')).ProtectionStatus } catch { }; "
 #         "[PSCustomObject]@{ Letter = $letter; DiskNumber = [int]$c.DiskNumber; PartitionNumber = [int]$c.PartitionNumber; "
 #         "Size = [int64]$c.Size; SizeMin = [int64]$limit.SizeMin; SizeMax = [int64]$limit.SizeMax; "
 #         "Style = [string]$disk.PartitionStyle; BusType = [string]$disk.BusType; LogicalSectorSize = [int]$disk.LogicalSectorSize; "
-#         "Esps = $esps; LinuxParts = $linux; Dynamic = $dynamic; SecureBoot = $secure; Firmware = [int]$fw; Memory = $memory; OnBattery = $battery; "
+#         "Esps = $esps; LinuxParts = $linux; Dynamic = $dynamic; SecureBoot = $secure; Memory = $memory; OnBattery = $battery; "
 #         "BitLocker = $bitlocker } | ConvertTo-Json -Compress -Depth 4"
 #     )
 #
@@ -1488,8 +1487,33 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     if WINDOWS["facts"] is not None and not fresh:
 #         return dict(WINDOWS["facts"])
 #     facts = parse_windows_facts(windows_ps(ps_facts_script()))
+#     # Synthetic PowerShell answers may supply Firmware. The real query leaves
+#     # it to the documented API: PEFirmwareType is a Windows PE registry value,
+#     # and its absence on installed Windows does not mean legacy BIOS.
+#     if "Firmware" not in facts:
+#         facts["Firmware"] = windows_firmware_type()
 #     WINDOWS["facts"] = facts
 #     return dict(facts)
+#
+#
+# def windows_firmware_type(kernel=None):
+#     """Read the current boot mode with GetFirmwareType; None means unknown.
+#     This API needs no elevation and never writes firmware variables."""
+#     import ctypes
+#     try:
+#         if kernel is None:
+#             kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+#         query = kernel.GetFirmwareType
+#         query.argtypes = [ctypes.POINTER(ctypes.c_uint32)]
+#         query.restype = ctypes.c_int
+#         value = ctypes.c_uint32()
+#         if query(ctypes.byref(value)):
+#             return value.value if value.value in (1, 2) else None
+#         code = getattr(ctypes, "get_last_error", lambda: 0)()
+#         log(f"GetFirmwareType failed with Windows error {code}", "WARN")
+#     except (AttributeError, OSError) as exc:
+#         log(f"GetFirmwareType is not available: {exc}", "WARN")
+#     return None
 #
 #
 # def windows_admin():
@@ -1552,9 +1576,12 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     WINDOWS["iso_size"] = iso_size
 #     if facts.get("Firmware") == 2:
 #         found.append(finding("firmware", "ok", "booted in UEFI mode"))
-#     else:
+#     elif facts.get("Firmware") == 1:
 #         found.append(finding("firmware", "fail", "Windows is booted in legacy BIOS mode",
 #                              "Convert the disk to GPT and enable UEFI in the firmware settings, or make an install USB with the word flash."))
+#     else:
+#         found.append(finding("firmware", "fail", "Windows boot mode could not be determined",
+#                              "Open System Information (msinfo32) and check BIOS Mode. Restart Windows and run the installer again; if it repeats, copy the diagnostic report. No disk conversion is recommended until the boot mode is known."))
 #     secure = facts.get("SecureBoot")
 #     if secure is True:
 #         found.append(finding("secure-boot", "fail", "Secure Boot is on and the installer is not signed",

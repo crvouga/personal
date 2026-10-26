@@ -3,6 +3,8 @@
 sequence (shrink, write, boot entry, undo) is exercised through the shipped
 entry in test_fleet_node.py; these cover the parts that decide whether it is safe."""
 
+import ctypes
+import json
 import os
 import sys
 import tempfile
@@ -21,6 +23,44 @@ import decide  # noqa: E402
 GOOD = {"Letter": "C", "DiskNumber": 0, "PartitionNumber": 3, "Size": 500 * 1024 ** 3, "SizeMin": 100 * 1024 ** 3,
         "SizeMax": 500 * 1024 ** 3, "Style": "GPT", "EspNumber": 1, "SecureBoot": False, "Firmware": 2}
 DRIVE0 = "\\\\.\\PHYSICALDRIVE0"
+
+
+class FirmwareTypeTest(unittest.TestCase):
+    def query(self, value=2, success=True):
+        def fill(pointer):
+            pointer._obj.value = value
+            return success
+
+        kernel = mock.Mock()
+        kernel.GetFirmwareType.side_effect = fill
+        return decide.windows_firmware_type(kernel)
+
+    def test_native_api_distinguishes_bios_uefi_and_unknown_values(self):
+        for value, expected in ((1, 1), (2, 2), (0, None), (3, None), (99, None)):
+            with self.subTest(value=value):
+                self.assertEqual(self.query(value), expected)
+
+    def test_failed_api_does_not_accept_the_output_buffer(self):
+        self.assertIsNone(self.query(2, success=False))
+
+    def test_missing_api_or_dll_returns_unknown(self):
+        for error in (AttributeError("GetFirmwareType"), OSError("DLL not available")):
+            with mock.patch.object(ctypes, "WinDLL", side_effect=error, create=True):
+                self.assertIsNone(decide.windows_firmware_type())
+
+    def test_installed_windows_uses_native_boot_mode_without_a_pe_registry_value(self):
+        raw = {key: value for key, value in GOOD.items() if key != "Firmware"}
+        for firmware in (1, 2, None):
+            with self.subTest(firmware=firmware), \
+                    mock.patch.object(decide, "windows_ps", return_value=json.dumps(raw)), \
+                    mock.patch.object(decide, "windows_firmware_type", return_value=firmware) as query, \
+                    mock.patch.dict(decide.WINDOWS, {"facts": None}):
+                self.assertEqual(decide.windows_facts()["Firmware"], firmware)
+                query.assert_called_once_with()
+                self.assertEqual(decide.windows_facts()["Firmware"], firmware)
+                query.assert_called_once_with()
+                decide.windows_facts(fresh=True)
+                self.assertEqual(query.call_count, 2)
 
 
 class WriteRegionTest(unittest.TestCase):
@@ -147,6 +187,20 @@ class FindingsTest(unittest.TestCase):
 
     def test_unknown_secure_boot_is_a_warning_not_a_block(self):
         self.assertEqual(self.check(SecureBoot=None)["secure-boot"]["status"], "warn")
+
+    def test_unknown_firmware_refuses_without_diagnosing_legacy_bios(self):
+        for firmware in (None, 0, 3):
+            with self.subTest(firmware=firmware):
+                item = self.check(Firmware=firmware)["firmware"]
+                self.assertEqual(item["status"], "fail")
+                self.assertIn("could not be determined", item["detail"])
+                self.assertIn("msinfo32", item["fix"])
+                self.assertNotIn("Convert the disk", item["fix"])
+
+    def test_issue_143_uefi_with_secure_boot_only_blocks_on_secure_boot(self):
+        found = self.check(SecureBoot=True)
+        self.assertEqual([name for name, item in found.items() if item["status"] == "fail"], ["secure-boot"])
+        self.assertIn("shutdown /r /fw", found["secure-boot"]["fix"])
 
     def test_a_missing_release_size_still_checks_the_shrink_with_an_estimate(self):
         self.assertEqual(self.check(size=None)["shrink"]["status"], "ok")
