@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 import urllib.parse
 from pathlib import Path
@@ -96,6 +97,14 @@ class EvidenceTests(unittest.TestCase):
 class DiagnosticHandoffTests(WizardCase):
     def test_failed_helper_evidence_survives_server_cleanup_and_unreadable_log(self):
         seen = {}
+        finished = threading.Event()
+        run_helper = self.wizard.run_helper
+
+        def run_and_signal(*args):
+            try:
+                return run_helper(*args)
+            finally:
+                finished.set()
 
         def start(os_name, argv):
             directory = Path(argv[-1])
@@ -114,11 +123,15 @@ class DiagnosticHandoffTests(WizardCase):
             (directory / "result.json").write_text(json.dumps(result))
             return Waitable(None, 1)
 
-        with mock.patch.object(elevate, "start", start):
+        with mock.patch.object(elevate, "start", start), \
+                mock.patch.object(self.wizard, "run_helper", side_effect=run_and_signal):
             status, plan = self.usb_plan()
             self.assertEqual(status, 200, plan)
             self.assertEqual(self.run_plan(plan)[0], 200)
             job = self.wait_job()
+            # Terminal state is published before run_helper's finally removes
+            # the job folder. Wait for that boundary, including on Windows.
+            self.assertTrue(finished.wait(10), "helper cleanup did not finish")
         self.assertFalse(seen["directory"].exists())
         self.assertEqual(job["attempt"], seen["attempt"])
         self.assertEqual(job["image"]["sha256"], self.sha)
