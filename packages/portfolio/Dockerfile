@@ -46,6 +46,14 @@ RUN --mount=type=secret,id=github_token,required=true \
   PORTFOLIO_GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
   bun run build
 
+# Pre-compress text assets for nginx's gzip_static. No .br: nginx:alpine has no
+# Brotli module to serve them. The build also wrote the hashed CSP snippet to
+# .astro/csp-header.conf (see scripts/csp.ts); fail here if it is missing.
+RUN test -s .astro/csp-header.conf \
+  && find dist -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \
+    -o -name '*.svg' -o -name '*.txt' -o -name '*.xml' -o -name '*.json' \
+    -o -name '*.webmanifest' \) -exec gzip -9 -k -n {} +
+
 FROM nginx:alpine
 
 LABEL org.opencontainers.image.source=https://github.com/crvouga/workspace
@@ -53,8 +61,14 @@ LABEL org.opencontainers.image.description="chrisvouga.dev portfolio static site
 
 RUN rm /etc/nginx/conf.d/default.conf
 COPY packages/portfolio/nginx.conf /etc/nginx/conf.d/
+# Snippets live outside conf.d, which nginx.conf includes at http level.
+COPY packages/portfolio/nginx/security-headers.conf /etc/nginx/snippets/
+COPY --from=build /app/packages/portfolio/.astro/csp-header.conf /etc/nginx/snippets/
 
 COPY --from=build /app/packages/portfolio/dist /usr/share/nginx/html
+
+# Fail the image build, not the container start, on a bad config.
+RUN nginx -t
 
 EXPOSE 80
 
