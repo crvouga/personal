@@ -77,6 +77,20 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     ],
   },
   {
+    id: 'geviti-app',
+    title: 'Geviti member app',
+    setting: 'work',
+    deployment: { t: 'public', url: 'https://app.gogeviti.com/' },
+    code: { t: 'private' },
+    description:
+      'Health and longevity platform that turns lab results into personalized protocols, therapies, and coordinated care. I build its member-facing features.',
+    imageAlt:
+      'Geviti member app sign-in: the complete picture of your health, from bloodwork, genetics and gut health',
+    imageSrc: ['/geviti-app-screenshot.optimized.webp'],
+    galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
+    topics: ['typescript', 'react', 'react-native', 'postgres', 'bun', 'aws'],
+  },
+  {
     id: 'triangulator',
     title: 'Triangulator',
     setting: 'work',

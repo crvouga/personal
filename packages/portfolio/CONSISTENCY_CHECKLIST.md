@@ -37,7 +37,7 @@ I build reliable software with AI coding agents, and the automated checks that k
 
 - AI-assisted engineering: Claude Code, Cursor, spec-driven development, CI-gated agent workflows, property-based testing
 - Languages: TypeScript, JavaScript, PHP, Go, Python, Rust
-- Frontend: React, Nuxt, Tailwind, Vue, Astro, React Native
+- Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
 - Backend: Bun, Node.js, Express, Flask, Graphene, GraphQL, WebSockets
 - Data: Postgres, DynamoDB, SQLite, MySQL, Neo4j
 - Infra & CI: AWS, Cloudflare, Docker, GitHub Actions, NixOS, OpenBao, OpenTofu, Playwright, Railway, S3

@@ -8,7 +8,6 @@ import {
   LISTED_PROJECTS,
   PROJECT_TOTALS,
   galleryFor,
-  projectHref,
 } from '../lib/projects-view';
 import { seoForIndex } from '../lib/seo';
 
@@ -16,7 +15,8 @@ import { seoForIndex } from '../lib/seo';
 // an employer reads as a side project. One flat gallery array spans both.
 const personal = LISTED_PROJECTS.filter((p) => p.setting === 'side');
 const atWork = LISTED_PROJECTS.filter((p) => p.setting === 'work');
-const galleries = [...personal, ...atWork].map(galleryFor);
+const galleries = [...personal, ...atWork, ...ARCHIVE_PROJECTS].map(galleryFor);
+const archiveOffset = personal.length + atWork.length;
 
 const seo = seoForIndex({
   title: `All projects — ${CONTENT.PAGE_TITLE}`,
@@ -51,30 +51,18 @@ const seo = seoForIndex({
         <ProjectCard project={project} galleryIndex={personal.length + index} />
       ))}
     </div>
-    {/* Early games, toys and client sites: one line each, folded. Kept so an
-        old project is still one click away; not shown as work samples. */}
+    {/* Early games, toys and client sites, folded below the work samples so
+        they never compete with them, but still shown as full cards. */}
     <details class="everything">
       <summary>
         <span class="summary-label">Archive — {PROJECT_TOTALS.archived} early and small projects</span>
         <span class="summary-hint">games, toys, demos and client sites</span>
       </summary>
-      <ul class="archive-list">
-        {ARCHIVE_PROJECTS.map((project) => {
-          const href = projectHref(project);
-          return (
-            <li>
-              {href === null ? (
-                <span class="archive-title">{project.title}</span>
-              ) : (
-                <a class="archive-title" href={href} rel="noopener" target="_blank">
-                  {project.title}
-                </a>
-              )}
-              <span class="archive-desc">{project.description}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <div class="grid">
+        {ARCHIVE_PROJECTS.map((project, index) => (
+          <ProjectCard project={project} galleryIndex={archiveOffset + index} />
+        ))}
+      </div>
     </details>
   </section>
   <GalleryDialog galleries={galleries} />
@@ -159,32 +147,6 @@ const seo = seoForIndex({
   }
   .summary-hint {
     color: var(--text-muted);
-  }
-  .archive-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .archive-list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-1) var(--space-3);
-    padding-block: var(--space-2);
-    border-top: 1px solid var(--paper-border);
-  }
-  .archive-title {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--tap);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-  }
-  .archive-desc {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
   }
   .everything[open] summary {
     margin-bottom: var(--space-5);

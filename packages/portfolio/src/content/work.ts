@@ -53,11 +53,11 @@ export const WORK: Work[] = [
     start: { year: 2026, month: 1 },
     end: 'Present',
     topics: ['typescript', 'react', 'react-native', 'postgres', 'bun', 'aws'],
-    // No gallery: the only image was Geviti's marketing homepage, which shows
-    // none of my work and would read as if it did.
-    imageSrc: [],
-    imageAlt: '',
-    galleryImageSrc: [],
+    // The member app itself, not the marketing site: it is the product.
+    imageSrc: ['/geviti-app-screenshot.optimized.webp'],
+    imageAlt:
+      'Geviti member app sign-in: the complete picture of your health, from bloodwork, genetics and gut health',
+    galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
   },
   {
     name: 'One Origin',

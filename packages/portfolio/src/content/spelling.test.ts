@@ -57,7 +57,7 @@ const ALLOWED = [
   'Résumé',
   'opt-in',
   'onboarding',
-  'precalculus',
+  'precalculus', 'bloodwork',
   'Tripolar',
   'longevity',
   'Crash',

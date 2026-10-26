@@ -30,6 +30,7 @@ export const PROJECT_HISTORY: Readonly<Record<string, ProjectHistory>> = {
   // The current repository only. gamezilla.app-legacy (2021–2025) is the
   // earlier codebase, not the one the card describes.
   gamezilla: commits({ 2026: 3593 }),
+  'geviti-app': employer(2026),
   triangulator: employer(2024),
   'study-hall': employer(2024),
   mockingbird: commits({ 2026: 977 }),

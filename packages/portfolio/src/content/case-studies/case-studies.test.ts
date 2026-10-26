@@ -69,7 +69,17 @@ describe('homepage flagships', () => {
   });
 
   test('no employer product is listed as a personal project', () => {
-    const employers = new Set(['geviti-app']);
-    expect(PROJECTS.filter((p) => employers.has(p.id))).toEqual([]);
+    // Employer products are listed, but as work, grouped apart on /projects/.
+    const employers = new Set([
+      'geviti-app',
+      'triangulator',
+      'study-hall',
+      'orchard',
+    ]);
+    expect(
+      PROJECTS.filter((p) => employers.has(p.id) && p.setting !== 'work').map(
+        (p) => p.id
+      )
+    ).toEqual([]);
   });
 });
