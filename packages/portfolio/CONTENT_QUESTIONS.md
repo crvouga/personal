@@ -27,14 +27,14 @@ Status key: **open**, **derived** (answered from repository evidence; confirm), 
 ## Gap and current status — `src/content/work.ts`, `src/content/hero.ts`
 
 13. **open** — Between leaving One Origin and starting Geviti (one honest line, e.g. "built Mockingbird full-time"). → `WORK_GAP_NOTE`. Not rendered until set; the months stay visible either way.
-14. **open** — Actively looking, or open to conversations? The hero says "Open to senior and staff roles" while you are in a senior role. Phrase it so a current employer and a recruiter both read it correctly. → `HERO.availability`
+14. **answered (2026-10-26)** — "Open to conversations about staff roles": selective interest while employed. → `HERO.availability`
 
 ## Logistics — `src/content/hero.ts` (`LOGISTICS`)
 
-15. **open** — Work authorization (e.g. "US citizen; no sponsorship needed"). → `LOGISTICS.authorization`
+15. **answered (2026-10-26)** — US citizen, no sponsorship needed. → `LOGISTICS.authorization`
 16. **derived** — Time zone: Phoenix does not observe daylight saving, so the site shows `UTC−7 (Arizona)`. Confirm, and add any cities you would relocate to. → `LOGISTICS.timeZone`
 17. **open** — Remote/hybrid preference beyond "open to remote". → `LOCATION_PREFERENCE`
-18. **open** — Earliest start / notice period. → `LOGISTICS.start`
+18. **answered (2026-10-26)** — Left off by choice; no start line renders. → `LOGISTICS.start` stays unset
 19. **open** — Typical reply time. → `LOGISTICS.replyTime`
 20. **open** — Team, stage and domain you want next (one line). → `CONTACT_COPY.lookingFor`
 21. **open** — Scheduling link, if any. → `CONTENT.SCHEDULING_URL`

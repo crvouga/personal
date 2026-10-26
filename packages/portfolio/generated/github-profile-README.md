@@ -22,6 +22,6 @@ Senior engineer in health and education software. Previously technical lead on a
 
 ## Contact
 
-Open to senior and staff roles · Phoenix, AZ · open to remote
+Open to conversations about staff roles · Phoenix, AZ · open to remote
 
 [crvouga@gmail.com](mailto:crvouga@gmail.com) · [Website](https://www.chrisvouga.dev) · [Résumé](https://www.chrisvouga.dev/chris-vouga-resume.pdf) · [LinkedIn](https://www.linkedin.com/in/chris-vouga)

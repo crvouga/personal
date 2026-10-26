@@ -44,5 +44,5 @@ I build reliable software with AI coding agents, and the automated checks that k
 
 ## Open to work
 
-- Open to senior and staff roles; Phoenix, AZ · open to remote; UTC−7 (Arizona, no daylight saving)
+- Open to conversations about staff roles; Phoenix, AZ · open to remote; US citizen · no sponsorship needed; UTC−7 (Arizona, no daylight saving)
 - Titles: Senior Software Engineer, Staff Software Engineer

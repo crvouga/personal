@@ -1,5 +1,6 @@
 ---
 import { CONTENT } from '../content/content';
+import { logisticsLines } from '../content/hero';
 import IconEmail from '../components/icons/IconEmail.astro';
 import IconGitHub from '../components/icons/IconGitHub.astro';
 import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
@@ -24,7 +25,8 @@ const socials = [
       <p class="pill">
         <span class="dot" aria-hidden="true"></span>{CONTENT.HERO.availability}
       </p>
-      <p class="logistics">{CONTENT.HERO.location}</p>
+      {/* Location, work authorization, time zone: a recruiter's first filters. */}
+      <p class="logistics">{[CONTENT.HERO.location, ...logisticsLines()].join(' · ')}</p>
     </div>
     {/* The header's Résumé button is on screen everywhere, so the hero offers
         email and profiles rather than a second copy of it. */}
@@ -102,7 +104,6 @@ const socials = [
     padding: 6px var(--space-3);
     border: 1px solid var(--paper-border);
     border-radius: var(--radius-pill);
-    white-space: nowrap;
   }
   .logistics {
     font-family: var(--font-mono);

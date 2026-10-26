@@ -41,8 +41,11 @@ export const HERO = {
   /** Scope and domains: the résumé summary and LinkedIn About; not in the hero. */
   statementSecondary:
     'Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.',
-  /** Short enough to sit on one line of the pill at any width. */
-  availability: 'Open to senior and staff roles',
+  /**
+   * Worded for someone already in a senior role: selective interest, not a
+   * job search. The pill wraps on narrow phones rather than overflowing.
+   */
+  availability: 'Open to conversations about staff roles',
   /** Where I am, and the one preference a screener filters on. */
   location: `${LOCATION} · open to remote`,
   ctaPrimary: {
@@ -64,6 +67,7 @@ export type Logistics = {
 };
 
 export const LOGISTICS: Logistics = {
+  authorization: 'US citizen · no sponsorship needed',
   // Arizona does not observe daylight saving time, so this is true all year.
   timeZone: 'UTC−7 (Arizona, no daylight saving)',
 };
