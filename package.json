@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "bun run ci:install && bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts && bun run check:infra && turbo run tc lint test build",
+    "check": "bun run ci:install && bun run ci:format && bun run check:agents && bun run check:llms && bun run check:scripts && bun run check:infra && turbo run tc lint test build test:site",
     "check:agents": "bun scripts/agent-commands.ts --check",
     "check:dev": "bun scripts/check-dev.ts",
     "check:llms": "bun scripts/llms-txt.ts --check",

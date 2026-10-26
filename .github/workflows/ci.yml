@@ -276,9 +276,16 @@ jobs:
             packages/fleet/node_modules/@playwright/test
             packages/fleet-api/node_modules/@playwright/test
             packages/password-manager/node_modules/playwright
+      # pdftotext reads the résumé PDF's text layer the way applicant tracking
+      # systems do (packages/portfolio/src/resume/ats.test.ts).
+      - name: Install poppler (résumé text-layer test)
+        if: matrix.task == 'tests'
+        run: sudo apt-get install -y --no-install-recommends poppler-utils
+      # test:site runs the built portfolio in Chromium (axe, layout, budgets);
+      # Turbo orders it after the build it checks.
       - name: Test and build packages
         if: matrix.task == 'tests'
-        run: bunx turbo run test build
+        run: bunx turbo run test build test:site
       - name: Save completed task results
         if: always() && !cancelled() && steps.tasks_cache.outputs.cache-primary-key != '' && steps.tasks_cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
