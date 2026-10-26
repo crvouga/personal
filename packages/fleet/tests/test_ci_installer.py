@@ -27,6 +27,22 @@ class InstallerSchedulingTests(unittest.TestCase):
                 self.assertEqual(installer.run_checks(checks, directory), 1)
                 self.assertTrue((Path(directory) / "other-check-completed").exists())
 
+    def test_a_hung_check_and_its_children_are_killed_with_their_output_shown(self):
+        # A hung browser contract once ran silently until the 30-minute job limit.
+        hang = ("import subprocess,sys,time; print('reached the slow scenario', flush=True); "
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)']); time.sleep(600)")
+        with tempfile.TemporaryDirectory() as directory, patch.object(installer, "CHECK_TIMEOUT", 2), \
+                patch("sys.stdout", new_callable=__import__("io").StringIO) as out:
+            checks = {"hung": [sys.executable, "-c", hang],
+                      "successful": [sys.executable, "-c", "from pathlib import Path; Path('done').touch()"]}
+            started = __import__("time").monotonic()
+            self.assertEqual(installer.run_checks(checks, directory), 1)
+            self.assertLess(__import__("time").monotonic() - started, 30)
+            self.assertTrue((Path(directory) / "done").exists())
+        self.assertIn("reached the slow scenario", out.getvalue())
+        self.assertIn("TIMED OUT after 2s", out.getvalue())
+        self.assertIn("--- hung (", out.getvalue())
+
     def test_every_native_platform_runs_unit_browser_packaging_and_self_test(self):
         commands = installer.commands("fixture-sha")
         self.assertEqual(len(commands), 4 if sys.platform == "win32" else 3)
