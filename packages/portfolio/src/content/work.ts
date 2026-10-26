@@ -73,7 +73,7 @@ export const WORK: Work[] = [
     start: { year: 2022 },
     end: { year: 2025 },
     awards: [
-      'Four quarterly recognition awards: 2024 Q1, 2024 Q2, 2024 Q3–Q4 (one award for both quarters), and 2025 Q1',
+      'Four quarterly recognition awards: 2024 Q1, 2024 Q2, 2024 Q3–Q4 (one award for both quarters), and 2025 Q1',
     ],
     imageSrc: [
       '/one-origin-screenshot.optimized.webp',

@@ -46,7 +46,6 @@ const prose = (): readonly Entry[] => [
     .filter((line) => !line.startsWith('UTC'))
     .map((line, i) => [`logistics[${i}]`, line] as const),
   ['agentic.title', CONTENT.AGENTIC_WORKFLOW_TITLE],
-  ['agentic.cursor', CONTENT.AGENTIC_CURSOR_TEXT],
   ['agentic.tooling', CONTENT.AGENTIC_TOOLING.lead],
   ['agentic.harnesses', CONTENT.AGENTIC_TOOLING.harnesses],
   ['proof.lede', CONTENT.PROOF_LEDE],

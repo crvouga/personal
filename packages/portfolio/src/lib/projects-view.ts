@@ -75,6 +75,43 @@ export type GalleryItem =
  * de-duplicated because covers are usually repeated inside `galleryImageSrc`,
  * which otherwise shows the same slide twice.
  */
+/** Shorthand in screenshot filenames, spelled out for a screen reader. */
+const FILENAME_WORDS: Readonly<Record<string, string>> = {
+  inst: 'institution',
+  tri: 'Triangulator',
+  q1: 'Q1',
+  q2: 'Q2',
+  q3: 'Q3',
+  q4: 'Q4',
+  '&': 'and',
+};
+
+/**
+ * The screenshots are named for what they show (`inst-admin-boost-suggestions`),
+ * so the filename is the specific description. Only numbered files, which say
+ * nothing, fall back to their position in the set.
+ */
+export const describeFromFilename = (
+  src: string,
+  label: string,
+  index: number,
+  total: number
+): string => {
+  const slug = (src.split('/').pop() ?? '')
+    .replace(/\.optimized\.webp$|\.[a-z0-9]+$/i, '')
+    .replace(/-screenshot$/, '');
+  const words = slug
+    .split('-')
+    .filter(
+      (word, i, all) =>
+        !(i === all.length - 1 && /^\d+$/.test(word) && all.length > 1)
+    );
+  if (words.length === 0 || words.every((word) => /^\d+$/.test(word))) {
+    return `${label}, image ${String(index + 1)} of ${String(total)}`;
+  }
+  return `${label}: ${words.map((word) => FILENAME_WORDS[word] ?? word).join(' ')}`;
+};
+
 export const toGalleryItems = (
   sources: readonly string[],
   label: string,
@@ -88,7 +125,7 @@ export const toGalleryItems = (
     const alt =
       index === 0 && coverAlt !== undefined && coverAlt !== ''
         ? coverAlt
-        : `${label}, image ${String(index + 1)} of ${String(unique.length)}`;
+        : describeFromFilename(src, label, index, unique.length);
     return { kind: 'image' as const, src, alt };
   });
 };

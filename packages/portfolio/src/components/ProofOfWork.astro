@@ -47,17 +47,26 @@ const fetchedDate = insights === null ? '' : insights.fetchedAt.slice(0, 10);
  * so the age is spelled out, and once the data is old enough that the window
  * has slid out from under it, the caption says so outright.
  */
+/**
+ * Age relative to the build, never "today": the page is static, and a word
+ * that is true on the build day is false the day after.
+ */
+const ageBeforeBuild = (f: { readonly ageInDays: number } | null): string =>
+  f === null || f.ageInDays <= 0
+    ? ''
+    : ` (${String(f.ageInDays)} day${f.ageInDays === 1 ? '' : 's'} before this build)`;
+
 const provenance = ((): string => {
   if (insights === null) return '';
   if (insights.source === 'live') {
     return `Live data from the GitHub API at build time · ${fetchedDate} · `;
   }
-  const age = freshness === null ? '' : ` (${freshness.label})`;
+  const age = ageBeforeBuild(freshness);
   const caveat =
     freshness?.level === 'very-stale'
       ? 'these are the figures as of that date · '
       : '';
-  return `Last known snapshot · ${fetchedDate}${age} · GitHub was unreachable at build time · ${caveat}`;
+  return `Last known snapshot · ${fetchedDate}${age} · not fetched live at build time · ${caveat}`;
 })();
 ---
 
@@ -81,7 +90,7 @@ const provenance = ((): string => {
       Merged pull requests in{' '}
       <a href={VERIFICATION_REPO_URL} rel="noopener" target="_blank">crvouga/workspace</a>,{' '}
       {VERIFICATION_WINDOW_NOTE}, {VERIFICATION_WINDOW.from} → {VERIFICATION_WINDOW.to} · {PROOF_EXCLUSIONS} · computed{' '}
-      {verifiedOn} ({VERIFICATION.freshness.label}) by{' '}
+      {verifiedOn}{ageBeforeBuild(VERIFICATION.freshness)} by{' '}
       <a href={`${CONTENT.SITE_SOURCE_CODE_URL.replace('/tree/', '/blob/')}/scripts/refresh-verification.ts`} rel="noopener" target="_blank">this script</a>
     </p>
     {

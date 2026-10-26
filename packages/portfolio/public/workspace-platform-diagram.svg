@@ -43,7 +43,7 @@
   <text class="lbl" x="768" y="120">merge</text>
 
   <rect class="soft" x="40" y="296" width="1120" height="150" rx="12"/>
-  <text class="h" x="64" y="336">Declared and running</text>
+  <text class="h" x="64" y="336">Declared in the repository</text>
   <text class="s" x="64" y="372">Hosted services and images</text>
   <text class="s" x="64" y="400">Railway, tunnels, DNS</text>
   <text class="s" x="344" y="372">OpenBao secrets store</text>

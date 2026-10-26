@@ -66,6 +66,17 @@ const galleriesJson = JSON.stringify(galleries);
   .stage :global(img) {
     object-fit: contain;
   }
+  .stage :global(.video-link) {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    padding: 0 var(--space-5);
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+  }
   .bar {
     display: flex;
     align-items: center;
@@ -124,12 +135,16 @@ const galleriesJson = JSON.stringify(galleries);
       if (!item || !stage) return;
       stage.replaceChildren();
       if (item.kind === 'video') {
-        const frame = document.createElement('iframe');
-        frame.src = item.src;
-        frame.title = 'Project video';
-        frame.setAttribute('allow', 'autoplay; encrypted-media; fullscreen');
-        frame.setAttribute('allowfullscreen', '');
-        stage.append(frame);
+        // A link, never an embed: an embedded player sets YouTube cookies and
+        // calls ad servers, which would make the footer's promise untrue.
+        const id = (item.src.split('/embed/')[1] || '').split('?')[0];
+        const link = document.createElement('a');
+        link.className = 'video-link';
+        link.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Watch this demo video on YouTube ↗';
+        stage.append(link);
       } else {
         const img = document.createElement('img');
         img.src = item.src;

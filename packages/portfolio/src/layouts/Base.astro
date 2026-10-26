@@ -29,7 +29,8 @@ const hasFeed = (await publishedPosts()).length > 0;
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
     <meta name="author" content={SITE_NAME} />
-    <link rel="canonical" href={canonical} />
+    {/* A 404 has no canonical URL of its own. */}
+    {seo.noindex !== true && <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />

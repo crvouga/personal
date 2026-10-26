@@ -299,6 +299,42 @@ describe('layout', () => {
     }
   }
 
+  // The footer promises no client-side tracking; an embedded video player
+  // would break that the moment a visitor opened a gallery.
+  test(
+    'stepping through every gallery contacts no third party',
+    async () => {
+      const { page, external } = await open('/');
+      const buttons = page.locator('button[data-gallery]');
+      for (let i = 0; i < (await buttons.count()); i += 1) {
+        await buttons.nth(i).click();
+        const next = page.locator('dialog[open] [data-step="1"]');
+        for (let step = 0; step < 4 && (await next.isVisible()); step += 1) {
+          await next.click();
+        }
+        await page.keyboard.press('Escape');
+      }
+      await page.waitForTimeout(500);
+      expect(await page.locator('iframe').count()).toBe(0);
+      await page.close();
+      expect(external).toEqual([]);
+    },
+    TIMEOUT_MS
+  );
+
+  test(
+    'the section nav fits unclipped at 320px',
+    async () => {
+      const { page } = await open('/', { width: 320 });
+      const overflow = await page
+        .locator('nav[aria-label="Site sections"]')
+        .evaluate((nav) => nav.scrollWidth - nav.clientWidth);
+      await page.close();
+      expect(overflow).toBeLessThanOrEqual(0);
+    },
+    TIMEOUT_MS
+  );
+
   // Two identical Email/Résumé pairs on screen at once is noise.
   test(
     'the phone action bar hides beside the hero and contact buttons',

@@ -92,15 +92,6 @@ const essay = (await publishedPosts()).find(
       <a href={tooling.harnessesHref} rel="noopener" target="_blank">{tooling.harnesses}</a>{' '}
       ({count(harnesses)} harnesses: {PLATFORM_FACTS.agentCommandHarnesses.join(', ')}.)
     </p>
-    <p class="cursor">
-      <span class="badge">{CONTENT.AGENTIC_CURSOR_BADGE}</span>
-      <span>
-        {CONTENT.AGENTIC_CURSOR_TEXT}{' '}
-        <a href={CONTENT.AGENTIC_CURSOR_EVIDENCE.href} rel="noopener" target="_blank">
-          {CONTENT.AGENTIC_CURSOR_EVIDENCE.label}
-        </a>
-      </span>
-    </p>
   </div>
 </section>
 
@@ -209,8 +200,7 @@ const essay = (await publishedPosts()).find(
     margin-bottom: var(--space-3);
   }
   .story p,
-  .tooling,
-  .cursor {
+  .tooling {
     color: var(--text-muted);
     font-size: var(--text-base);
   }
@@ -220,26 +210,5 @@ const essay = (await publishedPosts()).find(
   }
   .tooling strong {
     color: var(--text);
-  }
-  .cursor {
-    margin-top: var(--space-3);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--text-sm);
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--accent);
-    padding: var(--space-1) var(--space-2);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-glow);
-    border-radius: var(--radius-pill);
   }
 </style>

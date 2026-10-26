@@ -102,7 +102,7 @@ const CSP_DIRECTIVES = [
   "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self'",
-  'frame-src https://www.youtube.com https://www.youtube-nocookie.com',
+  "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'none'",
@@ -291,6 +291,12 @@ test('Docker container serves the multi-route site on port 80', async () => {
     expect(missing.status).toBe(404);
     const missingBody = await missing.text();
     expect(missingBody.includes('That page does not exist.')).toBe(true);
+
+    // Behind the TLS edge an absolute http:// redirect would downgrade the
+    // visitor, so the trailing-slash redirect must be relative.
+    const bare = await fetch(`${TEST_URL}/projects`, { redirect: 'manual' });
+    expect(bare.status).toBe(301);
+    expect(bare.headers.get('location')).toBe('/projects/');
 
     // The retired hand-written sitemap must be gone, not silently served.
     const oldSitemap = await fetch(`${TEST_URL}/sitemap.xml`);

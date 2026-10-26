@@ -133,7 +133,8 @@ export const buildPolicy = (sources: InlineSources): string => {
     "font-src 'self'",
     "connect-src 'self'",
     // Project galleries open YouTube embeds on demand.
-    'frame-src https://www.youtube.com https://www.youtube-nocookie.com',
+    // Gallery videos open on YouTube in a new tab; nothing is framed.
+    "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'none'",

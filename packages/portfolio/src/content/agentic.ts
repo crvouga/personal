@@ -92,7 +92,8 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
     receipts: [
       { label: 'Health checks', href: tree('packages/infra/lib/health') },
       {
-        label: 'The daily maintenance job',
+        label:
+          'The daily health report, which turns red when the platform drifts',
         href: blob('.github/workflows/maintenance.yml'),
       },
     ],
@@ -169,7 +170,7 @@ export const AGENTIC_CANDOR: Story = {
       text: 'The policy test that forbids it already existed, but a path filter skipped the check for that pull request, so it merged.',
     },
     {
-      text: 'The check on the next pull request caught it',
+      text: 'The check on the next, unrelated pull request caught it',
       link: { label: 'pull request #101', href: pull(101) },
     },
     {
@@ -180,30 +181,27 @@ export const AGENTIC_CANDOR: Story = {
       },
     },
     {
-      text: 'What changed: the repository-wide check now runs on every pull request, whatever it touches.',
+      text: 'What changed: the check no longer waits on a path filter; it runs on every pull request, whatever it touches.',
       link: {
-        label: 'commit 6522c40',
-        href: commit('6522c40fc5610ad93215c68d320ecc331d7ebfd6'),
+        label: 'the removed condition',
+        // The deleted `needs.changes.outputs.check == 'true'` line in ci.yml.
+        href: `${commit('6522c40fc5610ad93215c68d320ecc331d7ebfd6')}#diff-b803fcb7f17ed9235f1e5cb1fcd2f5d3b2838429d4368ae4c57ce4436577f03fL402`,
       },
     },
   ],
 };
 
-export const AGENTIC_CURSOR_BADGE = 'Recognized by Cursor';
-export const AGENTIC_CURSOR_TEXT =
-  'Cursor named me one of its top Tab users. That measures volume; the checks above are what make volume trustworthy.';
-/** The gift video Cursor sent: linked, not embedded, so no page loads YouTube. */
-export const AGENTIC_CURSOR_EVIDENCE: Receipt = {
-  label: 'Cursor’s video',
-  href: 'https://www.youtube.com/watch?v=7rHHSdnvX94',
-};
+/*
+ * No "Recognized by Cursor" badge: its only public evidence is a self-posted
+ * clip, which cannot be linked as Cursor's own statement. CONTENT_QUESTIONS.md
+ * asks for a first-party source; until one exists, the claim stays off.
+ */
 
 /** Every outbound link in this section, for the daily link check. */
 export const AGENTIC_LINKS: readonly string[] = [
   ...AGENTIC_PRINCIPLES.flatMap((p) => p.receipts.map((r) => r.href)),
   AGENTIC_CONTRACT.href,
   AGENTIC_TOOLING.harnessesHref,
-  AGENTIC_CURSOR_EVIDENCE.href,
   ...[...AGENTIC_END_TO_END.steps, ...AGENTIC_CANDOR.steps].flatMap((s) =>
     s.link === undefined ? [] : [s.link.href]
   ),

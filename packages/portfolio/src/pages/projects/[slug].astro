@@ -30,7 +30,7 @@ const stack = project.topics.map((topic) => TOPIC_TO_NAME[topic]).join(' · ');
 <Page seo={seo}>
   <article class="container study" aria-labelledby="study-title">
     <nav class="crumbs" aria-label="Breadcrumb">
-      <a href="/">Home</a> <span aria-hidden="true">/</span>
+      <a href="/" class="crumb-home">Home</a> <span aria-hidden="true">/</span>
       <a href="/projects/">All projects</a> <span aria-hidden="true">/</span>
       <span aria-current="page">{project.title}</span>
     </nav>
@@ -114,6 +114,7 @@ const stack = project.topics.map((topic) => TOPIC_TO_NAME[topic]).join(' · ');
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
+    min-width: var(--tap);
   }
   .eyebrow {
     font-family: var(--font-mono);
