@@ -19,6 +19,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "wizard"))
 import bootstrap  # noqa: E402,F401
 import decide  # noqa: E402
+import diagnostics  # noqa: E402
 import elevate  # noqa: E402
 import helper  # noqa: E402
 import imaging  # noqa: E402
@@ -28,6 +29,12 @@ import iso_fixture  # noqa: E402
 
 def failed(name):
     return decide.finding(name, "fail", name + " is unavailable", "manual fix")
+
+
+class WindowsFirmwareQueryTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Exercise the native GetFirmwareType ABI on Windows CI")
+    def test_native_windows_api_reads_the_boot_mode(self):
+        self.assertIn(decide.windows_firmware_type(), (1, 2))
 
 
 class PreparationTests(unittest.TestCase):
@@ -140,6 +147,25 @@ class HelperPreparationTests(unittest.TestCase):
                 self.install()
         execute.assert_not_called()
         perform.assert_not_called()
+
+    def test_all_privileged_blockers_retain_their_details_and_recovery_steps(self):
+        found = [
+            decide.finding("firmware", "fail", "Windows boot mode could not be determined", "Check BIOS Mode in msinfo32."),
+            decide.finding("secure-boot", "fail", "Secure Boot is on and the installer is not signed", "Turn Secure Boot off with shutdown /r /fw."),
+        ]
+        with mock.patch.object(decide, "preflight", return_value=found), \
+                mock.patch.object(preparation, "execute") as execute, \
+                mock.patch.object(decide, "perform_install") as perform:
+            with self.assertRaises(decide.Invariant) as caught:
+                self.install()
+        execute.assert_not_called()
+        perform.assert_not_called()
+        failure = caught.exception
+        self.assertEqual(failure.context["failed"], repr([f"{item['name']}: {item['detail']}" for item in found]))
+        advice = diagnostics.guidance(failure.what, failure.fix, changed=False)
+        self.assertEqual(advice["summary"], "This computer is not ready for installation.")
+        for item in found:
+            self.assertIn(item["fix"], " ".join(advice["steps"]))
 
     def test_ineffective_preparation_never_loops_or_reboots(self):
         with mock.patch.object(decide, "preflight", return_value=[failed("boot-tool")]), \

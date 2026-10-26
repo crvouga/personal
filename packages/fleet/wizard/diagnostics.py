@@ -11,6 +11,7 @@ import platform
 import re
 import sys
 import tempfile
+import traceback
 import urllib.parse
 
 import bootstrap  # noqa: F401
@@ -32,6 +33,9 @@ CLI_ONLY_FIXES = ("Run `fleet-node doctor`", "Read the log, then run the wizard 
 # only: a fix such as "Check the Wi-Fi network name" must not make a failure look
 # like a network one.
 RULES = (
+    (r"a check failed in the privileged step",
+     "This computer is not ready for installation.",
+     [], True),
     (r"privileged step ended without a result|did not start the administrator prompt|was refused",
      "Administrator permission was not given.",
      ["Press Try again, then choose Yes when the computer asks for permission.",
@@ -141,6 +145,59 @@ def _line(value):
     return decide.redact(str(value if value not in (None, "") else "unknown"))
 
 
+def check_snapshot(stage, findings):
+    """Copy only diagnostic fields; never serialize a plan, request or Wi-Fi profile."""
+    return {"stage": stage, "findings": [
+        {key: decide.redact(str(item.get(key, ""))) for key in ("name", "status", "detail", "fix")}
+        for item in findings
+    ]}
+
+
+def exception_details(error):
+    """Source locations and OS error codes, without traceback locals or request data."""
+    frames = traceback.extract_tb(error.__traceback__)
+    return {
+        "type": type(error).__name__,
+        "errno": getattr(error, "errno", None), "winerror": getattr(error, "winerror", None),
+        "context": getattr(error, "context", {}),
+        "frames": [f"{os.path.basename(frame.filename)}:{frame.lineno} in {frame.name}" for frame in frames[-6:]],
+    }
+
+
+def evidence(job, result, compact=False):
+    """Key evidence survives even when the issue URL has no room for log tails."""
+    job = job or {}
+    out = []
+    if job.get("attempt"):
+        out += [f"Attempt: {_line(job['attempt'])}; started: {_line(job.get('started_at'))}; elapsed: {job.get('elapsed', 0):.1f}s"]
+    if job.get("image"):
+        out += [f"Verified image: sha256={_line(job['image'].get('sha256'))}; bytes={_line(job['image'].get('bytes'))}"]
+    helper = result.get("helper") or {}
+    if helper:
+        out += ["Helper: " + "; ".join(f"{key}={_line(value)}" for key, value in helper.items())]
+    error = result.get("error") or {}
+    if error:
+        out += [f"Error type: {_line(error.get('type'))}; errno: {_line(error.get('errno'))}; winerror: {_line(error.get('winerror'))}"]
+        out += ["Source: " + " <- ".join(_line(frame) for frame in error.get("frames", []))]
+        out += [f"Context {key}: {_line(value)}" for key, value in (error.get("context") or {}).items()]
+    checks = [*(job.get("checks") or []), *(result.get("checks") or [])]
+    if checks:
+        out += ["", "## Checks (recorded during this attempt; not rerun)"]
+        for snapshot in checks:
+            findings = snapshot.get("findings", [])
+            out += [f"Stage: {_line(snapshot.get('stage'))}; {len(findings)} checks"]
+            # Put blockers first, including when the final URL fallback needs a prefix.
+            for item in sorted(findings, key=lambda row: row.get("status") != "fail"):
+                if compact and item.get("status") not in ("fail", "warn"):
+                    continue
+                out += [f"{_line(item.get('status')).upper()} {_line(item.get('name'))}: {_line(item.get('detail'))}"]
+                if item.get("fix"):
+                    out += [f"  Fix: {_line(item['fix'])}"]
+    if not compact and job.get("timeline"):
+        out += ["", "## Timeline (seconds since start)", *[_line(row) for row in job["timeline"]]]
+    return out
+
+
 def report(version, facts, job, problem=None, lines=LOG_TAIL, wizard_log=None):
     """One plain-text report. `job` is a Job snapshot; `problem` is an error the
     page met outside a job ({message, fix, where})."""
@@ -163,6 +220,7 @@ def report(version, facts, job, problem=None, lines=LOG_TAIL, wizard_log=None):
         f"Explanation: {_line(advice.get('summary') or '-')}",
         *[f"- {_line(step)}" for step in advice.get("steps") or []],
         f"Safety: {_line(advice.get('safety') or '-')}",
+        *evidence(job, result, compact=not lines),
         "",
         "## System",
         f"Version: {_line(version)}",
@@ -185,7 +243,7 @@ def report(version, facts, job, problem=None, lines=LOG_TAIL, wizard_log=None):
             found = ["(this log belongs to the administrator step; its end, as the step reported it:)",
                      *[decide.redact(line) for line in result["log_tail"][-lines:]]]
         out += found
-    return "\n".join(out) + "\n"
+    return decide.redact("\n".join(out)) + "\n"
 
 
 def issue_title(message):
@@ -207,6 +265,18 @@ def issue_url(title, build):
         url = f"https://github.com/{decide.REPO}/issues/new?{query}"
         if len(url) <= ISSUE_URL_MAX:
             return url
-    keep = ISSUE_URL_MAX // 4
-    body = "Reported from the Fleet installer. The report was too long for an address; paste it from the clipboard.\n\n```text\n" + build(0)[:keep] + "\n```\n"
-    return f"https://github.com/{decide.REPO}/issues/new?" + urllib.parse.urlencode({"title": title, "body": body}, quote_via=urllib.parse.quote)
+    # Count encoded bytes: non-ASCII error messages can cost nine URL characters
+    # per character. A fixed character slice can still exceed GitHub's limit.
+    report_text = build(0).replace("```", "'''")
+    def shortened_url(keep):
+        body = ("Reported from the Fleet installer. The report was too long for an address; "
+                "save the full diagnostic report and attach it to this issue.\n\n```text\n" + report_text[:keep] + "\n```\n")
+        return f"https://github.com/{decide.REPO}/issues/new?" + urllib.parse.urlencode({"title": title, "body": body}, quote_via=urllib.parse.quote)
+    low, high = 0, len(report_text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(shortened_url(middle)) <= ISSUE_URL_MAX:
+            low = middle
+        else:
+            high = middle - 1
+    return shortened_url(low)

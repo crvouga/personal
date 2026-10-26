@@ -38,6 +38,14 @@ required firmware change still need the person at the computer.
 - [ ] **Unplug other drives and USB sticks.** The installer refuses to guess between two internal disks, and an external disk can look internal to Windows.
 - [ ] **Turn Secure Boot off.** The installer's boot loader is not signed. Run `shutdown /r /fw` in an administrator window, open the firmware's Boot or Security page, set Secure Boot to Disabled, save, and start Windows again. (`msinfo32` shows "Secure Boot State: Off" when it worked.)
 - [ ] **UEFI and GPT.** In `msinfo32`, "BIOS Mode" must say UEFI. In Disk Management, the disk's Properties > Volumes must say "GUID Partition Table (GPT)". A legacy-BIOS or MBR disk cannot convert; make an install USB instead (`fleet-node.sh flash`, or the wizard's USB option).
+
+  The installer reads boot mode through Windows' [GetFirmwareType API](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwaretype). Older
+  installers read the Windows PE `PEFirmwareType` registry value, which can be
+  absent on installed Windows and falsely report legacy BIOS (issue #143).
+  If that happens while `msinfo32` says UEFI, use the latest installer rather
+  than converting the disk. Secure Boot must still be disabled. An unreadable
+  boot mode stops installation and asks for diagnostics.
+
 - [ ] **Enough RAM.** The installer image is copied whole into memory and the installer then needs room of its own: **the image size plus 2 GiB**. The check uses the current release size and names the exact figure. A USB install cannot help, because it boots the same image into RAM too.
 - [ ] **Free space on C:** Windows has to be able to give up the image size plus 64 MiB from the end of `C:`, and the download sits on `C:` meanwhile, so the early check asks for both. If it says `C:` cannot shrink enough, see "C: will not shrink" below.
 - [ ] **Run it as an administrator**: the wizard asks for permission by itself (UAC). For `fleet-node.sh`, open Git Bash with **Run as administrator**.

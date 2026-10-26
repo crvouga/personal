@@ -15,6 +15,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -40,8 +41,17 @@ class Progress:
     def __init__(self, directory):
         self.path = Path(directory) / "progress.jsonl"
         self.failed = False
+        self.step = None
+        self.checks = []
+
+    def record_checks(self, stage, findings):
+        snapshot = diagnostics.check_snapshot(stage, findings)
+        self.checks.append(snapshot)
+        decide.log("checks " + json.dumps(snapshot))
 
     def emit(self, step, message="", percent=None):
+        if step != "log":
+            self.step = step
         row = {"step": step, "message": decide.redact(message), "percent": percent}
         try:
             with open(self.path, "a", encoding="utf-8") as handle:
@@ -209,9 +219,12 @@ def install_here(request, progress):
     decide.invariant(chosen["ok"], "no single internal disk can be erased", chosen.get("next", ""), chosen=chosen.get("next"))
     decide.invariant(chosen["disk_id"] == request.get("disk_id"), "the internal disk is not the one that was chosen", "Disks changed. Run the wizard again.")
     found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
+    progress.record_checks("helper preflight", found)
     actions = preparation.automatic(os_name, found)
     problems = [item for item in found if item["status"] == "fail" and item["name"] not in actions]
-    decide.invariant(not problems, "a check failed in the privileged step", problems[0]["fix"] if problems else "", failed=[item["name"] for item in problems])
+    decide.invariant(not problems, "a check failed in the privileged step",
+                     " ".join(dict.fromkeys(item["fix"] for item in problems if item.get("fix"))),
+                     failed=[f"{item['name']}: {item['detail']}" for item in problems])
     reinstall = request.get("reinstall", False)
     decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
     if not reinstall and decide.installed_for(role, directory):
@@ -221,6 +234,7 @@ def install_here(request, progress):
         decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before preparation", "Review the disk again.")
         if preparation.run(os_name, found, progress):
             found = decide.preflight(os_name, role, "install", token, directory, disk_path=chosen["path"], iso_path=str(iso))
+            progress.record_checks("helper after preparation", found)
             problems = [item for item in found if item["status"] == "fail"]
             decide.invariant(not problems, "automatic preparation could not make this computer ready",
                              "No partition or boot entry was changed. Make an install USB instead, or resolve the remaining check and reopen the installer.",
@@ -251,17 +265,22 @@ def install_here(request, progress):
 
 def run(directory):
     directory = Path(directory)
+    started = time.monotonic()
     progress = Progress(directory)
     decide.start_log(["helper", str(directory.name)])
     decide.LOG["sink"] = lambda message: progress.emit("log", message)
     result = {"ok": False, "message": "", "fix": ""}
     try:
         request = load_request(directory)
+        attempt = request.get("attempt", "")
+        if isinstance(attempt, str) and re.fullmatch(r"[0-9a-f]{16}", attempt):
+            decide.log(f"attempt={attempt} helper started pid={os.getpid()}")
         action = {"write-usb": write_usb, "install-here": install_here}[request["action"]]
         result["message"] = action(request, progress)
         result["ok"] = True
     except decide.Invariant as broken:
         decide.log(traceback.format_exc(), "ERROR")
+        result["error"] = diagnostics.exception_details(broken)
         result.update(message=f"{broken.what} ({'; '.join(f'{k}={v}' for k, v in broken.context.items())})", fix=broken.fix)
     except imaging.Cancelled:
         result.update(message="Cancelled. Nothing is left half done that running the wizard again cannot redo.", fix="")
@@ -269,6 +288,7 @@ def run(directory):
         result.update(message="Cancelled before the administrator step started. Nothing was changed.", fix="", withdrawn=True)
     except Exception as exc:
         decide.log(traceback.format_exc(), "ERROR")
+        result["error"] = diagnostics.exception_details(exc)
         result.update(message=f"{type(exc).__name__}: {exc}", fix="This is a bug in the installer. The log has the details.")
     finally:
         for name in (REQUEST, CLAIMED):
@@ -279,6 +299,9 @@ def run(directory):
             except OSError as exc:
                 decide.log(f"could not clear the request file: {type(exc).__name__}: {exc}", "ERROR")
     result["log"] = decide.LOG["path"]
+    result["checks"] = progress.checks
+    result["helper"] = {"pid": os.getpid(), "os": decide.current_os(), "arch": decide.machine_arch(),
+                        "step": progress.step, "elapsed": round(time.monotonic() - started, 1)}
     # The log carries the outcome too, in case the window cannot read result.json.
     decide.log(f"result ok={result['ok']} message={result['message']} fix={result['fix']}", "INFO" if result["ok"] else "ERROR")
     # The window may not be able to open this log (another account, or root-only), so

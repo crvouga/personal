@@ -276,7 +276,17 @@ A failure page lists numbered recovery steps, says whether anything on the compu
 
 - **Try again**, which reviews the same choices again (you confirm the erase again; nothing is reused silently).
 - **Copy diagnostic report**, which puts the error, this computer's details, the job's steps and the recent log lines on the clipboard, ready to paste to an agent. Secrets are redacted.
+- **Save diagnostic report**, which downloads the same full report as `fleet-diagnostic.txt`. Attach it to the issue or give it to the agent, especially if the pre-filled issue says its logs were shortened.
 - **Report on GitHub**, which opens a pre-filled public issue in this repository and also copies the full report. Review the issue before you submit it.
+
+Reports include an attempt ID, timings, the verified image checksum, recorded
+review/helper checks, and error source locations and OS error codes when available.
+The attempt ID connects the window's log to the administrator helper's log.
+Failed checks and error locations remain in shortened issues when space allows;
+the saved report keeps the complete recorded checks and recent logs. Collecting
+a report reads recorded evidence; it does not rerun checks or disk operations.
+Agents should follow the [installer debugging runbook](debugging.md).
+The same report controls are available when review checks block installation.
 
 If the administrator step is still running when something goes wrong, the wizard keeps waiting for it rather than reporting a result it cannot know.
 

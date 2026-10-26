@@ -132,7 +132,7 @@ $env:SystemDrive = 'C:'
 function Get-PartitionSupportedSize { param($DriveLetter) [PSCustomObject]@{ SizeMin = [uint64]200000000000; SizeMax = [uint64]500000000000 } }
 function Get-Disk { param($Number) [PSCustomObject]@{ Number = 0; PartitionStyle = 'GPT'; BusType = 'NVMe'; LogicalSectorSize = [uint32]512 } }
 function Confirm-SecureBootUEFI { $false }
-function Get-ItemProperty { param($Path) [PSCustomObject]@{ PEFirmwareType = [uint32]2 } }
+function Get-ItemProperty { param($Path) throw 'PEFirmwareType is absent on installed Windows' }
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_ComputerSystem') { [PSCustomObject]@{ TotalPhysicalMemory = [uint64]17179869184 } } }
 function Get-BitLockerVolume { param($MountPoint) throw 'BitLocker is not installed' }
 """
@@ -146,7 +146,10 @@ class FactsTest(NeedsPowerShell):
     def facts(self, *extra):
         done = run_powershell(stubs(PARTS_ONE_ESP, *extra) + decide.PS_PREAMBLE + decide.ps_facts_script())
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        return decide.parse_windows_facts(done.stdout)
+        with unittest.mock.patch.object(decide, "windows_ps", return_value=done.stdout), \
+                unittest.mock.patch.object(decide, "windows_firmware_type", return_value=2), \
+                unittest.mock.patch.dict(decide.WINDOWS):
+            return decide.windows_facts(fresh=True)
 
     def test_an_ordinary_machine(self):
         facts = self.facts()

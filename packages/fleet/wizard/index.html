@@ -191,6 +191,7 @@
               '</button>'
             : '') +
           '<button onclick="copyDiagnostic()">Copy diagnostic report</button>' +
+          '<button onclick="saveDiagnostic()">Save diagnostic report</button>' +
           '<button onclick="reportIssue()">Report on GitHub</button>' +
           (t.noStartOver
             ? ''
@@ -211,6 +212,7 @@
           'Fleet installer diagnostic',
           '(The installer program did not answer, so this report has only what the page knows.)',
           'Version: ' + (j?.version || state.scan?.version || 'unknown'),
+          'Attempt: ' + (j?.attempt || 'unknown'),
           'System: ' +
             (state.scan?.os || 'unknown') +
             ' / ' +
@@ -291,6 +293,23 @@
           if (details) details.open = true;
           document.getElementById('diagnostic-report')?.select();
         }
+      }
+      async function saveDiagnostic() {
+        await state.diagnostic;
+        const blob = new Blob([state.report], {
+          type: 'text/plain;charset=utf-8',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'fleet-diagnostic.txt';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        diagnosticStatus(
+          'Saved the full report. Attach fleet-diagnostic.txt to the GitHub issue or give it to an agent.'
+        );
       }
       function reportIssue() {
         // Open the window first, while the click still allows it.
@@ -636,6 +655,10 @@
             '<p class="fail">This needs your attention before installation can continue.</p><button onclick="start()">Start over</button><button class="primary" onclick="review(' +
             esc(JSON.stringify(body)) +
             ')">Check again</button>';
+          h += diagnostics({
+            state: 'review',
+            message: 'The review has failed checks.',
+          });
           return show(h);
         }
         h += '<div class="erase"><b>' + esc(p.summary) + '</b></div>';
@@ -785,6 +808,7 @@
         loadDiagnostic();
         return (
           '<details><summary>Error details for support or an LLM</summary><textarea id="diagnostic-report" readonly rows="12"></textarea><p><button onclick="copyDiagnostic()">Copy diagnostic report</button>' +
+          '<button onclick="saveDiagnostic()">Save diagnostic report</button>' +
           '<button onclick="reportIssue()">Report on GitHub</button></p><p id="diagnostic-status" role="status"></p></details>'
         );
       }
