@@ -21,11 +21,38 @@ function fakeIso() {
   return blob;
 }
 
+// Every wizard this script starts, so a failure or timeout still stops them.
+const children = new Set();
+const started = Date.now();
+let current = 'starting the browser';
+// Name each scenario as it starts: a CI log then shows where time went, and a
+// hang names its scenario instead of running silently until the job limit.
+function scenario(name) {
+  current = name;
+  console.log(
+    '[ui-e2e +' + ((Date.now() - started) / 1000).toFixed(1) + 's] ' + name
+  );
+}
+const LIMIT_MS = Number(process.env.FLEET_UI_E2E_TIMEOUT_MS || 150000);
+setTimeout(() => {
+  console.error('UI E2E TIMEOUT after ' + LIMIT_MS / 1000 + 's in: ' + current);
+  for (const child of children) child.kill('SIGKILL');
+  process.exit(1);
+}, LIMIT_MS).unref();
+function within(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(resolve, ms).unref()),
+  ]);
+}
+
 function startWizard(env) {
   return new Promise((resolve, reject) => {
     const child = spawn(PYTHON, ['-u', MAIN, '--no-browser'], {
       env: { ...process.env, ...env },
     });
+    children.add(child);
+    child.on('exit', () => children.delete(child));
     let out = '';
     const timer = setTimeout(() => {
       child.kill();
@@ -96,6 +123,7 @@ async function main() {
   const failures = [];
   try {
     // ---- the golden path: make an install USB ---------------------------------
+    scenario('make an install USB');
     {
       const { child, url } = await startWizard(env);
       const page = await browser.newPage();
@@ -161,6 +189,7 @@ async function main() {
     }
 
     // ---- devbox: select a public key through the GUI and review --------------
+    scenario('devbox review and Report a problem');
     {
       const internal = {
         ...usb,
@@ -220,11 +249,48 @@ async function main() {
         review.includes('Test internal SSD'),
         'review names the internal disk'
       );
+      assert.ok(
+        review.includes('What happens next') &&
+          review.includes('FLEET INSTALLER') &&
+          review.includes('Step 5 erases this disk'),
+        'review explains every screen after the restart before anything is erased'
+      );
+      // Reporting works from any step, not only after a failure. The tab is a
+      // stand-in that records its address: a real popup, its navigation and
+      // its close hung intermittently on CI runners with no timeout to stop it.
+      await page.evaluate(() => {
+        window.openedIssues = [];
+        window.open = () => ({
+          opener: window,
+          location: {
+            set href(value) {
+              window.openedIssues.push(value);
+            },
+          },
+        });
+      });
+      await page.getByRole('button', { name: 'Report a problem' }).click();
+      await page.waitForFunction(() => window.openedIssues.length > 0, null, {
+        timeout: 15000,
+      });
+      const issueUrl = await page.evaluate(() => window.openedIssues[0]);
+      assert.ok(
+        issueUrl.startsWith('https://github.com/crvouga/workspace/issues/new?'),
+        issueUrl
+      );
+      const query = new URL(issueUrl).searchParams;
+      assert.equal(query.get('template'), 'fleet-installer.yml');
+      assert.match(
+        query.get('step') || '',
+        /^Wizard on Linux: set up this computer/
+      );
+      assert.match(query.get('diagnostic') || '', /Fleet installer diagnostic/);
       await page.close();
       child.kill();
     }
 
     // ---- the release is not published: say so plainly -----------------------
+    scenario('release not published');
     {
       const bad = {
         ...env,
@@ -249,6 +315,7 @@ async function main() {
     }
 
     // ---- no USB stick plugged in: explained, with a way forward ------------
+    scenario('no USB stick');
     {
       fs.writeFileSync(path.join(dir, 'disks.json'), JSON.stringify([]));
       const { child, url } = await startWizard(env);
@@ -267,7 +334,9 @@ async function main() {
   } catch (error) {
     failures.push(error);
   } finally {
-    await browser.close();
+    scenario('closing');
+    for (const child of children) child.kill('SIGKILL');
+    await within(browser.close(), 15000);
     fs.rmSync(dir, { recursive: true, force: true });
   }
   if (failures.length) {

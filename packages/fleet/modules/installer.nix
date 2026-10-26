@@ -11,6 +11,8 @@
     cp ${../scripts/runner_job.py} "$out/runner_job.py"
     cp ${../scripts/cattle.py} "$out/cattle.py"
     cp ${../scripts/fleetconf.py} "$out/fleetconf.py"
+    cp ${../scripts/live_console.py} "$out/live_console.py"
+    cp ${../scripts/decide.py} "$out/decide.py"
   '';
   bootstrapPackages = [ pkgs.sops pkgs.qrencode (pkgs.writeShellScriptBin "fleet-bootstrap-ready" ''
     export PATH=${lib.makeBinPath [ pkgs.sops ]}:$PATH
@@ -18,6 +20,19 @@
   '') (pkgs.writeShellScriptBin "fleet-bootstrap-report" ''
     exec ${python}/bin/python3 ${readiness}/bootstrap_report.py "$@"
   '') ];
+  # The installer's screens and the commands a person types at its prompt
+  # (scripts/live_console.py). sudo must be the setuid wrapper, not the package.
+  liveCommand = name: command: pkgs.writeShellScriptBin name ''
+    export PATH=${config.security.wrapperDir}:${lib.makeBinPath [ pkgs.qrencode pkgs.systemd pkgs.coreutils ]}:$PATH
+    exec ${python}/bin/python3 ${readiness}/live_console.py ${command} "$@"
+  '';
+  livePackages = [
+    (liveCommand "fleet-live" "")
+    (liveCommand "fleet-status" "status")
+    (liveCommand "fleet-report" "report")
+    (liveCommand "fleet-retry" "retry")
+    (liveCommand "fleet-return" "return")
+  ];
 in {
   imports = [ ./hardware/generic.nix ./wifi.nix ];
   # stage-1-init.sh moves /run into the live system after postMountCommands.
@@ -43,7 +58,7 @@ in {
   # age stays on the system path. The console user is nixos, and sudo's
   # secure_path drops the fleet-install wrapper's PATH. age-keygen has to
   # survive that. select-disk and nixos-install are already there.
-  environment.systemPackages = bootstrapPackages ++ [
+  environment.systemPackages = bootstrapPackages ++ livePackages ++ [
     pkgs.age
     (pkgs.writeShellScriptBin "select-disk" ''
       export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.util-linux ]}:$PATH
@@ -57,13 +72,29 @@ in {
       exec ${pkgs.bash}/bin/bash ${../scripts/fleet-install.sh} "$@"
     '')
   ];
-  users.motd = ''
-    fleet installer. The boot menu chooses ci, web, cache, or netboot.
-    Choose a role deliberately; every entry erases the internal disk.
-    Installation failures appear in Fleet and as a copyable diagnostic QR.
-    After a safe return to the original system, reopen the Fleet wizard.
-    Do not manually repeat an install after disk operations have started.
+  # A prompt here appears only when the installer stopped, the person chose to
+  # stay, or they pressed Alt+F2. Say what happened and what to type, every time.
+  services.getty.helpLine = lib.mkForce "Fleet installer. Type fleet-status to see what is happening and what to do.";
+  programs.bash.loginShellInit = ''
+    if [ -t 1 ] && command -v fleet-status >/dev/null 2>&1; then
+      fleet-status || true
+    fi
   '';
+  # The first screen, as soon as filesystems are up. The install unit waits for
+  # network-online.target, which can take two minutes of bare boot messages.
+  systemd.services.fleet-installer-screen = {
+    description = "Show the Fleet installer's first screen";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "local-fs.target" "systemd-vconsole-setup.service" ];
+    before = [ "network-online.target" "fleet-auto-install.service" ];
+    unitConfig.ConditionPathExists = "/iso/fleet-install-manifest";
+    serviceConfig = {
+      Type = "oneshot";
+      StandardOutput = "journal";
+      StandardError = "journal";
+      ExecStart = "${lib.getExe' (builtins.head livePackages) "fleet-live"} step network";
+    };
+  };
   systemd.services.fleet-auto-install = {
     description = "Wipe the internal disk and install the role from the boot menu";
     wantedBy = [ "multi-user.target" ];
@@ -75,14 +106,16 @@ in {
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      StandardOutput = "journal+console";
-      StandardError = "journal+console";
-      # Retry only temporary preflight failures, before disko. Wrapped token
-      # use is idempotent through the private enrolled credential snapshot.
-      # Never automatically repeat a partition/install failure.
+      # fleet-live draws the console screens itself. journal+console prefixed
+      # every line with the unit name, which broke the report QR code.
+      StandardOutput = "journal";
+      StandardError = "journal";
+      # fleet-auto.sh retries temporary preflight failures (exit 75) itself,
+      # before disko, inside this one start job. A systemd restart failed the
+      # job between attempts and let getty log in over the installer. Wrapped
+      # token use is idempotent through the private enrolled credential
+      # snapshot. Never automatically repeat a partition/install failure.
       Restart = "no";
-      RestartForceExitStatus = "75";
-      RestartSec = "30s";
     };
     # A service path replaces the default and hides select-disk and
     # nixos-install. Keep the live system profile, then the tools this unit calls.
@@ -95,6 +128,7 @@ in {
         pkgs.systemd
         pkgs.age
         pkgs.diffutils
+        pkgs.python3
       ]}"
       exec ${pkgs.bash}/bin/bash ${../scripts/fleet-auto.sh}
     '';

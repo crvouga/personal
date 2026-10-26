@@ -31,20 +31,23 @@ class EvidenceTests(unittest.TestCase):
             "error": {"type": "Invariant", "frames": ["helper.py:123 in install_here"]},
         }, "log": ["noise" * 200] * 120}
         build = lambda lines: diagnostics.report("version", [], job, lines=lines)
-        url = diagnostics.issue_url("Fleet installer: check failed", build)
-        body = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["body"][0]
+        url = diagnostics.issue_url("Fleet installer: check failed", build, "Wizard on Windows: set up this computer, failed")
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+        body = query["diagnostic"][0]
+        self.assertEqual(query["template"], ["fleet-installer.yml"])
+        self.assertEqual(query["step"], ["Wizard on Windows: set up this computer, failed"])
         self.assertLessEqual(len(url), diagnostics.ISSUE_URL_MAX)
         for needed in ("Attempt: " + "a" * 16, "FAIL firmware", "probe could not read firmware", "helper.py:123"):
             self.assertIn(needed, body)
         self.assertNotIn("never serialize me", build(120))
         self.assertNotIn("hvs.SECRET", build(120))
 
-    def test_unicode_report_still_fits_and_keeps_complete_code_fences(self):
+    def test_unicode_report_still_fits_and_says_it_was_shortened(self):
         url = diagnostics.issue_url("Fleet installer: failure", lambda lines: "Failure first\n" + "故障🔧" * 10000)
         self.assertLessEqual(len(url), diagnostics.ISSUE_URL_MAX)
-        body = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["body"][0]
+        body = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["diagnostic"][0]
         self.assertIn("Failure first", body)
-        self.assertTrue(body.endswith("\n```\n"))
+        self.assertTrue(body.endswith("attach fleet-diagnostic.txt.)"))
 
     def test_log_messages_do_not_replace_the_last_actual_step_or_inflate_timeline(self):
         job = server.Job()

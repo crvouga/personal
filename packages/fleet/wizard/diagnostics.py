@@ -12,14 +12,13 @@ import re
 import sys
 import tempfile
 import traceback
-import urllib.parse
 
 import bootstrap  # noqa: F401
 import decide
 
 LOG_TAIL = 120
 TAIL_BYTES = 256 * 1024
-ISSUE_URL_MAX = 7500  # GitHub refuses much longer new-issue addresses
+ISSUE_URL_MAX = decide.ISSUE_URL_MAX
 ISSUE_TAILS = (LOG_TAIL, 60, 30, 10, 0)
 
 BUG = "This looks like a bug in the installer, not a problem with this computer."
@@ -258,31 +257,25 @@ def issue_title(message):
     return "Fleet installer: " + (first if len(first) <= 90 else first[:87] + "...")
 
 
-def issue_url(title, build):
-    """A new-issue address that fits GitHub's limit. `build(lines)` returns the
-    report with that many log lines; fewer are used until the address fits."""
+def issue_step(os_label, job, problem):
+    """The form's "Step where it stopped": where in the wizard, in words a person reads."""
+    job, problem = job or {}, problem or {}
+    mode = {"here": "set up this computer", "usb": "make an install USB"}.get(job.get("mode") or problem.get("mode"), "choosing")
+    where = problem.get("where") or job.get("state") or "start"
+    detail = job.get("step")
+    return _line(f"Wizard on {os_label}: {mode}, {where}" + (f" ({detail})" if detail and detail != where else ""))
+
+
+def issue_url(title, build, step=""):
+    """A new issue on the Fleet installer form that fits GitHub's limit. `build(lines)`
+    returns the report with that many log lines; fewer are used until the address fits."""
+    step = step or "Wizard"
     for lines in ISSUE_TAILS:
         text = build(lines)
-        shortened = lines < LOG_TAIL
-        body = ("Reported from the Fleet installer's **Report on GitHub** button.\n"
-                + ("The log tails were shortened to fit. The full report is on the reporter's clipboard; paste it below if you can.\n" if shortened else "")
-                + "\n```text\n" + text.replace("```", "'''") + "```\n")
-        query = urllib.parse.urlencode({"title": title, "body": body}, quote_via=urllib.parse.quote)
-        url = f"https://github.com/{decide.REPO}/issues/new?{query}"
+        if lines < LOG_TAIL:
+            text = "(Log tails were shortened to fit. The full report is on the reporter's clipboard; Save diagnostic report writes it to a file.)\n" + text
+        url = decide.issue_form_url(title, step, text)
         if len(url) <= ISSUE_URL_MAX:
             return url
-    # Count encoded bytes: non-ASCII error messages can cost nine URL characters
-    # per character. A fixed character slice can still exceed GitHub's limit.
-    report_text = build(0).replace("```", "'''")
-    def shortened_url(keep):
-        body = ("Reported from the Fleet installer. The report was too long for an address; "
-                "save the full diagnostic report and attach it to this issue.\n\n```text\n" + report_text[:keep] + "\n```\n")
-        return f"https://github.com/{decide.REPO}/issues/new?" + urllib.parse.urlencode({"title": title, "body": body}, quote_via=urllib.parse.quote)
-    low, high = 0, len(report_text)
-    while low < high:
-        middle = (low + high + 1) // 2
-        if len(shortened_url(middle)) <= ISSUE_URL_MAX:
-            low = middle
-        else:
-            high = middle - 1
-    return shortened_url(low)
+    return decide.issue_form_url_within(title, step, build(0), ISSUE_URL_MAX,
+                                        "(The report was too long for a link. Save diagnostic report and attach fleet-diagnostic.txt.)")
