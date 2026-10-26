@@ -2,15 +2,15 @@
 
 # Chris Vouga
 
-**I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar.**
+**I build reliable software with AI coding agents, and the automated checks that keep it correct.**
 
-Senior engineer in health and education technology, and technical lead on a university platform that automates transfer-credit evaluation.
+Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.
 
 ## Flagships
 
 - **Mockingbird** ([case study](https://www.chrisvouga.dev/projects/mockingbird/), [code](https://github.com/crvouga/mockingbird)): 124 stateful vendor-API emulators, published to npm and checked against the vendors’ OpenAPI contracts by property-based parity tests.
+- **gamezilla.app** ([case study](https://www.chrisvouga.dev/projects/gamezilla/)): Local-first multiplayer game app defined by 2,702 executable spec scenarios and 129 formal state models that every pull request must pass.
 - **Workspace platform** ([case study](https://www.chrisvouga.dev/projects/workspace-platform/), [code](https://github.com/crvouga/workspace)): Runs 22 services on OpenTofu-only infrastructure; 12 CI jobs gate every merge, and 21 of 102 pull requests failed CI before merging green.
-- **headless-combobox** ([code](https://github.com/crvouga/headless-combobox)): Accessible, framework-agnostic combobox published on npm as an open-source library; 46 GitHub stars.
 
 ## How I build
 

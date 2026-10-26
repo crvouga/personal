@@ -21,6 +21,35 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     topics: ['typescript', 'bun', 'nodejs', 'sqlite'],
   },
   {
+    id: 'gamezilla',
+    title: 'gamezilla.app',
+    setting: 'side',
+    deployment: { t: 'public', url: 'https://www.gamezilla.app/' },
+    code: { t: 'private' },
+    description:
+      'A local-first multiplayer game platform for phones: a live space keeps working offline, then catches up on its own when the connection returns.',
+    imageAlt:
+      'gamezilla in two phone-sized windows: one live chess game seen from each player’s side',
+    imageSrc: [
+      '/gamezilla.optimized.webp',
+      '/gamezilla-app-screenshot.optimized.webp',
+    ],
+    galleryImageSrc: [
+      '/gamezilla.optimized.webp',
+      toYouTubeVideoUrl({ youTubeVideoId: 'VSLpdPvHbD4', autoplay: true }),
+      '/gamezilla-app-screenshot.optimized.webp',
+    ],
+    topics: [
+      'typescript',
+      'react',
+      'postgres',
+      'tailwind',
+      'websocket',
+      'bun',
+      'sqlite',
+    ],
+  },
+  {
     id: 'workspace-platform',
     title: 'Workspace platform',
     setting: 'side',
@@ -46,23 +75,6 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
       'playwright',
       'astro',
     ],
-  },
-  {
-    id: 'headless-combobox',
-    title: 'headless-combobox',
-    setting: 'side',
-    deployment: {
-      t: 'public',
-      url: 'https://headlesscombobox.chrisvouga.dev',
-    },
-    code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
-    description:
-      'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
-    imageAlt:
-      'headless-combobox documentation: the API reference beside a demo of a multi-select combobox',
-    imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
-    galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
-    topics: ['typescript'],
   },
   {
     id: 'triangulator',
@@ -119,33 +131,21 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     ],
   },
   {
-    id: 'gamezilla',
-    title: 'gamezilla.app',
+    id: 'headless-combobox',
+    title: 'headless-combobox',
     setting: 'side',
-    deployment: { t: 'public', url: 'https://www.gamezilla.app/' },
-    code: { t: 'private' },
+    deployment: {
+      t: 'public',
+      url: 'https://headlesscombobox.chrisvouga.dev',
+    },
+    code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
     description:
-      'A local-first multiplayer game platform for phones: a live space keeps working offline, then catches up on its own when the connection returns.',
+      'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
     imageAlt:
-      'gamezilla in two phone-sized windows: one live chess game seen from each player’s side',
-    imageSrc: [
-      '/gamezilla.optimized.webp',
-      '/gamezilla-app-screenshot.optimized.webp',
-    ],
-    galleryImageSrc: [
-      '/gamezilla.optimized.webp',
-      toYouTubeVideoUrl({ youTubeVideoId: 'VSLpdPvHbD4', autoplay: true }),
-      '/gamezilla-app-screenshot.optimized.webp',
-    ],
-    topics: [
-      'typescript',
-      'react',
-      'postgres',
-      'tailwind',
-      'websocket',
-      'bun',
-      'sqlite',
-    ],
+      'headless-combobox documentation: the API reference beside a demo of a multi-select combobox',
+    imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
+    galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
+    topics: ['typescript'],
   },
   {
     id: 'study-hall',

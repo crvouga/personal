@@ -24,26 +24,6 @@ export const PUBLIC_TEST_CALL_SITES =
   SNAPSHOT.mockingbird.testCallSites +
   SNAPSHOT.headlessCombobox.testCallSites;
 
-export type ProofChip = {
-  readonly value: string;
-  readonly label: string;
-  readonly href: string;
-};
-
-export const HERO_PROOF_CHIPS: readonly ProofChip[] = [
-  {
-    value: count(PLATFORM_FACTS.checkGateJobInstances),
-    label: 'CI jobs gate every merge',
-    href: '#agentic',
-  },
-  {
-    value: `${count(SNAPSHOT.workspace.prsFailedCiBeforeMerge)} of ${count(SNAPSHOT.workspace.mergedPrs)}`,
-    label: 'pull requests failed CI before merging green',
-    href: '#proof',
-  },
-  { value: 'Tech lead', label: 'on Triangulator', href: '#work' },
-];
-
 export type ProofTile = {
   readonly value: string;
   readonly label: string;

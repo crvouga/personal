@@ -26,7 +26,8 @@
     "test": "bun test src --pass-with-no-tests",
     "test:docker": "bun test test/server.test.ts",
     "gen:profile-readme": "bun run scripts/gen-profile-readme.ts",
-    "test:site": "bun test test/site.test.ts"
+    "test:site": "bun test test/site.test.ts",
+    "gamezilla-facts": "bun run scripts/gamezilla-facts.ts"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

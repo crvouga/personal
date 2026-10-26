@@ -1,3 +1,4 @@
+import { GAMEZILLA_CASE_STUDY } from './gamezilla';
 import { MOCKINGBIRD_CASE_STUDY } from './mockingbird';
 import type { CaseStudy } from './types';
 import { WORKSPACE_CASE_STUDY } from './workspace-platform';
@@ -12,6 +13,7 @@ export { CASE_STUDY_SECTIONS } from './types';
  */
 export const CASE_STUDIES: readonly CaseStudy[] = [
   MOCKINGBIRD_CASE_STUDY,
+  GAMEZILLA_CASE_STUDY,
   WORKSPACE_CASE_STUDY,
 ];
 

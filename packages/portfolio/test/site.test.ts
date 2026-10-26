@@ -22,6 +22,7 @@ const PAGES = [
   '/',
   '/projects/',
   '/projects/mockingbird/',
+  '/projects/gamezilla/',
   '/projects/workspace-platform/',
 ];
 

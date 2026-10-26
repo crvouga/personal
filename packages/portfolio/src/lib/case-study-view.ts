@@ -2,6 +2,7 @@
  * The numbers in each case study's Outcome section, derived from the committed
  * snapshots. Case-study prose never types a figure; it frames these.
  */
+import { GAMEZILLA_FACTS } from './gamezilla-facts';
 import { repoStatsFor } from './verification';
 import { PLATFORM_FACTS, VERIFICATION, count } from './proof-view';
 
@@ -97,13 +98,44 @@ const workspace = (): OutcomeFact[] => {
   ];
 };
 
+const gamezilla = (): OutcomeFact[] => {
+  const f = GAMEZILLA_FACTS;
+  return [
+    {
+      value: count(f.scenarios),
+      label: `executable scenarios across ${count(f.behaviorSpecs)} behavior specs`,
+    },
+    {
+      value: count(f.stateModels),
+      label: 'Quint models of what can happen over time',
+    },
+    {
+      value: count(f.structureModels),
+      label: 'Alloy models of which stored states are legal',
+    },
+    {
+      value: count(f.decisionTables),
+      label: 'decision tables for who may do what',
+    },
+    { value: count(f.serviceObjectives), label: 'service-level objectives' },
+    {
+      value: count(f.propertyTestFiles),
+      label: 'property-based test files, seeds pinned',
+    },
+  ];
+};
+
 const BY_PROJECT: Readonly<Record<string, () => OutcomeFact[]>> = {
   mockingbird,
+  gamezilla,
   'workspace-platform': workspace,
 };
 
 export const outcomeFactsFor = (projectId: string): readonly OutcomeFact[] =>
   BY_PROJECT[projectId]?.() ?? [];
 
-/** As of when: the snapshot the figures were read from. */
-export const OUTCOME_AS_OF = SNAPSHOT.fetchedAt.slice(0, 10);
+/** As of when: the snapshot each case study's figures were read from. */
+export const outcomeAsOf = (projectId: string): string =>
+  projectId === 'gamezilla'
+    ? `${GAMEZILLA_FACTS.asOf}, at commit ${GAMEZILLA_FACTS.commit}`
+    : SNAPSHOT.fetchedAt.slice(0, 10);

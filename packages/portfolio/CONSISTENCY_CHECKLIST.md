@@ -6,11 +6,11 @@ The site, the résumé PDF, `/resume.json`, `/llms.txt`, the JSON-LD and the Git
 
 ## LinkedIn headline
 
-Senior Software Engineer · I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar.
+Senior Software Engineer · I build reliable software with AI coding agents, and the automated checks that keep it correct.
 
 ## About
 
-I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar. Senior engineer in health and education technology, and technical lead on a university platform that automates transfer-credit evaluation.
+I build reliable software with AI coding agents, and the automated checks that keep it correct. Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.
 
 ## Experience (titles and dates exactly)
 
@@ -30,16 +30,16 @@ I ship software where mistakes are expensive. I write the spec and the automated
 ## Featured (in this order)
 
 - Mockingbird: https://www.chrisvouga.dev/projects/mockingbird/
+- gamezilla.app: https://www.chrisvouga.dev/projects/gamezilla/
 - Workspace platform: https://www.chrisvouga.dev/projects/workspace-platform/
-- headless-combobox: https://github.com/crvouga/headless-combobox
 
 ## Skills (pin the first row)
 
 - AI-assisted engineering: Claude Code, Cursor, spec-driven development, CI-gated agent workflows, property-based testing
 - Languages: TypeScript, JavaScript, PHP, Go, Python, Rust
-- Frontend: Nuxt, React, Vue, Astro, React Native, Tailwind
-- Backend: Bun, Node.js, Express, Flask, Graphene, GraphQL
-- Data: Postgres, DynamoDB, MySQL, Neo4j, SQLite
+- Frontend: React, Nuxt, Tailwind, Vue, Astro, React Native
+- Backend: Bun, Node.js, Express, Flask, Graphene, GraphQL, WebSockets
+- Data: Postgres, DynamoDB, SQLite, MySQL, Neo4j
 - Infra & CI: AWS, Cloudflare, Docker, GitHub Actions, NixOS, OpenBao, OpenTofu, Playwright, Railway, S3
 
 ## Open to work

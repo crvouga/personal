@@ -35,10 +35,12 @@ export const CORE_STACK: readonly Topic[] = [
 export const HERO = {
   name: NAME,
   eyebrow: `// ${ROLE.toLowerCase()}`,
+  /** One plain sentence a non-engineer can repeat. No project names, no figures. */
   statement:
-    'I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar.',
+    'I build reliable software with AI coding agents, and the automated checks that keep it correct.',
+  /** Scope and domains: the résumé summary and LinkedIn About; not in the hero. */
   statementSecondary:
-    'Senior engineer in health and education technology, and technical lead on a university platform that automates transfer-credit evaluation.',
+    'Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.',
   /** Short enough to sit on one line of the pill at any width. */
   availability: 'Open to senior and staff roles',
   /** Where I am, and the one preference a screener filters on. */

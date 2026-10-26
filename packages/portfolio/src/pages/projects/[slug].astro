@@ -7,7 +7,7 @@ import {
 } from '../../content/case-studies';
 import { PROJECTS } from '../../content/project';
 import { TOPIC_TO_NAME } from '../../content/topic';
-import { OUTCOME_AS_OF, outcomeFactsFor } from '../../lib/case-study-view';
+import { outcomeAsOf, outcomeFactsFor } from '../../lib/case-study-view';
 import { seoForCaseStudy } from '../../lib/seo';
 
 export const getStaticPaths = () =>
@@ -73,7 +73,7 @@ const stack = project.topics.map((topic) => TOPIC_TO_NAME[topic]).join(' · ');
                   </div>
                 ))}
               </dl>
-              <p class="as-of">Figures as of {OUTCOME_AS_OF}.</p>
+              <p class="as-of">Figures as of {outcomeAsOf(study.projectId)}.</p>
             </>
           )}
         </section>

@@ -1,13 +1,10 @@
 ---
 import { CONTENT } from '../content/content';
-import { logisticsLines } from '../content/hero';
-import { HERO_PROOF_CHIPS } from '../lib/proof-view';
 import IconEmail from '../components/icons/IconEmail.astro';
 import IconGitHub from '../components/icons/IconGitHub.astro';
 import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
 
 const email = CONTENT.EMAIL_ADDRESS;
-const logistics = [CONTENT.HERO.location, ...logisticsLines()];
 // X stays in the footer only: the hero's quiet icons are the two profiles a
 // reviewer actually opens.
 const socials = [
@@ -20,26 +17,14 @@ const socials = [
   <div class="container">
     <p class="eyebrow">{CONTENT.HERO.eyebrow}</p>
     <h1 id="hero-name">{CONTENT.HERO.name}</h1>
+    {/* Deliberately short: who, what, and how to reach me. The evidence is
+        further down the page, where it can be explained. */}
     <p class="statement">{CONTENT.HERO.statement}</p>
-    <p class="statement-secondary">{CONTENT.HERO.statementSecondary}</p>
-    {/* Evidence for the statement, one click from the claim. Each number is
-        rendered from a committed snapshot, never typed. */}
-    <ul class="proof-chips" aria-label="Evidence">
-      {
-        HERO_PROOF_CHIPS.map((chip) => (
-          <li>
-            <a class="proof-chip" href={chip.href}>
-              <strong>{chip.value}</strong> {chip.label}
-            </a>
-          </li>
-        ))
-      }
-    </ul>
     <div class="status">
       <p class="pill">
         <span class="dot" aria-hidden="true"></span>{CONTENT.HERO.availability}
       </p>
-      <p class="logistics">{logistics.join(' · ')}</p>
+      <p class="logistics">{CONTENT.HERO.location}</p>
     </div>
     {/* The header's Résumé button is on screen everywhere, so the hero offers
         email and profiles rather than a second copy of it. */}
@@ -99,42 +84,6 @@ const socials = [
     letter-spacing: -0.01em;
     color: var(--text);
     margin-top: var(--space-5);
-  }
-  .statement-secondary {
-    max-width: 62ch;
-    color: var(--text-muted);
-    font-size: var(--text-md);
-    margin-top: var(--space-4);
-  }
-  .proof-chips {
-    list-style: none;
-    margin: var(--space-5) 0 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  .proof-chip {
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--tap);
-    padding: 0 var(--space-4);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-    background: var(--paper);
-    border: 1px solid var(--paper-border);
-    border-radius: var(--radius-pill);
-  }
-  .proof-chip strong {
-    color: var(--accent);
-    font-weight: 700;
-  }
-  .proof-chip:hover {
-    border-color: var(--accent);
-    color: var(--text);
   }
   .status {
     display: flex;

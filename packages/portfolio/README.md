@@ -124,26 +124,27 @@ Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace'
 
 Run from the repository root with `bun run --filter @pkgs/portfolio <script>`, or from this directory with `bun run <script>`.
 
-| Script                                                        | Purpose                                                                                           |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `dev`                                                         | `astro dev --force`; direct package development server.                                           |
-| `build`                                                       | Static Astro build into `dist/`. Requires GitHub proof credentials in production.                 |
-| `assets:optimize`                                             | Rebuild every `public/**/*.optimized.webp` from `assets/` using ImageMagick.                      |
-| `assets:prune`                                                | Report unused files; add `-- --apply` to move/delete them.                                        |
-| `gen` / `generate-all`                                        | Capture hosted screenshots into `assets/` and optimize derivatives.                               |
-| `screenshot-work` / `screenshot-projects` / `screenshot-main` | Capture one screenshot collection into `assets/`.                                                 |
-| `health-check-urls`                                           | GET every public URL in content; exits non-zero on failure.                                       |
-| `refresh-github`                                              | Refresh the committed GitHub snapshot; exits non-zero if the live fetch fails.                    |
-| `check-github-freshness`                                      | Report the snapshot's age; exits non-zero once it is stale.                                       |
-| `preview`                                                     | Build the Docker image with `PORTFOLIO_GITHUB_TOKEN` as a BuildKit secret and serve on port 8080. |
-| `tc`                                                          | `astro check` for TypeScript and Astro files.                                                     |
-| `lint`                                                        | ESLint with the shared workspace rules.                                                           |
-| `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                     |
-| `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                   |
-| `test:site`                                                   | The built `dist/` in Chromium: axe (both themes), layout at 320/390/1440, budgets, link names.    |
-| `gen:profile-readme`                                          | Regenerate `generated/github-profile-README.md` from the registry (drift-tested).                 |
-| `refresh-verification`                                        | Refresh the committed verification snapshot; exits non-zero on any API or clone failure.          |
-| `facts`                                                       | Recompute the committed platform facts; `-- --check` exits non-zero on drift instead.             |
+| Script                                                        | Purpose                                                                                               |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `dev`                                                         | `astro dev --force`; direct package development server.                                               |
+| `build`                                                       | Static Astro build into `dist/`. Requires GitHub proof credentials in production.                     |
+| `assets:optimize`                                             | Rebuild every `public/**/*.optimized.webp` from `assets/` using ImageMagick.                          |
+| `assets:prune`                                                | Report unused files; add `-- --apply` to move/delete them.                                            |
+| `gen` / `generate-all`                                        | Capture hosted screenshots into `assets/` and optimize derivatives.                                   |
+| `screenshot-work` / `screenshot-projects` / `screenshot-main` | Capture one screenshot collection into `assets/`.                                                     |
+| `health-check-urls`                                           | GET every public URL in content; exits non-zero on failure.                                           |
+| `refresh-github`                                              | Refresh the committed GitHub snapshot; exits non-zero if the live fetch fails.                        |
+| `check-github-freshness`                                      | Report the snapshot's age; exits non-zero once it is stale.                                           |
+| `preview`                                                     | Build the Docker image with `PORTFOLIO_GITHUB_TOKEN` as a BuildKit secret and serve on port 8080.     |
+| `tc`                                                          | `astro check` for TypeScript and Astro files.                                                         |
+| `lint`                                                        | ESLint with the shared workspace rules.                                                               |
+| `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                         |
+| `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                       |
+| `test:site`                                                   | The built `dist/` in Chromium: axe (both themes), layout at 320/390/1440, budgets, link names.        |
+| `gamezilla-facts`                                             | Recount gamezilla's specs from its private repository into `src/data/gamezilla-facts.json` (by hand). |
+| `gen:profile-readme`                                          | Regenerate `generated/github-profile-README.md` from the registry (drift-tested).                     |
+| `refresh-verification`                                        | Refresh the committed verification snapshot; exits non-zero on any API or clone failure.              |
+| `facts`                                                       | Recompute the committed platform facts; `-- --check` exits non-zero on drift instead.                 |
 
 ## Local development
 

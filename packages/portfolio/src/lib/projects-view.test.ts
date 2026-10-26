@@ -9,8 +9,8 @@ describe('project registry', () => {
   test('homepage projects lead with the strongest hiring evidence', () => {
     expect(VISIBLE_PROJECTS.map((project) => project.id)).toEqual([
       'mockingbird',
+      'gamezilla',
       'workspace-platform',
-      'headless-combobox',
     ]);
     expect(
       PROJECTS.some((project) => project.id === 'infra-control-plane')
