@@ -51,6 +51,10 @@ printf '%s\n' "$1" >> /run/fleet-sync/operations
 EOF
     chmod +x "$work/bin/switch-to-configuration"
     toplevel=$(${pkgs.nix}/bin/nix-store --add "$work")
+    # Root the toplevel too, as the real nix build's output is. Unrooted, a
+    # garbage collection before fleet-sync selects it fails the switch with
+    # "is required, but there is no substituter that can build it".
+    ln -sfn "$toplevel" "/nix/var/nix/gcroots/''${toplevel##*/}"
     test -e "$toplevel/kernel"
     test -e "$toplevel/initrd"
     test -e "$toplevel/kernel-modules"
