@@ -26,7 +26,7 @@ const CONTEXT = 'GitHub GraphQL contribution calendar';
 const MIN_TRAILING_DAYS = 360;
 
 const CALENDAR_FIELDS =
-  'contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}';
+  'restrictedContributionsCount contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}';
 
 const toRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null
@@ -115,6 +115,11 @@ export type RangeMeta = {
   readonly from: string;
   readonly to: string;
   readonly totalContributions: number;
+  /**
+   * Contributions to private repositories, which GitHub counts in the total
+   * but does not show. Absent from snapshots written before it was fetched.
+   */
+  readonly privateContributions?: number;
 };
 
 /**
@@ -135,7 +140,7 @@ export const summarizeRange = (
 const toRange = (
   window: RangeWindow,
   calendar: readonly RawContributionDay[],
-  totalContributions: number
+  totals: { readonly total: number; readonly restricted: unknown }
 ): ContributionRange =>
   summarizeRange(
     {
@@ -143,7 +148,10 @@ const toRange = (
       label: window.label,
       from: window.from,
       to: window.to,
-      totalContributions,
+      totalContributions: totals.total,
+      ...(typeof totals.restricted === 'number'
+        ? { privateContributions: totals.restricted }
+        : {}),
     },
     calendar
   );
@@ -234,7 +242,10 @@ const readRange = (
       `${CONTEXT} returned no calendar for period ${window.id}. ${REMEDIATION}`
     );
   }
-  return toRange(window, flattenWeeks(weeks), total);
+  return toRange(window, flattenWeeks(weeks), {
+    total,
+    restricted: collection?.['restrictedContributionsCount'],
+  });
 };
 
 export const fetchRanges = async (

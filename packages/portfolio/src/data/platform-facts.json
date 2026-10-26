@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "requiredChecks": ["Check", "Fleet"],
+  "checkGateJobs": [
+    "changes",
+    "repository",
+    "packages",
+    "infra",
+    "fleet_e2e",
+    "auth",
+    "portfolio_urls"
+  ],
+  "checkGateJobInstances": 12,
+  "openTofuRoots": [
+    "auth",
+    "auth-development",
+    "auth-hosting",
+    "bootstrap",
+    "fleet",
+    "foundation",
+    "signing",
+    "state",
+    "vault"
+  ],
+  "preventDestroyGuards": 47,
+  "healthChecks": 16,
+  "inventoryServices": 22,
+  "packages": 17,
+  "workspaceTestFiles": 196,
+  "workspaceTestCallSites": 1253,
+  "agentCommandHarnesses": [
+    "Claude Code",
+    "Cursor",
+    "OpenCode",
+    "Windsurf",
+    "GitHub Copilot",
+    "Codex / Agent Skills"
+  ],
+  "aiCoAuthorTrailers": {
+    "asOfCommit": "c839ee0769204160d4f1c86b282be5fcb6e09415",
+    "asOfDate": "2026-10-26T10:00:02-07:00",
+    "commits": 1652,
+    "byTool": [
+      { "tool": "Claude Code", "trailers": 74 },
+      { "tool": "Cursor", "trailers": 78 }
+    ]
+  }
+}
