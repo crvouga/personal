@@ -16,7 +16,8 @@ export type Identity = {
   readonly title: string;
   readonly location: string;
   readonly email: string;
-  readonly phone: string;
+  /** Null on the public build; see RESUME_INCLUDE_PHONE in content.ts. */
+  readonly phone: string | null;
   readonly website: string;
   readonly websiteUrl: string;
   readonly githubDisplay: string;
@@ -271,7 +272,9 @@ const RESUME_CSS = `  <style>
       gap: 14px;
     }
     .skill-category {
-      flex: 0 0 1.05in;
+      /* Wide enough that "AI-assisted engineering" stays one extracted line. */
+      flex: 0 0 1.55in;
+      white-space: nowrap;
       font-weight: 600;
       color: var(--text);
       font-size: 8.8pt;
@@ -320,7 +323,9 @@ function resumeContactHtml(content: ResumeContent): string {
 
   const contactItems = [
     `<a href="mailto:${escapeHtml(identity.email)}">${escapeHtml(identity.email)}</a>`,
-    `<span>${escapeHtml(identity.phone)}</span>`,
+    ...(identity.phone === null
+      ? []
+      : [`<span>${escapeHtml(identity.phone)}</span>`]),
     `<a href="${escapeHtml(identity.websiteUrl)}">${escapeHtml(identity.website)}</a>`,
     `<a href="${escapeHtml(identity.githubUrl)}">${escapeHtml(identity.githubDisplay)}</a>`,
     `<a href="${escapeHtml(identity.linkedinUrl)}">${escapeHtml(identity.linkedinDisplay)}</a>`,
@@ -451,7 +456,7 @@ function renderHtml(content: ResumeContent, fontFaceCss = ''): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${escapeHtml(identity.name)} — Resume</title>
+  <title>${escapeHtml(identity.name)} — Résumé</title>
   <style>${fontFaceCss}</style>
 ${RESUME_CSS}
 </head>
