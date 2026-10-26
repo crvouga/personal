@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "asOf": "2026-10-26",
+  "commit": "1961ba8",
+  "commits": 4778,
+  "behaviorSpecs": 379,
+  "scenarios": 2702,
+  "stateModels": 129,
+  "structureModels": 7,
+  "decisionTables": 12,
+  "serviceObjectives": 7,
+  "propertyTestFiles": 88
+}

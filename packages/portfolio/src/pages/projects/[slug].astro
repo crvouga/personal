@@ -1,0 +1,218 @@
+---
+import Page from '../../layouts/Page.astro';
+import {
+  CASE_STUDIES,
+  CASE_STUDY_SECTIONS,
+  type CaseStudy,
+} from '../../content/case-studies';
+import { PROJECTS } from '../../content/project';
+import { TOPIC_TO_NAME } from '../../content/topic';
+import { outcomeAsOf, outcomeFactsFor } from '../../lib/case-study-view';
+import { seoForCaseStudy } from '../../lib/seo';
+
+export const getStaticPaths = () =>
+  CASE_STUDIES.map((study) => ({ params: { slug: study.slug }, props: { study } }));
+
+interface Props {
+  study: CaseStudy;
+}
+const { study } = Astro.props;
+const project = PROJECTS.find((p) => p.id === study.projectId);
+if (project === undefined) {
+  throw new Error(`Case study ${study.slug} names unknown project ${study.projectId}`);
+}
+const codeUrl = project.code.t === 'public' ? project.code.url : undefined;
+const seo = seoForCaseStudy(study, codeUrl);
+const facts = outcomeFactsFor(study.projectId);
+const stack = project.topics.map((topic) => TOPIC_TO_NAME[topic]).join(' · ');
+---
+
+<Page seo={seo}>
+  <article class="container study" aria-labelledby="study-title">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/" class="crumb-home">Home</a> <span aria-hidden="true">/</span>
+      <a href="/projects/">All projects</a> <span aria-hidden="true">/</span>
+      <span aria-current="page">{project.title}</span>
+    </nav>
+    <header>
+      <p class="eyebrow">// case study</p>
+      <h1 id="study-title">{study.title}</h1>
+      <p class="subline">{study.subline}</p>
+      <p class="stack">{stack}</p>
+    </header>
+    <figure class="hero">
+      <img
+        src={study.hero.src}
+        alt={study.hero.alt}
+        width={study.hero.width}
+        height={study.hero.height}
+        fetchpriority="high"
+        decoding="async"
+      />
+    </figure>
+    {
+      CASE_STUDY_SECTIONS.map(([key, heading]) => (
+        <section class="part" aria-labelledby={`part-${key}`}>
+          <h2 id={`part-${key}`}>{heading}</h2>
+          {key === 'constraints' ? (
+            <ul class="constraints">
+              {study.constraints.map((line) => (
+                <li>{line}</li>
+              ))}
+            </ul>
+          ) : (
+            study[key].map((paragraph) => <p>{paragraph}</p>)
+          )}
+          {key === 'outcome' && (
+            <>
+              <dl class="facts">
+                {facts.map((fact) => (
+                  <div class="fact">
+                    <dt>{fact.label}</dt>
+                    <dd>{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p class="as-of">Figures as of {outcomeAsOf(study.projectId)}.</p>
+            </>
+          )}
+        </section>
+      ))
+    }
+    <section class="part" aria-labelledby="part-links">
+      <h2 id="part-links">Links</h2>
+      <ul class="links">
+        {study.links.map((link) => (
+          <li>
+            <a href={link.href} rel="noopener" target="_blank">{link.label}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+    <p class="back"><a href="/projects/">&#8592; All projects</a></p>
+  </article>
+</Page>
+
+<style>
+  .study {
+    max-width: 780px;
+    padding-block: var(--space-7) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+  .crumbs {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .crumbs a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    min-width: var(--tap);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--accent);
+    margin-bottom: var(--space-3);
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .subline {
+    margin-top: var(--space-3);
+    font-size: var(--text-lg);
+    color: var(--text);
+  }
+  .stack {
+    margin-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .hero {
+    margin: 0;
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .hero img {
+    width: 100%;
+    height: auto;
+  }
+  .part {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .part h2 {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+  .part p,
+  .constraints li {
+    color: var(--text-muted);
+    font-size: var(--text-md);
+  }
+  .constraints {
+    margin: 0;
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .facts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-3);
+  }
+  .fact {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    background: var(--paper);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+  }
+  .fact dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .fact dt {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .as-of {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .links {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .links a,
+  .back a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+</style>

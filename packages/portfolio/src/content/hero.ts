@@ -26,20 +26,26 @@ export const CORE_STACK: readonly Topic[] = [
 ];
 
 /**
- * The pitch, and the resume summary. It names what does not change — the scope
- * owned, the domains, the way of working — and leaves the current employer,
- * tenure and stack to the parts of the page that derive them from `work.ts`
- * and the project registry.
+ * The pitch, and the résumé summary. `statement` is the differentiator — the
+ * method and what it buys — and is the largest text after the name; it is also
+ * the meta description, so it must fit a search snippet. `statementSecondary`
+ * is the scope and the domains. Neither names an employer, a tenure or a
+ * stack: those are derived from `work.ts` and the project registry.
  */
 export const HERO = {
   name: NAME,
   eyebrow: `// ${ROLE.toLowerCase()}`,
+  /** One plain sentence a non-engineer can repeat. No project names, no figures. */
   statement:
-    'I build and own production software end to end, from the data model to the interface, in education and health — domains where being wrong is expensive.',
+    'I build reliable software with AI coding agents, and the automated checks that keep it correct.',
+  /** Scope and domains: the résumé summary and LinkedIn About; not in the hero. */
   statementSecondary:
-    'I work spec-first: define what correct means, then build the automated verification that lets AI coding agents move fast without lowering the bar.',
-  /** Short enough to sit on one line of the pill at any width. */
-  availability: 'Open to senior and staff roles',
+    'Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.',
+  /**
+   * Worded for someone already in a senior role: selective interest, not a
+   * job search. The pill wraps on narrow phones rather than overflowing.
+   */
+  availability: 'Open to conversations about staff roles',
   /** Where I am, and the one preference a screener filters on. */
   location: `${LOCATION} · open to remote`,
   ctaPrimary: {
@@ -48,3 +54,29 @@ export const HERO = {
   /** Label for the secondary copy-to-clipboard control beside the address. */
   ctaCopyLabel: 'Copy',
 };
+
+/**
+ * The first filters a recruiter applies. Only what is known is rendered; an
+ * unset field is an open question in CONTENT_QUESTIONS.md, never a guess.
+ */
+export type Logistics = {
+  readonly authorization?: string;
+  readonly timeZone?: string;
+  readonly start?: string;
+  readonly replyTime?: string;
+};
+
+export const LOGISTICS: Logistics = {
+  authorization: 'US citizen · no sponsorship needed',
+  // Arizona does not observe daylight saving time, so this is true all year.
+  timeZone: 'UTC−7 (Arizona, no daylight saving)',
+};
+
+/** Logistics in display order, without the unset ones. */
+export const logisticsLines = (logistics: Logistics = LOGISTICS): string[] =>
+  [
+    logistics.authorization,
+    logistics.timeZone,
+    logistics.start,
+    logistics.replyTime,
+  ].filter((line): line is string => line !== undefined && line !== '');

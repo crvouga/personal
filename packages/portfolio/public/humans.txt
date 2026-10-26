@@ -1,0 +1,7 @@
+/* TEAM */
+Developer: Chris Vouga
+Site: https://www.chrisvouga.dev
+GitHub: https://github.com/crvouga
+
+/* SITE */
+Built with Astro, served by nginx; source: https://github.com/crvouga/workspace/tree/main/packages/portfolio

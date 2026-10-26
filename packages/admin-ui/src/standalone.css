@@ -68,6 +68,20 @@ header.admin-header {
   font-weight: 400;
   color: var(--dimmed);
 }
+.admin-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.admin-report-status:empty {
+  display: none;
+}
+.admin-report-status {
+  max-width: 900px;
+  margin: 12px auto 0;
+  padding: 0 24px;
+  font-size: 13px;
+}
 .admin-theme {
   display: flex;
   gap: 10px;

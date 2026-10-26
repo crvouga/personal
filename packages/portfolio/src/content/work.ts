@@ -1,63 +1,85 @@
+import { a } from './a';
+import type { Topic } from './topic';
+
+/**
+ * A role boundary. `month` (1–12) is optional because a guessed month is worse
+ * than a visible year: an unanswered one renders as the year alone and is
+ * tracked in CONTENT_QUESTIONS.md, never smoothed over.
+ */
+export type YearMonth = { readonly year: number; readonly month?: number };
+
 export type Work = {
   name: string;
   infoUrl?: string;
   jobTitle: string;
-  /** Scannable bullets; the site cards and the resume both render these. */
-  highlights: string[];
-  yearStart: number;
-  yearEnd: number | 'Present';
   /**
-   * Optional month (1-12) for date precision. Year-only ranges read as an
-   * evasion tell to recruiters; fill these in when the exact months are known.
+   * Scannable bullets; the site cards and the resume both render these.
+   * Senior roles: each one carries a number or a link to the named artifact
+   * (`src/content/copy.test.ts`), because a bullet a reviewer cannot check is a
+   * bullet they skip.
    */
-  monthStart?: number;
-  monthEnd?: number;
+  highlights: string[];
+  start: YearMonth;
+  end: YearMonth | 'Present';
   /**
    * Recognition rendered as text. Award images alone are invisible to crawlers,
    * to LLM candidate research, and to anyone who does not open a gallery.
    */
   awards?: string[];
+  /**
+   * The role's stack, for the Toolbox and the résumé's Skills. Client work is
+   * also told through PROJECTS, whose topics count too; this is for a role
+   * whose product is not a portfolio project.
+   */
+  topics?: Topic[];
   imageSrc: string[];
   imageAlt: string;
   galleryImageSrc: string[];
 };
 
+const GEVITI_APP_URL = 'https://app.gogeviti.com/';
+const GEVITI_SITE_URL = 'https://www.gogeviti.com/';
+const TRIANGULATOR_DEMO_URL = 'https://www.youtube.com/watch?v=yQCrMBHQrDM';
+
 export const WORK: Work[] = [
   {
     name: 'Geviti',
-    infoUrl: 'https://www.gogeviti.com/',
+    infoUrl: GEVITI_SITE_URL,
     jobTitle: 'Senior Software Engineer',
     highlights: [
-      'Build member-facing features across web and mobile for a health and longevity platform: lab results, personalized protocols, prescriptions, and care-team coordination.',
-      'Work with member health data and prescription workflows, where correctness and auditability matter more than raw speed.',
-      'Turn lab results into metrics members can track and act on over time.',
+      `Shipped member-facing features on web and mobile for the ${a(GEVITI_APP_URL, 'Geviti member app')}: lab results, personalized protocols, prescriptions, and care-team coordination.`,
+      `Built the path from a member's lab results to their ${a(GEVITI_SITE_URL, 'personalized protocol')}: metrics they track over time, tied to the therapies their care team prescribes.`,
     ],
-    yearStart: 2026,
-    yearEnd: 'Present',
-    imageSrc: ['/geviti-screenshot.optimized.webp'],
-    imageAlt: 'Geviti website screenshot',
-    galleryImageSrc: ['/geviti-screenshot.optimized.webp'],
+    start: { year: 2026, month: 1 },
+    end: 'Present',
+    topics: ['typescript', 'react', 'react-native', 'postgres', 'bun', 'aws'],
+    // The member app itself, not the marketing site: it is the product.
+    imageSrc: ['/geviti-app-screenshot.optimized.webp'],
+    imageAlt:
+      'Geviti member app sign-in: the complete picture of your health, from bloodwork, genetics and gut health',
+    galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
   },
   {
     name: 'One Origin',
     infoUrl: 'https://oneorigin.us/',
     jobTitle: 'Senior Software Engineer',
     highlights: [
-      'Technical lead on <strong>Triangulator</strong>, an enterprise platform that automates how universities evaluate transfer credit, replacing manual review with ranked suggestions that staff approve, adjust, or reject with a reason.',
-      "Designed and built the learning-management-system integration for <strong>Orchard</strong>, ASU's customizable-assignment platform: single sign-on and automatic grade sync, including the failure paths for when a grade does not post.",
-      'Reworked the backend of <strong>ASU Earned Admissions</strong>, where learners earn credit toward admission to ASU degree programs, and built its enrollment data sync and a new program opt-in flow.',
-      "Rebuilt payment processing for <strong>Study Hall</strong>, the learning platform ASU runs with the Study Hall YouTube channel, cutting failed payments and making the flow safe to change. Also built interactive features for <strong>Sun Devils</strong>, ASU's athletics site.",
+      `Technical lead on ${a(TRIANGULATOR_DEMO_URL, '<strong>Triangulator</strong>')}, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.`,
+      `Designed and built the learning-management-system integration for ${a('https://asuorchard.asu.edu/', '<strong>Orchard</strong>')}, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.`,
+      `Reworked the backend of ${a('https://ea.asu.edu/', '<strong>ASU Earned Admissions</strong>')}, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.`,
+      `Rebuilt payment processing for ${a('https://gostudyhall.com/', '<strong>Study Hall</strong>')}, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.`,
+      `Built the interactive schedule and news features of ${a('https://sundevils.com/', '<strong>Sun Devils</strong>')}, ASU's athletics site.`,
     ],
-    yearStart: 2022,
-    yearEnd: 2025,
+    start: { year: 2022 },
+    end: { year: 2025 },
     awards: [
-      'Quarterly recognition award — 2024 Q1, 2024 Q2, 2024 Q3–Q4, and 2025 Q1',
+      'Four quarterly recognition awards: 2024 Q1, 2024 Q2, 2024 Q3–Q4 (one award for both quarters), and 2025 Q1',
     ],
     imageSrc: [
       '/one-origin-screenshot.optimized.webp',
       '/one-origin/2025-q1-award-1.optimized.webp',
     ],
-    imageAlt: 'One Origin website screenshot and award certificates',
+    imageAlt: 'One Origin website and quarterly recognition award certificates',
     galleryImageSrc: [
       '/one-origin-screenshot.optimized.webp',
       '/one-origin/2025-q1-award-1.optimized.webp',
@@ -74,10 +96,22 @@ export const WORK: Work[] = [
       'Delivered custom websites and web applications for small businesses, from scoping through launch and handoff.',
       'Owned the client relationship alongside the code: requirements, timelines, and post-launch support.',
     ],
-    yearStart: 2020,
-    yearEnd: 2022,
+    start: { year: 2020 },
+    end: { year: 2022 },
     imageSrc: [],
     imageAlt: '',
     galleryImageSrc: [],
   },
 ];
+
+/**
+ * One honest line about the time between the last two roles, rendered between
+ * them. Unset until Chris supplies it (CONTENT_QUESTIONS.md): the dates stay
+ * visible either way, and nothing is said that is not true.
+ */
+export const WORK_GAP_NOTE: string | undefined = undefined;
+
+/** The role the hero and résumé headline describe. */
+export const CURRENT_WORK: Work | undefined = WORK.find(
+  (job) => job.end === 'Present'
+);

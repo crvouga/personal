@@ -9,6 +9,7 @@ import {
 } from '../lib/seo';
 import { buildJsonLd } from '../lib/seo-json-ld';
 import type { Seo } from '../lib/seo-types';
+import { publishedPosts } from '../lib/published-posts';
 
 interface Props {
   /** Omitted by the homepage, which is the canonical Person + WebSite page. */
@@ -17,6 +18,7 @@ interface Props {
 const { seo = HOME_SEO } = Astro.props;
 const canonical = absoluteUrl(seo.path);
 const jsonLd = buildJsonLd(seo);
+const hasFeed = (await publishedPosts()).length > 0;
 ---
 
 <!doctype html>
@@ -27,12 +29,17 @@ const jsonLd = buildJsonLd(seo);
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
     <meta name="author" content={SITE_NAME} />
-    <link rel="canonical" href={canonical} />
+    {/* A 404 has no canonical URL of its own. */}
+    {seo.noindex !== true && <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href={TOUCH_ICON_PATH} />
     <link rel="sitemap" href="/sitemap-index.xml" />
-    <meta name="theme-color" content="#0A0A0B" />
-    <meta name="color-scheme" content="dark" />
+    {hasFeed && <link rel="alternate" type="application/rss+xml" title="Writing" href="/rss.xml" />}
+    <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f6f9" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
     {/* In-app browsers on iOS turn any digit run into a tappable phone
         number or calendar link; the date ranges on this page are neither. */}
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
@@ -72,6 +79,13 @@ const jsonLd = buildJsonLd(seo);
 </html>
 
 <script is:inline>
+  // Paper has no disclosure triangles: print everything that is folded.
+  window.addEventListener('beforeprint', () => {
+    document.querySelectorAll('details').forEach((details) => {
+      details.open = true;
+    });
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
     const status = document.querySelector('[data-copy-status]');
     const announce = (message) => {

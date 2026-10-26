@@ -73,15 +73,36 @@ async function completed(
     clearTimeout(timer);
   }
 }
-export async function waitFor(url: string): Promise<void> {
-  const deadline = Date.now() + 240000;
+async function reachable(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch {
+    /* Starting a local dependency can take a few seconds. */
+    return false;
+  }
+}
+
+/**
+ * Explains a wait that is taking too long, or returns null to keep waiting.
+ * Called every `DIAGNOSE_EVERY_MS` until the URL answers, so a fault that is
+ * not the dependency's own slowness fails in seconds instead of minutes.
+ */
+export type Diagnose = () => Promise<string | null>;
+
+const WAIT_LIMIT_MS = 240000;
+const DIAGNOSE_EVERY_MS = 15000;
+
+export async function waitFor(url: string, diagnose?: Diagnose): Promise<void> {
+  const deadline = Date.now() + WAIT_LIMIT_MS;
+  let nextDiagnosis = Date.now() + DIAGNOSE_EVERY_MS;
   while (Date.now() < deadline) {
     if (cancelled) throw new Error('Development startup cancelled');
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
-      if (response.ok) return;
-    } catch {
-      /* Starting a local dependency can take a few seconds. */
+    if (await reachable(url)) return;
+    if (diagnose !== undefined && Date.now() >= nextDiagnosis) {
+      nextDiagnosis = Date.now() + DIAGNOSE_EVERY_MS;
+      const reason = await diagnose();
+      if (reason !== null) throw new Error(reason);
     }
     await Bun.sleep(1000);
   }

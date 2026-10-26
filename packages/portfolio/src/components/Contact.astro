@@ -1,48 +1,38 @@
 ---
 import { CONTENT } from '../content/content';
-import { RESUME_HREF } from '../constants/resume';
-import IconEmail from './icons/IconEmail.astro';
+import { logisticsLines } from '../content/hero';
 import IconGitHub from './icons/IconGitHub.astro';
 import IconLinkedIn from './icons/IconLinkedIn.astro';
-import IconX from './icons/IconX.astro';
 
 const section = CONTENT.GET_SECTION('contact');
 const email = CONTENT.EMAIL_ADDRESS;
+const mailto = `mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COPY.mailSubject)}`;
+const meta = [CONTENT.HERO.availability, CONTENT.HERO.location, ...logisticsLines()];
 ---
 
-<section id="contact">
+<section id="contact" aria-labelledby="contact-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="contact-title">{section.title}</h2>
     </div>
     <p class="headline">{CONTENT.CONTACT_COPY.headline}</p>
     <p class="sub">{CONTENT.CONTACT_COPY.sub}</p>
-    <p class="meta">{CONTENT.HERO.availability} · {CONTENT.HERO.location}</p>
-    <a class="email" href={`mailto:${email}`}>{email}</a>
+    {CONTENT.CONTACT_COPY.lookingFor !== undefined && (
+      <p class="sub">{CONTENT.CONTACT_COPY.lookingFor}</p>
+    )}
+    <p class="meta">{meta.join(' · ')}</p>
+    <a class="email" href={mailto}>{email}</a>
+    {/* The address above is the call to action; the header holds the résumé. */}
     <div class="ctas">
-      <a class="btn btn-contained" href={`mailto:${email}`}>
-        <IconEmail /><span class="btn-label">{CONTENT.CONTACT_COPY.ctaPrimary.label}</span>
-      </a>
-      <button type="button" class="btn" data-copy={email}>
+      <button type="button" class="btn" data-copy={email} aria-label="Copy email address">
         <span class="btn-label">{CONTENT.HERO.ctaCopyLabel}</span>
       </button>
-      <a class="btn" href={RESUME_HREF} target="_blank" rel="noopener">
-        <span class="btn-label">Résumé</span>
-      </a>
       <a class="btn" href={CONTENT.GITHUB_URL} rel="me noopener" target="_blank">
         <IconGitHub /><span class="btn-label">GitHub</span>
       </a>
-      <a
-        class="btn"
-        href={CONTENT.LINKEDIN_URL}
-        rel="me noopener"
-        target="_blank"
-      >
+      <a class="btn" href={CONTENT.LINKEDIN_URL} rel="me noopener" target="_blank">
         <IconLinkedIn /><span class="btn-label">LinkedIn</span>
-      </a>
-      <a class="btn" href={CONTENT.X_URL} rel="me noopener" target="_blank">
-        <IconX /><span class="btn-label">X</span>
       </a>
     </div>
   </div>
@@ -61,7 +51,7 @@ const email = CONTENT.EMAIL_ADDRESS;
   .meta {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--text-subtle);
+    color: var(--text-muted);
     margin-top: var(--space-2);
   }
   .email {

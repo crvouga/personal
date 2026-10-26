@@ -2,9 +2,7 @@
 
 > The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
-Canonical deployed URL: {{siteGuideUrl}}
-
-Singular alias: {{siteGuideAliasUrl}}
+Canonical deployed URL: {{siteGuideUrl}} (the site's own `/llms.txt` is the candidate summary for recruiters and links here)
 
 Source snapshot (always current `main`): {{rawUrl}}
 

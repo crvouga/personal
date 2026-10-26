@@ -36,6 +36,7 @@ type StoredRange = {
   readonly from: string;
   readonly to: string;
   readonly totalContributions: number;
+  readonly privateContributions?: number;
   /** Day one of the grid; not always equal to `from` once GitHub clips. */
   readonly firstDay: string;
   /** Contribution counts, oldest → newest, one per day. */
@@ -110,6 +111,9 @@ const toStoredRange = (
   from: range.from,
   to: range.to,
   totalContributions: range.totalContributions,
+  ...(range.privateContributions === undefined
+    ? {}
+    : { privateContributions: range.privateContributions }),
   firstDay: range.calendar[0]?.date ?? range.from,
   counts: range.calendar.map((day) => day.count),
 });

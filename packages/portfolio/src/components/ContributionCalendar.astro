@@ -3,63 +3,28 @@ import ContributionHeatmap from './ContributionHeatmap.astro';
 import type { ContributionRange } from '../lib/github';
 
 interface Props {
-  ranges: readonly ContributionRange[];
+  range: ContributionRange;
 }
-const { ranges } = Astro.props;
-
-if (ranges.length === 0) {
-  throw new Error('ContributionCalendar requires at least one range');
-}
+const { range } = Astro.props;
 
 const count = (value: number): string => value.toLocaleString('en-US');
 
 /** The account's first year can hold a single contribution; "1 days" is wrong. */
 const plural = (value: number, noun: string): string =>
   `${count(value)} ${noun}${value === 1 ? '' : 's'}`;
-const inputId = (id: string): string => `gh-range-${id}`;
 const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
 ---
 
 <div class="gh-calendar">
-  <p class="visually-hidden">Contribution period</p>
-  {
-    /*
-     * Each period is a radio, its chip label, and its panel in adjacent-sibling
-     * order, so both the active chip and the visible panel are selected by a
-     * single static rule. Flexbox `order` then lifts every chip into one row
-     * above the panel. Nothing here is indexed, so the picker works for any
-     * number of periods.
-     */
-  }
-  {
-    ranges.map((range, index) => (
-      <Fragment>
-        <input
-          class="gh-radio"
-          type="radio"
-          name="gh-range"
-          id={inputId(range.id)}
-          value={range.id}
-          checked={index === 0}
-        />
-        <label class="range-option" for={inputId(range.id)}>
-          {range.label}
-        </label>
-        <div class="panel" data-range={range.id}>
-          <p class="panel-total">
-            <strong>{count(range.totalContributions)}</strong>
-            {range.totalContributions === 1 ? 'contribution' : 'contributions'}
-            <span class="panel-window">{`${range.from} → ${range.to}`}</span>
-          </p>
-          <ContributionHeatmap range={range} />
-          <p class="panel-meta">
-            {`${plural(range.activeDays, 'active day')} · longest streak ${plural(range.longestStreak, 'day')} · busiest day ${count(range.busiestCount)}`}
-          </p>
-        </div>
-      </Fragment>
-    ))
-  }
-
+  <p class="panel-total">
+    <strong>{count(range.totalContributions)}</strong>
+    {range.totalContributions === 1 ? 'contribution' : 'contributions'}
+    <span class="panel-window">{`${range.label} · ${range.from} → ${range.to}`}</span>
+  </p>
+  <ContributionHeatmap range={range} />
+  <p class="panel-meta">
+    {`${plural(range.activeDays, 'active day')} · longest streak ${plural(range.longestStreak, 'day')} · busiest day ${count(range.busiestCount)}`}
+  </p>
   <div class="legend" aria-hidden="true">
     <span>Less</span>
     {LEVEL_CLASSES.map((level) => <span class={`swatch ${level}`} />)}
@@ -68,82 +33,6 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
 </div>
 
 <style>
-  .gh-calendar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  /* Focusable but invisible: the chips are the visible control surface. */
-  .gh-radio {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .range-option {
-    order: 1;
-    display: inline-flex;
-    align-items: center;
-    min-height: 32px;
-    padding: 0 var(--space-3);
-    /* Keeps the pill its drawn size while the area a finger can hit reaches
-       the tap-target minimum. */
-    position: relative;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    border: 1px solid var(--paper-border);
-    border-radius: var(--radius-pill);
-    cursor: pointer;
-    user-select: none;
-    transition:
-      border-color var(--motion-fast) var(--motion-ease),
-      background var(--motion-fast) var(--motion-ease),
-      color var(--motion-fast) var(--motion-ease);
-  }
-
-  .range-option::after {
-    content: '';
-    position: absolute;
-    inset: calc((32px - var(--tap)) / 2) 0;
-  }
-
-  .range-option:hover {
-    border-color: var(--paper-border-hover);
-    color: var(--text);
-  }
-
-  .gh-radio:checked + .range-option {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-
-  .gh-radio:focus-visible + .range-option {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  /* Pure-CSS panel switching, so the picker works with JavaScript disabled. */
-  .panel {
-    order: 2;
-    flex: 1 0 100%;
-    /* Without this a flex item's automatic minimum size is the grid's full
-       intrinsic width, so the card overflows its container on phones and the
-       heatmap never scrolls. */
-    min-width: 0;
-    margin-top: var(--space-3);
-    display: none;
-  }
-  .gh-radio:checked + .range-option + .panel {
-    display: block;
-  }
-
   .panel-total {
     font-family: var(--font-mono);
     font-size: var(--text-base);
@@ -161,26 +50,23 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
   }
   .panel-window {
     margin-left: auto;
-    font-size: 11px;
-    color: var(--text-subtle);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
   }
   .panel-meta {
     margin-top: var(--space-2);
     font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-subtle);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
   }
-
   .legend {
-    order: 3;
-    flex: 1 0 100%;
     display: flex;
     align-items: center;
     gap: var(--space-1);
     justify-content: flex-end;
     font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-subtle);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
     margin-top: var(--space-2);
   }
   .swatch {
@@ -204,7 +90,6 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
   .swatch.c4 {
     background: var(--gh-4);
   }
-
   @media (max-width: 599px) {
     .panel-window {
       margin-left: 0;
@@ -217,21 +102,17 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
 </style>
 
 <script is:inline>
-  // Progressive enhancement only: the CSS above already switches panels. This
-  // parks each grid at its most recent week, which is the part people look at.
+  // Progressive enhancement only: park the grid at its most recent week, which
+  // is the part people look at. Without JavaScript it simply starts at the left.
+  // The calendar sits in a closed <details>, so it is parked again on open.
   document.addEventListener('DOMContentLoaded', () => {
-    const scrollToLatest = (panel) => {
-      const scroller = panel.querySelector('[data-heatmap-scroll]');
-      if (scroller) scroller.scrollLeft = scroller.scrollWidth;
-    };
-    document.querySelectorAll('.gh-calendar').forEach((calendar) => {
-      calendar.querySelectorAll('.panel').forEach(scrollToLatest);
-      calendar.querySelectorAll('.gh-radio').forEach((radio, index) => {
-        radio.addEventListener('change', () => {
-          const panel = calendar.querySelectorAll('.panel')[index];
-          if (panel) scrollToLatest(panel);
-        });
+    const park = () =>
+      document.querySelectorAll('[data-heatmap-scroll]').forEach((scroller) => {
+        scroller.scrollLeft = scroller.scrollWidth;
       });
+    park();
+    document.querySelectorAll('details').forEach((details) => {
+      details.addEventListener('toggle', park);
     });
   });
 </script>

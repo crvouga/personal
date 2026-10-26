@@ -4,58 +4,63 @@ import ProjectCard from '../components/ProjectCard.astro';
 import GalleryDialog from '../components/GalleryDialog.astro';
 import { CONTENT } from '../content/content';
 import { ARCHIVE_PROJECTS } from '../content/project';
-import { LISTED_PROJECTS, galleryFor } from '../lib/projects-view';
+import {
+  LISTED_PROJECTS,
+  PROJECT_TOTALS,
+  galleryFor,
+} from '../lib/projects-view';
 import { seoForIndex } from '../lib/seo';
 
-// One flat array so `data-gallery` indexes stay valid across the fold.
-const galleries = [...LISTED_PROJECTS, ...ARCHIVE_PROJECTS].map(galleryFor);
-const archiveOffset = LISTED_PROJECTS.length;
-const total = LISTED_PROJECTS.length + ARCHIVE_PROJECTS.length;
+// Personal work and employer products are listed apart, so nothing built for
+// an employer reads as a side project. One flat gallery array spans both.
+const personal = LISTED_PROJECTS.filter((p) => p.setting === 'side');
+const atWork = LISTED_PROJECTS.filter((p) => p.setting === 'work');
+const galleries = [...personal, ...atWork, ...ARCHIVE_PROJECTS].map(galleryFor);
+const archiveOffset = personal.length + atWork.length;
 
 const seo = seoForIndex({
   title: `All projects — ${CONTENT.PAGE_TITLE}`,
-  description: `All ${total} projects: production platforms in education and health, developer tools, and experiments.`,
+  description: `${String(PROJECT_TOTALS.listed)} projects: production platforms in education and health, developer tools, and the infrastructure behind them.`,
   path: '/projects/',
 });
 ---
 
 <Page seo={seo}>
-  <section class="container archive">
+  <section class="container archive" aria-labelledby="projects-title">
     <a class="back" href="/#projects">&#8592; Home</a>
     <header>
-      <h1>All projects</h1>
+      <h1 id="projects-title">All projects</h1>
       <p class="lede">
-        All {total} projects, in the order I would show them. A{' '}
+        <span data-project-count={PROJECT_TOTALS.listed}>{PROJECT_TOTALS.listed} projects</span>,
+        in the order I would show them, plus {PROJECT_TOTALS.archived} early ones in the
+        archive below. A{' '}
         <strong class="handwritten-text">Hand-written</strong>{' '}
-        footer marks work from before AI coding agents, dated from each project's git history.
+        badge marks work from before AI coding agents, dated from each project's git history.
       </p>
     </header>
+    <h2 class="group-title">Personal projects</h2>
     <div class="grid">
-      {
-        LISTED_PROJECTS.map((project, index) => (
-          <ProjectCard
-            project={project}
-            galleryIndex={index}
-          />
-        ))
-      }
+      {personal.map((project, index) => (
+        <ProjectCard project={project} galleryIndex={index} />
+      ))}
     </div>
-    {/* Everything ever shipped, including the early games and toys. Folded
-        rather than dropped: it is padding for a reader, but it is still the
-        fastest way to find an old project. */}
+    <h2 class="group-title">Products I built at work</h2>
+    <p class="group-note">Employer code: the products are live or shown in screenshots, the source is not public.</p>
+    <div class="grid">
+      {atWork.map((project, index) => (
+        <ProjectCard project={project} galleryIndex={personal.length + index} />
+      ))}
+    </div>
+    {/* Early games, toys and client sites, folded below the work samples so
+        they never compete with them, but still shown as full cards. */}
     <details class="everything">
       <summary>
-        <span class="summary-label">
-          Everything else — {ARCHIVE_PROJECTS.length} early and small projects
-        </span>
-        <span class="summary-hint">games, toys, and client sites</span>
+        <span class="summary-label">Archive — {PROJECT_TOTALS.archived} early and small projects</span>
+        <span class="summary-hint">games, toys, demos and client sites</span>
       </summary>
       <div class="grid">
         {ARCHIVE_PROJECTS.map((project, index) => (
-          <ProjectCard
-            project={project}
-            galleryIndex={archiveOffset + index}
-          />
+          <ProjectCard project={project} galleryIndex={archiveOffset + index} />
         ))}
       </div>
     </details>
@@ -73,7 +78,7 @@ const seo = seoForIndex({
   .back {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--text-subtle);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
@@ -90,6 +95,17 @@ const seo = seoForIndex({
     margin-top: var(--space-3);
     max-width: 68ch;
     color: var(--text-muted);
+  }
+  .group-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-top: var(--space-4);
+  }
+  .group-note {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin-top: calc(var(--space-4) * -1);
   }
   .grid {
     display: grid;
@@ -121,7 +137,7 @@ const seo = seoForIndex({
   }
   .everything summary::before {
     content: '\25B8';
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
   .everything[open] summary::before {
     content: '\25BE';
@@ -130,7 +146,7 @@ const seo = seoForIndex({
     text-decoration: underline;
   }
   .summary-hint {
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
   .everything[open] summary {
     margin-bottom: var(--space-5);

@@ -1,30 +1,28 @@
 ---
 import { CONTENT } from '../content/content';
 import ProjectCard from './ProjectCard.astro';
-import { LISTED_PROJECTS, VISIBLE_PROJECTS } from '../lib/projects-view';
+import { PROJECT_TOTALS, VISIBLE_PROJECTS } from '../lib/projects-view';
 
 const section = CONTENT.GET_SECTION('projects');
-const archiveCount = LISTED_PROJECTS.length;
 ---
 
-<section id="projects">
+<section id="projects" aria-labelledby="projects-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="projects-title">{section.title}</h2>
     </div>
     <div class="grid">
       {
         VISIBLE_PROJECTS.map((project, index) => (
-          <ProjectCard
-            project={project}
-            galleryIndex={index}
-          />
+          <ProjectCard project={project} galleryIndex={index} featured />
         ))
       }
     </div>
     <p class="archive">
-      <a href="/projects/">Browse all {archiveCount} projects &#8594;</a>
+      <a href="/projects/" data-project-count={PROJECT_TOTALS.listed}>
+        Browse all {PROJECT_TOTALS.listed} projects &#8594;
+      </a>
     </p>
   </div>
 </section>
@@ -34,6 +32,25 @@ const archiveCount = LISTED_PROJECTS.length;
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-5);
+  }
+  /* Phones: one swipeable row instead of three stacked cards. The next card
+     peeks in from the edge, so the row reads as scrollable. */
+  @media (max-width: 699px) {
+    .grid {
+      grid-auto-flow: column;
+      grid-template-columns: none;
+      grid-auto-columns: 86%;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      padding-bottom: var(--space-2);
+      margin-inline: calc(var(--space-5) * -1);
+      padding-inline: var(--space-5);
+      scroll-padding-inline: var(--space-5);
+    }
+    .grid > :global(*) {
+      scroll-snap-align: start;
+    }
   }
   @media (min-width: 700px) {
     .grid {

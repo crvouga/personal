@@ -21,7 +21,11 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "../../tsconfig.strict.json",
-        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
+        "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**",
+        "$TURBO_ROOT$/.github/workflows/ci.yml",
+        "$TURBO_ROOT$/packages/infra/tofu/**/*.tf",
+        "$TURBO_ROOT$/packages/infra/lib/health/**",
+        "$TURBO_ROOT$/scripts/agent-commands.ts"
       ]
     },
     "build": {
@@ -31,6 +35,11 @@
         "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
       ],
       "outputs": ["dist/**"]
+    },
+    "test:site": {
+      "dependsOn": ["build"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": []
     }
   }
 }

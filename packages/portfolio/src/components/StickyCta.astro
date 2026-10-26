@@ -1,26 +1,23 @@
 ---
 import { CONTENT } from '../content/content';
-import { RESUME_HREF } from '../constants/resume';
 import IconEmail from './icons/IconEmail.astro';
-import IconDownload from './icons/IconDownload.astro';
 
 /**
- * Phone-only action bar. On a phone the hero's calls to action scroll away
- * within one swipe and the contact section is eight sections down, so the two
- * actions that matter stay reachable the whole way. It hides itself once the
- * contact section is on screen, where the same actions are already visible.
+ * Phone-only email bar (the header carries the résumé). On a phone the hero's calls to action scroll away
+ * within one swipe and the contact section is far down, so the two actions
+ * that matter stay reachable the whole way. It hides while either the hero's
+ * buttons or the contact section is on screen, where the same actions are
+ * already visible: two identical pairs of buttons at once is noise.
  */
 const email = CONTENT.EMAIL_ADDRESS;
+const mailto = `mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COPY.mailSubject)}`;
 ---
 
-<div class="sticky-cta" data-sticky-cta>
-  <a class="btn btn-contained" href={`mailto:${email}`}>
-    <IconEmail /><span class="btn-label">{CONTENT.HERO.ctaPrimary.label}</span>
+<aside class="sticky-cta" data-sticky-cta data-hidden aria-label="Quick contact">
+  <a class="btn btn-contained" href={mailto}>
+    <IconEmail /><span class="btn-label">{CONTENT.HERO.ctaPrimary.label} {email}</span>
   </a>
-  <a class="btn" href={RESUME_HREF} target="_blank" rel="noopener">
-    <IconDownload /><span class="btn-label">Résumé</span>
-  </a>
-</div>
+</aside>
 
 <style>
   .sticky-cta {
@@ -37,7 +34,7 @@ const email = CONTENT.EMAIL_ADDRESS;
       gap: var(--space-3);
       padding: var(--space-3) var(--space-5);
       padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
-      background: rgba(10, 10, 11, 0.92);
+      background: var(--nav-bg);
       -webkit-backdrop-filter: blur(10px);
       backdrop-filter: blur(10px);
       border-top: 1px solid var(--paper-border);
@@ -55,21 +52,37 @@ const email = CONTENT.EMAIL_ADDRESS;
       pointer-events: none;
     }
   }
+  @media print {
+    .sticky-cta {
+      display: none !important;
+    }
+  }
 </style>
 
 <script is:inline>
+  // Starts hidden (the hero's buttons are on screen at load) and shows only
+  // once neither the hero buttons nor the contact section is visible. Without
+  // IntersectionObserver it simply stays hidden; both pairs remain in the page.
   document.addEventListener('DOMContentLoaded', () => {
     const bar = document.querySelector('[data-sticky-cta]');
-    const contact = document.getElementById('contact');
-    if (!bar || !contact || !('IntersectionObserver' in window)) return;
+    const targets = [
+      document.querySelector('[data-hero-ctas]'),
+      document.getElementById('contact'),
+    ].filter(Boolean);
+    if (!bar || targets.length === 0 || !('IntersectionObserver' in window)) return;
+    const visible = new Set();
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          bar.toggleAttribute('data-hidden', entry.isIntersecting);
+          if (entry.isIntersecting) visible.add(entry.target);
+          else visible.delete(entry.target);
         });
+        bar.toggleAttribute('data-hidden', visible.size > 0);
       },
-      { rootMargin: '0px 0px -25% 0px' }
+      // No margin: the hero's buttons sit near the bottom of a phone's first
+      // screen, and a shrunken root missed them, showing both pairs at once.
+      { rootMargin: '0px' }
     );
-    observer.observe(contact);
+    targets.forEach((target) => observer.observe(target));
   });
 </script>

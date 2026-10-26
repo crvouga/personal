@@ -1,124 +1,214 @@
 ---
 import { CONTENT } from '../content/content';
+import type { PrincipleFact, Story } from '../content/agentic';
+import { AI_TRAILERS, PLATFORM_FACTS, PUBLIC_TEST_CALL_SITES, count } from '../lib/proof-view';
+import { postHref, publishedPosts } from '../lib/published-posts';
 
 const section = CONTENT.GET_SECTION('agentic');
+
+/** Numbers beside a principle, rendered from platform-facts.json. */
+const FACT_TEXT: Record<PrincipleFact, string> = {
+  gates: `${count(PLATFORM_FACTS.checkGateJobInstances)} CI jobs behind ${count(PLATFORM_FACTS.requiredChecks.length)} required checks on every pull request.`,
+  tests: `${count(PUBLIC_TEST_CALL_SITES)} tests across three public repositories.`,
+  health: `${count(PLATFORM_FACTS.healthChecks)} health-check groups; ${count(PLATFORM_FACTS.preventDestroyGuards)} resources guarded against deletion.`,
+};
+
+const stories: readonly Story[] = [
+  CONTENT.AGENTIC_END_TO_END,
+  CONTENT.AGENTIC_CANDOR,
+];
+const tooling = CONTENT.AGENTIC_TOOLING;
+const harnesses = PLATFORM_FACTS.agentCommandHarnesses.length;
+// The long form of this section, once Chris has verified and published it.
+const essay = (await publishedPosts()).find(
+  (post) => post.id === 'agents-draft-the-pipeline-is-the-gate'
+);
 ---
 
-<section id="agentic">
+<section id="agentic" aria-labelledby="agentic-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="agentic-title">{section.title}</h2>
     </div>
-    <div class="grid">
-      <div class="card workflow-card">
-        <h3>{CONTENT.AGENTIC_WORKFLOW_TITLE}</h3>
-        <ul>
-          {
-            CONTENT.AGENTIC_WORKFLOW_POINTS.map((point) => (
-              <li set:html={point} />
-            ))
-          }
-        </ul>
-      </div>
-      <aside class="card cursor-card">
-        <div class="frame">
-          <iframe
-            src={CONTENT.ABOUT_YOUTUBE_EMBED_URL}
-            title={CONTENT.ABOUT_YOUTUBE_VIDEO_TITLE}
-            loading="lazy"
-            referrerpolicy="strict-origin-when-cross-origin"
-            allowfullscreen></iframe>
-        </div>
-        <div class="card-body">
-          <span class="badge">{CONTENT.AGENTIC_CURSOR_BADGE}</span>
-          <p>{CONTENT.AGENTIC_CURSOR_TEXT}</p>
-        </div>
-      </aside>
+    <p class="lede">{CONTENT.AGENTIC_WORKFLOW_TITLE}</p>
+    <ol class="principles">
+      {
+        CONTENT.AGENTIC_PRINCIPLES.map((principle) => (
+          <li class="card principle">
+            <h3>{principle.title}</h3>
+            <p class="body">{principle.body}</p>
+            {principle.fact !== undefined && (
+              <p class="fact">{FACT_TEXT[principle.fact]}</p>
+            )}
+            <ul class="receipts" aria-label={`Receipts: ${principle.title}`}>
+              {principle.receipts.map((receipt) => (
+                <li>
+                  <a href={receipt.href} rel="noopener" target="_blank">{receipt.label}</a>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="contract">
+      <a href={CONTENT.AGENTIC_CONTRACT.href} rel="noopener" target="_blank">
+        {CONTENT.AGENTIC_CONTRACT.label}
+      </a>
+    </p>
+    {essay !== undefined && (
+      <p class="contract">
+        <a href={postHref(essay)}>Long form: {essay.data.title}</a>
+      </p>
+    )}
+    <div class="stories">
+      {
+        stories.map((story) => (
+          <details class="card story">
+            <summary>
+              <h3>{story.title}</h3>
+              <span class="gist">{story.gist}</span>
+            </summary>
+            <p>
+              {story.steps.map((step) => (
+                <>
+                  {step.text}
+                  {step.link !== undefined && (
+                    <>
+                      {' '}(<a href={step.link.href} rel="noopener" target="_blank">{step.link.label}</a>)
+                    </>
+                  )}{' '}
+                </>
+              ))}
+            </p>
+          </details>
+        ))
+      }
     </div>
+    <p class="tooling">
+      <strong>Tools.</strong> {tooling.lead} ({count(AI_TRAILERS.claudeCode)} and{' '}
+      {count(AI_TRAILERS.cursor)} co-author trailers.){' '}
+      <a href={tooling.harnessesHref} rel="noopener" target="_blank">{tooling.harnesses}</a>{' '}
+      ({count(harnesses)} harnesses: {PLATFORM_FACTS.agentCommandHarnesses.join(', ')}.)
+    </p>
   </div>
 </section>
 
 <style>
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-5);
-    align-items: start;
-  }
-  /* The gates are the argument; the Cursor aside is a footnote, so it gets the
-     narrow column rather than equal billing. */
-  @media (min-width: 900px) {
-    .grid {
-      grid-template-columns: 1.6fr 1fr;
-    }
-  }
-  .workflow-card {
-    padding: var(--space-6);
-  }
-  .workflow-card h3 {
+  .lede {
     font-family: var(--font-mono);
     font-size: var(--text-lg);
     font-weight: 600;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
   }
-  .workflow-card ul {
+  .principles {
+    list-style: none;
     margin: 0;
     padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
   }
-  .workflow-card li {
-    position: relative;
-    padding-left: 20px; /* bullet hanging indent, matches Experience */
-    color: var(--text-muted);
-    font-size: var(--text-base);
+  @media (min-width: 800px) {
+    .principles {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
-  .workflow-card li::before {
-    content: '›';
-    position: absolute;
-    left: 0;
-    color: var(--accent);
-    font-family: var(--font-mono);
-  }
-  .cursor-card {
-    overflow: hidden;
-  }
-  .frame {
-    aspect-ratio: 16 / 9;
-    background: #000;
-  }
-  .frame :global(iframe) {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    display: block;
-  }
-  .card-body {
+  .principle {
     padding: var(--space-5);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
   }
-  .badge {
+  .principle h3 {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    font-weight: 600;
+  }
+  .body {
+    color: var(--text-muted);
+    font-size: var(--text-base);
+  }
+  .fact {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--accent);
+  }
+  .receipts {
+    margin: auto 0 0;
+    padding: var(--space-2) 0 0;
+    list-style: none;
+    border-top: 1px solid var(--paper-border);
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-4);
+  }
+  .receipts a,
+  .contract a {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    min-height: var(--tap);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--accent);
-    padding: var(--space-1) var(--space-2);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-glow);
-    border-radius: var(--radius-pill);
-    align-self: flex-start;
-  }
-  .card-body p {
     font-size: var(--text-sm);
+  }
+  .contract {
+    margin-top: var(--space-4);
+  }
+  .stories {
+    margin-top: var(--space-5);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  @media (min-width: 800px) {
+    .stories {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .story {
+    padding: var(--space-5);
+  }
+  .story summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-height: var(--tap);
+    cursor: pointer;
+    list-style: none;
+  }
+  .story summary::-webkit-details-marker {
+    display: none;
+  }
+  .story h3 {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    font-weight: 600;
+  }
+  .story h3::before {
+    content: '\25B8  ';
+    color: var(--accent);
+  }
+  .story[open] h3::before {
+    content: '\25BE  ';
+  }
+  .gist {
+    color: var(--text);
+    font-size: var(--text-base);
+  }
+  .story[open] summary {
+    margin-bottom: var(--space-3);
+  }
+  .story p,
+  .tooling {
     color: var(--text-muted);
+    font-size: var(--text-base);
+  }
+  .tooling {
+    margin-top: var(--space-5);
+    max-width: 80ch;
+  }
+  .tooling strong {
+    color: var(--text);
   }
 </style>

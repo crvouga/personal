@@ -55,7 +55,16 @@ const ASSET_PATH_IN_TEXT = new RegExp(
  * Never pruned: robots.txt is a protocol file, not referenced by markup. The
  * sitemap is no longer here — `@astrojs/sitemap` generates it into `dist/`.
  */
-const ALWAYS_KEEP: readonly string[] = ['/robots.txt', '/favicon.ico'];
+/** Served by convention or linked from <head>, not from content. */
+const ALWAYS_KEEP: readonly string[] = [
+  '/robots.txt',
+  '/favicon.ico',
+  '/favicon.svg',
+  '/manifest.webmanifest',
+  '/humans.txt',
+  '/.well-known/security.txt',
+  '/llms-infra.txt',
+];
 
 const DERIVATIVE_SUFFIX = '.optimized.webp';
 const MAX_LISTED = 200;

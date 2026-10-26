@@ -54,10 +54,12 @@ describe('project authorship', () => {
     );
   });
 
-  test('none of the homepage projects is hand-written', () => {
-    expect(isHandWritten('gamezilla')).toBe(false);
-    expect(isHandWritten('geviti-app')).toBe(false);
+  // The homepage leads with agent-era work, where the method is the point;
+  // a hand-written flagship may follow, and its badge says so.
+  test('the homepage leads with agent-era work', () => {
     expect(isHandWritten('mockingbird')).toBe(false);
+    expect(isHandWritten('workspace-platform')).toBe(false);
+    expect(isHandWritten('gamezilla')).toBe(false);
   });
 
   test('historical projects respect the owner’s label choices', () => {

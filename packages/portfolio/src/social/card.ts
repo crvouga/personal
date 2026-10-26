@@ -124,3 +124,15 @@ export const renderTouchIconHtml = (initials: string, fonts: string): string =>
     <p class="mark mono">${escapeHtml(initials)}</p>
   </body>
 </html>`;
+
+/** A case study's card: the project and its one line, under the same frame. */
+export const buildCaseStudyCardContent = (study: {
+  readonly title: string;
+  readonly subline: string;
+}): CardContent => ({
+  eyebrow: `// case study · ${CONTENT.HERO.name}`,
+  name: study.title.split(':')[0] ?? study.title,
+  statement: study.subline,
+  site: CONTENT.SITE_URL.replace(/^https?:\/\/(www\.)?/, ''),
+  location: CONTENT.LOCATION,
+});

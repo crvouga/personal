@@ -92,9 +92,11 @@ describe.skipIf(!databaseAvailable)(
         expect(await page.locator('input[type=password]').count()).toBe(0);
         await page.getByRole('link', { name: 'Continue with Google' }).click();
         await page.waitForURL('**/not-allowed');
-        expect(
-          await page.getByRole('heading', { name: 'Not allowed' }).count()
-        ).toBe(1);
+        // The URL changes before the page renders; count() does not wait, so
+        // a slow runner counted 0. Wait for the heading, then assert there is one.
+        const notAllowed = page.getByRole('heading', { name: 'Not allowed' });
+        await notAllowed.first().waitFor();
+        expect(await notAllowed.count()).toBe(1);
         await page.getByRole('button', { name: 'Sign out' }).click();
         await page.waitForURL('**/login');
         email = 'admin@example.test';

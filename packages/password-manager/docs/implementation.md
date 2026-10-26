@@ -1,7 +1,7 @@
 # Implementation and evidence ledger
 
-The authoritative scope is `Password manager implementation prompt.md` at the
-repository root. This ledger records decisions, delivery scope and acceptance evidence.
+The authoritative scope is [`implementation-prompt.md`](implementation-prompt.md),
+beside this ledger. This ledger records decisions, delivery scope and acceptance evidence.
 
 ## Repository audit and decisions
 

@@ -34,6 +34,17 @@ export const PROJECT_HISTORY: Readonly<Record<string, ProjectHistory>> = {
   triangulator: employer(2024),
   'study-hall': employer(2024),
   mockingbird: commits({ 2026: 977 }),
+  // The monorepo also carries this portfolio's history from 2020; the platform
+  // itself is the 2026 bulk.
+  'workspace-platform': commits({
+    2020: 26,
+    2021: 304,
+    2022: 81,
+    2023: 7,
+    2024: 139,
+    2025: 100,
+    2026: 995,
+  }),
   'headless-combobox': commits({ 2023: 254, 2024: 76, 2025: 10, 2026: 2 }),
   orchard: employer(2024),
   'normalizer-app': commits({ 2025: 539, 2026: 49 }),

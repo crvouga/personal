@@ -12,6 +12,8 @@ import { buildSkillRows, type SkillRow } from '../content/skills';
 import { TOPIC_TO_NAME } from '../content/topic';
 import { formatPhoneNumber } from '../library/phone-number';
 import { VISIBLE_PROJECTS, projectHref } from '../lib/projects-view';
+import { AI_ASSISTED_ROW } from '../content/skills';
+import { resumeOutcomeFor } from './outcomes';
 import { workDateRange } from '../lib/work-view';
 import type {
   Education,
@@ -24,7 +26,7 @@ import type {
 /** Topics shown beside a project title. */
 const MAX_PROJECT_TOPICS = 6;
 /** Items per skill row; ordered by how often the resume's projects use them. */
-const MAX_SKILLS_PER_ROW = 9;
+const MAX_SKILLS_PER_ROW = 10;
 /**
  * Real, but table stakes for a senior engineer: listing them spends a line a
  * screener skims past and dilutes the keywords that matter.
@@ -34,6 +36,15 @@ const OMITTED_SKILLS: ReadonlySet<string> = new Set([
   'html',
   'bootstrap',
 ]);
+const LANGUAGE_TOPICS: ReadonlySet<string> = new Set([
+  'typescript',
+  'javascript',
+  'python',
+  'go',
+  'rust',
+  'php',
+]);
+
 /** Roughly one printed line: the lead sentence, the part a screener reads. */
 const MAX_PROJECT_DESCRIPTION_CHARS = 160;
 
@@ -106,13 +117,18 @@ const shortUrl = (url: string): string => {
   return [host, ...segments.slice(0, MAX_DISPLAY_PATH_SEGMENTS)].join('/');
 };
 
+export const includePhone = (env = process.env): boolean =>
+  env['RESUME_INCLUDE_PHONE'] === '1';
+
 const buildIdentity = (): Identity => ({
   name: CONTENT.PAGE_TITLE,
   // The current role's title is the level a screener matches against.
   title: CONTENT.WORK[0]?.jobTitle ?? CONTENT.PAGE_SUBTITLE,
   location: CONTENT.LOCATION,
   email: CONTENT.EMAIL_ADDRESS,
-  phone: formatPhoneNumber(CONTENT.PHONE_NUMBER),
+  // The public PDF sits on an indexable URL, so the phone number is opt-in:
+  // RESUME_INCLUDE_PHONE=1 bun run build makes the copy for a direct application.
+  phone: includePhone() ? formatPhoneNumber(CONTENT.PHONE_NUMBER) : null,
   website: tidyHost(CONTENT.SITE_URL),
   websiteUrl: CONTENT.SITE_URL,
   githubDisplay: tidyHost(CONTENT.GITHUB_URL),
@@ -148,10 +164,14 @@ const buildProjects = (): Project[] =>
     const url = projectHref(project);
     return {
       title: project.title,
-      description: leadSentences(
-        toPlainText(project.description),
-        MAX_PROJECT_DESCRIPTION_CHARS
-      ),
+      // A measured one-line outcome where the snapshots have one; otherwise
+      // the card's own description.
+      description:
+        resumeOutcomeFor(project.id) ??
+        leadSentences(
+          toPlainText(project.description),
+          MAX_PROJECT_DESCRIPTION_CHARS
+        ),
       url,
       urlDisplay: url === null ? null : shortUrl(url),
       topics: project.topics
@@ -171,9 +191,16 @@ export const buildSkills = (): SkillRow[] => {
     ...resumeProjects(),
   ];
   const uses = new Map<string, number>();
-  const topics = shown
-    .flatMap((project) => project.topics)
-    .filter((topic) => !OMITTED_SKILLS.has(topic));
+  // Languages come from every listed project: a language is a skill whether
+  // or not its project made the one-page cut.
+  const languages = CONTENT.PROJECTS.flatMap(
+    (project) => project.topics
+  ).filter((topic) => LANGUAGE_TOPICS.has(topic));
+  const topics = [
+    ...shown.flatMap((project) => project.topics),
+    ...CONTENT.WORK.flatMap((work) => work.topics ?? []),
+    ...languages,
+  ].filter((topic) => !OMITTED_SKILLS.has(topic));
   for (const topic of topics) {
     uses.set(topic, (uses.get(topic) ?? 0) + 1);
   }
@@ -183,12 +210,13 @@ export const buildSkills = (): SkillRow[] => {
       count,
     ])
   );
-  return buildSkillRows([...uses.keys()]).map((row) => ({
+  const ranked = buildSkillRows([...uses.keys()]).map((row) => ({
     category: row.category,
     items: [...row.items]
       .sort((a, b) => (rankByName.get(b) ?? 0) - (rankByName.get(a) ?? 0))
       .slice(0, MAX_SKILLS_PER_ROW),
   }));
+  return [AI_ASSISTED_ROW, ...ranked];
 };
 
 const buildEducation = (): Education[] =>

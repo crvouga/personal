@@ -1,0 +1,64 @@
+---
+import Page from '../../layouts/Page.astro';
+import { CONTENT } from '../../content/content';
+import { postHref, publishedPosts } from '../../lib/published-posts';
+import { seoForIndex } from '../../lib/seo';
+
+// `/writing/` exists only once a post is published: an empty index would be
+// a page that promises writing and has none.
+export const getStaticPaths = async () =>
+  (await publishedPosts()).length > 0 ? [{ params: { index: undefined } }] : [];
+
+const posts = await publishedPosts();
+const seo = seoForIndex({
+  title: `Writing — ${CONTENT.PAGE_TITLE}`,
+  description: 'Notes on verifying software written with AI coding agents, from the repositories they describe.',
+  path: '/writing/',
+});
+---
+
+<Page seo={seo}>
+  <section class="container writing" aria-labelledby="writing-title">
+    <h1 id="writing-title">Writing</h1>
+    <p class="lede"><a href="/rss.xml">RSS feed</a></p>
+    <ul class="posts">
+      {posts.map((post) => (
+        <li>
+          <a href={postHref(post)}>{post.data.title}</a>
+          <time datetime={post.data.date.toISOString().slice(0, 10)}>
+            {post.data.date.toISOString().slice(0, 10)}
+          </time>
+          <p>{post.data.description}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Page>
+
+<style>
+  .writing {
+    max-width: 780px;
+    padding-block: var(--space-7) var(--space-8);
+  }
+  .posts {
+    list-style: none;
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+  .posts a {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+  }
+  time {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .posts p {
+    color: var(--text-muted);
+  }
+</style>

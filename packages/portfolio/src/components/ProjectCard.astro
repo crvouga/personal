@@ -1,6 +1,7 @@
 ---
 import { TOPIC_TO_IMAGE_SRC, TOPIC_TO_NAME } from '../content/topic';
 import type { Project } from '../content/project';
+import { caseStudyFor, caseStudyHref } from '../content/case-studies';
 import { authorshipOf } from '../lib/authorship';
 import { accessNote, galleryFor, projectHref } from '../lib/projects-view';
 
@@ -10,15 +11,22 @@ interface Props {
   galleryIndex?: number | null;
   /** Archive rows: no cover, plain chips. */
   compact?: boolean;
+  /** Homepage flagships: show the case study's one-line "why it matters". */
+  featured?: boolean;
 }
 const {
   project,
   galleryIndex = null,
   compact = false,
+  featured = false,
 } = Astro.props;
 
 const MAX_CHIPS = 6;
-const href = projectHref(project);
+const study = caseStudyFor(project.id);
+const studyHref = study === undefined ? null : caseStudyHref(study);
+// The title leads to the fullest account: the case study when there is one.
+const href = studyHref ?? projectHref(project);
+const external = studyHref === null;
 const note = accessNote(project);
 const chips = project.topics.slice(0, MAX_CHIPS);
 const extraTopics = Math.max(0, project.topics.length - MAX_CHIPS);
@@ -60,21 +68,26 @@ const badge = authorshipOf(project);
           href === null ? (
             project.title
           ) : (
-            <a href={href} rel="noopener" target="_blank">
-              {project.title}
-            </a>
+            external ? (
+              <a href={href} rel="noopener" target="_blank">
+                {project.title}
+              </a>
+            ) : (
+              <a href={href}>{project.title}</a>
+            )
           )
         }
       </h3>
     </div>
     <p class="desc">{project.description}</p>
+    {featured && study !== undefined && <p class="subline">{study.subline}</p>}
     <div class="meta">
       <div class="chips">
         {
           chips.map((topic) => (
             <span class="chip">
               {!compact && TOPIC_TO_IMAGE_SRC[topic] && (
-                <img src={TOPIC_TO_IMAGE_SRC[topic] ?? ''} alt="" loading="lazy" />
+                <img src={TOPIC_TO_IMAGE_SRC[topic] ?? ''} alt="" width="12" height="12" loading="lazy" />
               )}
               {TOPIC_TO_NAME[topic]}
             </span>
@@ -84,22 +97,44 @@ const badge = authorshipOf(project);
       </div>
       <div class="links">
         {
+          studyHref !== null && (
+            <a href={studyHref} aria-label={`Case study: ${project.title}`}>
+              Case study
+            </a>
+          )
+        }
+        {
           project.deployment.t === 'public' && (
-            <a href={project.deployment.url} rel="noopener" target="_blank">
+            <a
+              href={project.deployment.url}
+              rel="noopener"
+              target="_blank"
+              aria-label={`Live site: ${project.title}`}
+            >
               Live
             </a>
           )
         }
         {
           project.code.t === 'public' && (
-            <a href={project.code.url} rel="noopener" target="_blank">
+            <a
+              href={project.code.url}
+              rel="noopener"
+              target="_blank"
+              aria-label={`Source code: ${project.title}`}
+            >
               Code
             </a>
           )
         }
         {
           hasGallery && (
-            <button type="button" class="gallery-btn" data-gallery={galleryIndex}>
+            <button
+              type="button"
+              class="gallery-btn"
+              data-gallery={galleryIndex}
+              aria-label={`Images: ${project.title}`}
+            >
               Images
             </button>
           )
@@ -166,7 +201,7 @@ const badge = authorshipOf(project);
     padding: 0 var(--space-5);
     font-family: var(--font-mono);
     font-size: var(--text-lg);
-    color: var(--text-subtle);
+    color: var(--text-muted);
     text-align: center;
     overflow-wrap: anywhere;
   }
@@ -184,6 +219,9 @@ const badge = authorshipOf(project);
     overflow-wrap: anywhere;
   }
   h3 a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
     color: var(--text);
   }
   h3 a:hover {
@@ -192,6 +230,12 @@ const badge = authorshipOf(project);
   .desc {
     color: var(--text-muted);
     font-size: var(--text-base);
+  }
+  .subline {
+    font-size: var(--text-sm);
+    color: var(--text);
+    border-left: 2px solid var(--accent);
+    padding-left: var(--space-3);
   }
   /* Featured cards share grid rows; one long description would stretch the
      whole row and leave its neighbours mostly empty. Clamp to a common
@@ -209,7 +253,7 @@ const badge = authorshipOf(project);
     gap: 6px;
   }
   .chip-more {
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
   .meta {
     margin-top: auto;
@@ -229,7 +273,9 @@ const badge = authorshipOf(project);
   .links a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     min-height: var(--tap);
+    min-width: var(--tap);
     color: var(--accent);
   }
   .access-note {
@@ -238,6 +284,6 @@ const badge = authorshipOf(project);
     min-height: var(--tap);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 </style>

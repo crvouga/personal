@@ -4,9 +4,14 @@
  */
 import { TOPIC_TO_NAME, type Topic } from './topic';
 
-const TOPIC_CATEGORY: Partial<
-  Record<Topic, 'Languages' | 'Frontend' | 'Backend' | 'Data' | 'Cloud & Infra'>
-> = {
+export type SkillRow = {
+  readonly category: string;
+  readonly items: readonly string[];
+};
+
+type Category = 'Languages' | 'Frontend' | 'Backend' | 'Data' | 'Infra & CI';
+
+const TOPIC_CATEGORY: Partial<Record<Topic, Category>> = {
   // Languages
   typescript: 'Languages',
   javascript: 'Languages',
@@ -56,12 +61,20 @@ const TOPIC_CATEGORY: Partial<
   firebase: 'Data',
   supabase: 'Data',
   neo4j: 'Data',
-  // Cloud & infra
-  aws: 'Cloud & Infra',
-  s3: 'Cloud & Infra',
-  vercel: 'Cloud & Infra',
-  heroku: 'Cloud & Infra',
-  docker: 'Cloud & Infra',
+  astro: 'Frontend',
+  // Infra & CI
+  aws: 'Infra & CI',
+  s3: 'Infra & CI',
+  vercel: 'Infra & CI',
+  heroku: 'Infra & CI',
+  docker: 'Infra & CI',
+  opentofu: 'Infra & CI',
+  nixos: 'Infra & CI',
+  'github-actions': 'Infra & CI',
+  cloudflare: 'Infra & CI',
+  railway: 'Infra & CI',
+  openbao: 'Infra & CI',
+  playwright: 'Infra & CI',
   // Skipped on purpose: shopify, sanity, drupal, salesforce, jest, puppeteer, ramda
 };
 
@@ -70,12 +83,25 @@ const CATEGORY_ORDER: readonly string[] = [
   'Frontend',
   'Backend',
   'Data',
-  'Cloud & Infra',
+  'Infra & CI',
 ];
 
-export type SkillRow = {
-  readonly category: string;
-  readonly items: readonly string[];
+export const AI_ROW_CATEGORY = 'AI-assisted engineering';
+
+/**
+ * Pinned first on the Toolbox and the résumé. Methods, plus only the agent
+ * tools the commit history shows in daily use (co-author trailers counted in
+ * platform-facts.json): no tool is named that is not evidenced.
+ */
+export const AI_ASSISTED_ROW: SkillRow = {
+  category: AI_ROW_CATEGORY,
+  items: [
+    'Claude Code',
+    'Cursor',
+    'spec-driven development',
+    'CI-gated agent workflows',
+    'property-based testing',
+  ],
 };
 
 /** Buckets topic keys into display-ready category rows, in {@link CATEGORY_ORDER}. */

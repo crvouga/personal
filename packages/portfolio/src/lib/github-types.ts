@@ -21,6 +21,8 @@ export type ContributionRange = {
   readonly from: string;
   readonly to: string;
   readonly totalContributions: number;
+  /** Contributions to private repositories; see github-calendar `RangeMeta`. */
+  readonly privateContributions?: number;
   readonly longestStreak: number;
   /** Days with at least one contribution inside this period. */
   readonly activeDays: number;

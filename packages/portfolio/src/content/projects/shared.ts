@@ -18,9 +18,3 @@ export const toYouTubeVideoUrl = ({
   params.append('playlist', youTubeVideoId);
   return `https://www.youtube.com/embed/${youTubeVideoId}?${params.toString()}`;
 };
-
-// ---------------------------------------------------------------------------
-// Constants shared by every entry.
-// ---------------------------------------------------------------------------
-
-export const IMAGE_ALT = 'A screenshot of the project';

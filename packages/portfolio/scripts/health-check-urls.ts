@@ -10,7 +10,9 @@ import { lookup } from 'node:dns/promises';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CONTENT } from '../src/content/content';
-import { PROJECTS } from '../src/content/project';
+import { AGENTIC_LINKS } from '../src/content/agentic';
+import { CASE_STUDIES } from '../src/content/case-studies';
+import { ARCHIVE_PROJECTS, PROJECTS } from '../src/content/project';
 import { WORK } from '../src/content/work';
 import { writeLine } from '../src/library/cli-output';
 
@@ -207,7 +209,7 @@ const collectContentUrls = (): string[] => {
 const collectProjectUrls = (): string[] => {
   const urls: string[] = [];
 
-  for (const project of PROJECTS) {
+  for (const project of [...PROJECTS, ...ARCHIVE_PROJECTS]) {
     if (project.deployment?.t === 'public' && project.deployment.url) {
       urls.push(project.deployment.url);
     }
@@ -226,16 +228,29 @@ const collectWorkUrls = (): string[] => {
     if (work.infoUrl) {
       urls.push(work.infoUrl);
     }
+    // Each senior-role bullet links its artifact; a dead one is evidence lost.
+    for (const highlight of work.highlights) {
+      for (const match of highlight.matchAll(/href="(https?:[^"]+)"/g)) {
+        if (match[1] !== undefined) urls.push(match[1]);
+      }
+    }
   }
 
   return urls;
 };
+
+/** The receipts under "How I build" and every case study's links. */
+const collectEvidenceUrls = (): string[] => [
+  ...AGENTIC_LINKS,
+  ...CASE_STUDIES.flatMap((study) => study.links.map((link) => link.href)),
+];
 
 const extractUrls = (): string[] => {
   const urls = new Set([
     ...collectContentUrls(),
     ...collectProjectUrls(),
     ...collectWorkUrls(),
+    ...collectEvidenceUrls(),
   ]);
 
   return Array.from(urls).sort();

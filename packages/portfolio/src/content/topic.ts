@@ -63,6 +63,14 @@ export const TOPIC_TO_IMAGE_SRC = {
   'react-native': '/react.svg',
   phaser: null,
   'tone-js': null,
+  astro: null,
+  opentofu: null,
+  nixos: null,
+  'github-actions': null,
+  cloudflare: null,
+  railway: null,
+  openbao: null,
+  playwright: null,
 };
 
 export type Topic = keyof typeof TOPIC_TO_IMAGE_SRC;
@@ -129,4 +137,12 @@ export const TOPIC_TO_NAME: { [key in Topic]: string } = {
   'react-native': 'React Native',
   phaser: 'Phaser',
   'tone-js': 'Tone.js',
+  astro: 'Astro',
+  opentofu: 'OpenTofu',
+  nixos: 'NixOS',
+  'github-actions': 'GitHub Actions',
+  cloudflare: 'Cloudflare',
+  railway: 'Railway',
+  openbao: 'OpenBao',
+  playwright: 'Playwright',
 };

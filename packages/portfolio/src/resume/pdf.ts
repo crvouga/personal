@@ -17,6 +17,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
+
+import { resumeMetadata, withMetadata } from './metadata';
 import { chromium, type Browser, type Page } from 'playwright';
 
 import { renderHtml, type ResumeContent } from './html';
@@ -157,7 +159,8 @@ export const renderResume = async (
     for (;;) {
       const result = await tryRender(page, renderHtml(content, fonts));
       if ('bytes' in result) {
-        return { bytes: result.bytes, content, reductions };
+        const bytes = await withMetadata(result.bytes, resumeMetadata(content));
+        return { bytes, content, reductions };
       }
       lastDefect = result.defect;
       const reduced = reduceOnce(content);

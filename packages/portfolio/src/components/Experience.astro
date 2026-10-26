@@ -9,17 +9,21 @@ import {
 const section = CONTENT.GET_SECTION('work');
 ---
 
-<section id="work">
+<section id="work" aria-labelledby="work-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="work-title">{section.title}</h2>
     </div>
     <div class="jobs">
       {
         CONTENT.WORK.map((job, index) => {
           const gallery = workGalleryFor(job);
           return (
+            <>
+            {index === 1 && CONTENT.WORK_GAP_NOTE !== undefined && (
+              <p class="gap-note">{CONTENT.WORK_GAP_NOTE}</p>
+            )}
             <article class="card job">
               {/* No inline screenshot: the cards carry different amounts of
                   text, so any image column either stretched to match its
@@ -57,6 +61,7 @@ const section = CONTENT.GET_SECTION('work');
                       type="button"
                       class="gallery-btn"
                       data-gallery={WORK_GALLERY_OFFSET + index}
+                      aria-label={`Images from ${job.name}`}
                     >
                       Images
                     </button>
@@ -64,6 +69,7 @@ const section = CONTENT.GET_SECTION('work');
                 )}
               </div>
             </article>
+            </>
           );
         })
       }
@@ -103,6 +109,11 @@ const section = CONTENT.GET_SECTION('work');
     font-family: var(--font-mono);
     font-size: var(--text-lg);
     font-weight: 600;
+  }
+  h3 a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
   }
   .role {
     font-family: var(--font-mono);
@@ -154,5 +165,12 @@ const section = CONTENT.GET_SECTION('work');
     display: flex;
     align-items: center;
     gap: var(--space-5);
+  }
+  .gap-note {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    padding-left: var(--space-5);
+    border-left: 2px solid var(--paper-border);
   }
 </style>

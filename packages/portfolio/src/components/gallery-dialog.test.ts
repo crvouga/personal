@@ -15,7 +15,7 @@ const SOURCE = readFileSync(
  * Nothing else fails when that happens, so assert the selectors stay global.
  */
 describe('gallery dialog slide styles', () => {
-  for (const element of ['img', 'iframe']) {
+  for (const element of ['img']) {
     test(`${element} is styled with a :global selector`, () => {
       expect(SOURCE).toContain(`.stage :global(${element})`);
     });

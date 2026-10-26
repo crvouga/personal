@@ -1,5 +1,5 @@
 import { CONTENT } from '../content/content';
-import type { Work } from '../content/work';
+import type { Work, YearMonth } from '../content/work';
 import {
   VISIBLE_GALLERIES,
   toGalleryItems,
@@ -22,25 +22,32 @@ const MONTHS = [
 ] as const;
 
 /** `Mar 2022` when the month is known, else `2022`. */
-const endpoint = (
-  year: number | 'Present',
-  month: number | undefined
-): string => {
-  if (year === 'Present') return 'Present';
-  const name = month === undefined ? undefined : MONTHS[month - 1];
-  return name === undefined ? String(year) : `${name} ${year}`;
+const endpoint = (point: YearMonth | 'Present'): string => {
+  if (point === 'Present') return 'Present';
+  const name = point.month === undefined ? undefined : MONTHS[point.month - 1];
+  return name === undefined ? String(point.year) : `${name} ${point.year}`;
 };
 
 /**
- * Month precision when `work.ts` declares it. Year-only ranges read as an
- * evasion tell, so the fields exist even while most entries omit them.
+ * Month precision when `work.ts` declares it. A year-only range is rendered as
+ * exactly that, never padded with a guessed month.
  */
 export const workDateRange = (job: Work): string =>
-  `${endpoint(job.yearStart, job.monthStart)}–${endpoint(job.yearEnd, job.monthEnd)}`;
+  `${endpoint(job.start)} – ${endpoint(job.end)}`;
+
+/** `2026-01` / `2022`, the ISO 8601 form JSON Resume and JSON-LD accept. */
+export const isoYearMonth = (point: YearMonth): string =>
+  point.month === undefined
+    ? String(point.year)
+    : `${point.year}-${String(point.month).padStart(2, '0')}`;
 
 /** Award images alone are invisible; the text line is the crawlable claim. */
 export const workGalleryFor = (job: Work): GalleryItem[] =>
-  toGalleryItems([...job.imageSrc, ...job.galleryImageSrc], job.name);
+  toGalleryItems(
+    [...job.imageSrc, ...job.galleryImageSrc],
+    job.name,
+    job.imageAlt
+  );
 
 export const WORK_GALLERIES: readonly (readonly GalleryItem[])[] =
   CONTENT.WORK.map(workGalleryFor);

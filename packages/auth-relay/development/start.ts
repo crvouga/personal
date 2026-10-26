@@ -109,7 +109,8 @@ async function local(): Promise<void> {
   );
   process.stdout.write('Waiting for broker discovery readiness...\n');
   await waitFor(
-    `http://127.0.0.1:${env['AUTH_LOCAL_BROKER_PORT']}/realms/master/.well-known/openid-configuration`
+    `http://127.0.0.1:${env['AUTH_LOCAL_BROKER_PORT']}${BROKER_DISCOVERY}`,
+    () => brokerPortForwarding(env)
   );
   await verifyDatabase(compose, env);
   process.stdout.write('Preparing isolated schema and local OIDC clients...\n');
@@ -118,6 +119,45 @@ async function local(): Promise<void> {
   });
   process.stdout.write('Local setup credential: local-development-only\n');
 }
+const BROKER_DISCOVERY = '/realms/master/.well-known/openid-configuration';
+
+/**
+ * Distinguishes a slow broker from a broken Docker. If the broker already
+ * answers inside the compose network while its published port does not, the
+ * fault is Docker Desktop's host port forwarding, which no amount of waiting
+ * fixes: say so now rather than after the four-minute limit.
+ */
+async function brokerPortForwarding(
+  env: NodeJS.ProcessEnv
+): Promise<string | null> {
+  if (compose === undefined) return null;
+  try {
+    await command(
+      [
+        ...compose,
+        'exec',
+        '-T',
+        'mock',
+        'wget',
+        '-q',
+        '-O',
+        '/dev/null',
+        `http://broker:8080${BROKER_DISCOVERY}`,
+      ],
+      env,
+      true,
+      { timeoutMs: 15000 }
+    );
+  } catch {
+    return null; // Not up inside the network either: the broker is still starting.
+  }
+  return (
+    `The broker is ready inside Docker, but 127.0.0.1:${env['AUTH_LOCAL_BROKER_PORT']} on this machine ` +
+    'does not reach it: Docker Desktop has stopped forwarding published ports. ' +
+    'Restart Docker Desktop (Troubleshoot → Restart, or `killall Docker && open -a Docker`), then rerun.'
+  );
+}
+
 async function stateKey(): Promise<string> {
   const path = join(cache, 'state.key');
   try {

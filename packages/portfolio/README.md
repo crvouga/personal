@@ -6,7 +6,11 @@ The package is a Bun workspace inside `crvouga/workspace`. The production image 
 
 ## Architecture
 
-Astro static output emits a small set of HTML pages — `/`, `/projects/`, `/404` — each with its CSS inlined and no client framework. Runtime JavaScript is limited to copy-to-clipboard feedback, the native project gallery dialog, and the lazy YouTube embed. There is no analytics or runtime API dependency except the embedded video.
+Astro static output emits a small set of HTML pages — `/`, `/projects/`, one case study per flagship at `/projects/<slug>/`, `/404`, and `/writing/` once a post is published — each with its CSS inlined and no client framework. Runtime JavaScript is limited to copy-to-clipboard feedback, the native project gallery dialog, the phone action bar and parking the heatmap at its latest week. A page load makes no third-party request (`test/site.test.ts` enforces it); YouTube is contacted only when a visitor opens a project's video in the gallery. There is no analytics: no cookies and no client-side tracking.
+
+Machine-readable candidate data is generated from the same registry: `/resume.json` ([JSON Resume](https://jsonresume.org/schema)), a recruiter-facing `/llms.txt`, Person/Article JSON-LD, and `generated/github-profile-README.md` (`bun run gen:profile-readme`) for the `crvouga/crvouga` profile repository. Every one leads with `HERO.statement` (`src/lib/candidate.test.ts`). The monorepo's infrastructure guide for agents moved from `/llms.txt` to `/llms-infra.txt`.
+
+Evidence figures — CI jobs per merge, pull requests CI stopped, tests, Mockingbird's published catalog — come from two committed snapshots: `src/data/platform-facts.json` (counted from this repository, drift-tested) and `src/data/verification.json` (GitHub API, refreshed daily by Maintenance). `src/lib/proof-view.ts` renders them; no prose types a number.
 
 `src/content/**` is a typed TypeScript registry (projects, work, school, topics, skills) shared by the site, the resume PDF, and the screenshot job list.
 
@@ -31,11 +35,15 @@ Trimming never drops a role, and the page is filled before anything is cut. When
 
 `/og.png` is the image LinkedIn, X, Slack and iMessage show for a shared link. Like the resume it is **generated during `astro build`** ([`src/social/`](src/social/), served by [`src/pages/og.png.ts`](src/pages/og.png.ts)) from the hero copy, so it cannot disagree with the page it previews. It is a 1200×630 PNG: that ratio renders uncropped on both platforms, and PNG because preview crawlers do not reliably decode WebP. Text that outgrows the card fails the build rather than shipping clipped.
 
-The meta tags reference it as `/og.png?v=<content hash>`. nginx serves images with a year-long immutable cache and every platform keeps its own copy per URL, so a changed card must be a new URL. A platform still shows its cached preview for links shared earlier; LinkedIn's Post Inspector re-scrapes on demand.
+The meta tags reference it as `/og.png?v=<content hash>`. Every platform keeps its own copy per URL, so a changed card must be a new URL. nginx caches content-hashed `/_astro/` bundles for a year and every stably named file (screenshots, fonts, the favicon) for a day with revalidation, so a replaced screenshot is never stuck in a browser for a year. A platform still shows its cached preview for links shared earlier; LinkedIn's Post Inspector re-scrapes on demand.
 
 `/apple-touch-icon.png` (the monogram) is generated the same way for iOS share sheets and bookmarks. `src/lib/seo.test.ts` and `src/social/card.test.ts` pin the image format, size and ratio, the title and description lengths, and the overflow check.
 
 `@astrojs/sitemap` generates `sitemap-index.xml` + `sitemap-0.xml`; there is no `public/sitemap.xml`. `nginx.conf` deliberately does **not** fall back to the homepage — an unknown path is a real 404 serving `dist/404.html`.
+
+### Headers and compression
+
+Every response, including assets, the PDF and 404s, carries the headers in [`nginx/security-headers.conf`](nginx/security-headers.conf): HSTS (without `includeSubDomains`, because an HTTP-only tracking subdomain exists), a Content-Security-Policy, `Referrer-Policy`, `Permissions-Policy`, `nosniff`, `Cross-Origin-Opener-Policy` and `X-Frame-Options: DENY`. nginx drops inherited `add_header`s in any block that declares its own, so `nginx.conf` includes the snippet in each such `location`. The CSP has no `'unsafe-inline'` scripts and no `'unsafe-eval'`: an `astro:build:done` hook in `astro.config.mjs` runs [`scripts/csp.ts`](scripts/csp.ts), which hashes every inline `<script>` (except JSON-LD) and `<style>` in `dist/**/*.html` into `.astro/csp-header.conf`, and the Dockerfile copies that into the image. The build fails on inline `on*=` handlers, `javascript:` URLs or cross-origin script sources, and falls back to `'unsafe-inline'` for styles only if a `style="…"` attribute appears. The Docker build pre-compresses text assets for `gzip_static`; `nginx:alpine` has no Brotli module, so there are no `.br` files.
 
 GitHub proof data is fetched at build time by [`src/lib/github.ts`](src/lib/github.ts) using `PORTFOLIO_GITHUB_TOKEN` (a user token with `read:user`). The proof section offers a period picker — the trailing twelve months plus every calendar year back to the one the account was created in (the profile's `created_at` bounds it; years with no contributions are dropped). All periods are fetched in one aliased GraphQL document, and the picker CSS is index-independent, so adding years needs no CSS change. Shades are quartiles of each period's own active days rather than GitHub's fixed 1/3/6/10 buckets, which would saturate a high-volume account into a single flat colour. The picker itself is pure CSS (`:checked` sibling rules), so it works without JavaScript.
 
@@ -62,60 +70,81 @@ That job is deliberately _not_ a dependency of `publish`. If the token expires i
 
 [`src/lib/github-freshness.ts`](src/lib/github-freshness.ts) holds the budget. Past `STALE_AFTER_DAYS` the build log warns that the schedule has stopped landing; past `VERY_STALE_AFTER_DAYS` the caption stops implying the figures are current and says they are as of that date. Nothing here can fail a render — stale data still draws the full heatmap.
 
+The "Verified, not just shipped" data follows the same rule — every number is computed by code and committed, and the build only reads it:
+
+- [`src/data/verification.json`](src/data/verification.json) comes from the GitHub API through [`scripts/refresh-verification.ts`](scripts/refresh-verification.ts) (`bun run refresh-verification`, strict, needs `GITHUB_TOKEN` or `PORTFOLIO_GITHUB_TOKEN`): human PRs merged in the window (max(today − 90 days, first merged PR) → today) with bot authors and the scheduled-automation branches excluded, how many of them had a `pull_request` run attempt fail before merge (re-run attempts included), how many carry a Claude/Cursor `Co-Authored-By:` commit, per-repository stats, and counts read from shallow clones of mockingbird and headless-combobox (nothing in a clone is executed). [`src/lib/verification.ts`](src/lib/verification.ts) validates it and reports its age with the `github-freshness.ts` thresholds.
+- [`src/data/platform-facts.json`](src/data/platform-facts.json) comes from this repository's own files through [`scripts/platform-facts.ts`](scripts/platform-facts.ts) (`bun run facts`; `--check` exits non-zero on drift): required checks, the `Check` gate's jobs and matrix instances, OpenTofu roots and `prevent_destroy` guards, health groups, inventory services, packages, test call sites, agent harnesses and AI co-author trailers (pinned to a commit). It has no timestamp, and [`src/data/platform-facts.test.ts`](src/data/platform-facts.test.ts) recomputes it whenever the monorepo is present — so adding tests or checks means re-running `bun run facts` — and skips with a message inside the Docker build, whose context is only this package.
+
+The Maintenance workflow's daily snapshot task runs both after `refresh-github` and lands all three files in the same `chore/github-insights-refresh` bot PR. Each refresh leaves its file untouched on failure and runs even when another failed, so a broken source turns the job red without freezing the rest.
+
 Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace's Turborepo TUI. The portfolio's `dev` task loads its credentials through `vault run` before starting Astro, including when invoked directly from this package. It defaults to the `dev` Vault configuration; `VAULT_CONFIG` can explicitly override it. Authenticate with `vault login` first. The launcher selects a free port starting at 4321 (or `PORTFOLIO_PORT`) and uses `--ignore-lock` so concurrent workspaces can run independently.
 
 ## Layout
 
-| Path                                 | Purpose                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `astro.config.mjs`                   | Static Astro config and canonical site URL.                                   |
-| `src/pages/index.astro`              | Homepage composition and recruiter-first section order.                       |
-| `src/pages/projects.astro`           | Full project archive; the homepage shows only the leading flagship entries.   |
-| `src/pages/404.astro`                | Emitted to `dist/404.html`; served by the nginx `error_page`.                 |
-| `src/lib/seo.ts`, `seo-json-ld.ts`   | Per-page title/canonical/OG/JSON-LD.                                          |
-| `src/social/`, `src/pages/og.png.ts` | Share card and touch icon, rendered to PNG from content at build time.        |
-| `src/layouts/Page.astro`             | Sub-page chrome for `/projects/` and `/404`.                                  |
-| `src/components/`                    | Nav, Hero, Work, Projects, Proof, About, Toolbox, Contact, sticky CTA, icons. |
-| `src/lib/github.ts`                  | Build-time GitHub GraphQL/REST fetch, validation, streaks, and errors.        |
-| `src/lib/github-insights.ts`         | Uptime policy: live data → committed snapshot → notice/failure.               |
-| `src/lib/github-cache.ts`            | Compact snapshot read/write and structural validation.                        |
-| `src/lib/github-ranges.ts`           | The selectable contribution periods and their GraphQL bounds.                 |
-| `src/lib/github-levels.ts`           | Per-period quartile thresholds behind the heatmap shades.                     |
-| `src/lib/heatmap-grid.ts`            | Weekday-accurate column/row geometry and month labels.                        |
-| `src/data/`                          | Committed GitHub snapshot (generated).                                        |
-| `src/lib/projects-view.ts`           | Shared visible-project ordering and typed gallery payload.                    |
-| `src/layouts/Base.astro`             | Document head, OG/JSON-LD metadata, global copy feedback script.              |
-| `src/styles/global.css`              | Dark design tokens, typography, layout primitives, focus styles.              |
-| `src/content/`                       | Typed content registry, skills, work, education, and project data.            |
-| `assets/`                            | Source screenshots/photos. Not served and excluded from the Docker context.   |
-| `public/`                            | Served derivatives, fonts, icons, robots.txt. No sitemap, no resume PDF.      |
-| `scripts/optimize-images.ts`         | Converts raster sources in `assets/` to 1400px WebP derivatives.              |
-| `scripts/prune-unused-assets.ts`     | Dry-run/apply asset reference hygiene.                                        |
-| `scripts/health-check-urls.ts`       | Checks every public URL referenced by content.                                |
-| `scripts/refresh-github-insights.ts` | Strict live fetch that rewrites the committed snapshot; run daily by CI.      |
-| `Dockerfile`, `nginx.conf`           | Container build and static server.                                            |
-| `test/server.test.ts`                | Local Docker E2E smoke test.                                                  |
+| Path                                 | Purpose                                                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `astro.config.mjs`                   | Static Astro config and canonical site URL.                                                            |
+| `src/pages/index.astro`              | Homepage composition and recruiter-first section order.                                                |
+| `src/pages/projects.astro`           | Full project archive; the homepage shows only the leading flagship entries.                            |
+| `src/pages/404.astro`                | Emitted to `dist/404.html`; served by the nginx `error_page`.                                          |
+| `src/lib/seo.ts`, `seo-json-ld.ts`   | Per-page title/canonical/OG/JSON-LD.                                                                   |
+| `src/social/`, `src/pages/og.png.ts` | Share card and touch icon, rendered to PNG from content at build time.                                 |
+| `src/layouts/Page.astro`             | Sub-page chrome for `/projects/` and `/404`.                                                           |
+| `src/components/`                    | Nav, Hero, Work, Projects, Proof, About, Toolbox, Contact, sticky CTA, icons.                          |
+| `src/lib/github.ts`                  | Build-time GitHub GraphQL/REST fetch, validation, streaks, and errors.                                 |
+| `src/lib/github-insights.ts`         | Uptime policy: live data → committed snapshot → notice/failure.                                        |
+| `src/lib/github-cache.ts`            | Compact snapshot read/write and structural validation.                                                 |
+| `src/lib/github-ranges.ts`           | The selectable contribution periods and their GraphQL bounds.                                          |
+| `src/lib/github-levels.ts`           | Per-period quartile thresholds behind the heatmap shades.                                              |
+| `src/lib/heatmap-grid.ts`            | Weekday-accurate column/row geometry and month labels.                                                 |
+| `src/data/`                          | Committed GitHub snapshot (generated).                                                                 |
+| `src/lib/projects-view.ts`           | Shared visible-project ordering and typed gallery payload.                                             |
+| `src/layouts/Base.astro`             | Document head, OG/JSON-LD metadata, global copy feedback script.                                       |
+| `src/styles/global.css`              | Dark design tokens, typography, layout primitives, focus styles.                                       |
+| `src/content/`                       | Typed content registry, skills, work, education, and project data.                                     |
+| `assets/`                            | Source screenshots/photos. Not served and excluded from the Docker context.                            |
+| `public/`                            | Served derivatives, fonts, icons, robots/humans/security.txt, web manifest. No sitemap, no resume PDF. |
+| `scripts/optimize-images.ts`         | Converts raster sources in `assets/` to 1400px WebP derivatives.                                       |
+| `scripts/prune-unused-assets.ts`     | Dry-run/apply asset reference hygiene.                                                                 |
+| `scripts/health-check-urls.ts`       | Checks every public URL referenced by content.                                                         |
+| `scripts/refresh-github-insights.ts` | Strict live fetch that rewrites the committed snapshot; run daily by CI.                               |
+| `Dockerfile`, `nginx.conf`           | Container build and static server.                                                                     |
+| `nginx/security-headers.conf`        | Security headers, included by every nginx block that sets headers.                                     |
+| `scripts/csp.ts`                     | Build-time CSP: hashes inline scripts/styles into an nginx snippet.                                    |
+| `test/server.test.ts`                | Local Docker E2E smoke test.                                                                           |
+| `src/data/verification.json`         | Committed verification snapshot (generated by `refresh-verification`).                                 |
+| `src/data/platform-facts.json`       | Committed platform facts (generated by `facts`); drift-tested.                                         |
+| `src/lib/verification.ts`            | Typed, validated verification snapshot and its age.                                                    |
+| `src/lib/platform-facts.ts`          | Typed, validated platform facts.                                                                       |
+| `scripts/refresh-verification.ts`    | Strict GitHub API + shallow-clone refresh of the verification snapshot.                                |
+| `scripts/platform-facts.ts`          | Computes the platform facts from the monorepo; `--check` fails on drift.                               |
+| `scripts/verification/`              | Shared helpers: GitHub client, classifiers, CI join, fact readers.                                     |
 
 ## Scripts
 
 Run from the repository root with `bun run --filter @pkgs/portfolio <script>`, or from this directory with `bun run <script>`.
 
-| Script                                                        | Purpose                                                                                           |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `dev`                                                         | `astro dev --force`; direct package development server.                                           |
-| `build`                                                       | Static Astro build into `dist/`. Requires GitHub proof credentials in production.                 |
-| `assets:optimize`                                             | Rebuild every `public/**/*.optimized.webp` from `assets/` using ImageMagick.                      |
-| `assets:prune`                                                | Report unused files; add `-- --apply` to move/delete them.                                        |
-| `gen` / `generate-all`                                        | Capture hosted screenshots into `assets/` and optimize derivatives.                               |
-| `screenshot-work` / `screenshot-projects` / `screenshot-main` | Capture one screenshot collection into `assets/`.                                                 |
-| `health-check-urls`                                           | GET every public URL in content; exits non-zero on failure.                                       |
-| `refresh-github`                                              | Refresh the committed GitHub snapshot; exits non-zero if the live fetch fails.                    |
-| `check-github-freshness`                                      | Report the snapshot's age; exits non-zero once it is stale.                                       |
-| `preview`                                                     | Build the Docker image with `PORTFOLIO_GITHUB_TOKEN` as a BuildKit secret and serve on port 8080. |
-| `tc`                                                          | `astro check` for TypeScript and Astro files.                                                     |
-| `lint`                                                        | ESLint with the shared workspace rules.                                                           |
-| `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                     |
-| `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                   |
+| Script                                                        | Purpose                                                                                               |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `dev`                                                         | `astro dev --force`; direct package development server.                                               |
+| `build`                                                       | Static Astro build into `dist/`. Requires GitHub proof credentials in production.                     |
+| `assets:optimize`                                             | Rebuild every `public/**/*.optimized.webp` from `assets/` using ImageMagick.                          |
+| `assets:prune`                                                | Report unused files; add `-- --apply` to move/delete them.                                            |
+| `gen` / `generate-all`                                        | Capture hosted screenshots into `assets/` and optimize derivatives.                                   |
+| `screenshot-work` / `screenshot-projects` / `screenshot-main` | Capture one screenshot collection into `assets/`.                                                     |
+| `health-check-urls`                                           | GET every public URL in content; exits non-zero on failure.                                           |
+| `refresh-github`                                              | Refresh the committed GitHub snapshot; exits non-zero if the live fetch fails.                        |
+| `check-github-freshness`                                      | Report the snapshot's age; exits non-zero once it is stale.                                           |
+| `preview`                                                     | Build the Docker image with `PORTFOLIO_GITHUB_TOKEN` as a BuildKit secret and serve on port 8080.     |
+| `tc`                                                          | `astro check` for TypeScript and Astro files.                                                         |
+| `lint`                                                        | ESLint with the shared workspace rules.                                                               |
+| `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                         |
+| `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                       |
+| `test:site`                                                   | The built `dist/` in Chromium: axe (both themes), layout at 320/390/1440, budgets, link names.        |
+| `gamezilla-facts`                                             | Recount gamezilla's specs from its private repository into `src/data/gamezilla-facts.json` (by hand). |
+| `gen:profile-readme`                                          | Regenerate `generated/github-profile-README.md` from the registry (drift-tested).                     |
+| `refresh-verification`                                        | Refresh the committed verification snapshot; exits non-zero on any API or clone failure.              |
+| `facts`                                                       | Recompute the committed platform facts; `-- --check` exits non-zero on drift instead.                 |
 
 ## Local development
 
@@ -174,9 +203,19 @@ vault run --config dev -- bun run --filter @pkgs/portfolio test:docker
 
 Hand-written prose states what stays true; anything that moves is derived. `src/content/copy.test.ts` enforces it:
 
-- **No numbers in prose.** Counts and dates drift from the day they are typed. Totals, tenure, the copyright year and the GitHub figures are computed at build time.
+- **No numbers in prose, no years anywhere.** Counts and dates drift from the day they are typed. Totals, tenure, the copyright year and the GitHub figures are computed at build time. The one exception is a work highlight: a completed outcome does not drift, and every senior-role bullet must carry a number or link the named artifact.
+- **No unanswered placeholders ship.** Unknown facts are optional registry fields that render nothing, tracked in [`CONTENT_QUESTIONS.md`](CONTENT_QUESTIONS.md); a `{{NEEDS_INPUT: …}}` marker fails `src/content/needs-input.test.ts`.
+- **Spelling and terms are tested**: `src/content/spelling.test.ts` (cspell with an explicit allowlist), "résumé" and "AI coding agents" consistently (`copy.test.ts`), bullets at most 28 words.
 - **No technology names in prose.** The stack is an implementation detail; topic chips, the Toolbox and the resume's Skills derive it from each project's `topics`.
 - **Project descriptions are one brief, plain-text thought** — what the project is and, for client work, what I did on it. No markup and no links: cards render them as text, and `deployment`/`code` already carry the links.
 - **Identity is declared once.** `NAME`, `ROLE` and `LOCATION` in `src/content/hero.ts` feed the page title, eyebrow, footer, meta tags and JSON-LD.
 
 Work highlights are authored in `src/content/work.ts` and are rendered by both the site cards and the resume bullets. `src/content/skills.ts` is shared by the About Toolbox and the resume.
+
+### Résumé variants
+
+The public `/chris-vouga-resume.pdf` omits the phone number, because it sits on an indexable URL. For a direct application, build the full copy with `RESUME_INCLUDE_PHONE=1 bun run build` and send `dist/chris-vouga-resume.pdf`. The PDF carries `/Author`, `/Subject` and `/Keywords` (from the Skills rows), and `src/resume/ats.test.ts` reads its text layer with `pdftotext` the way an applicant tracking system does.
+
+### Audit trail
+
+[`AUDIT_LOG.md`](AUDIT_LOG.md) records each audit of the site against the senior/staff hiring checklist, with dated findings, fixes and justified won't-fixes. [`CONSISTENCY_CHECKLIST.md`](CONSISTENCY_CHECKLIST.md) is what LinkedIn must mirror.
