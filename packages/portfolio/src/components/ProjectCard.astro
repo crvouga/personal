@@ -219,6 +219,9 @@ const badge = authorshipOf(project);
     overflow-wrap: anywhere;
   }
   h3 a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
     color: var(--text);
   }
   h3 a:hover {
@@ -270,7 +273,9 @@ const badge = authorshipOf(project);
   .links a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     min-height: var(--tap);
+    min-width: var(--tap);
     color: var(--accent);
   }
   .access-note {

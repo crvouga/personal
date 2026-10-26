@@ -94,7 +94,12 @@ const essay = (await publishedPosts()).find(
     </p>
     <p class="cursor">
       <span class="badge">{CONTENT.AGENTIC_CURSOR_BADGE}</span>
-      {CONTENT.AGENTIC_CURSOR_TEXT}
+      <span>
+        {CONTENT.AGENTIC_CURSOR_TEXT}{' '}
+        <a href={CONTENT.AGENTIC_CURSOR_EVIDENCE.href} rel="noopener" target="_blank">
+          {CONTENT.AGENTIC_CURSOR_EVIDENCE.label}
+        </a>
+      </span>
     </p>
   </div>
 </section>

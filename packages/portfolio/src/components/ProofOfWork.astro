@@ -7,6 +7,7 @@ import {
   VERIFICATION,
   VERIFICATION_REPO_URL,
   VERIFICATION_WINDOW,
+  VERIFICATION_WINDOW_NOTE,
   anomalyOf,
   count,
   percent,
@@ -79,7 +80,7 @@ const provenance = ((): string => {
     <p class="caption">
       Merged pull requests in{' '}
       <a href={VERIFICATION_REPO_URL} rel="noopener" target="_blank">crvouga/workspace</a>,{' '}
-      {VERIFICATION_WINDOW.from} → {VERIFICATION_WINDOW.to} · {PROOF_EXCLUSIONS} · computed{' '}
+      {VERIFICATION_WINDOW_NOTE}, {VERIFICATION_WINDOW.from} → {VERIFICATION_WINDOW.to} · {PROOF_EXCLUSIONS} · computed{' '}
       {verifiedOn} ({VERIFICATION.freshness.label}) by{' '}
       <a href={`${CONTENT.SITE_SOURCE_CODE_URL.replace('/tree/', '/blob/')}/scripts/refresh-verification.ts`} rel="noopener" target="_blank">this script</a>
     </p>
@@ -107,7 +108,7 @@ const provenance = ((): string => {
               Busiest day {anomaly.date}: {count(anomaly.count)} contributions, against a
               typical active day of {count(anomaly.medianActiveDay)}.
               {privateShare !== null && (
-                <> {privateShare} of this period's contributions are in private repositories, which GitHub counts but does not show.</>
+                <> {privateShare} of the last twelve months' contributions are in private repositories, which GitHub counts but does not show.</>
               )}
               {CONTENT.PROOF_ANOMALY_NOTE !== undefined && <> {CONTENT.PROOF_ANOMALY_NOTE}</>}
             </p>

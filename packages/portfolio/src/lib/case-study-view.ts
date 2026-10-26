@@ -22,7 +22,7 @@ const ciLine = (repo: string): OutcomeFact[] => {
         stats.defaultBranchCiConclusion === 'success'
           ? 'Green'
           : stats.defaultBranchCiConclusion,
-      label: `latest ${stats.defaultBranchCiWorkflow ?? 'CI'} run on ${stats.defaultBranch}`,
+      label: `latest run of its “${stats.defaultBranchCiWorkflow ?? 'CI'}” workflow on ${stats.defaultBranch}; other scheduled workflows are reported separately on GitHub`,
     },
   ];
 };
@@ -31,7 +31,6 @@ const repoLines = (repo: string): OutcomeFact[] => {
   const stats = repoStatsFor(SNAPSHOT, repo);
   if (stats === undefined) return [];
   return [
-    { value: count(stats.commits), label: 'commits on the default branch' },
     { value: count(stats.openIssues), label: 'open issues' },
     ...ciLine(repo),
   ];

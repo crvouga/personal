@@ -12,12 +12,13 @@ import { ARCHIVE_PROJECTS, PROJECTS } from './project';
 import { PROOF_ANOMALY_NOTE, PROOF_CALENDAR_NOTE, PROOF_LEDE } from './proof';
 import { SCHOOL } from './school';
 import { SECTIONS, getSection } from './sections';
-import { AI_ASSISTED_ROW, buildSkillRows } from './skills';
-import { CURRENT_WORK, WORK, WORK_GAP_NOTE } from './work';
+import { buildSkillRows } from './skills';
+import { WORK, WORK_GAP_NOTE } from './work';
 import {
   AGENTIC_CANDOR,
   AGENTIC_CONTRACT,
   AGENTIC_CURSOR_BADGE,
+  AGENTIC_CURSOR_EVIDENCE,
   AGENTIC_CURSOR_TEXT,
   AGENTIC_END_TO_END,
   AGENTIC_PRINCIPLES,
@@ -40,26 +41,6 @@ const TOPIC_USES = (() => {
 
 /** Every technology named by at least one project or role. */
 const SKILL_ROWS = buildSkillRows([...TOPIC_USES.keys()]);
-
-/** A topic is primary when the current role uses it or this many entries do. */
-const PRIMARY_MIN_USES = 3;
-const CURRENT_TOPICS = new Set<string>(CURRENT_WORK?.topics ?? []);
-const isPrimary = (topic: string): boolean =>
-  CURRENT_TOPICS.has(topic) || (TOPIC_USES.get(topic) ?? 0) >= PRIMARY_MIN_USES;
-
-/**
- * Depth over breadth: the Toolbox leads with what I use now and repeatedly,
- * and folds the long tail under "Also shipped with".
- */
-const TOOLBOX = {
-  primary: [
-    AI_ASSISTED_ROW,
-    ...buildSkillRows([...TOPIC_USES.keys()].filter(isPrimary)),
-  ],
-  also: buildSkillRows(
-    [...TOPIC_USES.keys()].filter((topic) => !isPrimary(topic))
-  ).flatMap((row) => row.items),
-};
 
 export const CONTENT = {
   SITE_URL: 'https://www.chrisvouga.dev',
@@ -88,6 +69,7 @@ export const CONTENT = {
   PROJECTS,
   ARCHIVE_PROJECTS,
   AGENTIC_CURSOR_BADGE,
+  AGENTIC_CURSOR_EVIDENCE,
   AGENTIC_CURSOR_TEXT,
   AGENTIC_WORKFLOW_TITLE,
   AGENTIC_PRINCIPLES,
@@ -103,7 +85,6 @@ export const CONTENT = {
   ABOUT_ME_SECTION_TITLE: getSection('about').title,
   ABOUT_ME_PARAGRAPHS,
   SKILL_ROWS,
-  TOOLBOX,
   //
   SCHOOL,
   //

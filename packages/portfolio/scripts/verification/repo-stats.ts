@@ -128,6 +128,7 @@ export const fetchRepoStats = async (
     repo,
     url: stringAt(meta, 'html_url', where),
     defaultBranch: branch,
+    stars: numberAt(meta, 'stargazers_count', where),
     commits: await countViaLastPage(
       client,
       `${where}/commits?sha=${encodeURIComponent(branch)}&per_page=1`

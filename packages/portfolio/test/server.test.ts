@@ -91,8 +91,7 @@ async function cleanup(): Promise<void> {
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'strict-transport-security': 'max-age=63072000',
   'referrer-policy': 'strict-origin-when-cross-origin',
-  'permissions-policy':
-    'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
   'x-content-type-options': 'nosniff',
   'cross-origin-opener-policy': 'same-origin',
   'x-frame-options': 'DENY',
@@ -162,13 +161,28 @@ async function checkSecurityHeaders(): Promise<void> {
   expect(pdf.headers.get('cache-control')).toBe('no-cache');
   expectSecurityHeaders(pdf, 'resume pdf');
 
-  for (const asset of ['/fonts/inter-variable.woff2', '/og.png']) {
+  // Stable names may change, so they revalidate daily; only content-hashed
+  // bundles are immutable.
+  for (const asset of [
+    '/fonts/inter-variable.woff2',
+    '/og.png',
+    '/favicon.svg',
+  ]) {
     const response = await fetch(`${TEST_URL}${asset}`);
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe(
-      'public, immutable, max-age=31536000'
+      'public, max-age=86400, must-revalidate'
     );
     expectSecurityHeaders(response, asset);
+  }
+  const html = await (await fetch(`${TEST_URL}/`)).text();
+  const bundle = /\/_astro\/[^"']+\.(css|js)/.exec(html)?.[0];
+  if (bundle !== undefined) {
+    const hashed = await fetch(`${TEST_URL}${bundle}`);
+    expect(hashed.headers.get('cache-control')).toBe(
+      'public, immutable, max-age=31536000'
+    );
+    expectSecurityHeaders(hashed, bundle);
   }
 
   // Both the page and the static-asset location fall through to 404.html.

@@ -28,14 +28,14 @@ if (!hasPdftotext) {
   );
 }
 
-const extract = (): string =>
-  spawnSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' })
-    .stdout;
-const text = hasPdftotext ? extract() : '';
+// Both modes: `-layout` keeps columns; the default reflows text the way most
+// parsers do, and is the mode that splits spaced capitals and eats hyphens.
+const extract = (args: readonly string[]): string =>
+  spawnSync('pdftotext', [...args, pdfPath, '-'], { encoding: 'utf8' }).stdout;
+const text = hasPdftotext ? extract(['-layout']) : '';
+const reflowed = hasPdftotext ? extract([]) : '';
 const lines = text.split('\n').map((line) => line.trim());
-// A word that already contains a hyphen ("sign-on") may break at it; the
-// extractor then reads "sign- on". Rejoin those, as an ATS tokenizer does.
-const flat = text.replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1-$2');
+const flat = text.replace(/\s+/g, ' ');
 
 describe('résumé metadata', () => {
   test('carries author, subject and keywords derived from the content', async () => {
@@ -68,8 +68,20 @@ describe.skipIf(!hasPdftotext)('résumé text layer', () => {
     }
   });
 
-  test('no letter-spacing artifacts anywhere', () => {
+  test('no letter-spacing artifacts, in either extraction mode', () => {
     expect(flat).not.toMatch(/\b(?:[A-Z] ){4,}[A-Z]\b/);
+    const reflowedLines = reflowed.split('\n').map((line) => line.trim());
+    for (const heading of ['EXPERIENCE', 'PROJECTS', 'SKILLS', 'EDUCATION']) {
+      expect(reflowedLines).toContain(heading);
+    }
+  });
+
+  test('hyphenated words survive extraction intact', () => {
+    const joined = reflowed.replace(/\s+/g, ' ');
+    for (const word of ['property-based', 'sign-on', 'transfer-credit']) {
+      expect(joined).toContain(word);
+    }
+    expect(joined).not.toMatch(/propertybased|signon\b|transfercredit/);
   });
 
   test('every bullet extracts whole, in reading order', () => {

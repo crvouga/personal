@@ -1,10 +1,8 @@
 ---
 import { CONTENT } from '../content/content';
-import { RESUME_HREF } from '../constants/resume';
 import { logisticsLines } from '../content/hero';
 import { HERO_PROOF_CHIPS } from '../lib/proof-view';
 import IconEmail from '../components/icons/IconEmail.astro';
-import IconDownload from '../components/icons/IconDownload.astro';
 import IconGitHub from '../components/icons/IconGitHub.astro';
 import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
 
@@ -43,12 +41,12 @@ const socials = [
       </p>
       <p class="logistics">{logistics.join(' · ')}</p>
     </div>
+    {/* The header's Résumé button is on screen everywhere, so the hero offers
+        email and profiles rather than a second copy of it. */}
+    <p class="print-only">{email} · {CONTENT.SITE_URL.replace(/^https:\/\//, '')}</p>
     <div class="ctas" data-hero-ctas>
       <a class="btn btn-contained" href={`mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COPY.mailSubject)}`}>
         <IconEmail /><span class="btn-label">{CONTENT.HERO.ctaPrimary.label}</span>
-      </a>
-      <a class="btn" href={RESUME_HREF} target="_blank" rel="noopener">
-        <IconDownload /><span class="btn-label">Résumé (PDF)</span>
       </a>
       <div class="socials">
         {

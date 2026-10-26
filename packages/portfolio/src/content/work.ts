@@ -53,9 +53,11 @@ export const WORK: Work[] = [
     start: { year: 2026, month: 1 },
     end: 'Present',
     topics: ['typescript', 'react', 'react-native', 'postgres', 'bun', 'aws'],
-    imageSrc: ['/geviti-screenshot.optimized.webp'],
-    imageAlt: 'Geviti marketing site: lab testing and longevity protocols',
-    galleryImageSrc: ['/geviti-screenshot.optimized.webp'],
+    // No gallery: the only image was Geviti's marketing homepage, which shows
+    // none of my work and would read as if it did.
+    imageSrc: [],
+    imageAlt: '',
+    galleryImageSrc: [],
   },
   {
     name: 'One Origin',
@@ -65,13 +67,13 @@ export const WORK: Work[] = [
       `Technical lead on ${a(TRIANGULATOR_DEMO_URL, '<strong>Triangulator</strong>')}, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.`,
       `Designed and built the learning-management-system integration for ${a('https://asuorchard.asu.edu/', '<strong>Orchard</strong>')}, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.`,
       `Reworked the backend of ${a('https://ea.asu.edu/', '<strong>ASU Earned Admissions</strong>')}, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.`,
-      `Rebuilt payment processing for ${a('https://gostudyhall.com/', '<strong>Study Hall</strong>')}, ASU's learning platform with the Study Hall channel, cutting failed payments and making the flow safe to change.`,
+      `Rebuilt payment processing for ${a('https://gostudyhall.com/', '<strong>Study Hall</strong>')}, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.`,
       `Built the interactive schedule and news features of ${a('https://sundevils.com/', '<strong>Sun Devils</strong>')}, ASU's athletics site.`,
     ],
     start: { year: 2022 },
     end: { year: 2025 },
     awards: [
-      'Quarterly recognition award, four times: 2024 Q1, 2024 Q2, 2024 Q3–Q4, and 2025 Q1',
+      'Four quarterly recognition awards: 2024 Q1, 2024 Q2, 2024 Q3–Q4 (one award for both quarters), and 2025 Q1',
     ],
     imageSrc: [
       '/one-origin-screenshot.optimized.webp',

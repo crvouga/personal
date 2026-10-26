@@ -1,5 +1,6 @@
 ---
 import { CONTENT } from '../content/content';
+import { ALSO_SHIPPED_WITH, SKILL_PROFILE } from '../lib/skills-view';
 
 const section = CONTENT.GET_SECTION('about');
 const school = CONTENT.SCHOOL[0];
@@ -35,17 +36,17 @@ const school = CONTENT.SCHOOL[0];
     <div class="toolbox">
       <h3 class="toolbox-title">Toolbox</h3>
       {
-        CONTENT.TOOLBOX.primary.map((row) => (
+        SKILL_PROFILE.map((row) => (
           <div class="tool-row">
             <span class="tool-cat">{row.category}</span>
             <span class="tool-items">{row.items.join(' · ')}</span>
           </div>
         ))
       }
-      {CONTENT.TOOLBOX.also.length > 0 && (
+      {ALSO_SHIPPED_WITH.length > 0 && (
         <details class="also">
-          <summary>Also shipped with ({CONTENT.TOOLBOX.also.length})</summary>
-          <p class="tool-items">{CONTENT.TOOLBOX.also.join(' · ')}</p>
+          <summary>Also shipped with ({ALSO_SHIPPED_WITH.length})</summary>
+          <p class="tool-items">{ALSO_SHIPPED_WITH.join(' · ')}</p>
         </details>
       )}
     </div>

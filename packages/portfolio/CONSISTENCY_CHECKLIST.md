@@ -10,7 +10,7 @@ Senior Software Engineer · I ship software where mistakes are expensive. I writ
 
 ## About
 
-I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar. Senior engineer in health and education technology. I own features from the data model to the interface, and I led engineering on a university transfer-credit platform.
+I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar. Senior engineer in health and education technology, and technical lead on a university platform that automates transfer-credit evaluation.
 
 ## Experience (titles and dates exactly)
 
@@ -21,7 +21,7 @@ I ship software where mistakes are expensive. I write the spec and the automated
   - Technical lead on Triangulator, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.
   - Designed and built the learning-management-system integration for Orchard, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.
   - Reworked the backend of ASU Earned Admissions, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.
-  - Rebuilt payment processing for Study Hall, ASU's learning platform with the Study Hall channel, cutting failed payments and making the flow safe to change.
+  - Rebuilt payment processing for Study Hall, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.
   - Built the interactive schedule and news features of Sun Devils, ASU's athletics site.
 - **Software Engineer**, Freelancing, 2020 – 2022
   - Delivered custom websites and web applications for small businesses, from scoping through launch and handoff.

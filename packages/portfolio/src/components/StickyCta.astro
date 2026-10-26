@@ -1,11 +1,9 @@
 ---
 import { CONTENT } from '../content/content';
-import { RESUME_HREF } from '../constants/resume';
 import IconEmail from './icons/IconEmail.astro';
-import IconDownload from './icons/IconDownload.astro';
 
 /**
- * Phone-only action bar. On a phone the hero's calls to action scroll away
+ * Phone-only email bar (the header carries the résumé). On a phone the hero's calls to action scroll away
  * within one swipe and the contact section is far down, so the two actions
  * that matter stay reachable the whole way. It hides while either the hero's
  * buttons or the contact section is on screen, where the same actions are
@@ -15,14 +13,11 @@ const email = CONTENT.EMAIL_ADDRESS;
 const mailto = `mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COPY.mailSubject)}`;
 ---
 
-<div class="sticky-cta" data-sticky-cta data-hidden>
+<aside class="sticky-cta" data-sticky-cta data-hidden aria-label="Quick contact">
   <a class="btn btn-contained" href={mailto}>
-    <IconEmail /><span class="btn-label">{CONTENT.HERO.ctaPrimary.label}</span>
+    <IconEmail /><span class="btn-label">{CONTENT.HERO.ctaPrimary.label} {email}</span>
   </a>
-  <a class="btn" href={RESUME_HREF} target="_blank" rel="noopener">
-    <IconDownload /><span class="btn-label">Résumé (PDF)</span>
-  </a>
-</div>
+</aside>
 
 <style>
   .sticky-cta {

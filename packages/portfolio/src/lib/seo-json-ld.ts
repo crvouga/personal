@@ -1,6 +1,7 @@
 import { CONTENT } from '../content/content';
 import { SITE_TITLE, SITE_URL, absoluteUrl } from './seo';
 import type { Seo } from './seo-types';
+import { KNOWS_ABOUT } from './skills-view';
 
 type Node = Record<string, unknown>;
 
@@ -10,9 +11,7 @@ type Node = Record<string, unknown>;
  */
 const personNode = (seo: Seo): Node => {
   const school = CONTENT.SCHOOL[0];
-  const knowsAbout = [
-    ...new Set(CONTENT.TOOLBOX.primary.flatMap((row) => row.items)),
-  ];
+  const knowsAbout = [...KNOWS_ABOUT];
   const current = CONTENT.WORK.find((work) => work.end === 'Present');
   return {
     '@type': 'Person',

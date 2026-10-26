@@ -178,10 +178,12 @@ const RESUME_CSS = `  <style>
     }
     section:last-of-type { margin-bottom: 0; }
 
+    /* No letter-spacing: text extractors read spaced capitals as separate
+       letters ("E XPE RIE NCE"), which is how an ATS would index them. */
     .section-title {
-      font-size: 8.2pt;
+      font-size: 8.6pt;
       font-weight: 700;
-      letter-spacing: 0.13em;
+      letter-spacing: 0;
       text-transform: uppercase;
       color: var(--accent);
       margin-bottom: 6px;
@@ -285,6 +287,10 @@ const RESUME_CSS = `  <style>
       color: var(--text-secondary);
       font-size: 9pt;
     }
+
+    /* A hyphenated compound never breaks at its hyphen: extractors drop a
+       line-end hyphen and index "property-based" as "propertybased". */
+    .nb { white-space: nowrap; }
 
     @media print {
       body { width: 100%; }
@@ -444,6 +450,16 @@ function resumeEducationHtml(content: ResumeContent): string {
 // Document
 // ---------------------------------------------------------------------------
 
+const COMPOUND = /[\p{L}\p{N}’']+(?:-[\p{L}\p{N}’']+)+/gu;
+
+/** Wraps every hyphenated word in text (never in tags) in a no-wrap span. */
+export const keepCompoundsWhole = (html: string): string =>
+  html.replace(
+    />([^<]+)</g,
+    (_match, text: string) =>
+      `>${text.replace(COMPOUND, (word) => `<span class="nb">${word}</span>`)}<`
+  );
+
 /**
  * `fontFaceCss` is inlined rather than linked: the page is loaded with
  * `setContent`, so a Google Fonts request would make every build depend on the
@@ -475,11 +491,15 @@ ${RESUME_CSS}
     </div>
   </header>
 
-  ${resumeSummaryHtml(content)}
-  ${resumeExperienceHtml(content)}
-  ${resumeProjectsHtml(content)}
-  ${resumeSkillsHtml(content)}
-  ${resumeEducationHtml(content)}
+  ${keepCompoundsWhole(
+    [
+      resumeSummaryHtml(content),
+      resumeExperienceHtml(content),
+      resumeProjectsHtml(content),
+      resumeSkillsHtml(content),
+      resumeEducationHtml(content),
+    ].join('\n  ')
+  )}
 </body>
 </html>`;
 }

@@ -16,7 +16,7 @@ const TIMEOUT_MS = 120_000;
 const HTML_BUDGET_BYTES = 100_000;
 const TRANSFER_BUDGET_BYTES = 400_000;
 const TAP_MIN_HEIGHT = 44;
-const TAP_MIN_WIDTH = 24;
+const TAP_MIN_WIDTH = 44;
 
 const PAGES = [
   '/',
@@ -51,13 +51,16 @@ const server = Bun.serve({
 const origin = `http://localhost:${String(server.port)}`;
 
 let browser: Browser;
+// Launching and closing Chromium (with every context the tests opened) can
+// outlast bun's 5 s hook default on a cold machine.
+const HOOK_TIMEOUT_MS = 60_000;
 beforeAll(async () => {
   browser = await chromium.launch();
-});
+}, HOOK_TIMEOUT_MS);
 afterAll(async () => {
   await browser.close();
   await server.stop(true);
-});
+}, HOOK_TIMEOUT_MS);
 
 type Opened = {
   readonly page: Page;
@@ -136,7 +139,7 @@ describe('accessibility', () => {
         );
         const landmarks = await page.evaluate(() => ({
           mains: document.querySelectorAll('main').length,
-          unlabelledNavs: [...document.querySelectorAll('nav')].filter(
+          unlabelledNavs: Array.from(document.querySelectorAll('nav')).filter(
             (n) => !n.getAttribute('aria-label')
           ).length,
           footers: document.querySelectorAll('footer').length,
@@ -420,8 +423,10 @@ describe('performance budget', () => {
         (ls) => ls.length
       );
       const css = await page.evaluate(() =>
-        [...document.styleSheets]
-          .flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText))
+        Array.from(document.styleSheets)
+          .flatMap((sheet) =>
+            Array.from(sheet.cssRules).map((rule) => rule.cssText)
+          )
           .join('\n')
       );
       await page.close();

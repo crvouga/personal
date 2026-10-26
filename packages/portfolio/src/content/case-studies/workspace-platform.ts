@@ -8,7 +8,7 @@ export const WORKSPACE_CASE_STUDY: CaseStudy = {
   slug: 'workspace-platform',
   title: 'Workspace platform: infrastructure only code can change',
   subline:
-    'An AI coding agent cannot change production outside reviewed code: policy tests, deletion guards and a daily drift report hold the line.',
+    'An AI coding agent cannot change production except through a pull request that passes every required check, and a daily drift report proves it.',
   description:
     'A monorepo platform where OpenTofu is the only way to change infrastructure, a daily report checks it, and AI coding agents work under enforced rules.',
   problem: [

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fetchedAt": "2026-10-26T19:14:08.399Z",
+  "fetchedAt": "2026-10-26T20:05:09.199Z",
   "window": { "from": "2026-09-17", "to": "2026-10-26" },
   "workspace": {
     "repo": "crvouga/workspace",
@@ -21,7 +21,7 @@
       92, 93, 96, 97, 98, 99, 100, 101, 103, 104, 106, 107, 108, 109, 110, 111,
       113, 114, 141
     ],
-    "pullRequestRunsExamined": 461,
+    "pullRequestRunsExamined": 463,
     "earlierAttemptsExamined": 4
   },
   "repos": [
@@ -29,6 +29,7 @@
       "repo": "crvouga/mockingbird",
       "url": "https://github.com/crvouga/mockingbird",
       "defaultBranch": "main",
+      "stars": 3,
       "commits": 1051,
       "openIssues": 0,
       "openPrs": 1,
@@ -42,6 +43,7 @@
       "repo": "crvouga/headless-combobox",
       "url": "https://github.com/crvouga/headless-combobox",
       "defaultBranch": "main",
+      "stars": 46,
       "commits": 343,
       "openIssues": 0,
       "openPrs": 0,
@@ -55,9 +57,10 @@
       "repo": "crvouga/workspace",
       "url": "https://github.com/crvouga/workspace",
       "defaultBranch": "main",
+      "stars": 1,
       "commits": 1654,
       "openIssues": 0,
-      "openPrs": 0,
+      "openPrs": 1,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
       "defaultBranchCiConclusion": "success",

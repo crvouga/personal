@@ -12,7 +12,11 @@ import {
 } from '../lib/projects-view';
 import { seoForIndex } from '../lib/seo';
 
-const galleries = LISTED_PROJECTS.map(galleryFor);
+// Personal work and employer products are listed apart, so nothing built for
+// an employer reads as a side project. One flat gallery array spans both.
+const personal = LISTED_PROJECTS.filter((p) => p.setting === 'side');
+const atWork = LISTED_PROJECTS.filter((p) => p.setting === 'work');
+const galleries = [...personal, ...atWork].map(galleryFor);
 
 const seo = seoForIndex({
   title: `All projects — ${CONTENT.PAGE_TITLE}`,
@@ -34,13 +38,18 @@ const seo = seoForIndex({
         footer marks work from before AI coding agents, dated from each project's git history.
       </p>
     </header>
-    <h2 class="visually-hidden">Listed projects</h2>
+    <h2 class="group-title">Personal projects</h2>
     <div class="grid">
-      {
-        LISTED_PROJECTS.map((project, index) => (
-          <ProjectCard project={project} galleryIndex={index} />
-        ))
-      }
+      {personal.map((project, index) => (
+        <ProjectCard project={project} galleryIndex={index} />
+      ))}
+    </div>
+    <h2 class="group-title">Products I built at work</h2>
+    <p class="group-note">Employer code: the products are live or shown in screenshots, the source is not public.</p>
+    <div class="grid">
+      {atWork.map((project, index) => (
+        <ProjectCard project={project} galleryIndex={personal.length + index} />
+      ))}
     </div>
     {/* Early games, toys and client sites: one line each, folded. Kept so an
         old project is still one click away; not shown as work samples. */}
@@ -98,6 +107,17 @@ const seo = seoForIndex({
     margin-top: var(--space-3);
     max-width: 68ch;
     color: var(--text-muted);
+  }
+  .group-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-top: var(--space-4);
+  }
+  .group-note {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin-top: calc(var(--space-4) * -1);
   }
   .grid {
     display: grid;

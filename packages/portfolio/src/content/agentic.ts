@@ -88,7 +88,7 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
   },
   {
     title: 'Own the outcome.',
-    body: 'A daily read-only report compares the live platform with what the repository declares, and no plan can destroy a live database or bucket. When something ships wrong, it is mine.',
+    body: 'A daily read-only report compares the live platform with what the repository declares, and no plan can destroy a live database or bucket.',
     receipts: [
       { label: 'Health checks', href: tree('packages/infra/lib/health') },
       {
@@ -169,7 +169,11 @@ export const AGENTIC_CANDOR: Story = {
       text: 'The policy test that forbids it already existed, but a path filter skipped the check for that pull request, so it merged.',
     },
     {
-      text: 'The next pull request’s check caught it, and the fix removed the calls.',
+      text: 'The check on the next pull request caught it',
+      link: { label: 'pull request #101', href: pull(101) },
+    },
+    {
+      text: 'and a fix removed the calls.',
       link: {
         label: 'fix commit acc261f',
         href: commit('acc261f410800c6ab04f54b499e7eee377a83fe6'),
@@ -177,7 +181,10 @@ export const AGENTIC_CANDOR: Story = {
     },
     {
       text: 'What changed: the repository-wide check now runs on every pull request, whatever it touches.',
-      link: { label: 'pull request #120', href: pull(120) },
+      link: {
+        label: 'commit 6522c40',
+        href: commit('6522c40fc5610ad93215c68d320ecc331d7ebfd6'),
+      },
     },
   ],
 };
@@ -185,12 +192,18 @@ export const AGENTIC_CANDOR: Story = {
 export const AGENTIC_CURSOR_BADGE = 'Recognized by Cursor';
 export const AGENTIC_CURSOR_TEXT =
   'Cursor named me one of its top Tab users. That measures volume; the checks above are what make volume trustworthy.';
+/** The gift video Cursor sent: linked, not embedded, so no page loads YouTube. */
+export const AGENTIC_CURSOR_EVIDENCE: Receipt = {
+  label: 'Cursor’s video',
+  href: 'https://www.youtube.com/watch?v=7rHHSdnvX94',
+};
 
 /** Every outbound link in this section, for the daily link check. */
 export const AGENTIC_LINKS: readonly string[] = [
   ...AGENTIC_PRINCIPLES.flatMap((p) => p.receipts.map((r) => r.href)),
   AGENTIC_CONTRACT.href,
   AGENTIC_TOOLING.harnessesHref,
+  AGENTIC_CURSOR_EVIDENCE.href,
   ...[...AGENTIC_END_TO_END.steps, ...AGENTIC_CANDOR.steps].flatMap((s) =>
     s.link === undefined ? [] : [s.link.href]
   ),

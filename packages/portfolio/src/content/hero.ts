@@ -38,7 +38,7 @@ export const HERO = {
   statement:
     'I ship software where mistakes are expensive. I write the spec and the automated checks first, so AI coding agents can move fast without lowering the bar.',
   statementSecondary:
-    'Senior engineer in health and education technology. I own features from the data model to the interface, and I led engineering on a university transfer-credit platform.',
+    'Senior engineer in health and education technology, and technical lead on a university platform that automates transfer-credit evaluation.',
   /** Short enough to sit on one line of the pill at any width. */
   availability: 'Open to senior and staff roles',
   /** Where I am, and the one preference a screener filters on. */

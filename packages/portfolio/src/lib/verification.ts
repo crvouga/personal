@@ -22,6 +22,8 @@ export type RepoStats = {
   readonly repo: string;
   readonly url: string;
   readonly defaultBranch: string;
+  /** Stargazers: the one adoption figure GitHub reports for a library. */
+  readonly stars: number;
   /** Commits reachable from the default branch. */
   readonly commits: number;
   /** Open issues, excluding pull requests. */
@@ -169,6 +171,7 @@ const SHAPES = {
     repo: 'text',
     url: 'text',
     defaultBranch: 'text',
+    stars: 'count',
     commits: 'count',
     openIssues: 'count',
     openPrs: 'count',

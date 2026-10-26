@@ -53,13 +53,13 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     setting: 'side',
     deployment: {
       t: 'public',
-      url: 'https://svelte-headlesscombobox.chrisvouga.dev',
+      url: 'https://headlesscombobox.chrisvouga.dev',
     },
     code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
     description:
       'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
     imageAlt:
-      'headless-combobox demo: single- and multi-select comboboxes with keyboard instructions',
+      'headless-combobox documentation: the API reference beside a demo of a multi-select combobox',
     imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
     galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
     topics: ['typescript'],
@@ -154,7 +154,7 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     deployment: { t: 'public', url: 'https://gostudyhall.com/' },
     code: { t: 'private' },
     description:
-      'Online learning platform from ASU and the Study Hall YouTube channel. I rebuilt its payment processing to cut failed payments.',
+      'Online learning platform from ASU and Crash Course. I rebuilt its payment processing to cut failed payments.',
     imageAlt:
       'Study Hall homepage: earn college credit with Crash Course and Arizona State University',
     imageSrc: [

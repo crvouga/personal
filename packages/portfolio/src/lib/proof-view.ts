@@ -37,9 +37,9 @@ export const HERO_PROOF_CHIPS: readonly ProofChip[] = [
     href: '#agentic',
   },
   {
-    value: count(SNAPSHOT.mockingbirdCatalog.services),
-    label: 'service emulators in Mockingbird',
-    href: '/projects/mockingbird/',
+    value: `${count(SNAPSHOT.workspace.prsFailedCiBeforeMerge)} of ${count(SNAPSHOT.workspace.mergedPrs)}`,
+    label: 'pull requests failed CI before merging green',
+    href: '#proof',
   },
   { value: 'Tech lead', label: 'on Triangulator', href: '#work' },
 ];
@@ -59,8 +59,8 @@ const ws = SNAPSHOT.workspace;
 export const PROOF_TILES: readonly ProofTile[] = [
   {
     value: count(ws.prsFailedCiBeforeMerge),
-    label: 'pull requests CI stopped before merge',
-    detail: `${percent(ws.prsFailedCiBeforeMerge, ws.mergedPrs)} of ${count(ws.mergedPrs)} merged; all merged green`,
+    label: 'pull requests failed CI, were fixed, then merged',
+    detail: `${percent(ws.prsFailedCiBeforeMerge, ws.mergedPrs)} of ${count(ws.mergedPrs)} merged; none merged until every required check passed`,
   },
   {
     value: count(PLATFORM_FACTS.checkGateJobInstances),
@@ -85,6 +85,20 @@ export const VERIFICATION_WINDOW = {
   from: SNAPSHOT.window.from.slice(0, ISO_DATE),
   to: SNAPSHOT.window.to.slice(0, ISO_DATE),
 };
+
+const DAY_MS = 86_400_000;
+const WINDOW_DAYS = 90;
+
+/**
+ * Why the window starts where it does: the last ninety days, or, when the
+ * repository has been merging pull requests for less time than that, its
+ * first merged pull request.
+ */
+export const VERIFICATION_WINDOW_NOTE =
+  Date.parse(SNAPSHOT.window.to) - Date.parse(SNAPSHOT.window.from) <
+  WINDOW_DAYS * DAY_MS
+    ? 'from its first merged pull request'
+    : 'over the last ninety days';
 
 /** The exclusion is stated, never silent. */
 export const PROOF_EXCLUSIONS = `${count(ws.automatedPrsExcluded)} automated snapshot pull requests excluded`;

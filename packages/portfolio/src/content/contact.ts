@@ -1,7 +1,7 @@
 /** The address itself is rendered from `CONTENT.EMAIL_ADDRESS`, never retyped. */
 export const CONTACT_COPY = {
-  headline: 'Get in touch.',
-  sub: 'Email is the fastest way to reach me.',
+  headline: 'Email me.',
+  sub: 'The address below goes straight to my inbox. There is no contact form and no recruiter screen in between.',
   /** Prefilled subject, so a message from the site is easy to find. */
   mailSubject: 'Hello from chrisvouga.dev',
   /**
