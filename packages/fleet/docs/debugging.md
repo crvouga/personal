@@ -38,6 +38,29 @@ the privileged helper. The helper's recorded privilege check describes its own
 process. Unknown or unreadable progress means disk changes are possible. Wait
 for a running helper to finish; never kill it or erase again just to get logs.
 
+## Reports from the installer screen
+
+Issues titled `Fleet installer screen: …` come from the live image after a
+restart (`scripts/live_console.py`, driven by `scripts/fleet-auto.sh` and
+`scripts/fleet-install.sh`). The QR code carries only a short summary: role,
+the first 8 characters of the **revision**, where it started from
+(`windows`, `linux` or `usb`), the outcome with its exit status, and the
+reason. The issue title holds the `FLEET_*` code when there is one. Read the
+reason codes in `scripts/bootstrap-readiness.py` (75 means retried before
+erasing; anything else stopped). The **Step** field names the screen step:
+1 network, 2 approval, 3 checks, 4 disk, 5 erase, 6 install, 7 restart. The
+same `step <name>` lines are in `/run/fleet-install.log`, and in
+`/nix/fleet-state/logs/install.log` on an installed node.
+
+A photo of the screen, or `fleet-report --full` copied over SSH, adds the
+machine, network links, the last 40 install-log lines and the last attempt's
+output. When the node had enrolled, Fleet also records each stop as an
+installation event. On the machine, `journalctl -u fleet-auto-install` has
+everything the installer printed; the screens themselves go straight to the
+console because systemd's `journal+console` prefixes each line and breaks the
+QR code. Reproduce screens with `tests/test_live_console.py` and the retry and
+return decisions with `tests/test_auto.py`; both use stand-ins, never a disk.
+
 ## Reproduce without touching hardware
 
 From the repository root:
@@ -47,6 +70,8 @@ python3 -B packages/fleet/tests/test_wizard_evidence.py
 python3 -B packages/fleet/tests/test_wizard_diagnostics.py
 python3 -B packages/fleet/tests/test_wizard_automation.py
 python3 -B packages/fleet/tests/test_wizard.py
+python3 -B -m unittest discover -s packages/fleet/tests -p 'test_live_console.py'
+python3 -B -m unittest discover -s packages/fleet/tests -p 'test_auto.py'
 ```
 
 Use the `WizardCase` fixture in `tests/test_wizard.py` for server/helper
@@ -70,6 +95,7 @@ Use `decide.invariant` with a concrete explanation, measured context and a safe
 next step. Record additional preflight stages with `Progress.record_checks`;
 only the check name, status, detail and fix enter reports. Do not pass whole
 request, plan, environment or credential objects. Add user recovery rules to
-`wizard/diagnostics.py` when the response is known. Test that essential evidence
+`wizard/diagnostics.py` when the response is known, and to `ADVICE` in
+`scripts/live_console.py` for a new `FLEET_*` code the installer screen can show. Test that essential evidence
 survives the helper result, server cleanup and shortened GitHub issue, with
 secrets redacted. Keep the full log for causes that do not fit in a URL.

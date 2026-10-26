@@ -6,13 +6,22 @@
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ] && [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
-  exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST,FLEET_ENROLL_TOKEN,FLEET_VAULT_ADDR,FLEET_DEVBOX_SSH_KEY_FILE -- "$0" "$@"
+  exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST,FLEET_ENROLL_TOKEN,FLEET_VAULT_ADDR,FLEET_DEVBOX_SSH_KEY_FILE,FLEET_LIVE,FLEET_LIVE_STATE -- "$0" "$@"
 fi
 
 # One timestamped line per step, kept on the live image and copied to the
 # installed node at the end (/nix/fleet-state/logs/install.log). Never a secret.
 log=${FLEET_INSTALL_LOG:-/run/fleet-install.log}
 note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$log" 2>/dev/null || true; }
+# An automatic install shows the person one screen per step: what is happening,
+# whether anything is erased and what to do (scripts/live_console.py). A screen
+# never stops the install, and manual or test runs without the tool only log.
+live_step() {
+  note "step $1"
+  if [ "${FLEET_AUTO:-}" = 1 ] && command -v "${FLEET_LIVE:-fleet-live}" >/dev/null 2>&1; then
+    "${FLEET_LIVE:-fleet-live}" step "$1" >/dev/null 2>&1 || true
+  fi
+}
 set -E
 report_pid=""
 stop_reporter() {
@@ -150,6 +159,7 @@ cmdline_value() {
 }
 
 enrolled=""
+live_step network
 # Connect with the carried profile before consuming a one-time token or wiping
 # anything. The helper never prints passwords or places them in arguments.
 if command -v fleet-wifi-ready >/dev/null 2>&1; then
@@ -162,6 +172,7 @@ if command -v fleet-wifi-ready >/dev/null 2>&1; then
     exit "$network_status"
   fi
 fi
+live_step approval
 # Prove SSH access before consuming a token or touching a disk. This public
 # key is carried by kexec, a FLEET-KEY volume, or the console for a USB boot.
 devbox_key_file=""
@@ -301,6 +312,7 @@ if [ -n "$source_age_key" ]; then
   fi
 fi
 
+live_step checks
 if command -v fleet-bootstrap-ready >/dev/null 2>&1; then
   note 'checking platform configuration, role secrets, GitHub registration and automatic Fleet approval before disk changes'
   if fleet-bootstrap-ready "$toplevel" "$role" "$verified_age_key" "$api_token_file" 2> "$log.diagnostic"; then
@@ -321,6 +333,7 @@ if command -v fleet-bootstrap-ready >/dev/null 2>&1; then
   fi
 fi
 
+live_step disk
 device=$("$select_disk")
 [[ "$device" =~ ^/dev/[A-Za-z0-9._/:-]+$ ]] || {
   echo 'select-disk returned an unexpected path' >&2
@@ -353,10 +366,12 @@ else
   }
 fi
 
+live_step erase
 touch "${FLEET_INSTALL_LOG:-/run/fleet-install.log}.erasing"
 note "partitioning with disko"
 "$disko"
 note "disko done"
+live_step install
 
 if command -v fleet-wifi-persist >/dev/null 2>&1; then
   fleet-wifi-persist "$mnt"

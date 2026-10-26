@@ -354,7 +354,10 @@ class InstallTests(unittest.TestCase):
         kept = self.mnt / "nix/fleet-state/logs/install.log"
         body = kept.read_text()
         self.assertEqual(oct(kept.stat().st_mode & 0o777), "0o600")
-        self.assertRegex(body, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ role=ci ")
+        self.assertRegex(body, r"(?m)^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ role=ci ")
+        # Each step the live screens show is also in the log, in order.
+        steps = [line.split(" step ", 1)[1] for line in body.splitlines() if " step " in line]
+        self.assertEqual(steps, ["network", "approval", "checks", "disk", "erase", "install"])
         for step in ("partitioning with disko", "disko done", "nixos-install done", "installed role=ci"):
             self.assertIn(step, body)
         self.assertIn("age key: generated on this machine", body)
