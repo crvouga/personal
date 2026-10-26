@@ -7,7 +7,7 @@ Rules that never bend:
 - Never erase a disk without the person's explicit yes that names the disk and the role. A `--yes` flag is not their yes.
 - Never print, echo, or log an enrollment token or an age key. Pass tokens with `--token-file`, never as an argument.
 - Do not edit configuration, add a hostname, or write per-machine files. The role and the hardware decide everything.
-- Do not debug in a loop. Every failure prints one `Next:` line and a `Log:` path. Do what `Next:` says once; if the same check fails again, stop and show the person the `Next:` line and the log path.
+- Do not debug in a loop. Every failure prints one `Next:` line and a `Log:` path. Do what `Next:` says once; if the same check fails again, stop and show the person the `Next:` line, the log path and the `Report:` link.
 
 ## Add a node
 
@@ -59,6 +59,7 @@ On the node, run `fleet-node remove`. It withdraws the runner, marks the node so
 | `Why:`    | The underlying cause (for example the HTTP error).                         |
 | `Next:`   | The single thing to do now. Exactly one per failure.                       |
 | `Log:`    | Timestamped log of this run, secrets redacted. Show it if you get stuck.   |
+| `Report:` | A pre-filled GitHub issue for this failure. Give it to the person to open. |
 
 Exit code 0 means done. 2 means a precondition failed and nothing was written. 70 is a bug in the program.
 

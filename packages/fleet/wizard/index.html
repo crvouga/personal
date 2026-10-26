@@ -16,15 +16,30 @@
           <div class="admin-subtitle">Installer console</div>
         </div>
       </div>
-      <label class="admin-theme"
-        ><span>Appearance</span
-        ><select id="admin-theme" aria-label="Color theme">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="auto">System</option>
-        </select></label
-      >
+      <div class="admin-actions">
+        <button
+          type="button"
+          id="report-anywhere"
+          onclick="reportAnywhere()"
+          title="Open a pre-filled GitHub issue about this step"
+        >
+          Report a problem
+        </button>
+        <label class="admin-theme"
+          ><span>Appearance</span
+          ><select id="admin-theme" aria-label="Color theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="auto">System</option>
+          </select></label
+        >
+      </div>
     </header>
+    <p
+      id="report-anywhere-status"
+      class="admin-report-status"
+      role="status"
+    ></p>
     <main class="admin-main">
       <div class="admin-intro">
         <h1>Fleet installer</h1>
@@ -311,18 +326,71 @@
           'Saved the full report. Attach fleet-diagnostic.txt to the GitHub issue or give it to an agent.'
         );
       }
+      // The same GitHub issue form the installer program fills in
+      // (.github/ISSUE_TEMPLATE/fleet-installer.yml), for when it cannot answer.
+      function fallbackIssueUrl(report, step) {
+        return (
+          'https://github.com/crvouga/workspace/issues/new?template=fleet-installer.yml&title=' +
+          encodeURIComponent('Fleet installer: installer failure') +
+          '&step=' +
+          encodeURIComponent(step || 'Wizard: ' + currentStep()) +
+          '&diagnostic=' +
+          encodeURIComponent(report.slice(0, 2500))
+        );
+      }
+      function currentStep() {
+        const item = document.querySelector('[data-step][aria-current]');
+        const heading = app.querySelector('h2')?.textContent;
+        return (
+          (item ? item.textContent.replace(/^\d+ · /, '') : 'start') +
+          (heading ? ' (' + heading + ')' : '')
+        );
+      }
+      // Available on every screen, whether or not anything failed: the report
+      // says where the person was and carries the job's evidence.
+      async function reportAnywhere() {
+        // Open the tab during the click, or the browser blocks it.
+        const tab = window.open('about:blank', '_blank');
+        const status = document.getElementById('report-anywhere-status');
+        const where = currentStep();
+        let url, report;
+        try {
+          const d = await api('/api/diagnostic', {
+            problem: state.problem || {
+              message: 'Reported by the person at: ' + where,
+              where: where,
+              mode: state.mode,
+              role: state.role,
+            },
+          });
+          url = d.issue_url;
+          report = d.report;
+        } catch (_) {
+          report = fallbackReport({ where: where });
+          url = fallbackIssueUrl(report, 'Wizard: ' + where);
+        }
+        const copied = await copyText(report);
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = url;
+        }
+        status.textContent = tab
+          ? 'A pre-filled GitHub issue opened in a new tab. Say what you saw, review it, then press Create.'
+          : 'Your browser blocked the new tab. ';
+        if (!tab) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noreferrer';
+          link.textContent = 'Open the pre-filled GitHub issue';
+          status.append(link, '.');
+        }
+        if (copied)
+          status.append(' The full report is also on your clipboard.');
+      }
       function reportIssue() {
         // Open the window first, while the click still allows it.
-        const url =
-          state.issueUrl ||
-          'https://github.com/crvouga/workspace/issues/new?title=' +
-            encodeURIComponent('Fleet installer: installer failure') +
-            '&body=' +
-            encodeURIComponent(
-              'Reported from the Fleet installer.\n\n```text\n' +
-                state.report.slice(0, 2500) +
-                '\n```\n'
-            );
+        const url = state.issueUrl || fallbackIssueUrl(state.report);
         // A window opened with 'noopener' is always reported as null, so cut
         // the opener link by hand to tell a blocked tab from an opened one.
         const opened = window.open(url, '_blank');
@@ -346,6 +414,30 @@
               ' The full report is also on your clipboard, in case the issue had to be shortened.'
             );
         });
+      }
+      // What the person will see after "Erase and install" on this computer.
+      // The live installer's screens use the same seven steps
+      // (scripts/live_console.py STEPS).
+      function nextSteps() {
+        const windows = state.scan?.os === 'Windows';
+        const original = windows ? 'Windows' : 'the current system';
+        return (
+          '<h3>What happens next</h3><ol>' +
+          (windows
+            ? '<li>Windows restarts by itself about 15 seconds after the installer is ready. Save your work first.</li>'
+            : '<li>This computer restarts straight into the installer.</li>') +
+          '<li>A text screen titled <b>FLEET INSTALLER</b> appears. It lists seven steps and says what to do at each one; usually that is nothing. Keep the network cable plugged in, or stay near the same Wi-Fi.</li>' +
+          '<li>Steps 1 to 4 check the network, the approval, Fleet and GitHub. Nothing is erased yet. If something is wrong, the screen says what happened and what to do, shows a QR code that opens a pre-filled GitHub issue, and returns to ' +
+          original +
+          ' after two minutes (press Enter to stay).</li>' +
+          '<li>Step 5 erases this disk, ' +
+          original +
+          ' included. Do not turn the computer off from then on. Step 6 installs the system; it usually takes 5 to 20 minutes and the screen updates every 30 seconds.</li>' +
+          '<li>Step 7 restarts into the new node by itself. It appears in <a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Fleet</a> a few minutes later. There is nothing else to do.</li>' +
+          '</ol><p><small>Anything unexpected? On that screen press Alt+F2 and type <code>fleet-status</code> or <code>fleet-report</code>. Back in ' +
+          original +
+          ', open this installer again and press <b>Report a problem</b>.</small></p>'
+        );
       }
       function gb(n) {
         return n ? (n / 1e9).toFixed(1) + ' GB' : 'unknown size';
@@ -662,6 +754,7 @@
           return show(h);
         }
         h += '<div class="erase"><b>' + esc(p.summary) + '</b></div>';
+        if (state.mode === 'here') h += nextSteps();
         h +=
           '<label><input type="checkbox" id="ack"> I understand that <b>' +
           esc(p.erase) +
@@ -698,6 +791,7 @@
           if (state.mode === 'here' && state.sawReboot)
             return show(
               '<h2>Waiting for the new node</h2><p>The connection closed during restart. Installation is not yet confirmed. Fleet will show the node after it boots and reports.</p>' +
+                nextSteps() +
                 '<p><a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Monitor in Fleet</a></p>' +
                 diagnostics(state.lastJob)
             );
@@ -765,6 +859,7 @@
             '</p>';
           if (state.mode === 'here')
             h +=
+              nextSteps() +
               '<p><a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Monitor in Fleet</a></p>';
           if (state.mode === 'usb')
             h +=

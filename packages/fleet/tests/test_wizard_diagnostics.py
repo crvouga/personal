@@ -172,7 +172,7 @@ class ReportTests(unittest.TestCase):
         build = lambda lines: "Fleet installer diagnostic\n" + "x" * 100 * lines  # noqa: E731
         url = diagnostics.issue_url("Fleet installer: failure", build)
         self.assertLessEqual(len(url), diagnostics.ISSUE_URL_MAX)
-        body = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["body"][0]
+        body = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["diagnostic"][0]
         self.assertIn("shortened", body)
         self.assertIn("Fleet installer diagnostic", body)
 
@@ -271,7 +271,9 @@ class DiagnosticEndpointTests(WizardCase):
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
         self.assertTrue(query["title"][0].startswith("Fleet installer: "), query["title"])
         self.assertFalse(query["title"][0].startswith("fleet-enroll"), "never mistaken for an enrollment request")
-        self.assertIn("does not match its checksum", query["body"][0])
+        self.assertEqual(query["template"], [decide.ISSUE_FORM])
+        self.assertIn("does not match its checksum", query["diagnostic"][0])
+        self.assertTrue(query["step"][0].startswith("Wizard on "), query["step"])
 
     def test_an_error_the_page_met_outside_a_job_is_reported(self):
         problem = {"message": "that review has expired", "fix": "Review the disk and checks again.", "where": "review", "ignored": "x"}

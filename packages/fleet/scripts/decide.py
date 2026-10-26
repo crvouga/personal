@@ -116,6 +116,7 @@ def start_log(argv):
             except OSError:
                 pass
         break
+    LOG["command"] = argv[0] if argv and re.fullmatch(r"[a-z-]{1,20}", argv[0]) else "install"
     log(f"fleet-node {' '.join(argv)}")
     log(f"os={current_os()} arch={machine_arch()} python={platform.python_version()} euid={effective_uid()} cwd={os.getcwd()}")
     knobs = sorted(f"{k}={v}" for k, v in os.environ.items() if k.startswith("FLEET_"))
@@ -155,6 +156,9 @@ def fail(message, code=1):
     say(message)
     if LOG["path"]:
         print(f"Log: {LOG['path']}", file=sys.stderr)
+        # A refusal or failure always ends with a way to tell someone. Not logged:
+        # the wizard has its own Report on GitHub button for the same run.
+        print(report_link(message, LOG.get("command") or "install"), file=sys.stderr)
     return code
 
 
@@ -1108,7 +1112,7 @@ def extract_boot(iso_path, role):
     return str(kernel_path), str(initrd_path), block.get("append", "")
 
 
-def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True):
+def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True, origin=None):
     tokens = append.split()
     if any(any(char.isspace() for char in token) for token in tokens):
         raise ValueError("boot command is not one line")
@@ -1121,12 +1125,15 @@ def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, 
     role_token = f"fleet.role={role}"
     if vault and any(char.isspace() for char in vault):
         raise ValueError("vault address is not a single word")
-    kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "findiso="))]
+    kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "fleet.from=", "findiso="))]
     enroll = [f"fleet.enroll={token}"] if token else []
     where = [f"fleet.vault={vault}"] if token and vault else []
     invariant(role in ROLES, "refusing to build a boot command for an unknown role", role=role)
     access = ["fleet.ssh=" + base64.urlsafe_b64encode(validate_ssh_key(ssh_key).encode()).decode()] if ssh_key else []
-    command = " ".join([*kept, *extras, *enroll, *where, *access, role_token])
+    # The live installer's screens name the system it returns to (scripts/live_console.py).
+    invariant(origin in (None, "windows", "linux"), "refusing an unknown handoff origin", origin=origin)
+    came = [f"fleet.from={origin}"] if origin else []
+    command = " ".join([*kept, *extras, *enroll, *where, *access, *came, role_token])
     invariant(len(command.encode()) < 4096, "the installer boot command is too long", "Use an Ed25519 public key.", bytes=len(command.encode()))
     # The installer reads the LAST fleet.role=, so ours must be last.
     invariant(command.endswith(role_token) and command.rsplit("fleet.role=", 1)[1] == role,
@@ -1166,7 +1173,7 @@ def stage_reboot(os_name, role, iso, token=None, vault=None, wifi=None):
         return 1
     try:
         kernel, initrd, append = extract_boot(iso, role)
-        cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None)
+        cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, origin="linux")
     except (OSError, ValueError):
         say("Next: the installer image could not be read. Nothing was written. Plug in one USB disk and run this program again with the word flash.")
         return 1
@@ -2418,7 +2425,7 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         say("Next: " + ram["fix"] + " Nothing was written.")
         return 2
     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
-    cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False)
+    cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False, origin="windows")
     wireless_initrd = wifi_module().initrd(wifi) if wifi is not None else b""
     config = grub_config(role, linux_path, initrd_path, cmdline, wifi=wifi is not None)
     disk, need, letter = int(facts["DiskNumber"]), windows_need(iso_size), facts["Letter"]
@@ -3064,6 +3071,50 @@ def open_sealed(blob, private):
     if not hmac.compare_digest(tag, want):
         return None
     return bytes(a ^ b for a, b in zip(cipher, _stream(keys[:32], len(cipher))))
+
+
+# Every installer surface (the wizard, this program, the live installer screen)
+# reports problems on one GitHub issue form. Its field ids are fixed by
+# .github/ISSUE_TEMPLATE/fleet-installer.yml; tests/test_issue_form.py keeps them in step.
+ISSUE_FORM = "fleet-installer.yml"
+ISSUE_FIELDS = ("step", "what-happened", "diagnostic")
+ISSUE_URL_MAX = 7500  # GitHub refuses much longer new-issue addresses
+
+
+def issue_form_url(title, step="", diagnostic="", happened=""):
+    """A new issue on the Fleet installer form, its fields filled in and redacted.
+    The person reviews it in the browser before anything is submitted."""
+    fields = {"template": ISSUE_FORM, "title": redact(title).strip()[:120] or "Fleet installer problem",
+              "step": redact(step).strip()[:200], "what-happened": redact(happened).strip(),
+              "diagnostic": redact(diagnostic).strip()}
+    query = urllib.parse.urlencode({key: value for key, value in fields.items() if value}, quote_via=urllib.parse.quote)
+    return f"https://github.com/{REPO}/issues/new?{query}"
+
+
+def issue_form_url_within(title, step, diagnostic, limit=ISSUE_URL_MAX, note="(shortened to fit a link; attach the full report)"):
+    """issue_form_url with the diagnostic cut until the address fits `limit`.
+    Encoded length is what counts: one non-ASCII character can cost nine."""
+    text = redact(diagnostic)
+    if len(issue_form_url(title, step, text)) <= limit:
+        return issue_form_url(title, step, text)
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(issue_form_url(title, step, text[:middle] + "\n" + note)) <= limit:
+            low = middle
+        else:
+            high = middle - 1
+    return issue_form_url(title, step, text[:low] + "\n" + note)
+
+
+def report_link(message, command):
+    """One line every failure of this program ends with: a pre-filled issue."""
+    first = next((line for line in redact(message).splitlines() if line.strip()), "fleet-node failure").strip()
+    first = re.sub(r"^(Next|Why):\s*", "", first)
+    facts = [f"Source: fleet-node.sh {command}", f"Result: {first}", f"System: {current_os()} {machine_arch()}",
+             f"Log: {LOG['path'] or 'none'} (attach it to the issue; it is redacted)"]
+    title = "Fleet installer: " + (first if len(first) <= 90 else first[:87] + "...")
+    return "Report: " + issue_form_url_within(title, f"fleet-node.sh {command}", "\n".join(facts), limit=2000)
 
 
 def enroll_issue_url(role, public):

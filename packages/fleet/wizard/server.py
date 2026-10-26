@@ -525,7 +525,8 @@ class Wizard:
         build = lambda lines: diagnostics.report(VERSION, facts, job, problem, lines, decide.LOG["path"])  # noqa: E731
         message = problem.get("message") or ((job or {}).get("result") or {}).get("message") or (job or {}).get("message")
         title = diagnostics.issue_title(message)
-        return {"report": build(diagnostics.LOG_TAIL), "title": title, "issue_url": diagnostics.issue_url(title, build)}
+        step = diagnostics.issue_step(OS_LABEL.get(self.os_name, self.os_name), job, problem)
+        return {"report": build(diagnostics.LOG_TAIL), "title": title, "issue_url": diagnostics.issue_url(title, build, step)}
 
 
 class Handler(BaseHTTPRequestHandler):

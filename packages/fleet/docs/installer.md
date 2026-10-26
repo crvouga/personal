@@ -270,6 +270,20 @@ An interrupted USB write leaves an incomplete stick. Keep it plugged in, restart
 
 ## When something goes wrong
 
+**Report a problem**, at the top of every page, opens a pre-filled GitHub issue
+about the step you are on, whether or not anything failed, and copies the full
+report to the clipboard. Every issue uses the same form (_Fleet installer
+problem_), whether it comes from the wizard, `fleet-node.sh` (every failure ends
+with a `Report:` link) or the installer screen after a restart (a QR code).
+
+When this computer is set up in place, the review page and the final page list
+what happens after the restart. The installer screen then shows seven numbered
+steps with what to do at each, waits with a reason when something is not ready,
+and on a stop shows what to do and a QR code for the issue. Before anything is
+erased it returns to the original system after two minutes (Enter stays). At
+any time Alt+F2 gives a prompt with `fleet-status`, `fleet-report`,
+`fleet-retry` and `fleet-return`. [windows.md](windows.md) describes each screen.
+
 Every failure says what happened and what to do next, and names a log file. The wizard keeps its log in the `.fleet/logs` folder in your home directory, and the installed node keeps `/nix/fleet-state/logs/install.log`. Nothing is erased before the review page's confirmation, and a USB stick is only reported as ready after the wizard reads it back and proves it holds the verified installer.
 
 A failure page lists numbered recovery steps, says whether anything on the computer could have changed, and offers:
