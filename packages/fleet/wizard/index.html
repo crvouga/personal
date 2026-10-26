@@ -273,7 +273,14 @@
       }
       async function copyText(text) {
         try {
-          await navigator.clipboard.writeText(text);
+          // A clipboard write can wait forever for focus or permission; fall
+          // back to the selection copy after two seconds instead.
+          await Promise.race([
+            navigator.clipboard.writeText(text),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('clipboard timeout')), 2000)
+            ),
+          ]);
           return true;
         } catch (_) {
           const area = document.createElement('textarea');
@@ -369,7 +376,8 @@
           report = fallbackReport({ where: where });
           url = fallbackIssueUrl(report, 'Wizard: ' + where);
         }
-        const copied = await copyText(report);
+        // Navigate before copying: a clipboard write can wait on focus or
+        // permission, and must never keep the issue from opening.
         if (tab) {
           tab.opener = null;
           tab.location.href = url;
@@ -385,8 +393,10 @@
           link.textContent = 'Open the pre-filled GitHub issue';
           status.append(link, '.');
         }
-        if (copied)
-          status.append(' The full report is also on your clipboard.');
+        copyText(report).then((copied) => {
+          if (copied)
+            status.append(' The full report is also on your clipboard.');
+        });
       }
       function reportIssue() {
         // Open the window first, while the click still allows it.
