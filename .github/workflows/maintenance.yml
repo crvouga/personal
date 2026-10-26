@@ -301,7 +301,8 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          nix flake update --flake packages/fleet
+          # A bare relative path is read as a flake-registry name ("flake:packages/fleet").
+          nix flake update --flake ./packages/fleet
           if git diff --quiet -- packages/fleet/flake.lock; then
             echo 'flake.lock is unchanged'
             exit 0
