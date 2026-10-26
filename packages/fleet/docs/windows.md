@@ -68,19 +68,21 @@ required firmware change still need the person at the computer.
    5. The computer is told to **restart in 15 seconds**. Save any open work now: Windows may show an "apps are preventing restart" screen; choose _Restart anyway_.
 6. **The restart.** The screen shows a menu "Fleet installer: ERASES the internal disk and installs ROLE" for 3 seconds, then Linux boots. It copies the installer into RAM (a few minutes, text on screen), erases the disk, partitions it, installs NixOS, and restarts. Expect tens of minutes in total with no input. The machine comes back as `ROLE-xxxx` (the 4 hex digits come from the hardware).
 
-If anything in step 5 fails, every earlier part of step 5 is taken back, newest first, and Windows starts as before. The exit message names the log file.
+If anything in step 5 fails, the installer first confirms that no restart is pending, then removes the one-time boot entries before taking back the files and partition changes. If cancellation or boot-entry cleanup cannot be confirmed, it keeps the staged image, boot files and recovery journal so a pending boot does not lose its backing files. The exit message names what remains and the log file.
 
 ## Taking things back
 
 ### While the program is still running
 
-Nothing to do. A failed step undoes the earlier ones (restart cancelled, boot entries deleted, files removed, EFI partition unmounted, partition removed, `C:` grown back to its original size). If an undo step itself fails, the program prints `Could not undo: ...` and its result says which changes are still there; run the installer again (below) or use the by-hand steps for just those items.
+The installer attempts recovery automatically: restart cancelled, boot entries deleted, files removed, EFI partition unmounted, partition removed, `C:` grown back to its original size. It stops before removing files or partitions if a restart or one-time boot choice may still be active. If an undo step fails, the program prints `Could not undo: ...` and its result says which changes are still there; run the installer again (below) or use the by-hand steps for just those items.
 
 ### If the program was killed, the power went out, or an undo failed
 
 Run the installer again. Before every step the conversion records what it is about to change in `windows-staging.json` in the state folder (`%USERPROFILE%\.fleet`). The next run reads that record and takes those exact changes back first (the scheduled restart, the boot manager entry, the firmware option, the files on the EFI partition, the partition, the shrink), then starts again from the beginning. Running it twice never leaves two partitions or shrinks `C:` twice. If taking something back fails, it stops before changing anything new and names what is left; use the by-hand steps for that.
 
 Leftovers from installers older than this record cannot be identified for certain. The review then warns about Linux data partitions on the system disk; remove them by hand (step 3 below) if they are Fleet's.
+
+If the process stops before recording the new partition's GUID, recovery uses the recorded pre-existing GUIDs and the exact extent reserved for the new partition. It never identifies a partition by size alone. An older journal without enough identity evidence stops automatic recovery and asks for manual identification. New attempts write a version 2 journal so older installers refuse to interpret it; the updated installer can recover version 1 records when their partition identity is sufficient.
 
 ### After "restarting in 15 seconds" but before the restart
 
@@ -89,6 +91,8 @@ Leftovers from installers older than this record cannot be identified for certai
 ### Remove everything by hand
 
 All of these in an **administrator** PowerShell or Command Prompt. Do only the parts that apply.
+
+First run `shutdown /a` if a restart was scheduled. Continue only after it succeeds or Windows reports that no shutdown was in progress. If cancellation fails for another reason, keep the staged boot files and partition until the pending restart is resolved.
 
 1. **The one-time boot entries.** List them:
 

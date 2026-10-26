@@ -19,9 +19,7 @@ def validate_image(source):
         files = decide._iso_index(image)
         readiness = json.loads(decide._iso_bytes(image, files, 'fleet-readiness.json'))
         for role in decide.ROLES:
-            linux, initrd, _, _ = decide.iso_boot_material(source, role)
-            decide._iso_bytes(image, files, linux)
-            decide._iso_bytes(image, files, initrd)
+            decide.iso_boot_material(source, role)
     if readiness.get('version') != 1 or not isinstance(readiness.get('roles'), dict):
         raise ValueError('installer image has no valid onboarding readiness metadata')
     return readiness
