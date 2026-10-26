@@ -2,7 +2,7 @@
 // Part 2 is the archive tail: real work and real tools, but not the entries a
 // reviewer should hit first.
 import type { Project } from './types';
-import { IMAGE_ALT, toYouTubeVideoUrl } from './shared';
+import { toYouTubeVideoUrl } from './shared';
 
 export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
   {
@@ -13,7 +13,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'public', url: 'https://github.com/crvouga/normalizer.app.git' },
     description:
       'Automates the tedious work of reshaping spreadsheet data from one format into another.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'normalizer.app new-session screen: pick a target format and upload a spreadsheet',
     imageSrc: ['/normalizer-app-screenshot.optimized.webp'],
     galleryImageSrc: [
       '/normalizer-app-screenshot.optimized.webp',
@@ -45,7 +46,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     },
     description:
       'A self-hosted service that resizes and optimizes images on demand, with no configuration required.',
-    imageAlt: IMAGE_ALT,
+    imageAlt: 'Image service sign-in screen: request a login link by email',
     imageSrc: ['/image-service-screenshot.optimized.webp'],
     galleryImageSrc: ['/image-service-screenshot.optimized.webp'],
     topics: ['go'],
@@ -58,7 +59,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'public', url: 'https://github.com/crvouga/screenshot-service' },
     description:
       'A service for capturing screenshots of web pages programmatically.',
-    imageAlt: IMAGE_ALT,
+    imageAlt: 'Screenshots as a Service sign-in screen',
     imageSrc: [
       '/screenshots-as-a-service-screenshot.optimized.webp',
       '/screenshot-service.optimized.webp',
@@ -99,7 +100,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     },
     description:
       'One movie-discovery app rebuilt on several technology stacks, holding the product constant to compare their real trade-offs.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'moviefinder.app feed in a phone-width layout, showing a movie poster',
     imageSrc: ['/moviefinder-app-rust-screenshot.optimized.webp'],
     galleryImageSrc: [
       '/moviefinder-app-rust-screenshot.optimized.webp',
@@ -117,7 +119,7 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'private' },
     description:
       'Platform where learners earn college credit toward admission to ASU degree programs. I reworked its backend and its enrollment data sync.',
-    imageAlt: IMAGE_ALT,
+    imageAlt: 'ASU Earned Admission homepage: earn your ASU degree, your way',
     imageSrc: ['/asu-earned-admission-screenshot.optimized.webp'],
     galleryImageSrc: ['/asu-earned-admission-screenshot.optimized.webp'],
     topics: [
@@ -131,45 +133,6 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     resume: { include: false },
   },
   {
-    id: 'airr',
-    title: 'Airr Product Demo',
-    setting: 'work',
-    deployment: { t: 'not-deployed-anymore' },
-    code: { t: 'private' },
-    description:
-      'Interactive product demo for Airr, an enterprise tool that automates transcript intake and analysis.',
-    imageAlt: IMAGE_ALT,
-    imageSrc: [
-      '/airr-product-demo-screenshot.optimized.webp',
-      '/airr/1.optimized.webp',
-      '/airr/2.optimized.webp',
-      '/airr/3.optimized.webp',
-      '/airr/4.optimized.webp',
-      '/airr/5.optimized.webp',
-      '/airr/6.optimized.webp',
-    ],
-    galleryImageSrc: [
-      '/airr-product-demo-screenshot.optimized.webp',
-      '/airr/1.optimized.webp',
-      '/airr/2.optimized.webp',
-      '/airr/3.optimized.webp',
-      '/airr/4.optimized.webp',
-      '/airr/5.optimized.webp',
-      '/airr/6.optimized.webp',
-      '/airr/7.optimized.webp',
-    ],
-    topics: [
-      'typescript',
-      'nodejs',
-      'postgres',
-      'react',
-      'tailwind',
-      'trpc',
-      'vercel',
-    ],
-    resume: { include: false },
-  },
-  {
     id: 'sun-devils',
     title: 'Sun Devils',
     setting: 'work',
@@ -177,7 +140,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'private' },
     description:
       "Official site of ASU's Sun Devils athletics. I built its interactive schedule and news features.",
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'Sun Devil Athletics homepage: a football score banner and upcoming games',
     imageSrc: ['/sun-devils-screenshot.optimized.webp'],
     galleryImageSrc: [
       '/sun-devils-screenshot.optimized.webp',
@@ -196,7 +160,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'public', url: 'https://github.com/crvouga/violets-garden' },
     description:
       'A cozy puzzle game about guiding a pug through garden mazes, with every level automatically proven solvable.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      "Violet's Garden title screen: a pug beside Play, Level select and How to play",
     imageSrc: ['/violets-garden-screenshot.optimized.webp'],
     galleryImageSrc: ['/violets-garden-screenshot.optimized.webp'],
     topics: ['typescript', 'phaser', 'tone-js', 'javascript', 'html', 'docker'],
@@ -210,7 +175,8 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
     code: { t: 'public', url: 'https://github.com/crvouga/llm-server' },
     description:
       'A self-hosted gateway that routes AI model requests to any provider and records usage for cost and health visibility.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'LLM Proxy dashboard: backend address and upstream header settings',
     imageSrc: ['/llm-proxy-screenshot.optimized.webp'],
     galleryImageSrc: [
       '/llm-proxy-screenshot.optimized.webp',
@@ -228,39 +194,6 @@ export const PROJECT_ENTRIES_PART_2: readonly Project[] = [
       'postgres',
       'docker',
       'nodejs',
-    ],
-  },
-  {
-    id: 'pickflix',
-    title: 'Pickflix',
-    setting: 'side',
-    deployment: { t: 'public', url: 'https://pickflix.chrisvouga.dev' },
-    code: { t: 'public', url: 'https://github.com/crvouga/pickflix-v1' },
-    description:
-      'A social movie-discovery app for watching trailers, writing reviews, and building shared lists with friends.',
-    imageAlt: IMAGE_ALT,
-    imageSrc: ['/pickflix-screenshot.optimized.webp'],
-    galleryImageSrc: [
-      '/pickflix-screenshot.optimized.webp',
-      toYouTubeVideoUrl({
-        youTubeVideoId: '-atthbuMFIM',
-        autoplay: true,
-        mute: true,
-      }),
-    ],
-    topics: [
-      'express',
-      'jest',
-      'material-ui',
-      'nodejs',
-      'postgres',
-      'ramda',
-      'react',
-      'redux',
-      'redux-saga',
-      'typescript',
-      'css',
-      'react-query',
     ],
   },
 ];

@@ -1,51 +1,11 @@
 // Order-preserving split of PROJECTS (max-lines); append new projects to entries-part-2.ts.
-// Part 1 holds the flagship entries: the first VISIBLE_PROJECT_COUNT of these
-// are the homepage's cards, the remainder of the registry sits on /projects/.
+// Part 1 holds the flagship entries. The homepage shows the first three listed
+// projects that a reviewer can check — public code or a case study — and the
+// rest of the registry sits on /projects/.
 import type { Project } from './types';
-import { IMAGE_ALT, toYouTubeVideoUrl } from './shared';
+import { toYouTubeVideoUrl } from './shared';
 
 export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
-  {
-    id: 'gamezilla',
-    title: 'gamezilla.app',
-    setting: 'side',
-    deployment: { t: 'public', url: 'https://www.gamezilla.app/' },
-    code: { t: 'private' },
-    description:
-      'A real-time multiplayer gaming platform that runs in the browser.',
-    imageAlt: IMAGE_ALT,
-    imageSrc: [
-      '/gamezilla.optimized.webp',
-      '/gamezilla-app-screenshot.optimized.webp',
-    ],
-    galleryImageSrc: [
-      '/gamezilla.optimized.webp',
-      toYouTubeVideoUrl({ youTubeVideoId: 'VSLpdPvHbD4', autoplay: true }),
-      '/gamezilla-app-screenshot.optimized.webp',
-    ],
-    topics: [
-      'typescript',
-      'react',
-      'postgres',
-      'tailwind',
-      'websocket',
-      'bun',
-      'sqlite',
-    ],
-  },
-  {
-    id: 'geviti-app',
-    title: 'Geviti',
-    setting: 'work',
-    deployment: { t: 'public', url: 'https://app.gogeviti.com/' },
-    code: { t: 'private' },
-    description:
-      'Health and longevity platform that turns lab results into personalized protocols, therapies, and coordinated care. I build its member-facing features.',
-    imageAlt: IMAGE_ALT,
-    imageSrc: ['/geviti-app-screenshot.optimized.webp'],
-    galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
-    topics: ['typescript', 'react', 'postgres', 'bun', 'aws', 'react-native'],
-  },
   {
     id: 'mockingbird',
     title: 'Mockingbird',
@@ -54,10 +14,55 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     code: { t: 'public', url: 'https://github.com/crvouga/mockingbird' },
     description:
       'Realistic stand-ins for third-party services, so software can be tested end to end without calling the real thing.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'Mockingbird documentation site: an install command and a request to the Stripe emulator',
     imageSrc: ['/mockingbird-screenshot.optimized.webp'],
     galleryImageSrc: ['/mockingbird-screenshot.optimized.webp'],
     topics: ['typescript', 'bun', 'nodejs', 'sqlite'],
+  },
+  {
+    id: 'workspace-platform',
+    title: 'Workspace platform',
+    setting: 'side',
+    deployment: { t: 'private' },
+    code: { t: 'public', url: 'https://github.com/crvouga/workspace' },
+    description:
+      'The monorepo and self-hosted platform behind this site and my side projects, where declared code is the only way to change infrastructure.',
+    imageAlt:
+      'Workspace platform architecture: the repository and its CI gates, declared infrastructure, the hosted services, and the daily health loop',
+    imageSrc: ['/workspace-platform-diagram.svg'],
+    galleryImageSrc: [],
+    topics: [
+      'typescript',
+      'opentofu',
+      'nixos',
+      'github-actions',
+      'docker',
+      'bun',
+      'cloudflare',
+      'railway',
+      'postgres',
+      'openbao',
+      'playwright',
+      'astro',
+    ],
+  },
+  {
+    id: 'headless-combobox',
+    title: 'headless-combobox',
+    setting: 'side',
+    deployment: {
+      t: 'public',
+      url: 'https://svelte-headlesscombobox.chrisvouga.dev',
+    },
+    code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
+    description:
+      'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
+    imageAlt:
+      'headless-combobox demo: single- and multi-select comboboxes with keyboard instructions',
+    imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
+    galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
+    topics: ['typescript'],
   },
   {
     id: 'triangulator',
@@ -67,7 +72,8 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     code: { t: 'private' },
     description:
       'Enterprise platform that automates how universities evaluate transfer credit. I was the technical lead.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'Triangulator suggestion details: a community-college course matched to an Arizona State University course, with its review history',
     imageSrc: ['/triangulator.optimized.webp'],
     galleryImageSrc: [
       toYouTubeVideoUrl({ youTubeVideoId: 'yQCrMBHQrDM', autoplay: true }),
@@ -113,6 +119,35 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     ],
   },
   {
+    id: 'gamezilla',
+    title: 'gamezilla.app',
+    setting: 'side',
+    deployment: { t: 'public', url: 'https://www.gamezilla.app/' },
+    code: { t: 'private' },
+    description:
+      'A local-first multiplayer game platform for phones: a live space keeps working offline, then catches up on its own when the connection returns.',
+    imageAlt:
+      'gamezilla in two phone-sized windows: one live chess game seen from each player’s side',
+    imageSrc: [
+      '/gamezilla.optimized.webp',
+      '/gamezilla-app-screenshot.optimized.webp',
+    ],
+    galleryImageSrc: [
+      '/gamezilla.optimized.webp',
+      toYouTubeVideoUrl({ youTubeVideoId: 'VSLpdPvHbD4', autoplay: true }),
+      '/gamezilla-app-screenshot.optimized.webp',
+    ],
+    topics: [
+      'typescript',
+      'react',
+      'postgres',
+      'tailwind',
+      'websocket',
+      'bun',
+      'sqlite',
+    ],
+  },
+  {
     id: 'study-hall',
     title: 'Study Hall',
     setting: 'work',
@@ -120,7 +155,8 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     code: { t: 'private' },
     description:
       'Online learning platform from ASU and the Study Hall YouTube channel. I rebuilt its payment processing to cut failed payments.',
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'Study Hall homepage: earn college credit with Crash Course and Arizona State University',
     imageSrc: [
       '/study-hall-screenshot.optimized.webp',
       '/studyhall.optimized.webp',
@@ -159,22 +195,6 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     ],
   },
   {
-    id: 'headless-combobox',
-    title: 'headless-combobox',
-    setting: 'side',
-    deployment: {
-      t: 'public',
-      url: 'https://svelte-headlesscombobox.chrisvouga.dev',
-    },
-    code: { t: 'public', url: 'https://github.com/crvouga/headless-combobox' },
-    description:
-      'An accessible autocomplete component that works with any interface framework, published as an open-source library.',
-    imageAlt: IMAGE_ALT,
-    imageSrc: ['/headless-combobox-screenshot.optimized.webp'],
-    galleryImageSrc: ['/headless-combobox-screenshot.optimized.webp'],
-    topics: ['typescript'],
-  },
-  {
     id: 'orchard',
     title: 'Orchard',
     setting: 'work',
@@ -182,7 +202,8 @@ export const PROJECT_ENTRIES_PART_1: readonly Project[] = [
     code: { t: 'private' },
     description:
       "ASU platform for building highly customizable assignments. I designed and built its integration with the university's learning management system.",
-    imageAlt: IMAGE_ALT,
+    imageAlt:
+      'Orchard assignment page: an embedded precalculus video with subject and attribution details',
     imageSrc: ['/orchard.optimized.webp'],
     galleryImageSrc: ['/orchard.optimized.webp'],
     topics: ['php', 'mysql', 'drupal', 'bootstrap', 'javascript'],

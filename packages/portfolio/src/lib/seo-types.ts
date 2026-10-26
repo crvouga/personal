@@ -15,6 +15,15 @@ export type SeoImage = {
 export type SeoSchema =
   | { readonly t: 'home' }
   | { readonly t: 'collection' }
+  /** A case study or post: an Article under Home › Projects › it. */
+  | {
+      readonly t: 'article';
+      readonly breadcrumb: readonly {
+        readonly name: string;
+        readonly path: string;
+      }[];
+      readonly codeRepository?: string;
+    }
   | { readonly t: 'none' };
 
 export type Seo = {

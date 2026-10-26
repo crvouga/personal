@@ -21,6 +21,20 @@ const WEEKDAY_LABELS: Record<number, string> = { 1: 'Mon', 3: 'Wed', 5: 'Fri' };
 const gridWidth = grid.columns * PITCH - (PITCH - CELL);
 const height = TOP_GUTTER + 7 * PITCH - (PITCH - CELL);
 const weekdayRows = Object.entries(WEEKDAY_LABELS);
+
+/**
+ * One path per shade instead of one <rect> per day: the same squares in about
+ * a fifth of the markup (the per-day version was 35 KB of a 113 KB page). The
+ * summary label carries the meaning; individual days are not announced.
+ */
+const LEVELS = [0, 1, 2, 3, 4] as const;
+const levelPaths = LEVELS.map((level) => ({
+  level,
+  d: grid.cells
+    .filter((cell) => cell.day.level === level)
+    .map((cell) => `M${cell.column * PITCH} ${TOP_GUTTER + cell.row * PITCH}h${CELL}v${CELL}h-${CELL}z`)
+    .join(''),
+})).filter((entry) => entry.d !== '');
 const plural = (value: number, noun: string): string =>
   `${value.toLocaleString('en-US')} ${noun}${value === 1 ? '' : 's'}`;
 const summary = `${range.label}: ${plural(range.totalContributions, 'contribution')} across ${plural(range.activeDays, 'active day')}.`;
@@ -75,18 +89,7 @@ const summary = `${range.label}: ${plural(range.totalContributions, 'contributio
           ))
         }
         {
-          grid.cells.map((cell) => (
-            <rect
-              x={cell.column * PITCH}
-              y={TOP_GUTTER + cell.row * PITCH}
-              width={CELL}
-              height={CELL}
-              rx="2"
-              class={`c${cell.day.level}`}
-            >
-              <title>{cell.label}</title>
-            </rect>
-          ))
+          levelPaths.map(({ level, d }) => <path class={`c${level}`} d={d} />)
         }
       </svg>
     </div>
@@ -131,8 +134,8 @@ const summary = `${range.label}: ${plural(range.totalContributions, 'contributio
     font-size: 9px;
     fill: var(--text-subtle);
   }
-  rect {
-    shape-rendering: geometricPrecision;
+  path {
+    shape-rendering: crispEdges;
   }
   .c0 {
     fill: var(--gh-0);

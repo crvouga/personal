@@ -1,18 +1,26 @@
 ---
 import { CONTENT } from '../content/content';
+import { RESUME_JSON_PATH } from '../constants/resume';
 
-const year = new Date().getFullYear();
+// Derived at build time: the site is rebuilt daily, so this says how fresh it is.
+const built = new Date();
+const builtOn = built.toISOString().slice(0, 10);
+const year = built.getFullYear();
 ---
 
 <footer>
   <div class="container inner">
     <p>
-      © {year} {CONTENT.PAGE_TITLE} · static site · no trackers
+      © {year} {CONTENT.PAGE_TITLE} · static site · no cookies, no client-side
+      tracking · last built <time datetime={builtOn}>{builtOn}</time>
     </p>
     <nav class="links" aria-label="Site">
       <a href="/projects/">All projects</a>
+      <a href={RESUME_JSON_PATH}>résumé.json</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href={CONTENT.X_URL} rel="me noopener" target="_blank">X profile</a>
       <a href={CONTENT.SITE_SOURCE_CODE_URL} rel="noopener" target="_blank">
-        Source on GitHub
+        This site's source
       </a>
     </nav>
   </div>
@@ -37,7 +45,7 @@ const year = new Date().getFullYear();
     flex-wrap: wrap;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
   footer a {
     display: inline-flex;

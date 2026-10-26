@@ -29,7 +29,7 @@ const ORDERED: readonly Omit<Section, 'number'>[] = [
   { id: 'agentic', title: 'How I build', navLabel: 'How I build', nav: true },
   {
     id: 'proof',
-    title: 'Proof, not promises',
+    title: 'Verified, not just shipped',
     navLabel: 'Proof',
     nav: false,
   },

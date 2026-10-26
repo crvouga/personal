@@ -1,6 +1,7 @@
 ---
 import { CONTENT } from '../content/content';
 import { RESUME_HREF } from '../constants/resume';
+import { publishedPosts } from '../lib/published-posts';
 
 interface Props {
   /** Sub-pages need absolute anchors; the homepage keeps same-page ones. */
@@ -9,19 +10,22 @@ interface Props {
 const { variant = 'home' } = Astro.props;
 
 const links = CONTENT.SECTIONS.filter((section) => section.nav);
+// Writing joins the nav with its first published post, never before.
+const hasWriting = (await publishedPosts()).length > 0;
 const sectionHref = (id: string): string =>
   variant === 'home' ? `#${id}` : `/#${id}`;
 const homeHref = variant === 'home' ? '#top' : '/';
+// The full name, not initials: "CV" reads as curriculum vitae.
 const homeLabel =
   variant === 'home'
-    ? `${CONTENT.MONOGRAM_INITIALS} — back to top`
-    : `${CONTENT.MONOGRAM_INITIALS} — ${CONTENT.PAGE_TITLE} home`;
+    ? `${CONTENT.PAGE_TITLE}, back to top`
+    : `${CONTENT.PAGE_TITLE}, home`;
 ---
 
 <header class="nav">
   <div class="container inner">
     <a href={homeHref} class="monogram" aria-label={homeLabel}>
-      {CONTENT.MONOGRAM_INITIALS}
+      {CONTENT.PAGE_TITLE}
     </a>
     <nav aria-label="Site sections">
       {
@@ -29,8 +33,9 @@ const homeLabel =
           <a href={sectionHref(section.id)}>{section.navLabel}</a>
         ))
       }
+      {hasWriting && <a href="/writing/">Writing</a>}
     </nav>
-    <a href={RESUME_HREF} class="resume" target="_blank" rel="noopener">Résumé</a>
+    <a href={RESUME_HREF} class="resume" target="_blank" rel="noopener" aria-label="Résumé (PDF)">Résumé</a>
   </div>
 </header>
 
@@ -39,7 +44,7 @@ const homeLabel =
     position: sticky;
     top: 0;
     z-index: 10;
-    background: rgba(10, 10, 11, 0.85);
+    background: var(--nav-bg);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--paper-border);
@@ -60,7 +65,7 @@ const homeLabel =
     color: var(--accent);
   }
   .monogram:hover {
-    color: #a6cbff;
+    color: var(--accent-hover);
   }
   nav {
     display: flex;

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-labelledby="t d">
+  <title id="t">Workspace platform architecture</title>
+  <desc id="d">A pull request passes the required CI checks and policy tests, then OpenTofu applies a reviewed plan to the hosted services, the secrets store, storage and the GitHub repository settings. NixOS configurations define the machines I own. A daily read-only health report compares everything live with the repository and plans every root for drift.</desc>
+  <style>
+    .bg { fill: #f4f6fa; }
+    .box { fill: #ffffff; stroke: #1e5baf; stroke-width: 2; }
+    .soft { fill: #e8f0fc; stroke: #1e5baf; stroke-width: 2; }
+    .loop { fill: #eef8f0; stroke: #1f7a33; stroke-width: 2; }
+    .h { font: 700 21px ui-monospace, 'JetBrains Mono', Menlo, monospace; fill: #0a0a0b; }
+    .s { font: 400 16px system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #2b313c; }
+    .lbl { font: 600 14px ui-monospace, 'JetBrains Mono', Menlo, monospace; fill: #1e5baf; }
+    .lbl-g { font: 600 14px ui-monospace, 'JetBrains Mono', Menlo, monospace; fill: #1f7a33; }
+    .arrow { stroke: #1e5baf; stroke-width: 2.5; fill: none; marker-end: url(#a); }
+    .arrow-g { stroke: #1f7a33; stroke-width: 2.5; fill: none; stroke-dasharray: 8 6; marker-end: url(#g); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1e5baf"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1f7a33"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1200" height="640" rx="16"/>
+
+  <rect class="box" x="40" y="48" width="320" height="168" rx="12"/>
+  <text class="h" x="64" y="88">Repository</text>
+  <text class="s" x="64" y="120">Code, inventory and rules</text>
+  <text class="s" x="64" y="146">AGENTS.md for every agent</text>
+  <text class="s" x="64" y="172">One canonical command set</text>
+
+  <rect class="box" x="440" y="48" width="320" height="168" rx="12"/>
+  <text class="h" x="464" y="88">CI gate</text>
+  <text class="s" x="464" y="120">Required checks on every PR</text>
+  <text class="s" x="464" y="146">Policy, type, lint, size tests</text>
+  <text class="s" x="464" y="172">OpenTofu validate and test</text>
+
+  <rect class="box" x="840" y="48" width="320" height="168" rx="12"/>
+  <text class="h" x="864" y="88">OpenTofu</text>
+  <text class="s" x="864" y="120">The only way to change infra</text>
+  <text class="s" x="864" y="146">Encrypted state, saved plans</text>
+  <text class="s" x="864" y="172">Deletion guards on live data</text>
+
+  <path class="arrow" d="M360 132 H436"/>
+  <text class="lbl" x="372" y="120">PR</text>
+  <path class="arrow" d="M760 132 H836"/>
+  <text class="lbl" x="768" y="120">merge</text>
+
+  <rect class="soft" x="40" y="296" width="1120" height="150" rx="12"/>
+  <text class="h" x="64" y="336">Declared and running</text>
+  <text class="s" x="64" y="372">Hosted services and images</text>
+  <text class="s" x="64" y="400">Railway, tunnels, DNS</text>
+  <text class="s" x="344" y="372">OpenBao secrets store</text>
+  <text class="s" x="344" y="400">read by apps at run time</text>
+  <text class="s" x="624" y="372">PostgreSQL and object storage</text>
+  <text class="s" x="624" y="400">GitHub rulesets and settings</text>
+  <text class="s" x="904" y="372">NixOS machines I own:</text>
+  <text class="s" x="904" y="400">runners, servers, cache, installer</text>
+
+  <path class="arrow" d="M1000 216 V292"/>
+  <text class="lbl" x="1012" y="262">apply reviewed plan</text>
+
+  <rect class="loop" x="40" y="512" width="1120" height="88" rx="12"/>
+  <text class="h" x="64" y="552">Daily health report</text>
+  <text class="s" x="64" y="580">Read-only: live state against the inventory, plus a drift plan of every root. Missing credentials report as skipped, never a pass.</text>
+
+  <path class="arrow-g" d="M600 446 V508"/>
+  <path class="arrow-g" d="M40 556 H20 V132 H36"/>
+  <text class="lbl-g" x="612" y="484">checks</text>
+</svg>

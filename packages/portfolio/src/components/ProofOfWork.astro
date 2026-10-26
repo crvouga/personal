@@ -1,6 +1,16 @@
 ---
 import { CONTENT } from '../content/content';
 import { loadGitHubInsights } from '../lib/github-insights';
+import {
+  PROOF_EXCLUSIONS,
+  PROOF_TILES,
+  VERIFICATION,
+  VERIFICATION_REPO_URL,
+  VERIFICATION_WINDOW,
+  anomalyOf,
+  count,
+  percent,
+} from '../lib/proof-view';
 import ContributionCalendar from './ContributionCalendar.astro';
 
 // Uptime policy lives in lib/github-insights.ts: live GitHub data first, the
@@ -17,37 +27,24 @@ const { insights, freshness } = await loadGitHubInsights('crvouga', {
 });
 
 const section = CONTENT.GET_SECTION('proof');
-const count = (value: number): string => value.toLocaleString('en-US');
+const verifiedOn = VERIFICATION.snapshot.fetchedAt.slice(0, 10);
 
-/**
- * Deliberately three tiles, not five.
- *
- * Follower count and current streak are numbers that can argue against you;
- * publishing them volunteers a weakness for no gain. What is left is volume,
- * which is honest but is not by itself a virtue — the lede says so.
- */
-const tiles =
-  insights === null
-    ? []
-    : [
-        {
-          value: count(insights.totalContributions),
-          label: 'Contributions (12mo)',
-        },
-        { value: count(insights.longestStreak), label: 'Longest streak (days)' },
-        { value: count(insights.publicRepos), label: 'Public repos' },
-      ];
+// One period only: the trailing year. Every calendar year in the DOM cost
+// five heatmaps of markup to say the same thing; GitHub keeps the rest.
+const range = insights?.ranges[0];
+const anomaly = range === undefined ? null : anomalyOf(range);
+const privateShare =
+  range?.privateContributions === undefined
+    ? null
+    : percent(range.privateContributions, range.totalContributions);
 
 const fetchedDate = insights === null ? '' : insights.fetchedAt.slice(0, 10);
 
 /**
  * The caption always states where the numbers came from and how old they are.
- *
- * Age is not decoration. A cached render is honest only if it says the account
- * may have moved since — "Last known snapshot · 2026-03-04" reads as current to
- * anyone who does not stop to subtract, so the age is spelled out, and once the
- * data is old enough that "Contributions (12mo)" describes a window that has
- * already slid out from under it, the caption says so outright.
+ * A cached render is honest only if it says the account may have moved since,
+ * so the age is spelled out, and once the data is old enough that the window
+ * has slid out from under it, the caption says so outright.
  */
 const provenance = ((): string => {
   if (insights === null) return '';
@@ -63,15 +60,31 @@ const provenance = ((): string => {
 })();
 ---
 
-<section id="proof">
+<section id="proof" aria-labelledby="proof-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="proof-title">{section.title}</h2>
     </div>
-    <p class="lede" set:html={CONTENT.PROOF_LEDE} />
+    <p class="lede">{CONTENT.PROOF_LEDE}</p>
+    <ul class="tiles">
+      {PROOF_TILES.map((tile) => (
+        <li class="card tile">
+          <span class="value">{tile.value}</span>
+          <span class="label">{tile.label}</span>
+          <span class="detail">{tile.detail}</span>
+        </li>
+      ))}
+    </ul>
+    <p class="caption">
+      Merged pull requests in{' '}
+      <a href={VERIFICATION_REPO_URL} rel="noopener" target="_blank">crvouga/workspace</a>,{' '}
+      {VERIFICATION_WINDOW.from} → {VERIFICATION_WINDOW.to} · {PROOF_EXCLUSIONS} · computed{' '}
+      {verifiedOn} ({VERIFICATION.freshness.label}) by{' '}
+      <a href={`${CONTENT.SITE_SOURCE_CODE_URL.replace('/tree/', '/blob/')}/scripts/refresh-verification.ts`} rel="noopener" target="_blank">this script</a>
+    </p>
     {
-      insights === null ? (
+      insights === null || range === undefined ? (
         <div class="card heatmap-card">
           <p class="notice">
             GitHub proof data unavailable in dev. Set <code>PORTFOLIO_GITHUB_TOKEN</code> in
@@ -80,21 +93,25 @@ const provenance = ((): string => {
         </div>
       ) : (
         <>
-          <div class="card heatmap-card">
-            <ContributionCalendar ranges={insights.ranges} />
-            <p class="visually-hidden">
-              {CONTENT.ABOUT_GITHUB_HEATMAP_TEXT} {count(insights.totalContributions)}{' '}
-              contributions in the last 12 months.
+          <details class="calendar">
+            <summary>
+              <h3 class="calendar-title">Contribution calendar</h3>
+              <span class="calendar-note">{CONTENT.PROOF_CALENDAR_NOTE}</span>
+            </summary>
+            <div class="card heatmap-card">
+              <ContributionCalendar range={range} />
+            </div>
+          </details>
+          {anomaly !== null && (
+            <p class="footnote">
+              Busiest day {anomaly.date}: {count(anomaly.count)} contributions, against a
+              typical active day of {count(anomaly.medianActiveDay)}.
+              {privateShare !== null && (
+                <> {privateShare} of this period's contributions are in private repositories, which GitHub counts but does not show.</>
+              )}
+              {CONTENT.PROOF_ANOMALY_NOTE !== undefined && <> {CONTENT.PROOF_ANOMALY_NOTE}</>}
             </p>
-          </div>
-          <div class="tiles">
-            {tiles.map((tile) => (
-              <div class="card tile">
-                <span class="value">{tile.value}</span>
-                <span class="label">{tile.label}</span>
-              </div>
-            ))}
-          </div>
+          )}
           <p class="caption">
             {provenance}
             <a href={CONTENT.GITHUB_URL} rel="me noopener" target="_blank">
@@ -113,23 +130,13 @@ const provenance = ((): string => {
     color: var(--text-muted);
     margin-bottom: var(--space-5);
   }
-  .heatmap-card {
-    padding: var(--space-5);
-  }
-  .notice {
-    color: var(--text-muted);
-    font-size: var(--text-base);
-  }
-  .notice code {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--accent);
-  }
   .tiles {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--space-3);
-    margin-top: var(--space-4);
   }
   .tile {
     padding: var(--space-4);
@@ -146,26 +153,77 @@ const provenance = ((): string => {
   }
   .tile .label {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+  .tile .detail {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .calendar {
+    margin-top: var(--space-6);
+  }
+  .calendar summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-height: var(--tap);
+    cursor: pointer;
+    list-style: none;
+  }
+  .calendar summary::-webkit-details-marker {
+    display: none;
+  }
+  .calendar-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .calendar-title::before {
+    content: '\25B8  ';
+  }
+  .calendar[open] .calendar-title::before {
+    content: '\25BE  ';
+  }
+  .calendar-note {
+    max-width: 62ch;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .calendar[open] summary {
+    margin-bottom: var(--space-4);
+  }
+  .heatmap-card {
+    padding: var(--space-5);
+  }
+  .notice {
+    color: var(--text-muted);
+    font-size: var(--text-base);
+  }
+  .notice code {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent);
+  }
+  .footnote {
+    margin-top: var(--space-3);
+    max-width: 72ch;
+    font-size: var(--text-sm);
     color: var(--text-muted);
   }
   .caption {
-    margin-top: var(--space-5);
+    margin-top: var(--space-4);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
-  /* Two tiles per row on phones instead of one tall column. */
   @media (max-width: 599px) {
     .heatmap-card {
       padding: var(--space-4);
     }
     .tiles {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    /* An odd tile count would otherwise leave a lone half-width card. */
-    .tile:last-child:nth-child(odd) {
-      grid-column: span 2;
     }
     .tile .value {
       font-size: var(--text-xl);

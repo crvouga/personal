@@ -5,11 +5,11 @@ const section = CONTENT.GET_SECTION('about');
 const school = CONTENT.SCHOOL[0];
 ---
 
-<section id="about">
+<section id="about" aria-labelledby="about-title">
   <div class="container">
     <div class="section-heading">
-      <span class="number">{section.number}</span>
-      <h2>{section.title}</h2>
+      <span class="number" aria-hidden="true">{section.number}</span>
+      <h2 id="about-title">{section.title}</h2>
     </div>
     <div class="prose">
       {CONTENT.ABOUT_ME_PARAGRAPHS.map((paragraph) => <p set:html={paragraph} />)}
@@ -35,13 +35,19 @@ const school = CONTENT.SCHOOL[0];
     <div class="toolbox">
       <h3 class="toolbox-title">Toolbox</h3>
       {
-        CONTENT.SKILL_ROWS.map((row) => (
+        CONTENT.TOOLBOX.primary.map((row) => (
           <div class="tool-row">
             <span class="tool-cat">{row.category}</span>
             <span class="tool-items">{row.items.join(' · ')}</span>
           </div>
         ))
       }
+      {CONTENT.TOOLBOX.also.length > 0 && (
+        <details class="also">
+          <summary>Also shipped with ({CONTENT.TOOLBOX.also.length})</summary>
+          <p class="tool-items">{CONTENT.TOOLBOX.also.join(' · ')}</p>
+        </details>
+      )}
     </div>
   </div>
 </section>
@@ -67,7 +73,7 @@ const school = CONTENT.SCHOOL[0];
   .credential-label {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--text-subtle);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     padding-top: 2px;
@@ -98,6 +104,19 @@ const school = CONTENT.SCHOOL[0];
     }
   }
   .tool-cat {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent);
+  }
+  .also {
+    border-top: 1px solid var(--paper-border);
+    padding-top: var(--space-2);
+  }
+  .also summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    cursor: pointer;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--accent);

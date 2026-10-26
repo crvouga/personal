@@ -4,60 +4,68 @@ import ProjectCard from '../components/ProjectCard.astro';
 import GalleryDialog from '../components/GalleryDialog.astro';
 import { CONTENT } from '../content/content';
 import { ARCHIVE_PROJECTS } from '../content/project';
-import { LISTED_PROJECTS, galleryFor } from '../lib/projects-view';
+import {
+  LISTED_PROJECTS,
+  PROJECT_TOTALS,
+  galleryFor,
+  projectHref,
+} from '../lib/projects-view';
 import { seoForIndex } from '../lib/seo';
 
-// One flat array so `data-gallery` indexes stay valid across the fold.
-const galleries = [...LISTED_PROJECTS, ...ARCHIVE_PROJECTS].map(galleryFor);
-const archiveOffset = LISTED_PROJECTS.length;
-const total = LISTED_PROJECTS.length + ARCHIVE_PROJECTS.length;
+const galleries = LISTED_PROJECTS.map(galleryFor);
 
 const seo = seoForIndex({
   title: `All projects — ${CONTENT.PAGE_TITLE}`,
-  description: `All ${total} projects: production platforms in education and health, developer tools, and experiments.`,
+  description: `${String(PROJECT_TOTALS.listed)} projects: production platforms in education and health, developer tools, and the infrastructure behind them.`,
   path: '/projects/',
 });
 ---
 
 <Page seo={seo}>
-  <section class="container archive">
+  <section class="container archive" aria-labelledby="projects-title">
     <a class="back" href="/#projects">&#8592; Home</a>
     <header>
-      <h1>All projects</h1>
+      <h1 id="projects-title">All projects</h1>
       <p class="lede">
-        All {total} projects, in the order I would show them. A{' '}
+        <span data-project-count={PROJECT_TOTALS.listed}>{PROJECT_TOTALS.listed} projects</span>,
+        in the order I would show them, plus {PROJECT_TOTALS.archived} early ones in the
+        archive below. A{' '}
         <strong class="handwritten-text">Hand-written</strong>{' '}
         footer marks work from before AI coding agents, dated from each project's git history.
       </p>
     </header>
+    <h2 class="visually-hidden">Listed projects</h2>
     <div class="grid">
       {
         LISTED_PROJECTS.map((project, index) => (
-          <ProjectCard
-            project={project}
-            galleryIndex={index}
-          />
+          <ProjectCard project={project} galleryIndex={index} />
         ))
       }
     </div>
-    {/* Everything ever shipped, including the early games and toys. Folded
-        rather than dropped: it is padding for a reader, but it is still the
-        fastest way to find an old project. */}
+    {/* Early games, toys and client sites: one line each, folded. Kept so an
+        old project is still one click away; not shown as work samples. */}
     <details class="everything">
       <summary>
-        <span class="summary-label">
-          Everything else — {ARCHIVE_PROJECTS.length} early and small projects
-        </span>
-        <span class="summary-hint">games, toys, and client sites</span>
+        <span class="summary-label">Archive — {PROJECT_TOTALS.archived} early and small projects</span>
+        <span class="summary-hint">games, toys, demos and client sites</span>
       </summary>
-      <div class="grid">
-        {ARCHIVE_PROJECTS.map((project, index) => (
-          <ProjectCard
-            project={project}
-            galleryIndex={archiveOffset + index}
-          />
-        ))}
-      </div>
+      <ul class="archive-list">
+        {ARCHIVE_PROJECTS.map((project) => {
+          const href = projectHref(project);
+          return (
+            <li>
+              {href === null ? (
+                <span class="archive-title">{project.title}</span>
+              ) : (
+                <a class="archive-title" href={href} rel="noopener" target="_blank">
+                  {project.title}
+                </a>
+              )}
+              <span class="archive-desc">{project.description}</span>
+            </li>
+          );
+        })}
+      </ul>
     </details>
   </section>
   <GalleryDialog galleries={galleries} />
@@ -73,7 +81,7 @@ const seo = seoForIndex({
   .back {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--text-subtle);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
@@ -121,7 +129,7 @@ const seo = seoForIndex({
   }
   .everything summary::before {
     content: '\25B8';
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
   .everything[open] summary::before {
     content: '\25BE';
@@ -130,7 +138,33 @@ const seo = seoForIndex({
     text-decoration: underline;
   }
   .summary-hint {
-    color: var(--text-subtle);
+    color: var(--text-muted);
+  }
+  .archive-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .archive-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    padding-block: var(--space-2);
+    border-top: 1px solid var(--paper-border);
+  }
+  .archive-title {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+  .archive-desc {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
   }
   .everything[open] summary {
     margin-bottom: var(--space-5);

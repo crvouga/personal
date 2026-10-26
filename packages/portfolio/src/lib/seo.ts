@@ -1,8 +1,10 @@
 import { CONTENT } from '../content/content';
+import type { CaseStudy } from '../content/case-studies';
 import {
   CARD_HEIGHT,
   CARD_WIDTH,
   buildCardContent,
+  buildCaseStudyCardContent,
   cardVersion,
 } from '../social/card';
 import type { Seo, SeoImage } from './seo-types';
@@ -89,4 +91,56 @@ export const seoForNotFound = (): Seo => ({
   image: DEFAULT_OG_IMAGE,
   schema: { t: 'none' },
   noindex: true,
+});
+
+/** A case study: its own card, title and description, and an Article graph. */
+export const seoForCaseStudy = (
+  study: CaseStudy,
+  codeRepository?: string
+): Seo => ({
+  title: `${study.title} — ${SITE_NAME}`,
+  description: study.description,
+  path: `/projects/${study.slug}/`,
+  image: {
+    url: `${SITE_URL}/og/${study.slug}.png?v=${cardVersion(buildCaseStudyCardContent(study))}`,
+    alt: `${study.title}. ${study.subline}`,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    type: 'image/png',
+  },
+  schema: {
+    t: 'article',
+    breadcrumb: [
+      { name: 'Home', path: '/' },
+      { name: 'Projects', path: '/projects/' },
+      { name: study.title, path: `/projects/${study.slug}/` },
+    ],
+    ...(codeRepository === undefined ? {} : { codeRepository }),
+  },
+});
+
+/** A published post: its own card, and an Article under Home › Writing. */
+export const seoForPost = (post: {
+  readonly slug: string;
+  readonly title: string;
+  readonly description: string;
+}): Seo => ({
+  title: `${post.title} — ${SITE_NAME}`,
+  description: post.description,
+  path: `/writing/${post.slug}/`,
+  image: {
+    url: `${SITE_URL}/og/writing-${post.slug}.png?v=${cardVersion(buildCaseStudyCardContent({ title: post.title, subline: post.description }))}`,
+    alt: `${post.title}. ${post.description}`,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    type: 'image/png',
+  },
+  schema: {
+    t: 'article',
+    breadcrumb: [
+      { name: 'Home', path: '/' },
+      { name: 'Writing', path: '/writing/' },
+      { name: post.title, path: `/writing/${post.slug}/` },
+    ],
+  },
 });

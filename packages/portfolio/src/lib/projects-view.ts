@@ -1,3 +1,4 @@
+import { caseStudyFor } from '../content/case-studies';
 import { CONTENT } from '../content/content';
 import type { Project } from '../content/project';
 
@@ -24,14 +25,17 @@ export const isListed = (project: Project): boolean =>
 export const LISTED_PROJECTS: readonly Project[] =
   CONTENT.PROJECTS.filter(isListed);
 
-export const VISIBLE_PROJECTS: readonly Project[] = LISTED_PROJECTS.slice(
-  0,
-  VISIBLE_PROJECT_COUNT
-);
+/**
+ * A homepage flagship is a work sample, so a reviewer has to be able to open
+ * it: public source, or a case study that explains what cannot be shown.
+ */
+export const isReviewable = (project: Project): boolean =>
+  project.code.t === 'public' || caseStudyFor(project.id) !== undefined;
 
-export const COLLAPSED_PROJECTS: readonly Project[] = LISTED_PROJECTS.slice(
-  VISIBLE_PROJECT_COUNT
-);
+/** The first reviewable projects, in registry order. */
+export const VISIBLE_PROJECTS: readonly Project[] = LISTED_PROJECTS.filter(
+  isReviewable
+).slice(0, VISIBLE_PROJECT_COUNT);
 
 /** Live site if deployed, else the repository — never a dead link. */
 export const projectHref = (project: Project): string | null =>
@@ -46,6 +50,11 @@ export const projectHref = (project: Project): string | null =>
  * broken rather than as private work.
  */
 export const accessNote = (project: Project): string | null => {
+  // A live product with closed source: say so, or a missing Code link reads
+  // as an oversight.
+  if (project.deployment.t === 'public' && project.code.t === 'private') {
+    return project.setting === 'work' ? 'Client code' : 'Source private';
+  }
   if (projectHref(project) !== null) return null;
   switch (project.deployment.t) {
     case 'not-deployed-anymore':
@@ -68,21 +77,39 @@ export type GalleryItem =
  */
 export const toGalleryItems = (
   sources: readonly string[],
-  label: string
-): GalleryItem[] =>
-  [...new Set(sources)].map((src) =>
-    YOUTUBE_EMBED.test(src)
-      ? { kind: 'video' as const, src }
-      : { kind: 'image' as const, src, alt: `${label} — screenshot` }
-  );
+  label: string,
+  coverAlt?: string
+): GalleryItem[] => {
+  const unique = [...new Set(sources)];
+  return unique.map((src, index) => {
+    if (YOUTUBE_EMBED.test(src)) return { kind: 'video' as const, src };
+    // The cover is described; the rest are numbered, so a screen-reader user
+    // still knows where they are in the set.
+    const alt =
+      index === 0 && coverAlt !== undefined && coverAlt !== ''
+        ? coverAlt
+        : `${label}, image ${String(index + 1)} of ${String(unique.length)}`;
+    return { kind: 'image' as const, src, alt };
+  });
+};
 
 /** Cover first, then gallery entries. */
 export const galleryFor = (project: Project): GalleryItem[] =>
   toGalleryItems(
     [...project.imageSrc, ...project.galleryImageSrc],
-    project.title
+    project.title,
+    project.imageAlt
   );
 
 /** Gallery payload for the dialog, indexed by card position. */
 export const VISIBLE_GALLERIES: readonly (readonly GalleryItem[])[] =
   VISIBLE_PROJECTS.map(galleryFor);
+
+/**
+ * The one source for every project count the site prints, so the homepage
+ * link and `/projects/` cannot disagree (they once said 17 and 26).
+ */
+export const PROJECT_TOTALS = {
+  listed: LISTED_PROJECTS.length,
+  archived: CONTENT.ARCHIVE_PROJECTS.length,
+} as const;

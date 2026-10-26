@@ -1,4 +1,5 @@
-/* Design tokens — ported from src/ui/theme.ts before its deletion. */
+/* Design tokens. Every text/background pair is held to WCAG AA (4.5:1) by
+   src/styles/contrast.test.ts, in both themes. */
 
 @font-face {
   font-family: 'Inter Variable';
@@ -30,7 +31,8 @@
   --paper-border-hover: #2e2e36;
   --text: #f2f4f8;
   --text-muted: #a3abba;
-  --text-subtle: #727a88;
+  /* 5.6:1 on --paper; the old #727a88 measured 4.39:1 and failed AA. */
+  --text-subtle: #848c9a;
 
   --accent: #7fb3ff;
   --accent-strong: #4c8de8;
@@ -38,7 +40,15 @@
   --accent-soft: rgba(127, 179, 255, 0.12);
   --accent-glow: rgba(127, 179, 255, 0.18);
   --accent-hover: #a6cbff;
+  /* Primary button hover: white text keeps 8:1 (the brighter strong accent
+     dropped it to 3.3:1). */
+  --accent-deep-hover: #1a4f99;
+  --on-accent: #ffffff;
   --success: #3fb950;
+  --nav-bg: rgba(10, 10, 11, 0.85);
+  --scrim: rgba(10, 10, 11, 0.8);
+  --handwritten-text-a: #b388ff;
+  --handwritten-text-b: #e0ccff;
   /* Hand-written work: purple, cool like the palette but never mistaken for
      the blue of a link or the green of a live status. */
   --handwritten: #51278a;
@@ -94,6 +104,37 @@
   --tap: 44px;
 }
 
+/* Light theme: the same tokens, chosen for the same contrast floor. The share
+   card and the résumé are light already, so this is the brand in daylight. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6f9;
+    --paper: #ffffff;
+    --paper-border: #d9dee6;
+    --paper-border-hover: #b9c1cd;
+    --text: #0d1117;
+    --text-muted: #424a57;
+    --text-subtle: #59616e;
+    --accent: #1557b0;
+    --accent-strong: #1e5baf;
+    --accent-deep: #1e5baf;
+    --accent-deep-hover: #0d3f86;
+    --accent-soft: rgba(21, 87, 176, 0.08);
+    --accent-glow: rgba(21, 87, 176, 0.2);
+    --accent-hover: #0d3f86;
+    --success: #1f7a33;
+    --nav-bg: rgba(244, 246, 249, 0.88);
+    --scrim: rgba(13, 17, 23, 0.6);
+    --handwritten-text-a: #6b3fb5;
+    --handwritten-text-b: #9a6be0;
+    --gh-0: #e6e9ee;
+    --gh-1: #b6d3fb;
+    --gh-2: #6aa5f0;
+    --gh-3: #2f74d0;
+    --gh-4: #134b9c;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -108,7 +149,7 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 96px;
   background: var(--bg);
-  color-scheme: dark;
+  color-scheme: dark light;
 }
 
 body {
@@ -135,7 +176,7 @@ a {
 }
 
 a:hover {
-  color: #a6cbff;
+  color: var(--accent-hover);
 }
 
 :focus-visible {
@@ -158,7 +199,7 @@ li a,
 }
 
 .inline-link:hover {
-  color: #a6cbff;
+  color: var(--accent-hover);
 }
 
 h1,
@@ -222,7 +263,7 @@ img {
 }
 
 section {
-  padding-block: var(--space-8);
+  padding-block: var(--space-7);
 }
 
 @media (min-width: 900px) {
@@ -298,12 +339,13 @@ section {
 .btn-contained {
   border-color: var(--accent-deep);
   background: var(--accent-deep);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn-contained:hover {
-  background: var(--accent-strong);
-  color: #fff;
+  border-color: var(--accent-deep-hover);
+  background: var(--accent-deep-hover);
+  color: var(--on-accent);
 }
 
 .chip {
@@ -336,9 +378,9 @@ section {
   color: transparent;
   background-image: linear-gradient(
     110deg,
-    #b388ff 0% 38%,
-    #e0ccff 50%,
-    #b388ff 62% 100%
+    var(--handwritten-text-a) 0% 38%,
+    var(--handwritten-text-b) 50%,
+    var(--handwritten-text-a) 62% 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -404,6 +446,63 @@ section {
     animation-duration: 0.01ms !important;
   }
   /* A looping animation cut to 0.01ms would strobe, so this one stops. */
+  .handwritten-text,
+  .handwritten-footer {
+    animation: none;
+  }
+}
+
+/* Print: reviewers print pages. Black on white, every external link's address
+   spelled out, and nothing that only works on a screen. */
+@media print {
+  :root {
+    --bg: #ffffff;
+    --paper: #ffffff;
+    --paper-border: #c9ced6;
+    --text: #000000;
+    --text-muted: #1f242c;
+    --text-subtle: #3a414c;
+    --accent: #0b3d82;
+    --accent-hover: #0b3d82;
+  }
+  html,
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+  body {
+    padding-bottom: 0;
+  }
+  .nav,
+  .skip-link,
+  .sticky-cta,
+  .gallery-btn,
+  .socials,
+  .heatmap-card,
+  .calendar-title,
+  .calendar-note,
+  dialog,
+  [data-copy] {
+    display: none !important;
+  }
+  section {
+    padding-block: 16px;
+    break-inside: avoid-page;
+  }
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+    color: #3a414c;
+  }
+  a[href$='.pdf']::after {
+    content: ' (https://www.chrisvouga.dev/chris-vouga-resume.pdf)';
+    font-size: 0.85em;
+  }
   .handwritten-text,
   .handwritten-footer {
     animation: none;

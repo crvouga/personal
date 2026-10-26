@@ -38,7 +38,7 @@ const galleriesJson = JSON.stringify(galleries);
     width: min(92vw, 1100px);
   }
   dialog.gallery::backdrop {
-    background: rgba(10, 10, 11, 0.8);
+    background: var(--scrim);
   }
   /* One fixed box for every slide. Portrait screenshots, landscape screenshots
      and 16:9 video all letterbox inside it rather than resizing the dialog. */
