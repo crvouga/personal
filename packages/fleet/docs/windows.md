@@ -20,7 +20,7 @@ enough, it stops before partitioning and offers the USB route. Transient network
 failures retry automatically up to three attempts. Reloading the browser
 reconnects to the current installation; it never repeats your erase approval.
 
-**Honesty first.** The author has never run this on a real Windows computer. What has been checked without one: every PowerShell script is parsed by the real PowerShell parser and run against stand-in cmdlets; the UEFI boot option is compared byte for byte with a layout worked out by hand from the UEFI specification; every step and every undo is tested against a model of Windows. What has _not_ been checked: that Windows' own storage tools, `bcdedit`, `mountvol`, the firmware of your particular PC and the unsigned GRUB behave as expected. Try it on a spare machine first, with everything on it backed up.
+**Validation limits.** A complete conversion and firmware handoff have not been verified on a real Windows computer. What has been checked without one: every PowerShell script is parsed by the real PowerShell parser and run against stand-in cmdlets; the UEFI boot option is compared byte for byte with a layout worked out by hand from the UEFI specification; every step and every undo is tested against a model of Windows. What has _not_ been checked: that Windows' own storage tools, `bcdedit`, `mountvol`, the firmware of your particular PC and the unsigned GRUB behave as expected. Try it on a spare machine first, with everything on it backed up.
 
 <details>
 <summary>Advanced reference: checks, boot internals and recovery</summary>
@@ -181,6 +181,7 @@ Verified without Windows (tests in `tests/`):
 - Every PowerShell script the program sends is parsed by PowerShell 7's parser (`tests/test_powershell.py`; needs `pwsh` or Docker, and is _skipped_ locally and _fails_ in CI when neither exists), and run against stand-in cmdlets so their property names, pipelines and JSON are exercised. They are single-line, use only single quotes, and read back only JSON and property names, so the language of your Windows does not matter.
 - The `Boot####` load option, its device path, the mixed-endian GUID and `BootNext` are checked byte for byte against a hand-derived value, and the `kernel32` calls (privilege, read, write, delete) run against stand-in DLLs.
 - The conversion against a model of Windows, with a failure injected at each step: the model always ends up as it started (`tests/test_windows_stage.py`, `tests/test_fleet_node.py`).
+- The ISO reader and conversion fixtures include NixOS store paths with repeated slashes, such as `/boot//nix/store/...` (issue #148). CI also reads every role's kernel, initrd and EFI loader from the built ISO before it can be published. This verifies image compatibility; it does not verify a physical firmware handoff.
 - Writes at offsets past 4 GiB and past 2 TiB (sparse file), sector alignment, and the retry through the partition's own device.
 
 Not verified, and the first places to look if it fails on real hardware:

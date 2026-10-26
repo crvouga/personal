@@ -218,6 +218,17 @@ class StageCase(unittest.TestCase):
 
 
 class HappyPathTest(StageCase):
+    def test_missing_boot_files_stop_before_windows_is_changed(self):
+        world = self.world()
+        tree = iso_fixture.installer_tree()
+        del tree['boot']['nix']['store'][iso_fixture.KERNEL_STORE]['bzImage']
+        self.iso.write_bytes(iso_fixture.build(tree))
+        with self.assertRaises(decide.Invariant):
+            self.stage(world, firmware=None)
+        self.assertTrue(world.clean())
+        self.assertNotIn('shrink', world.ops)
+        self.assertIsNone(world.restart)
+
     def test_wifi_uses_a_separate_initramfs_and_never_the_kernel_command(self):
         import gzip
         network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": True}
@@ -247,6 +258,9 @@ class HappyPathTest(StageCase):
         self.assertEqual(world.order, [ENTRY])
         self.assertEqual(world.esp_files(), ["EFI/BOOT/grub.cfg", "EFI/fleet/grubx64.efi"])
         self.assertEqual((world.esp / "EFI/fleet/grubx64.efi").read_bytes(), b"GRUB-PROGRAM")
+        config = (world.esp / "EFI/BOOT/grub.cfg").read_text()
+        self.assertIn(f"linux {iso_fixture.KERNEL_PATH} ", config)
+        self.assertIn(f"initrd {iso_fixture.INITRD_PATH}\n", config)
         self.assertEqual(world.partitions, [5])
         self.assertTrue(world.c_size < world.facts["Size"])
         # BootOrder gained the new option at the END; BootNext chooses it; the option is the hand-checked layout.

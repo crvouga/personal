@@ -1,21 +1,36 @@
 #!/usr/bin/env python3
 """Split the offline ISO into release assets below GitHub's 2 GiB limit."""
+import argparse
 import hashlib
 import json
-import sys
 from pathlib import Path
 import decide
 
 PART_SIZE = 1024 ** 3
 
 
+def validate_image(source):
+    """Exercise the installer's reader against the built ISO before publishing.
+
+    Boot menus alone do not prove their referenced files can be found or read.
+    Check every role, including Windows' marker and EFI loader requirements.
+    """
+    with open(source, 'rb') as image:
+        files = decide._iso_index(image)
+        readiness = json.loads(decide._iso_bytes(image, files, 'fleet-readiness.json'))
+        for role in decide.ROLES:
+            linux, initrd, _, _ = decide.iso_boot_material(source, role)
+            decide._iso_bytes(image, files, linux)
+            decide._iso_bytes(image, files, initrd)
+    if readiness.get('version') != 1 or not isinstance(readiness.get('roles'), dict):
+        raise ValueError('installer image has no valid onboarding readiness metadata')
+    return readiness
+
+
 def package_image(source, directory, part_size=PART_SIZE):
     if not 0 < part_size < 2 * 1024 ** 3:
         raise ValueError("release parts must be smaller than 2 GiB")
-    with open(source, 'rb') as image:
-        readiness = json.loads(decide._iso_bytes(image, decide._iso_index(image), 'fleet-readiness.json'))
-    if readiness.get('version') != 1 or not isinstance(readiness.get('roles'), dict):
-        raise ValueError('installer image has no valid onboarding readiness metadata')
+    readiness = validate_image(source)
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
@@ -50,4 +65,14 @@ def package_image(source, directory, part_size=PART_SIZE):
 
 
 if __name__ == "__main__":
-    package_image(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='validate boot material without creating release assets')
+    parser.add_argument('source', type=Path)
+    parser.add_argument('directory', type=Path, nargs='?')
+    args = parser.parse_args()
+    if args.check:
+        validate_image(args.source)
+    elif args.directory is None:
+        parser.error('directory is required when packaging an image')
+    else:
+        package_image(args.source, args.directory)

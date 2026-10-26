@@ -44,6 +44,45 @@ class ReleaseImageTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release_image.package_image(self.source, self.release, bad)
 
+    def test_unbootable_images_are_refused_before_creating_release_assets(self):
+        paths = [
+            ('boot', 'nix', 'store', iso_fixture.KERNEL_STORE, 'bzImage'),
+            ('boot', 'nix', 'store', iso_fixture.INITRD_STORE, 'initrd'),
+            ('EFI', 'BOOT', 'BOOTX64.EFI'),
+            ('EFI', 'nixos-installer-image'),
+        ]
+        for path in paths:
+            for replacement in (None, b''):
+                # The marker is deliberately an empty file in real NixOS ISOs.
+                if path[-1] == 'nixos-installer-image' and replacement == b'':
+                    continue
+                with self.subTest(path=path, replacement=replacement):
+                    tree = iso_fixture.installer_tree()
+                    tree['fleet-readiness.json'] = b'{"version":1,"roles":{}}'
+                    parent = tree
+                    for name in path[:-1]:
+                        parent = parent[name]
+                    if replacement is None:
+                        del parent[path[-1]]
+                    else:
+                        parent[path[-1]] = replacement
+                    self.source.write_bytes(iso_fixture.build(tree))
+                    output = self.root / 'invalid-release'
+                    with self.assertRaises((decide.Invariant, ValueError)):
+                        release_image.package_image(self.source, output, 20000)
+                    self.assertFalse(output.exists())
+
+    def test_release_requires_a_boot_entry_for_every_role(self):
+        for role in decide.ROLES:
+            with self.subTest(role=role):
+                tree = iso_fixture.installer_tree()
+                tree['fleet-readiness.json'] = b'{"version":1,"roles":{}}'
+                config = tree['isolinux']['isolinux.cfg']
+                tree['isolinux']['isolinux.cfg'] = config.replace(f'fleet.role={role}'.encode(), b'fleet.role=missing')
+                self.source.write_bytes(iso_fixture.build(tree))
+                with self.assertRaises(decide.Invariant):
+                    release_image.validate_image(self.source)
+
     def test_both_probes_report_the_whole_size(self):
         with mock.patch.dict(os.environ, {"FLEET_INSTALLER_URL": self.url}):
             self.assertEqual(decide.probe_installer(), (None, self.source.stat().st_size))

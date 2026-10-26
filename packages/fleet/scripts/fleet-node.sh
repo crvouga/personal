@@ -1052,11 +1052,22 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     return files
 #
 #
-# def _iso_bytes(handle, files, path):
-#     key = path.lstrip("/")
+# def _iso_path(path):
+#     # ISO paths are POSIX on every host. NixOS prepends /boot/ to an absolute
+#     # store path, so its boot menus legitimately contain /boot//nix/store/...
+#     return re.sub(r"/+", "/", path)
+#
+#
+# def _iso_key(files, path):
+#     key = _iso_path(path).lstrip("/")
 #     if key not in files:
 #         folded = {name.lower(): name for name in files}
 #         key = folded.get(key.lower())
+#     return key
+#
+#
+# def _iso_bytes(handle, files, path):
+#     key = _iso_key(files, path)
 #     if key is None:
 #         raise ValueError(f"missing {path}")
 #     extent, size = files[key]
@@ -1083,9 +1094,9 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #                 blocks.append(current)
 #             current = {"label": rest.strip()}
 #         elif head == "LINUX" and rest.strip():
-#             current["linux"] = rest.strip()
+#             current["linux"] = _iso_path(rest.strip())
 #         elif head == "INITRD" and rest.strip():
-#             current["initrd"] = rest.strip()
+#             current["initrd"] = _iso_path(rest.strip())
 #         elif head == "APPEND":
 #             current["append"] = rest.strip()
 #     if current.get("linux") and current.get("initrd"):
@@ -1780,8 +1791,7 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #
 #
 # def _iso_has(files, path):
-#     key = path.lstrip("/")
-#     return key in files or key.lower() in {name.lower() for name in files}
+#     return _iso_key(files, path) is not None
 #
 #
 # def iso_boot_material(iso_path, role):
