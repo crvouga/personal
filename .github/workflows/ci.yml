@@ -555,6 +555,9 @@ jobs:
         with:
           path: packages/fleet/.ci/nix-results.json
           key: ${{ steps.vm_cache.outputs.cache-primary-key }}
+      - name: Validate every role's boot material in the built ISO
+        if: matrix.group == 'image'
+        run: python3 packages/fleet/scripts/release-image.py --check packages/fleet/result-iso/iso/fleet-installer.iso
       - name: Upload fleet-installer
         if: matrix.group == 'image' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4

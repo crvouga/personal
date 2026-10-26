@@ -75,7 +75,9 @@ class World:
             self.maybe_fail("restore")
             wanted = int(re.search(r"-lt \[uint64\](\d+)", script).group(1))
             if self.c_size < wanted:
-                self.c_size = min(wanted, self.facts["SizeMax"])
+                if wanted > self.facts["SizeMax"]:
+                    raise decide.Invariant("the original system partition size cannot be restored yet", "test", {})
+                self.c_size = wanted
             return ""
         if "New-Partition" in script:
             self.maybe_fail("new-partition")
@@ -90,7 +92,7 @@ class World:
             return ""
         if "Parts = $found" in script:
             self.maybe_fail("list-linux")
-            return json.dumps({"Parts": [{"Number": n, "Offset": 1048576, "Size": self.partition_size, "Guid": "{99999999-8888-7777-6666-555555555555}"}
+            return json.dumps({"Offset": 1048576, "Parts": [{"Number": n, "Offset": 1048576, "Size": self.partition_size, "Guid": "{99999999-8888-7777-6666-555555555555}"}
                                          for n in self.partitions]})
         if "/S" in script and "mountvol" in script:
             self.maybe_fail("mount")
@@ -141,6 +143,9 @@ class World:
         if text == "/enum {fwbootmgr}":
             self.maybe_fail("bcd:enum")
             return f"bootsequence              {self.sequence}\n" if self.sequence and not self.hide_sequence else "displayorder\n"
+        if text == "/enum all":
+            self.maybe_fail("bcd:enum-all")
+            return '\n'.join(sorted(self.entries))
         raise AssertionError("an unexpected bcdedit call: " + text)
 
     # -- shutdown, and bcdedit probes that may fail
@@ -218,6 +223,17 @@ class StageCase(unittest.TestCase):
 
 
 class HappyPathTest(StageCase):
+    def test_missing_boot_files_stop_before_windows_is_changed(self):
+        world = self.world()
+        tree = iso_fixture.installer_tree()
+        del tree['boot']['nix']['store'][iso_fixture.KERNEL_STORE]['bzImage']
+        self.iso.write_bytes(iso_fixture.build(tree))
+        with self.assertRaises(decide.Invariant):
+            self.stage(world, firmware=None)
+        self.assertTrue(world.clean())
+        self.assertNotIn('shrink', world.ops)
+        self.assertIsNone(world.restart)
+
     def test_wifi_uses_a_separate_initramfs_and_never_the_kernel_command(self):
         import gzip
         network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": True}
@@ -247,6 +263,9 @@ class HappyPathTest(StageCase):
         self.assertEqual(world.order, [ENTRY])
         self.assertEqual(world.esp_files(), ["EFI/BOOT/grub.cfg", "EFI/fleet/grubx64.efi"])
         self.assertEqual((world.esp / "EFI/fleet/grubx64.efi").read_bytes(), b"GRUB-PROGRAM")
+        config = (world.esp / "EFI/BOOT/grub.cfg").read_text()
+        self.assertIn(f"linux {iso_fixture.KERNEL_PATH} ", config)
+        self.assertIn(f"initrd {iso_fixture.INITRD_PATH}\n", config)
         self.assertEqual(world.partitions, [5])
         self.assertTrue(world.c_size < world.facts["Size"])
         # BootOrder gained the new option at the END; BootNext chooses it; the option is the hand-checked layout.
@@ -482,17 +501,17 @@ class FailureAfterEachStepTest(StageCase):
         self.assertEqual(order, sorted(order))
         self.assertLess(ops.index("unmount"), ops.index("shutdown"), "the EFI system partition is unmounted before the restart")
         undone = [name for name in ops[ops.index("shutdown"):] if name in ("bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "unmount", "remove-partition", "restore")]
-        self.assertEqual(undone, ["bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "remove-partition", "restore"])
+        self.assertEqual(undone, ["bcd:sequence-clear", "bcd:displayorder-remove", "bcd:delete", "unmount", "remove-partition", "restore"])
 
-    def test_an_undo_step_that_fails_is_reported_but_does_not_stop_the_rest(self):
+    def test_a_boot_undo_failure_keeps_the_loader_and_installer_for_safe_recovery(self):
         world = self.world()
         world.fail_at = {"shutdown", "bcd:delete", "bcd:displayorder-remove"}
         with self.assertRaises(decide.Invariant):
             self.stage(world, None)
-        self.assertEqual(world.partitions, [], "the partition is still removed")
-        self.assertEqual(world.c_size, world.facts["Size"], "C: is still given back its space")
+        self.assertEqual(world.partitions, [5], "the boot entry may still need this installer")
+        self.assertLess(world.c_size, world.facts["Size"], "the installer partition still occupies its carved-out space")
         self.assertFalse(world.mounted)
-        self.assertEqual(world.esp_files(), [])
+        self.assertEqual(world.esp_files(), ['EFI/BOOT/grub.cfg', 'EFI/fleet/grubx64.efi'])
         self.assertIn("Could not undo: delete the firmware boot entry", " ".join(self.says))
         self.assertEqual(world.entries, {ENTRY}, "what could not be undone is named for the person (see docs/windows.md)")
 

@@ -169,7 +169,14 @@ class NodeEntryTests(unittest.TestCase):
               *)
                 printf '%s\\n' "$cmd" >> {self.root}/powershell-calls
                 case "$cmd" in
-                  *New-Partition*) echo '{{"Number":5,"Offset":1048576,"Size":16777216}}' ;;
+                  *New-Partition*) touch {self.root}/new-partition; echo '{{"Number":5,"Offset":1048576,"Size":16777216,"Guid":"{{99999999-8888-7777-6666-555555555555}}"}}' ;;
+                  *Remove-Partition*) rm -f {self.root}/new-partition ;;
+                  *'Parts = $found'*)
+                    if [ -f {self.root}/new-partition ]; then
+                      echo '{{"Offset":1048576,"Parts":[{{"Number":5,"Offset":1048576,"Size":16777216,"Guid":"{{99999999-8888-7777-6666-555555555555}}"}}]}}'
+                    else
+                      echo '{{"Offset":1048576,"Parts":[]}}'
+                    fi ;;
                   *mountvol*/S*) echo '{{"Root":"{self.root}/esp/","Letter":"Z"}}' ;;
                   *Get-Partition\\ -DriveLetter*ConvertTo-Json*) cat {self.root}/esp-part.json 2>/dev/null ;;
                 esac
@@ -194,8 +201,18 @@ class NodeEntryTests(unittest.TestCase):
             #!/bin/bash
             printf '%s\\n' "$*" >> {self.bcd_log}
             case "$1" in
-              /copy) echo 'The entry was successfully copied to {{11111111-2222-3333-4444-555555555555}}.' ;;
-              /enum) [ -f {self.root}/bcd-reject ] || echo 'bootsequence              {{11111111-2222-3333-4444-555555555555}}' ;;
+              /copy)
+                touch {self.root}/bcd-entry
+                echo 'The entry was successfully copied to {{11111111-2222-3333-4444-555555555555}}.' ;;
+              /set) if [ "$3" = bootsequence ]; then touch {self.root}/bcd-sequence; fi ;;
+              /deletevalue) rm -f {self.root}/bcd-sequence ;;
+              /delete) rm -f {self.root}/bcd-entry {self.root}/bcd-sequence ;;
+              /enum)
+                if [ "$2" = all ]; then
+                  if [ -f {self.root}/bcd-entry ]; then echo 'identifier {{11111111-2222-3333-4444-555555555555}}'; fi
+                elif [ -f {self.root}/bcd-sequence ] && [ ! -f {self.root}/bcd-reject ]; then
+                  echo 'bootsequence              {{11111111-2222-3333-4444-555555555555}}'
+                fi ;;
             esac
             """)
         write_executable(self.bin / "shutdown", f"""\
@@ -1493,6 +1510,8 @@ class NodeEntryTests(unittest.TestCase):
         self.boot_log.unlink(missing_ok=True)
         (self.state / "installed").unlink(missing_ok=True)
         (self.state / "windows-staging.json").unlink(missing_ok=True)  # another machine: no earlier conversion
+        for marker in ("new-partition", "bcd-entry", "bcd-sequence"):
+            (self.root / marker).unlink(missing_ok=True)
         self._windows([{
             "DeviceID": r"\\.\PHYSICALDRIVE0",
             "Model": "Samsung SSD 980",

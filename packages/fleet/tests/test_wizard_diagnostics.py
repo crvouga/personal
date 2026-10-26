@@ -397,6 +397,20 @@ class ApprovalReuseTests(unittest.TestCase):
 
 
 class GuidanceMatchingTests(unittest.TestCase):
+    def test_failed_restart_cancellation_explains_why_staged_files_remain(self):
+        advice = diagnostics.guidance("the scheduled restart could not be confirmed cancelled", decide.WINDOWS_RESTART_RECOVERY_FIX, changed=True)
+        self.assertIn("restart scheduled", advice['summary'])
+        self.assertIn("staged boot files", advice['summary'])
+        self.assertIn("shutdown /a", advice['steps'][0])
+        self.assertTrue(advice['retry'])
+
+    def test_a_boot_layout_failure_does_not_assume_the_installer_is_old(self):
+        advice = diagnostics.guidance("the installer image does not have the boot layout this installer expects", decide.NEWER_RELEASE_FIX)
+        self.assertIn("boot files", advice["summary"])
+        self.assertNotIn("older", advice["summary"])
+        self.assertTrue(any("already have the latest" in step for step in advice["steps"]))
+        self.assertFalse(advice["retry"])
+
     def test_words_in_the_fix_do_not_change_what_the_failure_is(self):
         advice = diagnostics.guidance("The Wi-Fi password must be 8 to 63 characters", "Check the Wi-Fi network name and password.")
         self.assertNotIn("network connection", advice["summary"])

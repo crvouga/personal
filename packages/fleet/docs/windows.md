@@ -20,7 +20,7 @@ enough, it stops before partitioning and offers the USB route. Transient network
 failures retry automatically up to three attempts. Reloading the browser
 reconnects to the current installation; it never repeats your erase approval.
 
-**Honesty first.** The author has never run this on a real Windows computer. What has been checked without one: every PowerShell script is parsed by the real PowerShell parser and run against stand-in cmdlets; the UEFI boot option is compared byte for byte with a layout worked out by hand from the UEFI specification; every step and every undo is tested against a model of Windows. What has _not_ been checked: that Windows' own storage tools, `bcdedit`, `mountvol`, the firmware of your particular PC and the unsigned GRUB behave as expected. Try it on a spare machine first, with everything on it backed up.
+**Validation limits.** A complete conversion and firmware handoff have not been verified on a real Windows computer. What has been checked without one: every PowerShell script is parsed by the real PowerShell parser and run against stand-in cmdlets; the UEFI boot option is compared byte for byte with a layout worked out by hand from the UEFI specification; every step and every undo is tested against a model of Windows. What has _not_ been checked: that Windows' own storage tools, `bcdedit`, `mountvol`, the firmware of your particular PC and the unsigned GRUB behave as expected. Try it on a spare machine first, with everything on it backed up.
 
 <details>
 <summary>Advanced reference: checks, boot internals and recovery</summary>
@@ -68,19 +68,21 @@ required firmware change still need the person at the computer.
    5. The computer is told to **restart in 15 seconds**. Save any open work now: Windows may show an "apps are preventing restart" screen; choose _Restart anyway_.
 6. **The restart.** The screen shows a menu "Fleet installer: ERASES the internal disk and installs ROLE" for 3 seconds, then Linux boots. It copies the installer into RAM (a few minutes, text on screen), erases the disk, partitions it, installs NixOS, and restarts. Expect tens of minutes in total with no input. The machine comes back as `ROLE-xxxx` (the 4 hex digits come from the hardware).
 
-If anything in step 5 fails, every earlier part of step 5 is taken back, newest first, and Windows starts as before. The exit message names the log file.
+If anything in step 5 fails, the installer first confirms that no restart is pending, then removes the one-time boot entries before taking back the files and partition changes. If cancellation or boot-entry cleanup cannot be confirmed, it keeps the staged image, boot files and recovery journal so a pending boot does not lose its backing files. The exit message names what remains and the log file.
 
 ## Taking things back
 
 ### While the program is still running
 
-Nothing to do. A failed step undoes the earlier ones (restart cancelled, boot entries deleted, files removed, EFI partition unmounted, partition removed, `C:` grown back to its original size). If an undo step itself fails, the program prints `Could not undo: ...` and its result says which changes are still there; run the installer again (below) or use the by-hand steps for just those items.
+The installer attempts recovery automatically: restart cancelled, boot entries deleted, files removed, EFI partition unmounted, partition removed, `C:` grown back to its original size. It stops before removing files or partitions if a restart or one-time boot choice may still be active. If an undo step fails, the program prints `Could not undo: ...` and its result says which changes are still there; run the installer again (below) or use the by-hand steps for just those items.
 
 ### If the program was killed, the power went out, or an undo failed
 
 Run the installer again. Before every step the conversion records what it is about to change in `windows-staging.json` in the state folder (`%USERPROFILE%\.fleet`). The next run reads that record and takes those exact changes back first (the scheduled restart, the boot manager entry, the firmware option, the files on the EFI partition, the partition, the shrink), then starts again from the beginning. Running it twice never leaves two partitions or shrinks `C:` twice. If taking something back fails, it stops before changing anything new and names what is left; use the by-hand steps for that.
 
 Leftovers from installers older than this record cannot be identified for certain. The review then warns about Linux data partitions on the system disk; remove them by hand (step 3 below) if they are Fleet's.
+
+If the process stops before recording the new partition's GUID, recovery uses the recorded pre-existing GUIDs and the exact extent reserved for the new partition. It never identifies a partition by size alone. An older journal without enough identity evidence stops automatic recovery and asks for manual identification. New attempts write a version 2 journal so older installers refuse to interpret it; the updated installer can recover version 1 records when their partition identity is sufficient.
 
 ### After "restarting in 15 seconds" but before the restart
 
@@ -89,6 +91,8 @@ Leftovers from installers older than this record cannot be identified for certai
 ### Remove everything by hand
 
 All of these in an **administrator** PowerShell or Command Prompt. Do only the parts that apply.
+
+First run `shutdown /a` if a restart was scheduled. Continue only after it succeeds or Windows reports that no shutdown was in progress. If cancellation fails for another reason, keep the staged boot files and partition until the pending restart is resolved.
 
 1. **The one-time boot entries.** List them:
 
@@ -181,6 +185,7 @@ Verified without Windows (tests in `tests/`):
 - Every PowerShell script the program sends is parsed by PowerShell 7's parser (`tests/test_powershell.py`; needs `pwsh` or Docker, and is _skipped_ locally and _fails_ in CI when neither exists), and run against stand-in cmdlets so their property names, pipelines and JSON are exercised. They are single-line, use only single quotes, and read back only JSON and property names, so the language of your Windows does not matter.
 - The `Boot####` load option, its device path, the mixed-endian GUID and `BootNext` are checked byte for byte against a hand-derived value, and the `kernel32` calls (privilege, read, write, delete) run against stand-in DLLs.
 - The conversion against a model of Windows, with a failure injected at each step: the model always ends up as it started (`tests/test_windows_stage.py`, `tests/test_fleet_node.py`).
+- The ISO reader and conversion fixtures include NixOS store paths with repeated slashes, such as `/boot//nix/store/...` (issue #148). CI also reads every role's kernel, initrd and EFI loader from the built ISO before it can be published. This verifies image compatibility; it does not verify a physical firmware handoff.
 - Writes at offsets past 4 GiB and past 2 TiB (sparse file), sector alignment, and the retry through the partition's own device.
 
 Not verified, and the first places to look if it fails on real hardware:

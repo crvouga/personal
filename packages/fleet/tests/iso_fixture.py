@@ -3,6 +3,10 @@ installer's own reader (decide._iso_index) to walk. Used by the tests that need
 an image with a boot menu, a kernel, an initrd and a GRUB program inside."""
 
 SECTOR = 2048
+KERNEL_STORE = "szm281a0d9ibh9n0x66fph5xmv6pk7qp-linux-6.18.55"
+INITRD_STORE = "bk01d8hmdg11jq9lh63akvbd7iix76sc-initrd-linux-6.18.55"
+KERNEL_PATH = f"/boot/nix/store/{KERNEL_STORE}/bzImage"
+INITRD_PATH = f"/boot/nix/store/{INITRD_STORE}/initrd"
 
 
 def _dirent(ident, extent, size, is_dir, rr_name=None):
@@ -83,15 +87,19 @@ def build(tree):
     return bytes(image)
 
 
-def installer_tree(kernel=b"kernel-bytes\n", initrd=b"initrd-bytes\n", grub=b"grub-efi-program\n"):
+def installer_tree(kernel=b"kernel-bytes\n", initrd=b"initrd-bytes\n", grub=b"grub-efi-program\n", nix_store=True):
+    # The pinned nixpkgs menu prepends /boot/ to absolute store paths, giving
+    # /boot//nix/store/..., while the actual ISO has ordinary directory names.
+    linux_path = KERNEL_PATH.replace("/boot/", "/boot//") if nix_store else "/boot/bzImage"
+    initrd_path = INITRD_PATH.replace("/boot/", "/boot//") if nix_store else "/boot/initrd"
     entries = [("boot", "ci", "")] + [(f"boot-{role}", role, "") for role in ("web", "cache", "netboot", "devbox")]
     entries.append(("boot-copytoram", "ci", " copytoram"))
     config = ["DEFAULT boot"]
     for label, role, extra in entries:
-        config += [f"LABEL {label}", "LINUX /boot/bzImage",
-                   f"APPEND init=/nix/store/fleet/init root=LABEL=FLEET_ISO fleet.role={role}{extra}", "INITRD /boot/initrd"]
+        config += [f"LABEL {label}", f"LINUX {linux_path}",
+                   f"APPEND init=/nix/store/fleet/init root=LABEL=FLEET_ISO fleet.role={role}{extra}", f"INITRD {initrd_path}"]
     return {
         "isolinux": {"isolinux.cfg": ("\n".join(config) + "\n").encode()},
-        "boot": {"bzImage": kernel, "initrd": initrd},
+        "boot": {"nix": {"store": {KERNEL_STORE: {"bzImage": kernel}, INITRD_STORE: {"initrd": initrd}}}} if nix_store else {"bzImage": kernel, "initrd": initrd},
         "EFI": {"nixos-installer-image": b"x", "BOOT": {"BOOTX64.EFI": grub}},
     }

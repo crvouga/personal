@@ -1052,11 +1052,22 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     return files
 #
 #
-# def _iso_bytes(handle, files, path):
-#     key = path.lstrip("/")
+# def _iso_path(path):
+#     # ISO paths are POSIX on every host. NixOS prepends /boot/ to an absolute
+#     # store path, so its boot menus legitimately contain /boot//nix/store/...
+#     return re.sub(r"/+", "/", path)
+#
+#
+# def _iso_key(files, path):
+#     key = _iso_path(path).lstrip("/")
 #     if key not in files:
 #         folded = {name.lower(): name for name in files}
 #         key = folded.get(key.lower())
+#     return key
+#
+#
+# def _iso_bytes(handle, files, path):
+#     key = _iso_key(files, path)
 #     if key is None:
 #         raise ValueError(f"missing {path}")
 #     extent, size = files[key]
@@ -1083,9 +1094,9 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #                 blocks.append(current)
 #             current = {"label": rest.strip()}
 #         elif head == "LINUX" and rest.strip():
-#             current["linux"] = rest.strip()
+#             current["linux"] = _iso_path(rest.strip())
 #         elif head == "INITRD" and rest.strip():
-#             current["initrd"] = rest.strip()
+#             current["initrd"] = _iso_path(rest.strip())
 #         elif head == "APPEND":
 #             current["append"] = rest.strip()
 #     if current.get("linux") and current.get("initrd"):
@@ -1262,6 +1273,8 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 # WINDOWS_JOURNAL_NAME = "windows-staging.json"
 # WINDOWS_RECOVERY_FIX = ("Some changes from the conversion are still on this computer. Follow 'Remove everything by hand' in docs/windows.md "
 #                         "to remove them, then run the installer again. Until then, do not choose the Fleet installer in the boot menu.")
+# WINDOWS_RESTART_RECOVERY_FIX = ("Windows may still restart into the installer. Stop the scheduled restart from an administrator window with `shutdown /a`, "
+#                                 "then run the installer again. Keep the staged boot files and installer partition until the restart is confirmed cancelled.")
 # # What windows_findings last learned, so the plan printed by doctor and --plan
 # # does not need a second (slow) storage query.
 # WINDOWS = {"facts": None, "iso_size": None}
@@ -1331,16 +1344,19 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         f"$c = Get-Partition -DriveLetter {drive}; "
 #         f"if ([uint64]$c.Size -lt [uint64]{wanted}) {{ "
 #         f"$m = Get-PartitionSupportedSize -DriveLetter {drive}; "
-#         f"$s = [uint64]{wanted}; if ($s -gt [uint64]$m.SizeMax) {{ $s = [uint64]$m.SizeMax }}; "
-#         f"Resize-Partition -DriveLetter {drive} -Size $s }}"
+#         f"$s = [uint64]{wanted}; if ($s -gt [uint64]$m.SizeMax) {{ throw 'the original system partition size cannot be restored yet' }}; "
+#         f"Resize-Partition -DriveLetter {drive} -Size $s; "
+#         f"$restored = Get-Partition -DriveLetter {drive}; "
+#         "if ([uint64]$restored.Size -ne $s) { throw 'the system partition did not return to its original size' } }"
 #     )
 #
 #
-# def ps_new_partition_script(disk, size):
+# def ps_new_partition_script(disk, size, offset=None):
 #     number = ps_number(disk)
+#     position = f" -Offset {ps_number(offset)}" if offset is not None else ""
 #     return (
 #         f"try {{ Update-Disk -Number {number} }} catch {{ }}; "
-#         f"$p = New-Partition -DiskNumber {number} -Size {ps_number(size)} -GptType {ps_literal(LINUX_DATA_GUID)}; "
+#         f"$p = New-Partition -DiskNumber {number} -Size {ps_number(size)}{position} -GptType {ps_literal(LINUX_DATA_GUID)}; "
 #         f"$p = Get-Partition -DiskNumber {number} -PartitionNumber $p.PartitionNumber; "
 #         "[PSCustomObject]@{ Number = [int]$p.PartitionNumber; Offset = [int64]$p.Offset; Size = [int64]$p.Size; Guid = [string]$p.Guid } | ConvertTo-Json -Compress"
 #     )
@@ -1370,12 +1386,19 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     return f"& mountvol {ps_literal(ps_letter(letter) + ':')} /D | Out-Null; if ($LASTEXITCODE -ne 0) {{ throw 'mountvol could not unmount the EFI system partition' }}"
 #
 #
-# def ps_linux_partitions_script(disk):
+# def ps_linux_partitions_script(disk, letter=None):
 #     """The Linux data partitions on a disk: where an unfinished run may have left the installer."""
+#     extent = ""
+#     offset = ""
+#     if letter is not None:
+#         extent = (f"$c = Get-Partition -DriveLetter {ps_letter(letter)}; "
+#                   f"if ([int]$c.DiskNumber -ne {ps_number(disk)}) {{ throw 'the system partition changed disks' }}; ")
+#         offset = "; Offset = [int64]($c.Offset + $c.Size)"
 #     return (
+#         extent +
 #         f"$found = @(Get-Partition -DiskNumber {ps_number(disk)} | Where-Object {{ $_.GptType -eq {ps_literal(LINUX_DATA_GUID)} }} | "
 #         "ForEach-Object { [PSCustomObject]@{ Number = [int]$_.PartitionNumber; Offset = [int64]$_.Offset; Size = [int64]$_.Size; Guid = [string]$_.Guid } }); "
-#         "[PSCustomObject]@{ Parts = $found } | ConvertTo-Json -Compress -Depth 4"
+#         f"[PSCustomObject]@{{ Parts = $found{offset} }} | ConvertTo-Json -Compress -Depth 4"
 #     )
 #
 #
@@ -1419,11 +1442,13 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         "shrink": ps_shrink_script("C", 123456789),
 #         "restore": ps_restore_script("C", 123456789),
 #         "new-partition": ps_new_partition_script(0, 987654321),
+#         "new-partition-at-offset": ps_new_partition_script(0, 987654321, 1048576),
 #         "remove-partition": ps_remove_partition_script(0, 5),
 #         "mount-esp": ps_mount_esp_script(),
 #         "unmount-esp": ps_unmount_script("Z"),
 #         "partition-by-letter": ps_partition_by_letter_script("Z"),
 #         "linux-partitions": ps_linux_partitions_script(0),
+#         "linux-partitions-plan": ps_linux_partitions_script(0, "C"),
 #         "memory": ps_memory_script(),
 #         "disks": ps_disks_script(),
 #     }
@@ -1780,8 +1805,7 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #
 #
 # def _iso_has(files, path):
-#     key = path.lstrip("/")
-#     return key in files or key.lower() in {name.lower() for name in files}
+#     return _iso_key(files, path) is not None
 #
 #
 # def iso_boot_material(iso_path, role):
@@ -1797,6 +1821,11 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #             missing = [path for path in (INSTALLER_IMAGE_MARKER, block["linux"], block["initrd"]) if not _iso_has(files, path)]
 #             if missing:
 #                 raise ValueError("missing " + ", ".join(missing))
+#             # A directory entry alone does not prove its boot file can load.
+#             # Use the same bounded, nonempty reads as Linux extraction before
+#             # Windows can shrink a partition or arm a one-time boot.
+#             for path in (block["linux"], block["initrd"]):
+#                 _iso_bytes(handle, files, path)
 #     except (OSError, ValueError, KeyError) as exc:
 #         invariant(False, "the installer image does not have the boot layout this installer expects", NEWER_RELEASE_FIX, role=role, problem=str(exc))
 #     return block["linux"], block["initrd"], block.get("append", ""), grub
@@ -1816,18 +1845,28 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         other.steps = []
 #
 #     def run(self):
-#         """Take every step back, newest first. Returns what could not be taken back."""
-#         failed = []
+#         """Take every step back, newest first. Keep failed actions available to retry."""
+#         failed, remaining = [], []
 #         for what, action in reversed(self.steps):
 #             try:
 #                 action()
 #                 log(f"undo ok: {what}")
 #             except Exception as exc:  # best effort: report every step, stop on none
 #                 failed.append(what)
+#                 remaining.append((what, action))
 #                 log(f"undo FAILED: {what}: {exc} {getattr(exc, 'context', '')}", "ERROR")
 #                 say(f"Could not undo: {what}. See the log; Windows disk tools can finish it.")
-#         self.steps = []
+#         self.steps = list(reversed(remaining))
 #         return failed
+#
+#
+# def undo_boot_attempt(attempt, boot_undo):
+#     """A failed mechanism must be completely removed before another is attempted."""
+#     failed = attempt.run()
+#     boot_undo.extend(attempt)
+#     invariant(not failed, "the handoff stopped after a one-time boot cleanup failure",
+#               "No restart was scheduled. Run the installer again to check and recover any remaining boot changes before retrying.",
+#               cleanup_failed="; ".join(failed))
 #
 #
 # class WindowsJournal:
@@ -1836,7 +1875,9 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     this and takes the changes back before it starts. It is kept after the restart is
 #     scheduled too: `shutdown /a` leaves the one-time boot armed until the next run."""
 #
-#     VERSION = 1
+#     # v2 records the partition baseline/extent needed for safe crash recovery.
+#     # Older installers must refuse it rather than use their size-only fallback.
+#     VERSION = 2
 #
 #     def __init__(self, directory=None):
 #         self.path = Path(directory or state_dir()) / WINDOWS_JOURNAL_NAME
@@ -1857,10 +1898,11 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         except (OSError, ValueError) as exc:
 #             invariant(False, "the record of an earlier Windows conversion cannot be read", WINDOWS_RECOVERY_FIX + f" Then delete {self.path}.",
 #                       file=str(self.path), error=str(exc))
-#         invariant(isinstance(data, dict) and data.get("version") == self.VERSION,
+#         version = data.get("version") if isinstance(data, dict) else None
+#         invariant(type(version) is int and version in (1, self.VERSION),
 #                   "the record of an earlier Windows conversion was written by a different installer version",
 #                   "Run the latest Fleet installer: it takes the earlier conversion back. " + NEWER_RELEASE_FIX,
-#                   file=str(self.path), version=data.get("version") if isinstance(data, dict) else None)
+#                   file=str(self.path), version=version)
 #         self.data = data
 #         return data
 #
@@ -1895,38 +1937,48 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #
 #
 # def _recover_bcd(entry, previous):
-#     if bcd_sequence(bcd("/enum", "{fwbootmgr}")) == entry:
+#     current = bcd_sequence(bcd("/enum", "{fwbootmgr}"))
+#     if current is not None and current.lower() == entry.lower():
 #         if previous and previous != entry:
 #             bcd("/set", "{fwbootmgr}", "bootsequence", previous)
+#             expected = previous
 #         else:
 #             bcd("/deletevalue", "{fwbootmgr}", "bootsequence")
-#     tool = os.environ.get("FLEET_BCDEDIT", "bcdedit")
-#     present = run_logged([tool, "/enum", entry], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
-#     if present.returncode == 0:
+#             expected = None
+#         restored = bcd_sequence(bcd("/enum", "{fwbootmgr}"))
+#         invariant((restored or "").lower() == (expected or "").lower(),
+#                   "Windows did not keep the restored one-time boot choice", WINDOWS_RECOVERY_FIX, entry=entry)
+#     # A failed enum-by-id is ambiguous (missing entry or a permission/probe
+#     # failure). A successful full enumeration proves the entry is absent.
+#     listed = {match.group(0).lower() for match in GUID_RE.finditer(bcd("/enum", "all"))}
+#     if entry.lower() in listed:
 #         bcd("/delete", entry)  # the default /cleanup also takes it out of the display order
+#         listed = {match.group(0).lower() for match in GUID_RE.finditer(bcd("/enum", "all"))}
+#     invariant(entry.lower() not in listed, "Windows did not remove the recorded boot entry", WINDOWS_RECOVERY_FIX, entry=entry)
 #
 #
 # def _recover_nvram(firmware, number, previous_next):
 #     name = boot_variable_name(number)
 #     chosen = firmware.read("BootNext")
 #     if chosen is not None and chosen[0] == struct.pack("<H", number):
-#         if previous_next:
-#             firmware.write("BootNext", bytes.fromhex(previous_next[0]), int(previous_next[1]))
-#         else:
-#             firmware.delete("BootNext")
+#         previous = (bytes.fromhex(previous_next[0]), int(previous_next[1])) if previous_next else None
+#         restore_firmware_variable(firmware, "BootNext", previous)
 #     order = firmware.read("BootOrder")
 #     if order is not None and number in parse_boot_order(order[0]):
-#         firmware.write("BootOrder", b"".join(struct.pack("<H", item) for item in parse_boot_order(order[0]) if item != number), order[1])
+#         restored = (b"".join(struct.pack("<H", item) for item in parse_boot_order(order[0]) if item != number), order[1])
+#         restore_firmware_variable(firmware, "BootOrder", restored)
 #     stored = firmware.read(name)
 #     # Only an option this program wrote: the number may have been reused since.
 #     if stored is not None and boot_option_description(stored[0]) == BOOT_DESCRIPTION:
-#         firmware.delete(name)
+#         restore_firmware_variable(firmware, name, None)
 #
 #
 # def _recover_esp(data):
 #     mount = json_from_output(windows_ps(ps_mount_esp_script()))
 #     esp, mounted = Path(mount["Root"]), mount["Letter"]
 #     try:
+#         if not data.get("esp_touched"):
+#             return  # the attempt mounted the partition but never changed its files
 #         loader = esp.joinpath(*BOOT_LOADER_PARTS)
 #         if loader.parent.exists():
 #             shutil.rmtree(loader.parent)
@@ -1940,19 +1992,80 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         windows_ps(ps_unmount_script(mounted))
 #
 #
+# def _partition_guid(value):
+#     try:
+#         guid = uuid.UUID(str(value).strip("{}"))
+#     except (ValueError, AttributeError):
+#         invariant(False, "a Windows partition has no valid identity", WINDOWS_RECOVERY_FIX, guid=value)
+#     invariant(guid.int != 0, "a Windows partition has an empty identity", WINDOWS_RECOVERY_FIX)
+#     return str(guid)
+#
+#
+# def _linux_partitions(layout):
+#     listed = layout.get("Parts") or []
+#     parts = [listed] if isinstance(listed, dict) else listed
+#     invariant(isinstance(parts, list) and all(isinstance(item, dict) for item in parts),
+#               "Windows did not describe its Linux partitions safely", WINDOWS_RECOVERY_FIX)
+#     return parts
+#
+#
+# def _partition_extent(layout, freed, size):
+#     raw = layout.get("Offset")
+#     invariant(isinstance(raw, int) and not isinstance(raw, bool) and raw > 0,
+#               "Windows did not identify the freed partition extent safely", WINDOWS_RECOVERY_FIX, offset=raw)
+#     start, end = (raw + MIB - 1) // MIB * MIB, raw + freed
+#     invariant(end - start >= size, "the freed partition extent cannot hold the installer", WINDOWS_RECOVERY_FIX,
+#               start=start, end=end, size=size)
+#     return start, end
+#
+#
 # def _recover_partition(data):
 #     disk = int(data["disk"])
-#     listed = json_from_output(windows_ps(ps_linux_partitions_script(disk))).get("Parts") or []
-#     parts = [listed] if isinstance(listed, dict) else [item for item in listed if isinstance(item, dict)]
-#     guid = str(data.get("partition_guid") or "").lower()
+#     parts = _linux_partitions(json_from_output(windows_ps(ps_linux_partitions_script(disk))))
+#     guid = data.get("partition_guid")
 #     if guid:
-#         matches = [item for item in parts if str(item.get("Guid") or "").lower() == guid]
-#     else:  # killed between creating the partition and recording it: known by its exact size
-#         matches = [item for item in parts if int(item.get("Size") or 0) == int(data["partition_size"])]
+#         wanted = _partition_guid(guid)
+#         before = data.get("partition_guids_before")
+#         invariant(not isinstance(before, list) or wanted not in {_partition_guid(value) for value in before},
+#                   "the earlier installer partition was already present before staging", WINDOWS_RECOVERY_FIX, guid=wanted)
+#         matches = [item for item in parts if _partition_guid(item.get("Guid")) == wanted]
+#     elif not parts:
+#         return
+#     else:
+#         # A crash may happen before New-Partition, so size alone proves nothing.
+#         # Only a new identity at the exact location reserved by this attempt is ours.
+#         baseline = data.get("partition_guids_before")
+#         start, end = data.get("partition_extent_start"), data.get("partition_extent_end")
+#         invariant(isinstance(baseline, list) and isinstance(start, int) and isinstance(end, int) and 0 < start < end,
+#                   "the earlier installer partition cannot be identified safely", WINDOWS_RECOVERY_FIX)
+#         before = {_partition_guid(value) for value in baseline}
+#         new = [item for item in parts if _partition_guid(item.get("Guid")) not in before]
+#         matches = [item for item in new if int(item.get("Offset") or 0) == start
+#                    and int(item.get("Size") or 0) >= int(data["partition_size"])
+#                    and start + int(item.get("Size") or 0) <= end]
+#         invariant(len(new) == len(matches), "the earlier installer partition cannot be identified safely", WINDOWS_RECOVERY_FIX,
+#                   unexpected=[item.get("Number") for item in new if item not in matches])
 #     invariant(len(matches) <= 1, "more than one partition could be the earlier installer partition", WINDOWS_RECOVERY_FIX,
 #               found=[item.get("Number") for item in matches])
 #     for item in matches:
 #         windows_ps(ps_remove_partition_script(disk, int(item["Number"])))
+#
+#
+# def cancel_windows_restart():
+#     """Confirm no timed restart remains before dismantling its boot resources.
+#
+#     ERROR_NO_SHUTDOWN_IN_PROGRESS (1116) also proves the prerequisite, including
+#     after a user already ran shutdown /a. Never infer success from localized text.
+#     """
+#     try:
+#         result = run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True,
+#                             text=True, errors="replace", stdin=subprocess.DEVNULL, timeout=10)
+#     except (OSError, subprocess.TimeoutExpired) as exc:
+#         invariant(False, "the scheduled restart could not be confirmed cancelled", WINDOWS_RESTART_RECOVERY_FIX,
+#                   problem=f"{type(exc).__name__}: {exc}")
+#     invariant(result.returncode in (0, 1116), "the scheduled restart could not be confirmed cancelled",
+#               WINDOWS_RESTART_RECOVERY_FIX, code=result.returncode)
+#     log("the scheduled restart was cancelled" if result.returncode == 0 else "no scheduled restart remains")
 #
 #
 # def recover_windows_staging(firmware=None, directory=None):
@@ -1975,8 +2088,7 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #             log(f"recovery FAILED: {what}: {exc} {getattr(exc, 'context', '')}", "ERROR")
 #
 #     if data.get("restart_scheduled"):
-#         step("stop the scheduled restart", lambda: run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True,
-#                                                                text=True, errors="replace", stdin=subprocess.DEVNULL))
+#         cancel_windows_restart()  # a failed abort must stop before any boot or disk changes
 #     if data.get("bcd_entry"):
 #         step("remove the Windows boot manager entry", lambda: _recover_bcd(data["bcd_entry"], data.get("bcd_previous_sequence")))
 #     if data.get("boot_number") is not None:
@@ -1984,6 +2096,8 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #             failed.append("remove the firmware boot option (UEFI variables are not available here)")
 #         else:
 #             step("remove the firmware boot option", lambda: _recover_nvram(firmware, int(data["boot_number"]), data.get("boot_next_before")))
+#     invariant(not failed, "an earlier unfinished conversion could not be taken back completely", WINDOWS_RECOVERY_FIX,
+#               failed="; ".join(failed), record=str(journal.path))
 #     if data.get("esp_touched") or data.get("esp_letter"):
 #         step("remove the boot loader from the EFI system partition", lambda: _recover_esp(data))
 #     if data.get("partition_size"):
@@ -2013,13 +2127,15 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     copied = GUID_RE.search(bcd("/copy", "{bootmgr}", "/d", BOOT_DESCRIPTION))
 #     invariant(copied is not None, "bcdedit gave no id for the new boot entry")
 #     entry = copied.group(0)
+#     # A journal write can fail too; the entry already exists at this point.
+#     undo.add("delete the firmware boot entry", lambda: _recover_bcd(entry, previous))
 #     if journal is not None:
 #         journal.record(bcd_entry=entry, bcd_previous_sequence=previous)
-#     undo.add("delete the firmware boot entry", lambda: bcd("/delete", entry))
 #     bcd("/set", entry, "path", BOOT_LOADER_FIRMWARE_PATH)
-#     undo.add("take the entry out of the firmware boot menu", lambda: bcd("/set", "{fwbootmgr}", "displayorder", entry, "/remove"))
 #     # Last in the normal order, so a firmware that ignores the one-time choice starts Windows, not the installer.
+#     # Entry deletion already covers an add that fails after changing the menu.
 #     bcd("/set", "{fwbootmgr}", "displayorder", entry, "/addlast")
+#     undo.add("take the entry out of the firmware boot menu", lambda: bcd("/set", "{fwbootmgr}", "displayorder", entry, "/remove"))
 #     if previous:
 #         undo.add("restore the earlier one-time boot choice", lambda: bcd("/set", "{fwbootmgr}", "bootsequence", previous))
 #     else:
@@ -2248,6 +2364,18 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     invariant(False, "the firmware has no free boot option number")
 #
 #
+# def restore_firmware_variable(firmware, name, previous):
+#     """Skip a refused write that changed nothing; prove every actual restoration."""
+#     if firmware.read(name) == previous:
+#         return
+#     if previous is None:
+#         firmware.delete(name)
+#     else:
+#         firmware.write(name, previous[0], previous[1])
+#     invariant(firmware.read(name) == previous, "the firmware did not keep a boot variable restoration",
+#               WINDOWS_RECOVERY_FIX, variable=name)
+#
+#
 # def nvram_one_time_boot(firmware, part, sector, undo, journal=None):
 #     """Mechanism two: a Boot#### load option for the loader, appended to BootOrder (so
 #     firmware that discards options it does not list keeps it, and never first), and
@@ -2259,16 +2387,16 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     previous = firmware.read("BootNext")
 #     if journal is not None:
 #         journal.record(boot_number=number, boot_next_before=[previous[0].hex(), previous[1]] if previous else None)
-#     undo.add(f"delete the firmware boot option {name}", lambda: firmware.delete(name))
+#     undo.add(f"delete the firmware boot option {name}", lambda: restore_firmware_variable(firmware, name, None))
 #     firmware.write(name, option)
 #     if order is not None:
 #         original, attributes = order
-#         undo.add("restore the firmware boot order", lambda: firmware.write("BootOrder", original, attributes))
+#         undo.add("restore the firmware boot order", lambda: restore_firmware_variable(firmware, "BootOrder", order))
 #         firmware.write("BootOrder", original + struct.pack("<H", number), attributes)
 #     if previous is None:
-#         undo.add("clear the firmware one-time boot choice", lambda: firmware.delete("BootNext"))
+#         undo.add("clear the firmware one-time boot choice", lambda: restore_firmware_variable(firmware, "BootNext", None))
 #     else:
-#         undo.add("restore the firmware one-time boot choice", lambda: firmware.write("BootNext", previous[0], previous[1]))
+#         undo.add("restore the firmware one-time boot choice", lambda: restore_firmware_variable(firmware, "BootNext", previous))
 #     firmware.write("BootNext", struct.pack("<H", number))
 #     return number, option
 #
@@ -2343,19 +2471,25 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #     invariant(WRITE_SECTOR % sector == 0, "the disk's sector size does not divide the write alignment", sector=sector)
 #     original_size = int(facts["Size"])
 #     undo = WindowsUndo()
+#     boot_undo = WindowsUndo()
 #     restart_scheduled = False
-#     esp_mounted = {"letter": None}
 #     try:
 #         # Recorded before each change, so a killed run can be taken back by the next one.
 #         journal.record(letter=letter, disk=disk, original_size=original_size, role=role, started=_stamp())
 #         say(f"Making room: shrinking {letter}: by {need // MIB} MiB.")
 #         undo.add(f"give {letter}: its space back", lambda: windows_ps(ps_restore_script(letter, original_size), timeout=7200))
 #         windows_ps(ps_shrink_script(letter, original_size - need), timeout=7200)
-#         journal.record(partition_size=padded_size(iso_size))
-#         created = json_from_output(windows_ps(ps_new_partition_script(disk, padded_size(iso_size))))
-#         journal.record(partition_guid=created.get("Guid"))
-#         undo.add("remove the installer partition", lambda: windows_ps(ps_remove_partition_script(disk, created["Number"])))
-#         invariant(created["Size"] >= padded_size(iso_size) and created["Offset"] % WRITE_SECTOR == 0 and created["Offset"] % sector == 0,
+#         layout = json_from_output(windows_ps(ps_linux_partitions_script(disk, letter)))
+#         previous_guids = [_partition_guid(item.get("Guid")) for item in _linux_partitions(layout)]
+#         start, end = _partition_extent(layout, need, padded_size(iso_size))
+#         journal.record(partition_size=padded_size(iso_size), partition_guids_before=previous_guids,
+#                        partition_extent_start=start, partition_extent_end=end)
+#         undo.add("remove the installer partition", lambda: _recover_partition(journal.data))
+#         created = json_from_output(windows_ps(ps_new_partition_script(disk, padded_size(iso_size), start)))
+#         guid = _partition_guid(created.get("Guid"))
+#         invariant(guid not in previous_guids, "Windows reused an existing partition identity", WINDOWS_RECOVERY_FIX, guid=guid)
+#         journal.record(partition_guid=guid)
+#         invariant(created["Size"] >= padded_size(iso_size) and created["Offset"] == start and created["Offset"] + created["Size"] <= end,
 #                   "Windows made a partition that cannot hold the installer", created=created)
 #         say("Writing the installer into the new partition and reading it back.")
 #         alternate = windows_partition_target(disk, created["Number"])
@@ -2363,9 +2497,10 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         say("Placing the boot loader on the EFI system partition.")
 #         mount = json_from_output(windows_ps(ps_mount_esp_script()))
 #         esp, mounted = Path(mount["Root"]), mount["Letter"]
-#         esp_mounted["letter"] = mounted
+#         # The drive letter disappears before restart scheduling. Recovery must
+#         # remount the ESP rather than keep closures over paths on that letter.
+#         undo.add("restore the EFI system partition", lambda: _recover_esp(journal.data))
 #         journal.record(esp_letter=mounted)
-#         undo.add("unmount the EFI system partition", lambda: esp_mounted["letter"] and windows_ps(ps_unmount_script(esp_mounted["letter"])))
 #         loader = esp.joinpath(*BOOT_LOADER_PARTS)
 #         free = shutil.disk_usage(esp).free + (loader.stat().st_size if loader.is_file() else 0)
 #         invariant(free >= len(grub) + len(config) + len(wireless_initrd) + LOADER_SLACK, "the EFI system partition has too little free space for the boot loader",
@@ -2375,7 +2510,6 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         # A grub.cfg this program wrote earlier is not the owner's: never keep or restore it.
 #         saved = cfg.read_bytes() if cfg.is_file() and not is_fleet_grub_config(cfg.read_bytes()) else None
 #         journal.record(esp_touched=True, grub_cfg_saved=saved.hex() if saved is not None else None)
-#         undo.add("remove the boot loader", lambda: shutil.rmtree(loader.parent) if loader.parent.exists() else None)
 #         if loader.parent.exists():
 #             shutil.rmtree(loader.parent)  # no stale file (an old Wi-Fi handoff) survives into this run
 #         loader.parent.mkdir(parents=True, exist_ok=True)
@@ -2385,7 +2519,6 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #             write_durably(private, wireless_initrd)
 #             invariant(private.read_bytes() == wireless_initrd, "the Wi-Fi boot handoff did not read back correctly")
 #         cfg.parent.mkdir(parents=True, exist_ok=True)
-#         undo.add("restore the boot config", (lambda: cfg.write_bytes(saved)) if saved is not None else (lambda: cfg.unlink(missing_ok=True)))
 #         write_durably(cfg, config.encode("utf-8"))
 #         invariant(cfg.read_text(encoding="utf-8") == config and loader.read_bytes() == grub, "the EFI system partition did not keep the boot loader")
 #         say("Telling the firmware to start the installer once.")
@@ -2395,11 +2528,11 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #         try:
 #             entry = bcd_one_time_boot(attempt, journal)
 #             verified.append(f"bcdedit entry {entry}")
-#             undo.extend(attempt)
+#             boot_undo.extend(attempt)
 #         except (Invariant, OSError) as exc:
 #             problems.append(f"bcdedit: {getattr(exc, 'what', exc)}")
 #             log(f"bcdedit one-time boot failed: {exc} {getattr(exc, 'context', '')}", "ERROR")
-#             attempt.run()
+#             undo_boot_attempt(attempt, boot_undo)
 #         if firmware is not None:
 #             attempt = WindowsUndo()
 #             try:
@@ -2410,11 +2543,11 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #                 wrong = verify_nvram(firmware, number, option)
 #                 invariant(not wrong, "the firmware did not keep the boot option", problems=wrong)
 #                 verified.append(f"firmware option {boot_variable_name(number)}")
-#                 undo.extend(attempt)
+#                 boot_undo.extend(attempt)
 #             except (Invariant, OSError, KeyError, ValueError) as exc:
 #                 problems.append(f"firmware variables: {getattr(exc, 'what', exc)}")
 #                 log(f"firmware one-time boot failed: {exc} {getattr(exc, 'context', '')}", "ERROR")
-#                 attempt.run()
+#                 undo_boot_attempt(attempt, boot_undo)
 #         else:
 #             problems.append("firmware variables: not available in this session")
 #         log("one-time boot installed: " + (", ".join(verified) or "none"))
@@ -2422,24 +2555,34 @@ sed -n '/^# __WIFI_CAPTURE_PY__$/,/^# __WIFI_CAPTURE_END__$/p' "$0" | sed '1d;$d
 #                   "Windows was left as it was. Make an install USB with the word flash.", problems="; ".join(problems))
 #         # Nothing else needs the EFI system partition; leave no drive letter behind.
 #         windows_ps(ps_unmount_script(mounted))
-#         esp_mounted["letter"] = None
 #         journal.record(esp_letter=None)
 #         shutdown = os.environ.get("FLEET_SHUTDOWN", "shutdown")
+#         # Record the intent before invoking shutdown: a killed process or an
+#         # ambiguous launch failure must also cancel a possibly scheduled restart.
+#         journal.record(restart_scheduled=True)
+#         restart_scheduled = True
 #         restart = run_logged([shutdown, "/r", "/t", "15", "/c", "Fleet installer: this computer will erase its disk and become a " + role + " node."],
 #                              capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
 #         invariant(restart.returncode == 0, "Windows would not schedule the restart",
 #                   "Every change was taken back. Restart Windows once (a pending update or another program may hold the restart), then run the installer again.",
 #                   code=restart.returncode)
-#         restart_scheduled = True
-#         journal.record(restart_scheduled=True)
 #         log("the restart is scheduled for 15 seconds from now")
 #         say("This computer restarts in 15 seconds into the installer, which then erases its disk. "
 #             "`shutdown /a` stops the restart but leaves the one-time boot armed: run the installer again to take it back "
 #             "(or remove it as docs/windows.md says), or the next restart starts the installer.")
 #     except BaseException as error:
 #         if restart_scheduled:
-#             run_logged([os.environ.get("FLEET_SHUTDOWN", "shutdown"), "/a"], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
-#         failed = undo.run()
+#             try:
+#                 cancel_windows_restart()
+#             except Exception as abort_error:
+#                 raise Invariant("the conversion stopped and the scheduled restart could not be confirmed cancelled",
+#                                 WINDOWS_RESTART_RECOVERY_FIX,
+#                                 {"record": str(journal.path), "problem": str(abort_error)}) from error
+#         # Never remove the loader or installer while a one-time boot choice may
+#         # still point at them. The journal keeps both cleanup phases retryable.
+#         failed = boot_undo.run()
+#         if not failed:
+#             failed = undo.run()
 #         if not failed:
 #             journal.clear()
 #         elif isinstance(error, Exception):

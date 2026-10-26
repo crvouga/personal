@@ -135,9 +135,43 @@ class BootMaterialTest(unittest.TestCase):
             iso.write_bytes(iso_fixture.build(iso_fixture.installer_tree(grub=b"GRUB-PROGRAM")))
             for role in decide.ROLES:
                 linux, initrd, append, grub = decide.iso_boot_material(iso, role)
-                self.assertEqual((linux, initrd, grub), ("/boot/bzImage", "/boot/initrd", b"GRUB-PROGRAM"))
+                self.assertEqual((linux, initrd, grub), (iso_fixture.KERNEL_PATH, iso_fixture.INITRD_PATH, b"GRUB-PROGRAM"))
                 self.assertTrue(append.split()[-1] == f"fleet.role={role}" or f"fleet.role={role}" in append.split(), append)
             self.assertIn("root=LABEL=FLEET_ISO", append)
+
+    def test_issue_148_store_paths_also_extract_for_linux_and_boot_from_grub(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            iso = Path(tmp) / "i.iso"
+            iso.write_bytes(iso_fixture.build(iso_fixture.installer_tree()))
+            for role in decide.ROLES:
+                kernel, initrd, append = decide.extract_boot(iso, role)
+                self.assertEqual(Path(kernel).read_bytes(), b"kernel-bytes\n")
+                self.assertEqual(Path(initrd).read_bytes(), b"initrd-bytes\n")
+                linux_path, initrd_path, _, _ = decide.iso_boot_material(iso, role)
+                config = decide.grub_config(role, linux_path, initrd_path, append)
+                self.assertIn(f"linux {iso_fixture.KERNEL_PATH} ", config)
+                self.assertIn(f"initrd {iso_fixture.INITRD_PATH}\n", config)
+
+    def test_simple_boot_paths_remain_supported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            iso = Path(tmp) / "i.iso"
+            iso.write_bytes(iso_fixture.build(iso_fixture.installer_tree(nix_store=False)))
+            self.assertEqual(decide.iso_boot_material(iso, "ci")[:2], ("/boot/bzImage", "/boot/initrd"))
+
+    def test_iso_lookups_use_posix_separators_on_every_host(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            iso = Path(tmp) / "i.iso"
+            iso.write_bytes(iso_fixture.build(iso_fixture.installer_tree()))
+            with iso.open("rb") as handle:
+                files = decide._iso_index(handle)
+                for path in (iso_fixture.KERNEL_PATH, iso_fixture.KERNEL_PATH.upper(),
+                             iso_fixture.KERNEL_PATH.replace("/", "///"), iso_fixture.KERNEL_PATH.lstrip("/")):
+                    with self.subTest(path=path):
+                        self.assertTrue(decide._iso_has(files, path))
+                        self.assertEqual(decide._iso_bytes(handle, files, path), b"kernel-bytes\n")
+                self.assertFalse(decide._iso_has(files, "/boot//missing"))
+                with self.assertRaisesRegex(ValueError, "missing"):
+                    decide._iso_bytes(handle, files, "/boot//missing")
 
     def test_an_image_with_no_grub_program_is_refused(self):
         tree = iso_fixture.installer_tree()

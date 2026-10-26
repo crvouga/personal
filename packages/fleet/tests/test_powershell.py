@@ -211,7 +211,7 @@ class FactsTest(NeedsPowerShell):
 RECORD = """
 $script:calls = @()
 function Update-Disk { param($Number) $script:calls += ('Update-Disk ' + $Number) }
-function New-Partition { param($DiskNumber, $Size, $GptType) $script:calls += ('New-Partition ' + $DiskNumber + ' ' + $Size + ' ' + $GptType); [PSCustomObject]@{ PartitionNumber = 5 } }
+function New-Partition { param($DiskNumber, $Size, $GptType, $Offset) $script:calls += ('New-Partition ' + $DiskNumber + ' ' + $Size + ' ' + $GptType + ' ' + $Offset); [PSCustomObject]@{ PartitionNumber = 5 } }
 function Resize-Partition { param($DriveLetter, $Size) Write-Output ('RESIZE ' + $DriveLetter + ' ' + $Size) }
 function Remove-Partition { [CmdletBinding(SupportsShouldProcess)] param($DiskNumber, $PartitionNumber) Write-Output ('REMOVE ' + $DiskNumber + ' ' + $PartitionNumber) }
 """
@@ -234,13 +234,32 @@ class ActionTest(NeedsPowerShell):
         out = self.run_script(decide.ps_new_partition_script(0, 8589934592), "function Update-Disk { param($Number) throw 'busy' }")
         self.assertEqual(json.loads(out)["Number"], 5)
 
+    def test_new_partition_uses_the_reserved_offset(self):
+        require_offset = "function New-Partition { param($DiskNumber, $Size, $GptType, $Offset) if ($Offset -ne 499000000000) { throw 'wrong offset' }; [PSCustomObject]@{ PartitionNumber = 5 } }"
+        out = self.run_script(decide.ps_new_partition_script(0, 8589934592, 499000000000), require_offset)
+        self.assertEqual(json.loads(out)["Offset"], 499000000000)
+
     def test_remove_partition_accepts_confirm_false(self):
         self.assertEqual(self.run_script(decide.ps_remove_partition_script(0, 5)), "REMOVE 0 5")
 
-    def test_restore_grows_a_shrunk_volume_back_but_never_past_the_maximum(self):
-        shrunk = "function Get-Partition { param($DriveLetter) [PSCustomObject]@{ Size = [uint64]490000000000 } }"
+    def test_restore_grows_a_shrunk_volume_back_to_exactly_its_original_size(self):
+        shrunk = ("$script:size = [uint64]490000000000; "
+                  "function Get-Partition { param($DriveLetter) [PSCustomObject]@{ Size = $script:size } }; "
+                  "function Resize-Partition { param($DriveLetter, $Size) $script:size = $Size; Write-Output ('RESIZE ' + $DriveLetter + ' ' + $Size) }")
         self.assertEqual(self.run_script(decide.ps_restore_script("C", 500000000000), shrunk), "RESIZE C 500000000000")
-        self.assertEqual(self.run_script(decide.ps_restore_script("C", 600000000000), shrunk), "RESIZE C 500000000000")
+
+    def test_restore_refuses_to_report_partial_restoration_as_success(self):
+        shrunk = "function Get-Partition { param($DriveLetter) [PSCustomObject]@{ Size = [uint64]490000000000 } }"
+        done = run_powershell(stubs(PARTS_ONE_ESP, RECORD, shrunk) + decide.PS_PREAMBLE + decide.ps_restore_script("C", 600000000000))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("original system partition size cannot be restored", done.stdout + done.stderr)
+        self.assertNotIn("RESIZE", done.stdout)
+
+    def test_restore_checks_the_size_after_windows_reports_resize_success(self):
+        shrunk = "function Get-Partition { param($DriveLetter) [PSCustomObject]@{ Size = [uint64]490000000000 } }"
+        done = run_powershell(stubs(PARTS_ONE_ESP, RECORD, shrunk) + decide.PS_PREAMBLE + decide.ps_restore_script("C", 500000000000))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("did not return to its original size", done.stdout + done.stderr)
 
     def test_restore_does_nothing_when_the_volume_was_never_shrunk(self):
         self.assertEqual(self.run_script(decide.ps_restore_script("C", 500000000000)), "")
@@ -331,6 +350,11 @@ class LeftoverScriptsTest(NeedsPowerShell):
 
     def test_no_linux_partition_is_an_empty_list(self):
         self.assertEqual(self.run_script(decide.ps_linux_partitions_script(0))["Parts"], [])
+
+    def test_staging_snapshot_carries_the_system_partition_end_and_existing_guids(self):
+        layout = self.run_script(decide.ps_linux_partitions_script(0, "C"), WITH_LINUX)
+        self.assertEqual(layout["Offset"], 500122683392)
+        self.assertEqual(layout["Parts"][0]["Guid"], "{99999999-8888-7777-6666-555555555555}")
 
     def test_facts_list_linux_partitions_for_leftover_detection(self):
         facts = decide.parse_windows_facts(run_powershell(stubs(PARTS_ONE_ESP, WITH_LINUX) + decide.PS_PREAMBLE + decide.ps_facts_script()).stdout)
