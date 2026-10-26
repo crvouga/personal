@@ -255,20 +255,29 @@ async function main() {
           review.includes('Step 5 erases this disk'),
         'review explains every screen after the restart before anything is erased'
       );
-      // Reporting works from any step, not only after a failure. GitHub is
-      // never contacted: the request is answered here and its address checked.
-      let issueUrl = null;
-      await page.context().route('https://github.com/**', (route) => {
-        issueUrl = route.request().url();
-        return route.fulfill({ status: 200, body: 'issue form' });
+      // Reporting works from any step, not only after a failure. The tab is a
+      // stand-in that records its address: a real popup, its navigation and
+      // its close hung intermittently on CI runners with no timeout to stop it.
+      await page.evaluate(() => {
+        window.openedIssues = [];
+        window.open = () => ({
+          opener: window,
+          location: {
+            set href(value) {
+              window.openedIssues.push(value);
+            },
+          },
+        });
       });
-      const [issue] = await Promise.all([
-        page.waitForEvent('popup', { timeout: 15000 }),
-        page.getByRole('button', { name: 'Report a problem' }).click(),
-      ]);
-      for (let i = 0; i < 150 && !issueUrl; i++)
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      assert.ok(issueUrl, 'Report a problem opened the GitHub issue form');
+      await page.getByRole('button', { name: 'Report a problem' }).click();
+      await page.waitForFunction(() => window.openedIssues.length > 0, null, {
+        timeout: 15000,
+      });
+      const issueUrl = await page.evaluate(() => window.openedIssues[0]);
+      assert.ok(
+        issueUrl.startsWith('https://github.com/crvouga/workspace/issues/new?'),
+        issueUrl
+      );
       const query = new URL(issueUrl).searchParams;
       assert.equal(query.get('template'), 'fleet-installer.yml');
       assert.match(
@@ -276,7 +285,6 @@ async function main() {
         /^Wizard on Linux: set up this computer/
       );
       assert.match(query.get('diagnostic') || '', /Fleet installer diagnostic/);
-      await issue.close();
       await page.close();
       child.kill();
     }
