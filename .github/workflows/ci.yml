@@ -280,7 +280,11 @@ jobs:
       # systems do (packages/portfolio/src/resume/ats.test.ts).
       - name: Install poppler (résumé text-layer test)
         if: matrix.task == 'tests'
-        run: sudo apt-get install -y --no-install-recommends poppler-utils
+        # Refresh the index first: the runner image's can be stale, and a
+        # superseded package version then 404s on the mirror.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
       # test:site runs the built portfolio in Chromium (axe, layout, budgets);
       # Turbo orders it after the build it checks.
       - name: Test and build packages
