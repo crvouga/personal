@@ -41,7 +41,9 @@ test('an interrupted NAR upload exposes no pointers and the next publication rec
     },
     text: async (key) => objects.get(key) ?? '',
   };
-  await expect(uploadNixCache(directory, store)).rejects.toThrow('interrupted');
+  await expect(uploadNixCache(directory, store)).rejects.toThrow(
+    'FLEET_CACHE_S3_PUT_UNKNOWN'
+  );
   expect(objects.size).toBe(0);
   fail = false;
   expect(await uploadNixCache(directory, store)).toBe(1);
@@ -52,6 +54,91 @@ test('an interrupted NAR upload exposes no pointers and the next publication rec
   await uploadNixCache(directory, store);
   expect(order.some((key) => key.includes('/nar/'))).toBe(false);
   expect(order).toHaveLength(2);
+});
+
+for (const method of ['exists', 'put', 'text'] as const) {
+  test(`transient ${method} failure recovers within the publication, before exposing pointers`, async () => {
+    const directory = await fixture();
+    const objects = new Map<string, string>();
+    const order: string[] = [];
+    const delays: number[] = [];
+    const warnings: string[] = [];
+    let failed = false;
+    const fault = (operation: string) => {
+      if (method === operation && !failed) {
+        failed = true;
+        // Provider messages must never appear in diagnostics.
+        throw Object.assign(new Error('credential=private-fixture'), {
+          code: 'SlowDown',
+        });
+      }
+    };
+    const store: CacheUploadStore = {
+      exists: async (key) => {
+        fault('exists');
+        return objects.has(key);
+      },
+      put: async (key, body) => {
+        fault('put');
+        objects.set(key, await body.text());
+        order.push(key);
+      },
+      text: async (key) => {
+        fault('text');
+        return objects.get(key) ?? '';
+      },
+    };
+    expect(
+      await uploadNixCache(directory, store, {
+        sleep: async (delay) => {
+          delays.push(delay);
+        },
+        warn: (message) => {
+          warnings.push(message);
+        },
+      })
+    ).toBe(1);
+    expect(failed).toBe(true);
+    expect(delays).toEqual([1000]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('code=SlowDown');
+    expect(warnings[0]).not.toContain('private-fixture');
+    expect(order[0]).toContain('/nar/');
+    expect(order[1]).toEndWith('.narinfo');
+    expect(order[2]).toEndWith('/nix-cache-info');
+  });
+}
+
+test('exhausted NAR retries leave metadata unpublished and name the failing operation', async () => {
+  const directory = await fixture();
+  const delays: number[] = [];
+  let attempts = 0;
+  await expect(
+    uploadNixCache(
+      directory,
+      {
+        exists: async () => false,
+        put: async (key) => {
+          expect(key).toContain('/nar/');
+          attempts++;
+          throw Object.assign(new Error('private response'), {
+            code: 'ETIMEDOUT',
+          });
+        },
+        text: async () => {
+          throw new Error('readback must not start');
+        },
+      },
+      {
+        sleep: async (delay) => {
+          delays.push(delay);
+        },
+        warn: () => {},
+      }
+    )
+  ).rejects.toThrow('FLEET_CACHE_S3_PUT_ETIMEDOUT');
+  expect(attempts).toBe(4);
+  expect(delays).toEqual([1000, 2000, 4000]);
 });
 
 test('a failed private readback cannot produce a successful publication', async () => {

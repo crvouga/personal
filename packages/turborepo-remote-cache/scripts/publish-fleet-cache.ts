@@ -100,7 +100,7 @@ try {
   await publish();
 } catch (error) {
   const code =
-    error instanceof Error && /^FLEET_CACHE_[A-Z_]+$/.test(error.message)
+    error instanceof Error && /^FLEET_CACHE_[A-Z0-9_]+$/.test(error.message)
       ? error.message
       : 'DEPENDENCY_OPERATION_FAILED';
   console.error(
