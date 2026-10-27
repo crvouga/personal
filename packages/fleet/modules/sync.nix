@@ -9,7 +9,7 @@
 in {
   # comin is not in nixpkgs at the pinned revision 7c8764b7, so this timer is
   # the pull agent. It fetches main and switches nixosConfigurations.<flakeAttr>
-  # only when that system is already in the binary cache.
+  # using upstream substitutes and bounded local builds for missing paths.
   assertions = [
     {
       assertion = repo.branch == "main";

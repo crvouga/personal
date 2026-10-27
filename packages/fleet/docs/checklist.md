@@ -33,6 +33,7 @@ monitoring or cached updates work.
 7. Apply the reviewed OpenTofu plan that adds the merge queue and the `Fleet` required check to `main`. Until that plan is applied, GitHub is still on the previous ruleset. Do not push `main` directly.
 
 Automatic updates substitute from the cloud cache in `settings/shared.nix`
-(`binaryCache`); the Fleet cache workflow publishes the `roles.json` closures to it.
+(retired). Nodes now build missing closures locally with upstream Nix substitutes;
+no private publisher is required.
 The current repository is public, so `repo.auth = "none"` is valid. A private
 repository requires a read credential encrypted separately for each role.

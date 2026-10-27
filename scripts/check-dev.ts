@@ -5,7 +5,6 @@ import { openSync, closeSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { localIdentity } from '../packages/auth-relay/development/identity';
 import { checkDevBrowser } from './check-dev-browser';
-import { command } from '../packages/auth-relay/development/process';
 
 const root = resolve(import.meta.dir, '..');
 const instance = `check-${crypto.randomUUID().replaceAll('-', '')}`;
@@ -16,7 +15,7 @@ await mkdir(cache, { mode: 0o700 });
 const logDir = join(root, '.superset/.dev-check', instance);
 await mkdir(logDir, { recursive: true });
 const ports: number[] = [];
-while (ports.length < 5) {
+while (ports.length < 4) {
   const probe = Bun.listen({
     hostname: '127.0.0.1',
     port: 0,
@@ -36,8 +35,7 @@ const env: NodeJS.ProcessEnv = {
   VAULT_CONFIG: 'dev',
   PORTFOLIO_PORT: String(ports[0]),
   FLEET_API_PORT: String(ports[1]),
-  REMOTE_CACHE_PORT: String(ports[2]),
-  AUTH_RELAY_PORT: String(ports[3]),
+  AUTH_RELAY_PORT: String(ports[2]),
 };
 let task: Bun.Subprocess | undefined;
 let round = 0;
@@ -152,39 +150,23 @@ async function composeDown(): Promise<void> {
 }
 try {
   await start();
-  const [portfolio, fleet, , relay] = await Promise.all([
+  const [portfolio, fleet, relay] = await Promise.all([
     response(ports[0], '/'),
     response(ports[1], '/'),
-    response(ports[2], '/v8/artifacts/status', 401),
-    response(ports[3], '/health/ready'),
+    response(ports[2], '/health/ready'),
   ]);
   assert.match(portfolio, /Live data from the GitHub API at build time/);
   assert.match(fleet, /LOCAL DEMO: synthetic fleet data/);
   assert.deepEqual(JSON.parse(relay), { ok: true });
-  await command(
-    [
-      'vault',
-      'run',
-      '--config',
-      'dev',
-      '--',
-      'bun',
-      'scripts/check-dev-cache.ts',
-      String(ports[2]),
-    ],
-    env,
-    false,
-    { timeoutMs: 30000 }
-  );
-  const registration = await checkDevBrowser(`http://localhost:${ports[3]}`);
+  const registration = await checkDevBrowser(`http://localhost:${ports[2]}`);
   console.log(
-    'PASS cold workspace: portfolio live GitHub data, fleet demo, Vault-backed cache authorization, auth readiness/sign-in/registration'
+    'PASS cold workspace: portfolio live GitHub data, fleet demo, auth readiness/sign-in/registration'
   );
   await stop();
-  env['AUTH_RELAY_PORT'] = String(ports[4]);
+  env['AUTH_RELAY_PORT'] = String(ports[3]);
   await start();
-  await response(ports[4], '/health/ready');
-  await checkDevBrowser(`http://localhost:${ports[4]}`, registration);
+  await response(ports[3], '/health/ready');
+  await checkDevBrowser(`http://localhost:${ports[3]}`, registration);
   console.log(
     'PASS warm restart: changed callback port, persisted operator/client, sign-in and revocation'
   );

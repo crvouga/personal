@@ -1,6 +1,6 @@
 # {{infraRepo}} — shared infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: {{siteGuideUrl}} (the site's own `/llms.txt` is the candidate summary for recruiters and links here)
 
@@ -11,7 +11,7 @@ Source snapshot (always current `main`): {{rawUrl}}
 - Link it from your project's `AGENTS.md` / `CLAUDE.md` so every session can fetch it:
 
   ```md
-  Shared infra (Vault, PostgreSQL, Turborepo remote cache, R2 object store, hosting, Google sign-in):
+  Shared infra (Vault, PostgreSQL, R2 object store, hosting, Google sign-in):
   {{siteGuideUrl}}
   ```
 
@@ -31,7 +31,7 @@ Source snapshot (always current `main`): {{rawUrl}}
 
 1. Needs secrets (API keys, database URLs)? → [1. Vault](#1-vault-secrets). Every other section depends on it.
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
-3. Uses Turborepo (`turbo.json` exists)? → [3. Turborepo remote cache](#3-turborepo-remote-cache).
+3. Uses Turborepo (`turbo.json` exists)? → [3. Local Turborepo caching](#3-local-turborepo-caching).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
 5. Should be publicly hosted at `*.{{zone}}` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-fleet). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `{{infraRepo}}` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
@@ -183,34 +183,17 @@ vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | g
 
 ---
 
-## 3. Turborepo remote cache
+## 3. Local Turborepo caching
 
-Self-hosted Turborepo remote cache (Turbo's standard HTTP API, Bearer auth). Only applies to projects with a `turbo.json`. Do not use Vercel Remote Cache (`turbo login` / `turbo link`) alongside it.
+Turborepo remote caching is retired. The server source remains dormant at {{path:packages/turborepo-remote-cache}}. Do not configure clients, copy cache credentials or probe the former Turbo endpoint.
 
-**Env vars** (all in Vault `{{kvMount}}/{{kvProject}}/{dev,prd}`):
+Use local caching; remove `TURBO_API`, `TURBO_TOKEN` and `TURBO_TEAM` from client environments. Replace any `TURBO_CACHE=remote:rw` setting with `TURBO_CACHE=local:rw`. In `turbo.json`, set:
 
-{{block:turboEnv}}
-
-**Local:** with `.vault.yaml` pointing at `{{kvProject}}`, `vault run -- turbo run build` picks everything up. Using a separate Vault project? The human copies the keys from `{{infraRepo}}` with `{{script:infra:vault}} apply`.
-
-**CI:** load the keys with the OIDC step from §1 and expose them as job env:
-
-```yaml
-{{block:turboOidcSecrets}}
+```json
+{ "remoteCache": { "enabled": false } }
 ```
 
-**`turbo.json`:** never put the token there. `TURBO_*` vars are read by the `turbo` binary itself, not by tasks, so strict env mode needs no changes.
-
-**Verify:**
-
-```bash
-curl -fsS {{turboApi}}{{turboHealthPath}}                          # up
-curl -s -o /dev/null -w '%{http_code}\n' {{turboApi}}/v8/artifacts/status   # 401 (auth gate works)
-curl -fsS -H "Authorization: Bearer $TURBO_TOKEN" {{turboApi}}/v8/artifacts/status   # JSON, not 401
-vault run -- turbo run build   # 2nd run with unchanged inputs → "cache hit, replaying logs"
-```
-
-If cache credentials are missing or rejected, report the skipped remote check and use local caching for independent checks. A required post-deployment cache smoke failure still fails that deployment.
+GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ---
 
@@ -407,7 +390,7 @@ Names only — never values.
 
 - Postgres (`DATABASE_URL`): <needed / not needed>; migrations run <at boot / manually / n/a>
 - Object store (R2): <needed / not needed>; key prefix `<prefix>/`
-- Turborepo remote cache: <used / not used>
+- Turborepo caching: local only (remote service retired)
 - Vault access from CI (OIDC): <needed / not needed>
 
 ## Local verification
@@ -643,8 +626,6 @@ Before reporting success, verify discovery, registration readback, fresh login a
 | Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R {{infraRepo}} -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: {{vaultAddr}}`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |
-| Turbo: 401 from cache                          | `TURBO_TOKEN` missing or wrong in that environment                                                                             |
-| Turbo: no remote hits                          | `TURBO_API` / `TURBO_CACHE` not set where `turbo` runs; check `--cache` flags                                                  |
 | R2: `SignatureDoesNotMatch`                    | Wrong secret key, region ≠ `auto`, or virtual-host addressing — use path-style                                                 |
 | R2: `NoSuchBucket`                             | `S3_BUCKET` does not match the config's bucket                                                                                 |
 | Publish: `id-token` / permissions error        | The caller workflow must grant `contents: read`, `packages: write`, `id-token: write` (Step 3 does)                            |

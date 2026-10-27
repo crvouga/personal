@@ -73,19 +73,28 @@ def check(toplevel, role, age_file, token_file, run=subprocess.run, api=check_ap
             'FLEET_ENROLLMENT_MISSING: automatic Fleet approval requires an enrolled installer with an API role credential. Nothing was erased.')
     require(Path(age_file).is_file(), 'FLEET_ROLE_KEY_MISSING: the enrolled role key is required before installation.')
     source = metadata.get('secretsFile')
-    cache_url = metadata.get('cacheUrl')
-    parsed_cache = urlparse(cache_url or '')
-    require(parsed_cache.scheme == 'https' and parsed_cache.hostname and not parsed_cache.username and
-            not parsed_cache.password and not parsed_cache.query and not parsed_cache.fragment,
-            'FLEET_CACHE_UNCONFIGURED: a public HTTPS update cache is required.')
-    try:
-        cached = run(['nix', 'store', 'verify', '--store', cache_url, '--no-contents', '--sigs-needed', '1',
-            '--option', 'trusted-public-keys', metadata['cachePublicKey'], str(toplevel)],
-            capture_output=True, timeout=30, check=False)
-    except (OSError, subprocess.TimeoutExpired):
-        raise Retryable('FLEET_CACHE_UNAVAILABLE: update-cache readiness timed out; retrying before disk changes.') from None
-    if cached.returncode != 0:
-        raise Retryable('FLEET_CACHE_UNAVAILABLE: this revision is not readable with its pinned signing key; check cache publication and connectivity. Retrying before disk changes.')
+    if metadata.get('updateMode') == 'local':
+        try:
+            closure = run(['nix', 'path-info', '--recursive', str(toplevel)],
+                          capture_output=True, timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            raise NotReady('FLEET_LOCAL_CLOSURE_UNAVAILABLE: the installer could not validate its bundled role closure. Nothing was erased.') from None
+        require(closure.returncode == 0,
+                'FLEET_LOCAL_CLOSURE_UNAVAILABLE: this image is missing its role closure. Rebuild the installer before disk changes.')
+    else:
+        cache_url = metadata.get('cacheUrl')
+        parsed_cache = urlparse(cache_url or '')
+        require(parsed_cache.scheme == 'https' and parsed_cache.hostname and not parsed_cache.username and
+                not parsed_cache.password and not parsed_cache.query and not parsed_cache.fragment,
+                'FLEET_CACHE_UNCONFIGURED: a public HTTPS update cache is required.')
+        try:
+            cached = run(['nix', 'store', 'verify', '--store', cache_url, '--no-contents', '--sigs-needed', '1',
+                '--option', 'trusted-public-keys', metadata['cachePublicKey'], str(toplevel)],
+                capture_output=True, timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            raise Retryable('FLEET_CACHE_UNAVAILABLE: update-cache readiness timed out; retrying before disk changes.') from None
+        if cached.returncode != 0:
+            raise Retryable('FLEET_CACHE_UNAVAILABLE: this revision is not readable with its pinned signing key; check cache publication and connectivity. Retrying before disk changes.')
     github = metadata.get('github')
     if source:
         try:

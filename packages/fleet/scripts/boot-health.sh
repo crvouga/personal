@@ -10,7 +10,7 @@ healthy=1
 if [ -n "${CACHE_URL:-}" ]; then
   "$curl_bin" -fsS --max-time 15 -o /dev/null "${CACHE_URL%/}/nix-cache-info" || healthy=0
 else
-  healthy=0
+  "$curl_bin" -fsS --max-time 15 -o /dev/null https://cache.nixos.org/nix-cache-info || healthy=0
 fi
 "$systemctl" is-active --quiet fleet-sync.timer || healthy=0
 if [ "$healthy" -eq 1 ]; then

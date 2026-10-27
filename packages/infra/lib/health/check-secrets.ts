@@ -49,10 +49,6 @@ function shape(name: string, doc: KvDocument): CheckResult {
 
 function consistency(name: string, config: InfraConfig, doc: KvDocument): CheckResult {
   const problems: string[] = [];
-  const turbo = config.services.find((service) => service.id === "turborepo")?.hostname;
-  if (doc["TURBO_API"] && turbo && hostOf(doc["TURBO_API"]) !== turbo) {
-    problems.push(`TURBO_API host differs from the inventory's turborepo hostname ${turbo}`);
-  }
   const account = doc["CLOUDFLARE_ACCOUNT_ID"];
   const endpoint = doc["S3_ENDPOINT"] ? hostOf(doc["S3_ENDPOINT"]) : undefined;
   if (account && endpoint?.endsWith(".r2.cloudflarestorage.com") && !endpoint.startsWith(`${account}.`)) {

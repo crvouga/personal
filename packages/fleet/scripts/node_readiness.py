@@ -37,7 +37,7 @@ def collect_issues(paths, identity, run, credential, settings):
         revision = (paths.etc / 'revision').read_text().strip()
         success = (paths.state.parent / 'sync/last-success').read_text().strip()
         if not revision or revision == 'unknown' or revision != success:
-            result.append('FLEET_UPDATE_CHECK_PENDING: waiting for a successful update/cache check of this revision.')
+            result.append('FLEET_UPDATE_CHECK_PENDING: waiting for a successful update/build check of this revision.')
     except OSError:
         result.append('FLEET_UPDATE_CHECK_PENDING: waiting for the first successful automatic update check.')
     github = metadata.get('github')

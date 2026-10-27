@@ -121,14 +121,6 @@
       "id": "83db052d18159889dd290724ac7d52d9/85e0be0b418b8caef3b8053ed8031269"
     },
     {
-      "to": "module.service[\"turborepo\"].cloudflare_dns_record.traffic",
-      "id": "83db052d18159889dd290724ac7d52d9/f092d38857be39a85178ba625a695438"
-    },
-    {
-      "to": "module.service[\"turborepo\"].cloudflare_dns_record.verification",
-      "id": "83db052d18159889dd290724ac7d52d9/b0beae64c0682f6ce3e5dff8b5c2fcd9"
-    },
-    {
       "to": "module.service[\"llm-proxy\"].cloudflare_dns_record.traffic",
       "id": "83db052d18159889dd290724ac7d52d9/0c2f1cfd8d3dd2d13fd73969a0fecaa7"
     },
@@ -283,18 +275,6 @@
     {
       "to": "module.service[\"image-service\"].railway_custom_domain.this",
       "id": "92ab18de-e314-4202-aeec-9ba2f1e5206a:production:imageservice.chrisvouga.dev"
-    },
-    {
-      "to": "module.service[\"turborepo\"].railway_service.this",
-      "id": "cefea7d2-a152-422f-8327-c4598763c7b0"
-    },
-    {
-      "to": "module.service[\"turborepo\"].railway_custom_domain.this",
-      "id": "cefea7d2-a152-422f-8327-c4598763c7b0:production:turborepo.chrisvouga.dev"
-    },
-    {
-      "to": "module.service[\"turborepo\"].railway_variable_collection.this",
-      "id": "cefea7d2-a152-422f-8327-c4598763c7b0:production:PORT:VAULT_ADDR:VAULT_CONFIG:VAULT_PROJECT:VAULT_TOKEN"
     },
     {
       "to": "module.service[\"moviefinder-app-react\"].railway_service.this",

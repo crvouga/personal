@@ -4,6 +4,7 @@
   present = value: value != null && value != "" && !(builtins.match ".*TODO.*" value != null);
   metadata = {
     version = 1;
+    updateMode = "local";
     role = settings.role;
     inherit apiUrl;
     cacheUrl = cache.url;
@@ -12,9 +13,7 @@
     requiredSecrets = builtins.attrNames config.sops.secrets;
     github = settings.github or null;
     installBlocked = metadata.blocked;
-    blocked = (if present cache.url && present cache.publicKey then [ ] else [
-      "FLEET_CACHE_UNCONFIGURED: automatic updates require the fleet binary-cache URL and signing public key. Configure the platform before installing nodes."
-    ]) ++ (if present apiUrl then [ ] else [
+    blocked = (if present apiUrl then [ ] else [
       "FLEET_API_UNCONFIGURED: this image cannot register or report to Fleet."
     ]) ++ (if present settings.repo.url then [ ] else [
       "FLEET_REPOSITORY_UNCONFIGURED: the Git source for automatic updates is not configured."

@@ -52,5 +52,8 @@
       "outputLogs": "new-only"
     }
   },
-  "globalEnv": ["ImageOS"]
+  "globalEnv": ["ImageOS"],
+  "remoteCache": {
+    "enabled": false
+  }
 }

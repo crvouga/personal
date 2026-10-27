@@ -12,8 +12,8 @@
         git+file:*) flake=$arg ;;
       esac
     done
-    # A missing --max-jobs 0 means the sync script tried to build locally.
-    [ "$jobs" = 0 ]
+    # Local closure builds must retain their bounded parallelism.
+    [ "$jobs" = 2 ]
     [ -n "$flake" ]
     checkout=''${flake#git+file://}
     checkout=''${checkout%%\?*}/packages/fleet

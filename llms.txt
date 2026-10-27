@@ -1,6 +1,6 @@
 # crvouga/workspace — shared infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/workspace`: Vault (OpenBao) secrets, PostgreSQL access, the self-hosted Turborepo remote cache, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/workspace`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: https://www.chrisvouga.dev/llms-infra.txt (the site's own `/llms.txt` is the candidate summary for recruiters and links here)
 
@@ -11,7 +11,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 - Link it from your project's `AGENTS.md` / `CLAUDE.md` so every session can fetch it:
 
   ```md
-  Shared infra (Vault, PostgreSQL, Turborepo remote cache, R2 object store, hosting, Google sign-in):
+  Shared infra (Vault, PostgreSQL, R2 object store, hosting, Google sign-in):
   https://www.chrisvouga.dev/llms-infra.txt
   ```
 
@@ -31,7 +31,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 
 1. Needs secrets (API keys, database URLs)? → [1. Vault](#1-vault-secrets). Every other section depends on it.
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
-3. Uses Turborepo (`turbo.json` exists)? → [3. Turborepo remote cache](#3-turborepo-remote-cache).
+3. Uses Turborepo (`turbo.json` exists)? → [3. Local Turborepo caching](#3-local-turborepo-caching).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
 5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-fleet). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `crvouga/workspace` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
@@ -42,7 +42,6 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 | --- | --- | --- |
 | Vault (OpenBao) | `https://vault.chrisvouga.dev` | `vault login` locally; GitHub OIDC (role `github-actions`) in CI; read token at runtime |
 | PostgreSQL | via `DATABASE_URL` (opaque connection URL) | connection URL from Vault; an app-specific allocation is required |
-| Turborepo cache | `https://turborepo.chrisvouga.dev` | `Authorization: Bearer $TURBO_TOKEN` |
 | Object store | Cloudflare R2 (S3 API) via `S3_ENDPOINT` | SigV4 with `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` |
 | Google sign-in | `https://auth.chrisvouga.dev/realms/projects` / `https://auth-dev.chrisvouga.dev/realms/projects-dev` | Public OIDC code + S256 PKCE; agent registration uses a scoped Vault credential (§6) |
 | Hosting | Railway project `Workspace` at `*.chrisvouga.dev` | Prebuilt GHCR image published by the shared workflow (§5) |
@@ -77,20 +76,15 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | --- | --- | --- | --- |
 | `GOOGLE_OAUTH_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev | yes |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev | yes |
-| `TURBO_TOKEN` | dev, prd | turborepo, ci | yes |
-| `TURBO_API` | dev, prd | turborepo, ci | yes |
-| `TURBO_TEAM` | dev, prd | turborepo, ci | yes |
-| `TURBO_CACHE` | dev, prd | turborepo, ci |  |
-| `TURBO_LOG_ORDER` | dev, prd | turborepo |  |
-| `TURBO_TELEMETRY_DISABLED` | dev, prd | turborepo |  |
-| `S3_ENDPOINT` | dev, prd | turborepo, ci, 9router | yes |
-| `S3_REGION` | dev, prd | turborepo, ci, 9router | yes |
-| `S3_ACCESS_KEY_ID` | dev, prd | turborepo, ci, 9router | yes |
-| `S3_SECRET_ACCESS_KEY` | dev, prd | turborepo, ci, 9router | yes |
-| `S3_BUCKET` | dev, prd | turborepo, ci, 9router | yes |
+| `TURBO_CACHE` | dev, prd | ci |  |
+| `S3_ENDPOINT` | dev, prd | ci, 9router | yes |
+| `S3_REGION` | dev, prd | ci, 9router | yes |
+| `S3_ACCESS_KEY_ID` | dev, prd | ci, 9router | yes |
+| `S3_SECRET_ACCESS_KEY` | dev, prd | ci, 9router | yes |
+| `S3_BUCKET` | dev, prd | ci, 9router | yes |
 | `S3_ACCESS_KEY` | dev, prd | ci |  |
 | `S3_SECRET_KEY` | dev, prd | ci |  |
-| `VAULT_TOKEN` | dev, prd | turborepo, railway | yes |
+| `VAULT_TOKEN` | dev, prd | railway | yes |
 | `DATABASE_URL` | dev, prd | moviefinder, llm-proxy, fleet-api, ci, 9router, pickflix |  |
 | `TMDB_API_READ_ACCESS_TOKEN` | dev, prd | moviefinder, pickflix |  |
 | `TWILIO_ACCOUNT_SID` | dev, prd | moviefinder |  |
@@ -262,45 +256,17 @@ vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | g
 
 ---
 
-## 3. Turborepo remote cache
+## 3. Local Turborepo caching
 
-Self-hosted Turborepo remote cache (Turbo's standard HTTP API, Bearer auth). Only applies to projects with a `turbo.json`. Do not use Vercel Remote Cache (`turbo login` / `turbo link`) alongside it.
+Turborepo remote caching is retired. The server source remains dormant at [`packages/turborepo-remote-cache`](https://github.com/crvouga/workspace/blob/main/packages/turborepo-remote-cache). Do not configure clients, copy cache credentials or probe the former Turbo endpoint.
 
-**Env vars** (all in Vault `secret/personal/{dev,prd}`):
+Use local caching; remove `TURBO_API`, `TURBO_TOKEN` and `TURBO_TEAM` from client environments. Replace any `TURBO_CACHE=remote:rw` setting with `TURBO_CACHE=local:rw`. In `turbo.json`, set:
 
-| Var | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `TURBO_TOKEN` | yes |  | Bearer token Turbo clients send and the cache server validates — from Vault, never committed |
-| `TURBO_API` | yes | `https://turborepo.chrisvouga.dev` | Self-hosted cache URL (TURBO_API env for turbo CLI) |
-| `TURBO_TEAM` | yes | `local` | Any team slug (e.g. local) — required by turbo CLI for remote cache |
-| `TURBO_CACHE` | yes | `remote:rw` | Turbo --cache flag default (e.g. remote:rw) |
-| `TURBO_LOG_ORDER` | optional |  | Turbo log order (e.g. stream) |
-| `TURBO_TELEMETRY_DISABLED` | optional |  | Set to 1 to disable Turbo telemetry |
-
-**Local:** with `.vault.yaml` pointing at `personal`, `vault run -- turbo run build` picks everything up. Using a separate Vault project? The human copies the keys from `crvouga/workspace` with `bun run infra:vault apply`.
-
-**CI:** load the keys with the OIDC step from §1 and expose them as job env:
-
-```yaml
-secrets: |
-  secret/data/personal/prd TURBO_TOKEN | TURBO_TOKEN ;
-  secret/data/personal/prd TURBO_API   | TURBO_API ;
-  secret/data/personal/prd TURBO_TEAM  | TURBO_TEAM ;
-  secret/data/personal/prd TURBO_CACHE | TURBO_CACHE
+```json
+{ "remoteCache": { "enabled": false } }
 ```
 
-**`turbo.json`:** never put the token there. `TURBO_*` vars are read by the `turbo` binary itself, not by tasks, so strict env mode needs no changes.
-
-**Verify:**
-
-```bash
-curl -fsS https://turborepo.chrisvouga.dev/health                          # up
-curl -s -o /dev/null -w '%{http_code}\n' https://turborepo.chrisvouga.dev/v8/artifacts/status   # 401 (auth gate works)
-curl -fsS -H "Authorization: Bearer $TURBO_TOKEN" https://turborepo.chrisvouga.dev/v8/artifacts/status   # JSON, not 401
-vault run -- turbo run build   # 2nd run with unchanged inputs → "cache hit, replaying logs"
-```
-
-If cache credentials are missing or rejected, report the skipped remote check and use local caching for independent checks. A required post-deployment cache smoke failure still fails that deployment.
+GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ---
 
@@ -506,7 +472,7 @@ Names only — never values.
 
 - Postgres (`DATABASE_URL`): <needed / not needed>; migrations run <at boot / manually / n/a>
 - Object store (R2): <needed / not needed>; key prefix `<prefix>/`
-- Turborepo remote cache: <used / not used>
+- Turborepo caching: local only (remote service retired)
 - Vault access from CI (OIDC): <needed / not needed>
 
 ## Local verification
@@ -662,7 +628,6 @@ Working examples to copy from — each links to its source repo:
 | `simon-says` | https://simonsays.chrisvouga.dev | [crvouga/simon-says](https://github.com/crvouga/simon-says) | `./Dockerfile` (`.`) | 80 | `/` |
 | `violets-garden` | https://violetsgarden.chrisvouga.dev | [crvouga/violets-garden](https://github.com/crvouga/violets-garden) | `./Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-docs` | https://mockingbird.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/docs) | `sites/docs/Dockerfile` (`.`) | 80 | `/` |
-| `turborepo` | https://turborepo.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/turborepo-remote-cache) | `packages/turborepo-remote-cache/Dockerfile` (`.`) | 8080 | `/health` |
 | `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/fleet-api) | `packages/fleet-api/Dockerfile` (`.`) | 8080 | `/health` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
 | `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
@@ -817,8 +782,6 @@ Before reporting success, verify discovery, registration readback, fresh login a
 | Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R crvouga/workspace -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: https://vault.chrisvouga.dev`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |
-| Turbo: 401 from cache                          | `TURBO_TOKEN` missing or wrong in that environment                                                                             |
-| Turbo: no remote hits                          | `TURBO_API` / `TURBO_CACHE` not set where `turbo` runs; check `--cache` flags                                                  |
 | R2: `SignatureDoesNotMatch`                    | Wrong secret key, region ≠ `auto`, or virtual-host addressing — use path-style                                                 |
 | R2: `NoSuchBucket`                             | `S3_BUCKET` does not match the config's bucket                                                                                 |
 | Publish: `id-token` / permissions error        | The caller workflow must grant `contents: read`, `packages: write`, `id-token: write` (Step 3 does)                            |

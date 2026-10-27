@@ -37,8 +37,7 @@ const derived = new Set([
 export const isDerived = (name: string) =>
   derived.has(name) || /^AUTH_(RELAY|CONSOLE|MANAGER)_/.test(name);
 // Optional overrides of generated values, kept to preserve existing credentials.
-export const overridable = (name: string) =>
-  name === 'TURBO_TOKEN' || name.startsWith('9ROUTER_');
+export const overridable = (name: string) => name.startsWith('9ROUTER_');
 
 export type KvKey = {
   name: string;

@@ -12,13 +12,13 @@
   "scripts": {
     "build": "test -f Dockerfile",
     "check:vault-secrets": "bun run scripts/check-vault-secrets.ts",
-    "dev": "bun ../../scripts/dev-server.ts remote-cache 8083 bun --env-file=.env run src/server.ts",
     "lint": "eslint src --max-warnings 0",
     "setup": "bun run scripts/setup-dev-vars.ts",
     "smoke": "bun run scripts/smoke-test-cache.ts",
     "smoke:secrets": "bun run scripts/smoke-test-secrets.ts",
     "tc": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test"
+    "test": "bun test",
+    "dev:dormant": "bun ../../scripts/dev-server.ts remote-cache 8083 bun --env-file=.env run src/server.ts"
   },
   "dependencies": {
     "@pkgs/assert": "workspace:*",

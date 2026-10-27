@@ -1,5 +1,5 @@
 name: Turborepo Vault secrets (OIDC)
-description: Load independent cache and portfolio credential groups from OpenBao.
+description: Load independent R2 and portfolio credential groups from OpenBao.
 inputs:
   vault_config:
     description: Vault config path segment (dev or prd)
@@ -38,23 +38,9 @@ runs:
         if [ "$OPTIONAL" = true ]; then
           echo '::warning::SKIP optional Vault integrations: Vault unavailable'
         else
-          echo '::error::Vault unavailable for the active cache deployment smoke test'
+          echo '::error::Vault unavailable for the integration checks'
           exit 1
         fi
-    - id: turbo
-      if: steps.readiness.outputs.ready == 'true'
-      continue-on-error: true
-      uses: hashicorp/vault-action@v4
-      with:
-        url: https://vault.chrisvouga.dev
-        method: jwt
-        path: jwt
-        role: github-actions
-        jwtGithubAudience: https://vault.chrisvouga.dev
-        secrets: |
-          secret/data/personal/${{ inputs.vault_config }} TURBO_TOKEN | TURBO_TOKEN ;
-          secret/data/personal/${{ inputs.vault_config }} TURBO_API | TURBO_API ;
-          secret/data/personal/${{ inputs.vault_config }} TURBO_TEAM | TURBO_TEAM
     - id: s3
       if: steps.readiness.outputs.ready == 'true'
       continue-on-error: true
@@ -83,14 +69,8 @@ runs:
         jwtGithubAudience: https://vault.chrisvouga.dev
         secrets: |
           secret/data/personal/${{ inputs.vault_config }} PORTFOLIO_GITHUB_TOKEN | PORTFOLIO_GITHUB_TOKEN
-    - name: Require active cache credentials
-      if: inputs.optional != 'true' && (steps.turbo.outcome != 'success' || steps.s3.outcome != 'success')
-      shell: bash
-      run: |
-        echo '::error::Required cache or R2 credentials unavailable for the active deployment smoke test'
-        exit 1
     - id: mark
       shell: bash
       env:
-        AVAILABLE: ${{ steps.turbo.outcome == 'success' || steps.s3.outcome == 'success' || steps.portfolio.outcome == 'success' }}
+        AVAILABLE: ${{ steps.s3.outcome == 'success' || steps.portfolio.outcome == 'success' }}
       run: echo "vault_available=$AVAILABLE" >> "$GITHUB_OUTPUT"
