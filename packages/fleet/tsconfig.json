@@ -1,4 +1,0 @@
-{
-  "extends": "../../tsconfig.strict.json",
-  "include": ["playwright.config.ts", "bdd/**/*.ts"]
-}

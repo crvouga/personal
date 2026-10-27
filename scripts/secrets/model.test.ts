@@ -19,26 +19,24 @@ test('historical backend credentials are preserved in managed inputs but exclude
   expect(vaultSecretVariables(next)).toEqual({
     secrets: next.secrets,
     admin_passwords: next.admin_passwords,
-    fleet_age_keys: next.fleet_age_keys,
   });
   const vault = stages(next, fills, inventory).find(
     (stage) => stage.root === 'vault'
   )!;
   expect(Object.keys(vault.env).sort()).toEqual([
     'TF_VAR_admin_passwords',
-    'TF_VAR_fleet_age_keys',
     'TF_VAR_secrets',
   ]);
 });
 
-test('editing one scope preserves other scopes, unknown fields, passwords and fleet keys', () => {
+test('editing one scope preserves other scopes, unknown fields, passwords and unrecognized maps', () => {
   const original = structuredClone(before);
   const selected = fills.filter((fill) => fill.config === 'prd');
   const next = updateInputs(before, selected, inventory.vault.kv_keys);
   expect(next.secrets.dev).toEqual(before.secrets.dev);
   expect(next.secrets.prd.KEEP).toBe(before.secrets.prd.KEEP);
   expect(next.admin_passwords).toEqual(before.admin_passwords);
-  expect(next.fleet_age_keys).toEqual(before.fleet_age_keys);
+  expect(next.legacy_input_map).toEqual(before.legacy_input_map);
   expect(before).toEqual(original);
   expect(stages(next, selected, inventory).map((stage) => stage.state)).toEqual(
     ['foundation', 'vault', 'auth-production']

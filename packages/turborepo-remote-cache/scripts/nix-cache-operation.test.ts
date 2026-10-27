@@ -27,7 +27,7 @@ for (const code of [
       }
     );
     await expect(result).rejects.toThrow(
-      `FLEET_CACHE_S3_HEAD_${code === 'private-fixture' ? 'UNKNOWN' : code.toUpperCase()}`
+      `NIX_CACHE_S3_HEAD_${code === 'private-fixture' ? 'UNKNOWN' : code.toUpperCase()}`
     );
     expect(attempts).toBe(1);
     expect(diagnostics).toEqual([]);

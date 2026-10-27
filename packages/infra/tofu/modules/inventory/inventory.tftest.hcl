@@ -1,21 +1,9 @@
-run "fleet_browser_auth_contract" {
-  command = plan
-  assert {
-    condition = one([for service in output.config.services :
-      try(service.env.FLEET_OIDC_ISSUER, "") == "https://${output.config.auth_relay.instances.production.hostname}/realms/${output.config.auth_relay.instances.production.realm}" &&
-      startswith(try(service.env.FLEET_OIDC_CLIENT_ID, ""), "app-") &&
-      try(service.env.FLEET_PUBLIC_ORIGIN, "") == "https://${service.hostname}"
-      if service.id == "fleet-api"
-    ])
-    error_message = "Fleet must retain its registered production browser-auth configuration across deployments."
-  }
-}
 
-run "fleet_contract" {
+run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 21
-    error_message = "Retiring the dedicated cache must retain all 21 remaining Railway services."
+    condition     = length(output.config.services) == 20
+    error_message = "Application retirement must retain all 20 unrelated service entries."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)

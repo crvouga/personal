@@ -31,7 +31,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
       inventory,
       JSON.stringify({ locals: { inventory: { auth_relay: { enabled } } } })
     );
-  inventoryFor(false);
+  inventoryFor(true);
   writeFileSync(
     join(directory, 'tofu'),
     '#!/bin/sh\ncase "$2" in state) printf "%s\\n" "${TEST_STATE:-}";; show) cat "$TEST_PLAN";; apply) touch "$TEST_APPLIED";; esac\n',
@@ -69,24 +69,39 @@ test('schema bootstrap applies only creation of the empty application schemas', 
     [[], true],
     [[{ mode: 'data', change: { actions: ['read'] } }], true],
     [
-      [{ address: 'postgresql_schema.fleet', change: { actions: ['create'] } }],
-      true,
-    ],
-    [
-      [{ address: 'postgresql_schema.fleet', change: { actions: ['no-op'] } }],
+      [
+        {
+          address: 'postgresql_schema.auth_console["production"]',
+          change: { actions: ['create'] },
+        },
+      ],
       true,
     ],
     [
       [
         {
-          address: 'postgresql_schema.fleet',
+          address: 'postgresql_schema.auth_console["production"]',
+          change: { actions: ['no-op'] },
+        },
+      ],
+      true,
+    ],
+    [
+      [
+        {
+          address: 'postgresql_schema.auth_console["production"]',
           change: { actions: ['delete', 'create'] },
         },
       ],
       false,
     ],
     [
-      [{ address: 'postgresql_schema.fleet', change: { actions: ['update'] } }],
+      [
+        {
+          address: 'postgresql_schema.auth_console["production"]',
+          change: { actions: ['update'] },
+        },
+      ],
       false,
     ],
     [
@@ -125,7 +140,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
         PATH: `${directory}:${process.env.PATH}`,
         TEST_PLAN: plan,
         TEST_APPLIED: applied,
-        TEST_STATE: 'postgresql_schema.fleet',
+        TEST_STATE: 'postgresql_schema.auth_console["production"]',
         TOFU_INVENTORY: inventory,
       },
     });
@@ -178,7 +193,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
           PATH: `${directory}:${process.env.PATH}`,
           TEST_PLAN: plan,
           TEST_APPLIED: applied,
-          TEST_STATE: 'postgresql_schema.fleet',
+          TEST_STATE: 'postgresql_schema.external_app',
           TOFU_INVENTORY: inventory,
         },
       });
@@ -194,8 +209,7 @@ test('schema bootstrap applies only creation of the empty application schemas', 
         PATH: `${directory}:${process.env.PATH}`,
         TEST_PLAN: plan,
         TEST_APPLIED: applied,
-        TEST_STATE:
-          'postgresql_schema.fleet\npostgresql_schema.auth_console["production"]',
+        TEST_STATE: 'postgresql_schema.auth_console["production"]',
         TOFU_INVENTORY: inventory,
       },
     });

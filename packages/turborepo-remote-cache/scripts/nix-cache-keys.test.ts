@@ -7,7 +7,7 @@ test('managed Ed25519 PKCS8 becomes Nix/libsodium seed-plus-public encoding', ()
   const pem = pair.privateKey
     .export({ format: 'pem', type: 'pkcs8' })
     .toString();
-  const keys = nixCacheKeys(pem);
+  const keys = nixCacheKeys(pem, 'test-cache-1');
   const secret = Buffer.from(keys.secret.split(':')[1]!, 'base64');
   const publicBytes = Buffer.from(keys.public.split(':')[1]!, 'base64');
   expect(secret.length).toBe(64);
@@ -15,15 +15,18 @@ test('managed Ed25519 PKCS8 becomes Nix/libsodium seed-plus-public encoding', ()
   expect(secret.subarray(32)).toEqual(publicBytes);
   const expected = createPublicKey(pair.privateKey).export({ format: 'jwk' });
   expect(publicBytes).toEqual(Buffer.from(expected.x!, 'base64url'));
-  expect(keys).toEqual(nixCacheKeys(pem));
+  expect(keys).toEqual(nixCacheKeys(pem, 'test-cache-1'));
 });
 
 test('other key algorithms and invalid private material fail closed', () => {
   const pair = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   expect(() =>
     nixCacheKeys(
-      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString()
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'test-cache-1'
     )
   ).toThrow('Ed25519');
-  expect(() => nixCacheKeys('not private key material')).toThrow();
+  expect(() =>
+    nixCacheKeys('not private key material', 'test-cache-1')
+  ).toThrow();
 });

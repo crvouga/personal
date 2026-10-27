@@ -34,7 +34,7 @@ GitHub outage).
 ## Repo facts
 
 - Bun + Turborepo monorepo. Trunk is `main`. CI always reports `Check` and
-  `Fleet` on PRs and merge-queue entries. `Required` temporarily covers
+  `Fleet` on PRs and merge-queue entries; the latter is a legacy alias of Check. `Required` temporarily covers
   `Check` and `Fleet` while the OpenTofu-owned ruleset migrates; inspect the live ruleset
   rather than assuming the migration has been applied.
 - Full local gate: `bun run check`. With Vault (portfolio build needs
@@ -116,8 +116,7 @@ Run `bun run pr:ready checks`.
 <pkg> lint|tc|test|build`, `bun run check`), fix it, commit and publish (step
   3), then run `checks` again. If the same check fails twice, read the full log
   (`--tail 1000`) and reproduce it locally before pushing again.
-- Fix the failing validation or platform job. `Fleet` reports its platform
-  dependencies; the temporary `Required` status covers `Check` and `Fleet`.
+- Fix the failing validation or platform job. `Fleet` reports Check under its legacy name; the temporary `Required` status covers `Check` and `Fleet`.
 
 ### 7. Land
 

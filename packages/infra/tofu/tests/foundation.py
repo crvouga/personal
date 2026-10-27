@@ -13,13 +13,11 @@ env = dict(os.environ)
 env.setdefault("TF_VAR_state_passphrase", "validation-only-passphrase-never-used-for-real-state")
 
 with tempfile.TemporaryDirectory(prefix="workspace-tofu-foundation-") as directory:
-    # Mirror packages/infra/tofu/foundation so relative paths into sibling
-    # packages (fleet-api/schema.hcl) resolve exactly as they do in production.
+    # Mirror sibling packages so the authentication relay schema resolves.
     mirror = Path(directory) / "packages"
     root = mirror / "infra/tofu/foundation"
     root.mkdir(parents=True)
     (root.parent / "modules").symlink_to(tofu_root / "modules", target_is_directory=True)
-    (mirror / "fleet-api").symlink_to(packages / "fleet-api", target_is_directory=True)
     (mirror / "auth-relay").symlink_to(packages / "auth-relay", target_is_directory=True)
     for source in (tofu_root / "foundation").glob("*.tf"):
         # OpenTofu 1.13's mock providers panic on ImportResourceState. Only the

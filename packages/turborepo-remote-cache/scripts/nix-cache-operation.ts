@@ -57,11 +57,11 @@ export async function cacheOperation<T>(
     } catch (error) {
       const code = safeCode(error);
       if (!transientCodes.has(code) || attempt === 4) {
-        throw new Error(`FLEET_CACHE_S3_${operation}_${code.toUpperCase()}`);
+        throw new Error(`NIX_CACHE_S3_${operation}_${code.toUpperCase()}`);
       }
       const delay = 1000 * 2 ** (attempt - 1);
       warn(
-        `FLEET_CACHE_S3_RETRY operation=${operation} code=${code} attempt=${attempt}/4 delayMs=${delay}`
+        `NIX_CACHE_S3_RETRY operation=${operation} code=${code} attempt=${attempt}/4 delayMs=${delay}`
       );
       await sleep(delay);
     }

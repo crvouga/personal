@@ -1,11 +1,11 @@
 /**
  * Renders the repo-root `llms.txt`: the integration guide external codebases
  * (and their agents) fetch to consume Vault, the R2
- * object store, and fleet hosting.
+ * object store, and services hosting.
  *
  * Prose lives in `scripts/llms-txt.template.md`. Every value an integrator
  * copies — hostnames, Vault paths, OIDC role, buckets, key names, the publish
- * workflow, publisher inputs, the fleet — is read from its source of truth here, so
+ * workflow, publisher inputs, the services — is read from its source of truth here, so
  * the file cannot drift. Template tokens:
  *
  *   {{name}}          scalar from `values()`
@@ -253,7 +253,7 @@ function exampleService(ctx: Context): Record<string, unknown> {
     env: { PORT: '8080' },
     secrets: [{ name: 'DATABASE_URL', source: 'vault' }],
   };
-  // Every field in the example must be one the real fleet uses, so a renamed
+  // Every field in the example must be one the deployed services use, so a renamed
   // OpenTofu inventory field breaks this check instead of silently misleading.
   const used = new Set(config.services.flatMap((s) => Object.keys(s)));
   for (const key of Object.keys(example)) {
@@ -276,7 +276,7 @@ function blocks(ctx: Context): Record<string, string> {
     s3.secret_key_secret,
     s3.bucket_secret,
   ];
-  const fleet = config.services.filter(
+  const services = config.services.filter(
     (s) => (s.kind ?? 'railway') === 'railway' && !s.standalone && s.hostname
   );
 
@@ -379,7 +379,7 @@ function blocks(ctx: Context): Record<string, string> {
         input.description ?? '',
       ])
     ),
-    fleet: table(
+    services: table(
       [
         'Service id',
         'Public URL',
@@ -388,7 +388,7 @@ function blocks(ctx: Context): Record<string, string> {
         'Port',
         'Health',
       ],
-      fleet.map((s) => [
+      services.map((s) => [
         code(s.id),
         `https://${s.hostname}`,
         s.source_code_url

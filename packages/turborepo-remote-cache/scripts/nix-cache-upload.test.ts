@@ -42,7 +42,7 @@ test('an interrupted NAR upload exposes no pointers and the next publication rec
     text: async (key) => objects.get(key) ?? '',
   };
   await expect(uploadNixCache(directory, store)).rejects.toThrow(
-    'FLEET_CACHE_S3_PUT_UNKNOWN'
+    'NIX_CACHE_S3_PUT_UNKNOWN'
   );
   expect(objects.size).toBe(0);
   fail = false;
@@ -136,7 +136,7 @@ test('exhausted NAR retries leave metadata unpublished and name the failing oper
         warn: () => {},
       }
     )
-  ).rejects.toThrow('FLEET_CACHE_S3_PUT_ETIMEDOUT');
+  ).rejects.toThrow('NIX_CACHE_S3_PUT_ETIMEDOUT');
   expect(attempts).toBe(4);
   expect(delays).toEqual([1000, 2000, 4000]);
 });
@@ -149,5 +149,5 @@ test('a failed private readback cannot produce a successful publication', async 
       put: async () => {},
       text: async () => 'wrong cache index',
     })
-  ).rejects.toThrow('FLEET_CACHE_READBACK_FAILED');
+  ).rejects.toThrow('NIX_CACHE_READBACK_FAILED');
 });

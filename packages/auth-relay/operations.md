@@ -77,7 +77,7 @@ bootstrap state credentials were available in the local environment during the
 
 First adoption requires a staged plan: foundation roles/empty schemas, then schema-scoped Atlas tables/grants; private identity service and reviewed Keycloak initial migration; `auth` realm bootstrap using a private trusted administration connection; Vault projection of system credentials; full hosting plan. Use a reviewed targeted plan for the private identity service only during bootstrap, never an unchecked normal deployment shortcut. `auth-production.tfstate` and `auth-nonproduction.tfstate` are independent encrypted realm states. Vault reads them only when enabled. Do not enable the public gateway before its dependencies exist.
 
-**Keycloak's initial table/changelog migration and safe version-upgrade strategy remain unresolved production gates.** The production image deliberately validates its schema and must not initialize/update it on startup. Do not work around this using shell provisioners or manual DDL. The disposable test fixture permits upstream initialization; it is not a deployment procedure. Foundation's existing automatic empty-schema bootstrap handles fleet only; auth's initial schema creation still needs a separately reviewed targeted OpenTofu plan before Atlas inspection. Import any already-existing schema/role before adoption; never replace live resources.
+**Keycloak's initial table/changelog migration and safe version-upgrade strategy remain unresolved production gates.** The production image deliberately validates its schema and must not initialize/update it on startup. Do not work around this using shell provisioners or manual DDL. The disposable test fixture permits upstream initialization; it is not a deployment procedure. Foundation's empty-schema bootstrap permits only creation of the relay schemas and restricted roles before Atlas inspection; existing managed schemas remain in the full plan. Import any already-existing schema/role before adoption; never replace live resources.
 
 Bun readiness `/health/ready` checks its schema and private-provider discovery; liveness `/health/live` is process-only. Bounded DB pools, request sizes, upstream timeouts and database-backed per-client/global admission limits contain overload. These are initial limits, not proof of fair capacity under hostile traffic. SIGTERM stops accepting requests and drains them before database shutdown, with a 25-second deadline. Railway overlap/drain settings are 60 seconds with automatic failure restart. Verify actual routing and termination in deployment; declarations alone are not evidence.
 
@@ -120,11 +120,11 @@ Google accounts in the same browser during live acceptance.
 
 ## Verified email claims
 
-Fleet authorizes only verified Google emails. The Google provider enables
+Consumers can require verified Google emails. The Google provider enables
 `trust_email` so Keycloak preserves Google's `email_verified` assertion rather
 than requiring a second broker email-verification flow. It still uses the
 standard first-broker-login confirmation flow, with no automatic email account
-linking. A verified email grants neither relay operator access nor Fleet access;
+linking. A verified email grants neither relay operator access nor application access;
 those permissions remain separate database-owned decisions. Existing unverified
 broker users need review before live rollout. The pinned provider's behavior is
 specified in [Keycloak's OIDC implementation](https://github.com/keycloak/keycloak/blob/26.8.1/services/src/main/java/org/keycloak/broker/oidc/OIDCIdentityProvider.java#L1071).

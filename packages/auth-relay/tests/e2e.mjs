@@ -18,7 +18,7 @@ function fixtureFetch(url, options = {}) {
 }
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../../..');
-const require = createRequire(join(repo, 'packages/fleet/package.json'));
+const require = createRequire(join(repo, 'packages/auth-relay/package.json'));
 const { chromium } = require('@playwright/test');
 const issuer = 'http://localhost:19080/realms/compatibility';
 let activeBackend = 'http://localhost:18080';

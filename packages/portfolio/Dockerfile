@@ -13,8 +13,6 @@ ARG TARGETARCH
 
 COPY package.json bun.lock tsconfig.strict.json ./
 COPY packages/portfolio/package.json ./packages/portfolio/
-COPY packages/fleet/package.json ./packages/fleet/
-COPY packages/fleet-api/package.json ./packages/fleet-api/
 COPY packages/assert/package.json ./packages/assert/
 COPY packages/admin-ui/package.json ./packages/admin-ui/
 COPY packages/auth-relay/package.json ./packages/auth-relay/

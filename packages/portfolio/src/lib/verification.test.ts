@@ -87,7 +87,7 @@ describe('isAutomatedPr', () => {
       isAutomatedPr({
         authorLogin: 'crvouga',
         authorIsBot: false,
-        headRefName: 'chore/fleet-node-setup',
+        headRefName: 'chore/node-setup',
       })
     ).toBe(false);
     expect(

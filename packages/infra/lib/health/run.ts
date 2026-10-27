@@ -4,17 +4,14 @@ import { assert } from "@pkgs/assert";
 import { checkDns } from "./check-dns.js";
 import { checkDomains } from './check-domains.js';
 import { checkDrift } from "./check-drift.js";
-import { checkFleetNodes } from "./check-fleet-nodes.js";
 import { checkGithub } from "./check-github.js";
 import { checkImages } from "./check-images.js";
 import { checkInventory } from "./check-inventory.js";
-import { checkRunners } from "./check-runners.js";
 import { checkSecrets } from "./check-secrets.js";
 import { checkServices, checkTunnels } from "./check-services.js";
 import { checkStorage } from "./check-storage.js";
 import { checkTls } from "./check-tls.js";
 import { checkVault } from "./check-vault.js";
-import { checkWindowsSigning } from './check-windows-signing.js';
 import { errorMessage, type HealthContext } from "./context.js";
 import { fail, type CheckResult, type GroupReport, type HealthReport } from "./report.js";
 
@@ -26,7 +23,6 @@ export type HealthGroup = {
 };
 
 export const HEALTH_GROUPS: readonly HealthGroup[] = [
-  { id: 'windows-signing', title: 'Windows publisher', covers: 'Azure signing account and verified public certificate profile', run: checkWindowsSigning },
   { id: "auth", title: "Authentication relay", covers: "OIDC discovery, JWKS and broker readiness", run: checkAuthRelay },
   { id: "inventory", title: "Inventory", covers: "offline consistency of the OpenTofu inventory", run: checkInventory },
   { id: "dns", title: "DNS", covers: "Cloudflare delegation and every declared record", run: checkDns },
@@ -39,8 +35,6 @@ export const HEALTH_GROUPS: readonly HealthGroup[] = [
   { id: "storage", title: "Storage", covers: "R2 buckets, PostgreSQL, service databases", run: checkStorage },
   { id: "images", title: "Images", covers: "pullability of every deployed GHCR image with declared registry access", run: checkImages },
   { id: "github", title: "GitHub", covers: "repositories, publishers, secrets, merge gate and last CI run", run: checkGithub },
-  { id: "runners", title: "CI runners", covers: "self-hosted runner fleet registrations", run: checkRunners },
-  { id: "fleet-nodes", title: "Fleet nodes", covers: "node agents reporting to the fleet API (approved, online, healthy)", run: checkFleetNodes },
   { id: "drift", title: "OpenTofu", covers: "state objects and `tofu plan` drift per root (--drift)", run: checkDrift },
 ];
 

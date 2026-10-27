@@ -1,19 +1,6 @@
-// `bun run auth:setup`: walks the human-only parts of putting Fleet behind the
-// shared auth relay, and does everything around them. Each step looks at live
-// state first, so a finished step is skipped and the command can be re-run.
 import { Abort } from '../vault-inputs/flow';
 import type { Io } from './io';
-import {
-  FLEET_SERVICE,
-  configuredEnv,
-  fleetEnv,
-  fleetRegistration,
-  fleetSignInAvailable,
-  googleCallbacks,
-  poll,
-  withServiceEnv,
-  type Inventory,
-} from './model';
+import { googleCallbacks, poll, type Inventory } from './model';
 import type { Store } from './store';
 
 const MINUTE = 60_000;
@@ -21,11 +8,8 @@ export type Secrets = Readonly<Record<string, string>>;
 export type Deps = {
   io: Io;
   inventory: Inventory;
-  /** Current inventory text, and a writer for the updated one. */
-  inventoryText: string;
-  writeInventory(text: string): void;
   vault(config: string): Promise<Secrets | undefined>;
-  store(urls: { relay: string; fleet: string }): Store;
+  store(url: string): Store;
 };
 
 function heading(io: Io, number: number, title: string) {
@@ -102,147 +86,32 @@ async function operator(d: Deps, store: Store, origin: string, token: string) {
   );
 }
 
-async function registerFleet(
-  d: Deps,
-  store: Store,
-  origin: string,
-  reg: ReturnType<typeof fleetRegistration>
-) {
-  const { io } = d;
-  heading(io, 4, 'Register Fleet in the relay');
-  const existing = await store.fleetClient();
-  if (existing) {
-    io.say(`✓ Fleet is already registered as ${existing.id}.`);
-    return existing;
-  }
-  io.say(`In ${origin}, create a registration with exactly:`);
-  io.say(`  Project      ${reg.project}`);
-  io.say(`  Environment  ${reg.environment}`);
-  io.say(`  Instance     ${reg.instance}`);
-  io.say(`  Name         ${reg.name}`);
-  io.say(`  Callback     ${reg.callback}`);
-  io.say(
-    `  Expires      ${reg.expires}   (production leases last at most 366 days)`
-  );
-  io.say('Confirm you own the fleet.chrisvouga.dev deployment, then Save.');
-  await io.copy(reg.callback);
-  const found = await poll(() => store.fleetClient(), {
-    timeoutMs: 20 * MINUTE,
-    intervalMs: 3_000,
-    sleep: io.sleep,
-  });
-  if (!found)
-    throw new Abort('No Fleet registration appeared within 20 minutes.');
-  io.say(`✓ Found client ${found.id}.`);
-  return found;
-}
-
-async function accessList(d: Deps, store: Store) {
-  const { io } = d;
-  heading(io, 5, 'Allow your email in Fleet');
-  const count = await store.allowedEmails();
-  io.say(
-    count > 0
-      ? `Fleet allows ${count} email address(es) today.`
-      : 'Fleet allows nobody yet; access is never granted automatically.'
-  );
-  if (
-    !(await io.confirm(
-      'Add an email address to the Fleet access list?',
-      count === 0
-    ))
-  )
-    return;
-  const email = (
-    await io.ask('Google account email', await io.gitEmail())
-  ).toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
-    throw new Abort(`"${email}" is not an email address.`);
-  await store.allowEmail(email);
-  io.say(`✓ ${email} can sign in to Fleet.`);
-}
-
-function wire(
-  d: Deps,
-  reg: ReturnType<typeof fleetRegistration>,
-  clientId: string
-) {
-  const { io } = d;
-  heading(io, 6, 'Point Fleet at the relay');
-  const want = fleetEnv(reg, clientId);
-  const have = configuredEnv(d.inventory);
-  if (Object.entries(want).every(([key, value]) => have[key] === value)) {
-    io.say(
-      `✓ ${FLEET_SERVICE} already has the relay settings in the inventory.`
-    );
-    return false;
-  }
-  d.writeInventory(withServiceEnv(d.inventoryText, FLEET_SERVICE, want));
-  io.say(`✓ Added to the ${FLEET_SERVICE} env in the OpenTofu inventory:`);
-  for (const [key, value] of Object.entries(want))
-    io.say(`    ${key}=${value}`);
-  io.say('  These are public identifiers, not secrets.');
-  return true;
-}
-
-async function verify(
-  d: Deps,
-  reg: ReturnType<typeof fleetRegistration>,
-  changed: boolean
-) {
-  const { io } = d;
-  heading(io, 7, 'Check the live Fleet sign-in page');
-  const page = await io.get(`${reg.origin}/login`);
-  if (page && fleetSignInAvailable(page.body)) {
-    io.say(`✓ ${reg.origin}/login offers Continue with Google.`);
-    return;
-  }
-  io.say(`✗ ${reg.origin}/login still says Google sign-in is unavailable.`);
-  io.say(
-    changed
-      ? '  Expected until the inventory change is merged and the Fleet deploy finishes.'
-      : '  The inventory is already set, so check the Fleet deploy and its FLEET_OIDC_* variables.'
-  );
-}
-
 export async function authSetup(d: Deps): Promise<void> {
-  const { io } = d;
-  const reg = fleetRegistration(d.inventory, io.now());
-  const secrets = await d.vault(reg.relay.vault_config);
-  const fleetSecrets = await d.vault('prd');
-  if (!secrets || !fleetSecrets)
+  const relay = d.inventory.auth_relay.instances['production'];
+  if (!relay)
+    throw new Abort('No production authentication relay is configured.');
+  const secrets = await d.vault(relay.vault_config);
+  if (!secrets)
     throw new Abort(
       'Cannot read Vault. Run `bun run vault:login` and try again.'
     );
-  const names = [reg.relay.setup_token_key, 'AUTH_RELAY_DATABASE_URL'];
-  const missing = names.filter((name) => !secrets[name]);
-  if (!fleetSecrets['DATABASE_URL']) missing.push('DATABASE_URL');
+  const missing = [relay.setup_token_key, 'AUTH_RELAY_DATABASE_URL'].filter(
+    (name) => !secrets[name]
+  );
   if (missing.length)
     throw new Abort(
-      `Vault is missing ${missing.join(', ')}. Run the Auth relay deploy first.`
+      `Vault is missing ${missing.join(', ')}. Run the authentication relay deploy first.`
     );
-
-  const origin = `https://${reg.relay.hostname}`;
+  const origin = `https://${relay.hostname}`;
   await google(d);
-  await relayReady(d, reg.issuer, origin);
-  const store = d.store({
-    relay: secrets['AUTH_RELAY_DATABASE_URL']!,
-    fleet: fleetSecrets['DATABASE_URL']!,
-  });
+  await relayReady(d, `${origin}/realms/${relay.realm}`, origin);
+  const store = d.store(secrets['AUTH_RELAY_DATABASE_URL']!);
   try {
-    await operator(d, store, origin, secrets[reg.relay.setup_token_key]!);
-    const client = await registerFleet(d, store, origin, reg);
-    await accessList(d, store);
-    const changed = wire(d, reg, client.id);
-    if (client.expiresAt)
-      io.say(
-        `\nRenew the Fleet registration before ${client.expiresAt.slice(0, 10)}, or sign-in stops.`
-      );
-    await verify(d, reg, changed);
-    if (changed)
-      io.say(
-        '\nNext: commit the inventory change and merge it (`/pr-ready`). The deploy applies it; then re-run this command to verify.'
-      );
+    await operator(d, store, origin, secrets[relay.setup_token_key]!);
+    d.io.say(
+      'Authentication relay setup is complete. Register applications and exact callbacks through its management UI.'
+    );
+    await d.io.open(origin);
   } finally {
     await store.close();
   }

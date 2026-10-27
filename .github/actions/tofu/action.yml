@@ -3,10 +3,10 @@ description: Initialize, plan and apply one OpenTofu root with encrypted R2 stat
 inputs:
   root:
     required: true
-    description: OpenTofu root (foundation, bootstrap, vault, fleet, auth-hosting or auth)
+    description: OpenTofu root (foundation, bootstrap, vault, services, auth-hosting or auth)
   state_key:
     default: ''
-    description: State object name without .tfstate; defaults to the root. The auth root uses one state per instance (auth-production, auth-nonproduction).
+    description: State object name without .tfstate; defaults to the root except services retains its existing shared backend key. The auth root uses one state per instance (auth-production, auth-nonproduction).
   vault_image_tag:
     default: ''
     description: New vault image revision; empty preserves the deployed revision.
@@ -59,7 +59,10 @@ runs:
         TOFU_STATE_KEY: ${{ inputs.state_key }}
       run: |
         set -euo pipefail
-        case "${TOFU_ROOT}" in foundation|bootstrap|vault|fleet|auth-hosting|auth) ;; *) exit 1 ;; esac
+        case "${TOFU_ROOT}" in foundation|bootstrap|vault|services|auth-hosting|auth) ;; *) exit 1 ;; esac
+        if [ "${TOFU_ROOT}" = services ] && [ -z "${TOFU_STATE_KEY}" ]; then
+          TOFU_STATE_KEY=fleet
+        fi
         case "${TOFU_STATE_KEY:-${TOFU_ROOT}}" in *[!a-z-]*) exit 1 ;; esac
         case "${TOFU_MODE}" in apply|prepare) ;; *) exit 1 ;; esac
         ROOT="packages/infra/tofu/${TOFU_ROOT}"
@@ -98,7 +101,7 @@ runs:
           TAG="${VAULT_IMAGE_TAG}"
           if [ -z "${TAG}" ]; then TAG="$(tofu -chdir="${ROOT}" output -raw vault_image_tag)"; fi
           echo "TF_VAR_vault_image_tag=${TAG}" >> "$GITHUB_ENV"
-        elif [ "${TOFU_ROOT}" = fleet ]; then
+        elif [ "${TOFU_ROOT}" = services ]; then
           tofu -chdir="${ROOT}" output -json image_tags > /tmp/tofu-image-tags.json
           # A service added to the inventory has no output yet (nothing is deployed
           # to preserve): give it the default tag so the complete-map check passes.
@@ -135,11 +138,6 @@ runs:
           tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 "${plan}"
         }
         STATE="$(tofu -chdir="${ROOT}" state list || true)"
-        if ! grep -qx 'postgresql_schema.fleet' <<< "${STATE}"; then
-          bootstrap app-schemas.tfplan '^postgresql_schema\.fleet$' -target=postgresql_schema.fleet
-        else
-          echo "Fleet schema is already managed; use the full foundation plan."
-        fi
         # The auth relay's per-instance schemas (and their restricted roles) follow
         # the same rule, and only while the inventory enables the relay.
         INVENTORY="${TOFU_INVENTORY:-packages/infra/tofu/modules/inventory/inventory.tf.json}"

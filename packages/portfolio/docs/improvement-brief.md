@@ -50,7 +50,7 @@ These were confirmed on the live site and a local build on 2026-10-26. They are 
 - F7. "How I build" has four unfalsifiable principles and no linked artifact, while the repo contains `AGENTS.md` hard rules, `.agents/commands/pr-ready.md`, résumé/OG build-failing tests, `bun run health`, OpenTofu `prevent_destroy` guards, and Mockingbird's property-based parity tests.
 - F8. The Cursor "top Tab user" video is the largest element in "How I build", the only third-party runtime dependency (YouTube iframe), and a 2024-era signal.
 - F9. Mockingbird (771 commits, published npm packages, CLI, `/__admin` control plane, docs site, MIT) is a one-line card in third position with no numbers and no demo. It has **56 open issues and 2 open PRs** visible on GitHub.
-- F10. The workspace platform itself (OpenTofu-only infra, OpenBao, NixOS runner fleet, Turborepo remote cache, auth relay, daily drift/health report, signed images) is invisible except a footer link. The Toolbox lists Heroku and Vercel instead.
+- F10. The workspace platform itself (OpenTofu-only infra, OpenBao, Turborepo remote cache, auth relay, daily drift/health report, signed images) is invisible except a footer link. The Toolbox lists Heroku and Vercel instead.
 - F11. `/projects/` has 26 entries including Simon Says, Snake, Match Three, Anime Blog, Fullstack Todo, a courier marketing site. Geviti appears as both Work and Project. gamezilla (lead card) has no code link and no statement of what is hard about it.
 - F12. No writing anywhere. No testimonials or recommendations anywhere (One Origin awards exist only as images). No mention of external open-source contributions, talks, or community work.
 - F13. Toolbox is a flat alphabetical list including Bootstrap, Redux Saga, Graphene, Neo4j, Ramda-era stacks. `Go` and `Rust` appear on the site but not the résumé; Docker, OpenTofu, NixOS, GitHub Actions, Playwright appear nowhere on the résumé.
@@ -145,7 +145,7 @@ These were confirmed on the live site and a local build on 2026-10-26. They are 
 
 ### Issue 7: Surface the workspace platform (F10)
 
-- Project entry "Workspace platform" + case study: what it runs, the OpenTofu-only rule and why, the health/drift loop, how agents are constrained (`AGENTS.md`), signed images, the NixOS runner fleet. Inline SVG architecture diagram that is legible in dark, light, and print.
+- Project entry "Workspace platform" + case study: what it runs, the OpenTofu-only rule and why, the health/drift loop, how agents are constrained (`AGENTS.md`), signed images. Inline SVG architecture diagram that is legible in dark, light, and print.
 - Toolbox (Issue 12) updated accordingly.
 
 ### Issue 8: Résumé PDF alignment and ATS hardening (F2, F13, F15, F29)

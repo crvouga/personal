@@ -61,7 +61,7 @@ variable "environment_id" { type = string }
 variable "service" { type = any }
 provider "graphql" { url = "http://127.0.0.1:PORT/graphql" }
 """.replace("PORT", str(server.server_port)))
-        lock = (tofu_root / "fleet/.terraform.lock.hcl").read_text()
+        lock = (tofu_root / "services/.terraform.lock.hcl").read_text()
         (root / ".terraform.lock.hcl").write_text(re.search(
             r'provider "registry.opentofu.org/sullivtr/graphql" \{[^}]+\}', lock
         ).group())

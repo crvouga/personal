@@ -43,14 +43,13 @@ error serializer. Do not enable request/response-body logging to diagnose auth.
 
 ## Current coverage
 
-| Service                                                      | Instrumentation                                                                                                                              |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth relay gateway                                           | Request/reference IDs, status/duration, database/identity/assets readiness, named callback/cleanup/manager steps, lifecycle and job outcomes |
-| Fleet API                                                    | Shared HTTP correlation, structured unexpected errors and database readiness errors; existing fleet metrics and job logs                     |
-| Remote cache                                                 | Shared HTTP correlation and structured artifact errors; existing Vault boot/renewal events                                                   |
-| Keycloak                                                     | Native JSON console logs, native readiness and existing metrics configuration; gateway forwards request IDs and W3C trace headers            |
-| OpenBao                                                      | Native JSON operational logs and existing health probes; secret audit infrastructure remains separately managed                              |
-| Externally owned apps, third-party images and fleet machines | Existing `bun run health` inventory probes and native platform/service logs; application instrumentation belongs to their owner              |
+| Service                                   | Instrumentation                                                                                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth relay gateway                        | Request/reference IDs, status/duration, database/identity/assets readiness, named callback/cleanup/manager steps, lifecycle and job outcomes |
+| Remote cache                              | Shared HTTP correlation and structured artifact errors; existing Vault boot/renewal events                                                   |
+| Keycloak                                  | Native JSON console logs, native readiness and existing metrics configuration; gateway forwards request IDs and W3C trace headers            |
+| OpenBao                                   | Native JSON operational logs and existing health probes; secret audit infrastructure remains separately managed                              |
+| Externally owned apps, third-party images | Existing `bun run health` inventory probes and native platform/service logs; application instrumentation belongs to their owner              |
 
 Forwarding a trace header does not imply the upstream records it. No trace
 collector, span store, synthetic sign-in monitor or new alert route is created

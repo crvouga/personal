@@ -9,7 +9,7 @@ case "$group" in all|validate|modules|contracts) ;; *) echo "Unknown check group
 
 if [[ "$group" = all || "$group" = validate ]]; then
   tofu fmt -check -recursive
-  for root in state foundation bootstrap vault fleet auth auth-hosting auth-development signing; do
+  for root in state foundation bootstrap vault services auth auth-hosting auth-development signing; do
     tofu -chdir="$root" init -backend=false -input=false -lockfile=readonly
     tofu -chdir="$root" validate
   done
@@ -19,7 +19,6 @@ if [[ "$group" = all || "$group" = modules ]]; then
   tofu -chdir=modules/inventory init -backend=false -input=false
   tofu -chdir=modules/inventory test
   tofu -chdir=signing init -backend=false -input=false -lockfile=readonly
-  tofu -chdir=signing test
   for module in railway-service auth-identity-service auth-realm-management auth-client; do
     tofu -chdir="modules/$module" init -backend=false -input=false -lockfile=readonly
     tofu -chdir="modules/$module" test

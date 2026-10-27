@@ -34,14 +34,6 @@ const matches = (pattern: RegExp, message: string, severity: Severity = "fail"):
 const longerThan = (length: number): Rule => (value) =>
   value.length >= length ? undefined : bad("warn", `is shorter than ${length} characters`);
 
-const json = (check: (parsed: unknown) => boolean, message: string): Rule => (value) => {
-  try {
-    return check(JSON.parse(value)) ? undefined : bad("fail", message);
-  } catch {
-    return bad("fail", "is not valid JSON");
-  }
-};
-
 const postgres = url(["postgres:", "postgresql:"]);
 const random = longerThan(32);
 
@@ -61,13 +53,6 @@ export const RULES: Readonly<Record<string, Rule>> = {
   TWILIO_ACCOUNT_SID: matches(/^AC[0-9a-f]{32}$/, "is not a Twilio account SID (AC + 32 hex)"),
   TWILIO_SERVICE_SID: matches(/^VA[0-9a-f]{32}$/, "is not a Twilio Verify service SID (VA + 32 hex)"),
   TWILIO_AUTH_TOKEN: matches(/^[0-9a-f]{32}$/, "is not a 32-character hex Twilio auth token", "warn"),
-  FLEET_ROLE_TOKEN_HASHES: json(
-    (parsed) =>
-      typeof parsed === "object" && parsed !== null && Object.values(parsed).every((hash) => /^[0-9a-f]{64}$/.test(String(hash))),
-    "must map each role to a SHA-256 hex digest",
-  ),
-  FLEET_ADMIN_TOKEN: random,
-  FLEET_SESSION_SECRET: random,
   PICKFLIX_SECRET: random,
   PICKFLIX_SESSION_SECRET: random,
   MOVIEFINDER_AUTH_SECRET: random,

@@ -167,7 +167,7 @@ if (import.meta.main) {
       'foundation',
       'bootstrap',
       'vault',
-      'fleet',
+      'services',
       'auth-hosting',
       'auth',
     ].includes(root)

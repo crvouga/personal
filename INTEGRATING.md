@@ -1,7 +1,7 @@
 # Integrating with shared infra — moved to the generated site guide
 
 The integration guide for other repos (Vault, PostgreSQL, Turborepo remote
-cache, R2 object store, and Dockerized hosting on the managed fleet) is the
+cache, R2 object store, and Dockerized hosting on the managed platform) is the
 generated [`llms.txt`](llms.txt) at the repo root and is published with the
 portfolio. Fetch and follow the deployed copy:
 

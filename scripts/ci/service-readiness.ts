@@ -132,8 +132,8 @@ async function main() {
   const environmentId = output<string>('foundation', 'environment_id');
   const targets = rolloutTargets({
     selected: JSON.parse(process.env.SERVICE_IDS ?? '[]'),
-    ids: output('fleet', 'service_ids'),
-    tags: output('fleet', 'image_tags'),
+    ids: output('services', 'service_ids'),
+    tags: output('services', 'image_tags'),
     changes: JSON.parse(process.env.ROLLOUT_CHANGES!),
     startedAt: Date.parse(process.env.ROLLOUT_STARTED_AT!),
     explicitSelection: ['repository_dispatch', 'workflow_dispatch'].includes(

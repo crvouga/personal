@@ -50,7 +50,7 @@ test('infrastructure changes preserve existing application image revisions', () 
   expect(
     deploymentPlan(config, {
       ...request,
-      paths: ['packages/infra/tofu/fleet/main.tf'],
+      paths: ['packages/infra/tofu/services/main.tf'],
     })
   ).toMatchObject({ apply: true, build: false, services: true, image_tag: '' });
 });

@@ -22,7 +22,7 @@ export const WORKSPACE_CASE_STUDY: CaseStudy = {
     'Physical machines I own are defined by their operating-system configuration, not by cloud tooling.',
   ],
   design: [
-    'OpenTofu is the only provisioning tool. One inventory file declares every hosted service, and separate roots own state, the foundation, the bootstrap, the secrets store, sign-in and the runner fleet. State and plans are encrypted, and a change is applied only from a reviewed, saved plan. Existing resources were adopted by import, never replaced, and each root was verified with a plan that changed nothing.',
+    'OpenTofu is the only provisioning tool. One inventory file declares every hosted service, and separate roots own state, the foundation, the bootstrap, the secrets store, sign-in and hosted applications. State and plans are encrypted, and a change is applied only from a reviewed, saved plan. Existing resources were adopted by import, never replaced, and each root was verified with a plan that changed nothing.',
     'OpenBao holds secrets, and applications read them at run time. Services are container images built in CI and deployed to Railway, and Cloudflare tunnels put access control in front of the internal ones. The CI runners, web servers, binary cache and network installer are NixOS configurations built from one pinned flake.',
   ],
   correctness: [

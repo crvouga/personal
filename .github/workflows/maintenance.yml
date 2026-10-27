@@ -44,7 +44,9 @@ defaults:
 jobs:
   health:
     name: Health
-    if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'health' || inputs.task == 'domains'))
+    if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *')
+      || (github.event_name == 'workflow_dispatch' && (inputs.task == 'health'
+      || inputs.task == 'domains'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -70,7 +72,8 @@ jobs:
       TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
       TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
       TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
-      DRIFT: ${{ inputs.task != 'domains' && (github.event_name == 'schedule' || inputs.drift) }}
+      DRIFT: ${{ inputs.task != 'domains' && (github.event_name == 'schedule' ||
+        inputs.drift) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -82,7 +85,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/tofu-providers
-          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-${{ hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
+          key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-${{
+            hashFiles('packages/infra/tofu/**/.terraform.lock.hcl') }}
           restore-keys: |
             tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-
             tofu-1.13-${{ runner.os }}-${{ runner.arch }}-
@@ -112,11 +116,11 @@ jobs:
         with:
           root: vault
           mode: prepare
-      - name: Prepare fleet root
+      - name: Prepare services root
         if: ${{ !cancelled() && env.DRIFT == 'true' }}
         uses: ./.github/actions/tofu
         with:
-          root: fleet
+          root: services
           mode: prepare
       - name: Log in to Vault (OIDC, read-only)
         if: "!cancelled() && inputs.task != 'domains'"
@@ -146,10 +150,8 @@ jobs:
           fi
   links:
     name: Portfolio links
-    # Daily, beside Health, and not a merge gate: a third-party site being down
-    # is not a reason to block a pull request, but a dead "Live" or receipt
-    # link on the portfolio is worse than none, so it must be noticed.
-    if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *') || (github.event_name == 'workflow_dispatch' && inputs.task == 'links')
+    if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *')
+      || (github.event_name == 'workflow_dispatch' && inputs.task == 'links')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -163,8 +165,9 @@ jobs:
       - name: Check every public link the portfolio shows
         id: check
         continue-on-error: true
-        run: |
+        run: >
           set -o pipefail
+
           bun run packages/portfolio/scripts/health-check-urls.ts \
             --timeout-ms 30000 --retries 4 --retry-delay-ms 5000 2>&1 | tee link-report.txt
       - name: Open or update the broken-link issue
@@ -191,13 +194,15 @@ jobs:
           exit 1
   update:
     name: Update
-    if: github.ref == 'refs/heads/main' && ((github.event_name == 'schedule' && github.event.schedule != '30 15 * * *') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'snapshot' || inputs.task == 'dependencies')))
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'schedule' &&
+      github.event.schedule != '30 15 * * *') || (github.event_name ==
+      'workflow_dispatch' && (inputs.task == 'snapshot' || inputs.task ==
+      'dependencies')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
-      # Read-only, for the verification refresh's workflow-run and PR queries.
       actions: read
       pull-requests: read
     env:
@@ -221,15 +226,14 @@ jobs:
         env:
           TASK: ${{ inputs.task }}
           SCHEDULE: ${{ github.event.schedule }}
-        run: |
+        run: >
           task="$TASK"
+
           if [ -z "$task" ]; then
             if [ "$SCHEDULE" = "0 14 * * 1" ]; then task=dependencies; else task=snapshot; fi
           fi
+
           echo "task=$task" >> "$GITHUB_OUTPUT"
-      - name: Set up Nix
-        if: steps.task.outputs.task == 'dependencies'
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - name: Read snapshot credentials
         if: steps.task.outputs.task == 'snapshot'
         uses: hashicorp/vault-action@v4
@@ -240,17 +244,13 @@ jobs:
           path: jwt
           role: github-actions
           jwtGithubAudience: https://vault.chrisvouga.dev
-          secrets: secret/data/personal/prd PORTFOLIO_GITHUB_TOKEN | PORTFOLIO_GITHUB_TOKEN
+          secrets: secret/data/personal/prd PORTFOLIO_GITHUB_TOKEN |
+            PORTFOLIO_GITHUB_TOKEN
       - name: Refresh GitHub snapshot
         id: refresh
         if: steps.task.outputs.task == 'snapshot'
         working-directory: packages/portfolio
         run: bun run refresh-github
-      # Each refresh below is strict and leaves its file untouched on failure.
-      # They run even when an earlier refresh failed (`!cancelled()`), so one
-      # broken source cannot freeze the others, while the failed step still
-      # turns this job red: an alarm, not an outage. The site build never
-      # fetches this data; it renders the committed JSON.
       - name: Recompute platform facts
         id: facts
         if: ${{ !cancelled() && steps.task.outputs.task == 'snapshot' }}
@@ -261,12 +261,8 @@ jobs:
         if: ${{ !cancelled() && steps.task.outputs.task == 'snapshot' }}
         working-directory: packages/portfolio
         env:
-          # The job token (actions/pull-requests: read) reads this repository's
-          # runs and PRs and the other public repositories it reports on.
           GITHUB_TOKEN: ${{ github.token }}
         run: bun run refresh-verification
-      # The profile README prints snapshot figures, so it moves with them; its
-      # drift test would otherwise fail this very PR.
       - name: Regenerate the GitHub profile README and consistency checklist
         if: ${{ !cancelled() && steps.task.outputs.task == 'snapshot' }}
         working-directory: packages/portfolio
@@ -276,62 +272,50 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
           TITLE: "chore(portfolio): refresh GitHub insights snapshot"
-          PR_BODY: Automated daily refresh of the committed GitHub proof snapshot (the offline fallback rendered when GitHub is unreachable at build time), the verification snapshot and the platform facts. Opened by Maintenance.
-        run: |
+          PR_BODY: Automated daily refresh of the committed GitHub proof snapshot (the
+            offline fallback rendered when GitHub is unreachable at build time),
+            the verification snapshot and the platform facts. Opened by
+            Maintenance.
+        run: >
           set -euo pipefail
-          if [ -z "$(git status --porcelain -- "${SNAPSHOT}" "${VERIFICATION}" "${FACTS}" "${PROFILE_README}" "${CHECKLIST}")" ]; then
+
+          if [ -z "$(git status --porcelain -- "${SNAPSHOT}" "${VERIFICATION}"
+          "${FACTS}" "${PROFILE_README}" "${CHECKLIST}")" ]; then
             echo 'No refreshed data to commit'
             exit 0
           fi
+
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git config user.email
+          '41898282+github-actions[bot]@users.noreply.github.com'
+
           git checkout -b "${REFRESH_BRANCH}"
-          git add -- "${SNAPSHOT}" "${VERIFICATION}" "${FACTS}" "${PROFILE_README}" "${CHECKLIST}"
+
+          git add -- "${SNAPSHOT}" "${VERIFICATION}" "${FACTS}"
+          "${PROFILE_README}" "${CHECKLIST}"
+
           git commit -m "${TITLE}"
+
           git fetch origin "${REFRESH_BRANCH}" || true
+
           git push --force-with-lease origin "${REFRESH_BRANCH}"
 
-          if [ -z "$(gh pr list --head "${REFRESH_BRANCH}" --state open --json number --jq '.[].number')" ]; then
+
+          if [ -z "$(gh pr list --head "${REFRESH_BRANCH}" --state open --json
+          number --jq '.[].number')" ]; then
             gh pr create \
               --base main \
               --head "${REFRESH_BRANCH}" \
               --title "${TITLE}" \
               --body "$PR_BODY"
           fi
+
           gh pr merge "${REFRESH_BRANCH}" --auto --merge
-      - name: Update Nix dependencies
-        if: steps.task.outputs.task == 'dependencies'
-        env:
-          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # A bare relative path is read as a flake-registry name ("flake:packages/fleet").
-          nix flake update --flake ./packages/fleet
-          if git diff --quiet -- packages/fleet/flake.lock; then
-            echo 'flake.lock is unchanged'
-            exit 0
-          fi
-          branch=chore/fleet-flake-lock
-          git checkout -B "${branch}"
-          git add -- packages/fleet/flake.lock
-          git commit -m 'chore(fleet): update flake.lock'
-          if git fetch origin "${branch}"; then
-            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" origin "HEAD:refs/heads/${branch}"
-          else
-            git push origin "HEAD:refs/heads/${branch}"
-          fi
-          if [ -z "$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[].number')" ]; then
-            gh pr create \
-              --base main \
-              --head "${branch}" \
-              --title 'chore(fleet): update flake.lock' \
-              --body 'Weekly Nix input update for packages/fleet. It goes through the fleet checks and the merge queue. Do not push it to main directly.'
-          fi
   repair:
     name: Repair
-    if: github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -384,9 +368,14 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
           FROM_VAULT: ${{ inputs.from_vault }}
-        run: |
+        run: >
           set -euo pipefail
+
           args=(--ci)
+
           if [ "${DRY_RUN}" = true ]; then args+=(--dry-run); fi
-          if [ -n "${FROM_VAULT}" ]; then args+=(--from-vault "${FROM_VAULT}"); fi
+
+          if [ -n "${FROM_VAULT}" ]; then args+=(--from-vault "${FROM_VAULT}");
+          fi
+
           bun run vault:fix "${args[@]}"

@@ -16,7 +16,7 @@ import { agentAcceptance } from './agent';
 
 const repo = resolve(import.meta.dir, '../../..');
 const portA = Number(process.env['AUTH_CONSOLE_PORT_A'] ?? 3000);
-const require = createRequire(join(repo, 'packages/fleet/package.json'));
+const require = createRequire(join(repo, 'packages/auth-relay/package.json'));
 const { chromium } = require('@playwright/test');
 const temp = mkdtempSync(join(tmpdir(), 'auth-console-'));
 const databaseUrl =

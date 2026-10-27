@@ -434,7 +434,7 @@ Target macOS for the full experience, but keep commands platform-agnostic behind
 
 ## Secret integration
 
-Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `vault run` for fleet ops). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
+Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
 
 Ground rules:
 

@@ -249,17 +249,6 @@ export type TunnelSpec = {
 
 /** OpenTofu inventory consumed by documentation and builds. */
 export type InfraConfig = {
-  readonly fleet_windows_signing?: {
-    readonly enabled: boolean;
-    readonly subscription_id: string | null;
-    readonly tenant_id: string | null;
-    readonly operator_object_id: string | null;
-    readonly resource_group: string;
-    readonly location: string;
-    readonly account: string;
-    readonly profile: string;
-    readonly identity_validation_id: string | null;
-  };
   readonly auth_relay?: AuthRelayConfig;
   readonly domains?: Readonly<Record<string, import('./domains/model.js').DomainSpec>>;
   readonly zone: string;

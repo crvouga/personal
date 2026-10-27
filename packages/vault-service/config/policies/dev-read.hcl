@@ -1,5 +1,5 @@
 # Shared application development reads must not include operator credentials,
-# fleet enrollment material or isolated auth registration credentials.
+# machine enrollment material or isolated auth registration credentials.
 path "secret/data/personal/*" {
   capabilities = ["read"]
 }

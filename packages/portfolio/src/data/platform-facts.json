@@ -1,33 +1,32 @@
 {
   "version": 1,
-  "requiredChecks": ["Check", "Fleet"],
+  "requiredChecks": ["Check"],
   "checkGateJobs": [
     "changes",
     "repository",
     "packages",
     "infra",
-    "fleet_e2e",
     "auth",
     "portfolio_urls"
   ],
-  "checkGateJobInstances": 12,
+  "checkGateJobInstances": 10,
   "openTofuRoots": [
     "auth",
     "auth-development",
     "auth-hosting",
     "bootstrap",
-    "fleet",
     "foundation",
+    "services",
     "signing",
     "state",
     "vault"
   ],
-  "preventDestroyGuards": 46,
-  "healthChecks": 16,
-  "inventoryServices": 21,
-  "packages": 17,
-  "workspaceTestFiles": 212,
-  "workspaceTestCallSites": 1345,
+  "preventDestroyGuards": 38,
+  "healthChecks": 13,
+  "inventoryServices": 20,
+  "packages": 15,
+  "workspaceTestFiles": 152,
+  "workspaceTestCallSites": 776,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",
@@ -37,9 +36,9 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "084c9c8fbe240621568793a639e74ae67f8fcbc6",
-    "asOfDate": "2026-10-27T12:30:34-07:00",
-    "commits": 1709,
+    "asOfCommit": "257cc2f70a8af08066165aa00875f440b8c05562",
+    "asOfDate": "2026-10-27T16:04:47-07:00",
+    "commits": 1712,
     "byTool": [
       { "tool": "Claude Code", "trailers": 107 },
       { "tool": "Cursor", "trailers": 78 }

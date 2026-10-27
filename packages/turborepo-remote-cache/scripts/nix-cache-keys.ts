@@ -1,8 +1,11 @@
 import { createPrivateKey, createPublicKey } from 'node:crypto';
 
-export const FLEET_CACHE_KEY_NAME = 'fleet-cache-1';
-
-export function nixCacheKeys(pem: string): { secret: string; public: string } {
+export function nixCacheKeys(
+  pem: string,
+  name: string
+): { secret: string; public: string } {
+  if (!/^[A-Za-z0-9._-]+$/.test(name))
+    throw new Error('Invalid Nix cache key name');
   const privateKey = createPrivateKey(pem);
   if (privateKey.asymmetricKeyType !== 'ed25519')
     throw new Error('Expected an Ed25519 signing key');
@@ -15,7 +18,7 @@ export function nixCacheKeys(pem: string): { secret: string; public: string } {
     throw new Error('Invalid Ed25519 key size');
   // Nix uses libsodium's 64-byte secret: the 32-byte seed plus public key.
   return {
-    secret: `${FLEET_CACHE_KEY_NAME}:${Buffer.concat([seed, publicBytes]).toString('base64')}`,
-    public: `${FLEET_CACHE_KEY_NAME}:${publicBytes.toString('base64')}`,
+    secret: `${name}:${Buffer.concat([seed, publicBytes]).toString('base64')}`,
+    public: `${name}:${publicBytes.toString('base64')}`,
   };
 }

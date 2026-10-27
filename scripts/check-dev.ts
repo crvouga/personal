@@ -31,10 +31,8 @@ const env: NodeJS.ProcessEnv = {
   ),
   AUTH_DEV_INSTANCE: instance,
   AUTH_DEV_MODE: 'local',
-  FLEET_DEV_MODE: 'fixtures',
   VAULT_CONFIG: 'dev',
   PORTFOLIO_PORT: String(ports[0]),
-  FLEET_API_PORT: String(ports[1]),
   AUTH_RELAY_PORT: String(ports[2]),
 };
 let task: Bun.Subprocess | undefined;
@@ -150,17 +148,15 @@ async function composeDown(): Promise<void> {
 }
 try {
   await start();
-  const [portfolio, fleet, relay] = await Promise.all([
+  const [portfolio, relay] = await Promise.all([
     response(ports[0], '/'),
-    response(ports[1], '/'),
     response(ports[2], '/health/ready'),
   ]);
   assert.match(portfolio, /Live data from the GitHub API at build time/);
-  assert.match(fleet, /LOCAL DEMO: synthetic fleet data/);
   assert.deepEqual(JSON.parse(relay), { ok: true });
   const registration = await checkDevBrowser(`http://localhost:${ports[2]}`);
   console.log(
-    'PASS cold workspace: portfolio live GitHub data, fleet demo, auth readiness/sign-in/registration'
+    'PASS cold workspace: portfolio live GitHub data, auth readiness/sign-in/registration'
   );
   await stop();
   env['AUTH_RELAY_PORT'] = String(ports[3]);
