@@ -345,6 +345,14 @@ def main(argv):
                 return 0
             print(reason)
             return PLACEMENT_EXIT_GONE
+        if command == "validate" and len(argv) == 2:
+            # Inside a Nix build only this package exists: no copies to compare,
+            # and this script's own store path is not inside the package.
+            package = Path(argv[1])
+            problems = file_problems(load(package / "roles.json"), package)
+            for problem in problems:
+                print(problem, file=sys.stderr)
+            return 1 if problems else 0
         registry = load()
         if command == "check":
             problems = file_problems(registry) + ["stale copy: " + stale for stale in stale_copies(registry)]
@@ -354,13 +362,6 @@ def main(argv):
                 print("Next: run python3 packages/fleet/scripts/fleet_roles.py sync, then commit.", file=sys.stderr)
                 return 1
             return 0
-        if command == "validate" and len(argv) == 2:
-            # Inside a Nix build only this package exists: no copies to compare.
-            package = Path(argv[1])
-            problems = file_problems(load(package / "roles.json"), package)
-            for problem in problems:
-                print(problem, file=sys.stderr)
-            return 1 if problems else 0
         if command == "sync":
             for path in sync(registry):
                 print("rewrote " + path, file=sys.stderr)
