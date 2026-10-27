@@ -50,7 +50,7 @@ function usage(): string {
     groups,
     "",
     "Credentials (each optional; dependent checks skip without it):",
-    "  VAULT_TOKEN or ~/.vault-token   Vault configuration, KV keys, buckets, databases, remote cache",
+    "  VAULT_TOKEN or ~/.vault-token   Vault configuration, KV keys, buckets, databases",
     "  GH_TOKEN or `gh auth login`     GitHub repositories, secrets, merge gate, CI runs",
     "  initialized tofu roots          --drift; see packages/infra/tofu/README.md",
   ].join("\n");

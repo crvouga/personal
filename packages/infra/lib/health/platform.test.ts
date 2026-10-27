@@ -84,8 +84,9 @@ describe("vault", () => {
 
   test("production must hold every key the committed inventory feeds to services, tunnels and stores", () => {
     const keys = requiredKvKeys(loadServicesConfig(), "prd");
-    expect(keys).toEqual(expect.arrayContaining(["TURBO_TOKEN", "DATABASE_URL", "S3_BUCKET", "9ROUTER_PASSWORD", "VAULT_TOKEN"]));
+    expect(keys).toEqual(expect.arrayContaining(["DATABASE_URL", "S3_BUCKET", "9ROUTER_PASSWORD", "VAULT_TOKEN"]));
     expect(keys).not.toContain("GITHUB_TOKEN_SUPER");
+    expect(keys).not.toContain("TURBO_TOKEN");
     for (const environment of ["dev", "prd"]) {
       expect(requiredKvKeys(loadServicesConfig(), environment)).toEqual(expect.arrayContaining(["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"]));
     }
@@ -100,14 +101,12 @@ describe("storage", () => {
     "https://turborepo.example.dev/nix/nix-cache-info": { body: "StoreDir: /nix/store\n", headers: { 'content-type': 'text/plain' } },
   };
 
-  test("buckets, PostgreSQL, databases and the cache pass when reachable", async () => {
+  test("buckets, PostgreSQL, databases pass when reachable", async () => {
     const results = await checkStorage(fakeContext({ fetch: fakeFetch(routes) }));
     expect(results.map((result) => [result.name, result.status])).toEqual([
       ["bucket acme-production (prd)", "pass"],
       ["postgres openbao", "pass"],
       ["database DATABASE_URL", "pass"],
-      ["remote cache", "pass"],
-      ["Fleet Nix cache", "pass"],
     ]);
   });
 
@@ -117,7 +116,6 @@ describe("storage", () => {
     );
     expect(statusOf(results, "bucket acme-production (prd)")).toBe("skip");
     expect(statusOf(results, "database DATABASE_URL")).toBe("skip");
-    expect(statusOf(results, "remote cache")).toBe("skip");
     expect(statusOf(results, "postgres openbao")).toBe("pass");
   });
 
@@ -140,7 +138,7 @@ describe("storage", () => {
     const broken = await checkStorage(
       fakeContext({ fetch: fakeFetch(routes), kv: async () => ({ ok: false, unverifiable: false, reason: "HTTP 404" }) }),
     );
-    expect(statusOf(broken, "remote cache")).toBe("fail");
+    expect(statusOf(broken, "database DATABASE_URL")).toBe("fail");
     const vault = await checkVault(
       fakeContext({ fetch: fakeFetch(vaultRoutes), kv: async () => ({ ok: false, unverifiable: true, reason: "HTTP 403" }) }),
     );

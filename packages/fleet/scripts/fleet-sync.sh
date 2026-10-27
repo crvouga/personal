@@ -274,14 +274,6 @@ detect_fallback
 bounded "${FLEET_FETCH_TIMEOUT:-120}" "$git" -c "safe.directory=$repo" -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
 g -C "$repo" checkout --detach --force "refs/remotes/origin/${branch}"
 
-# An unconfigured cache must wait. Building locally would publish a system
-# the rest of the fleet cannot substitute.
-if [ -z "${CACHE_URL:-}" ] || [[ "$CACHE_URL" == *TODO* ]]; then
-  failure_reason='binary cache is not configured; automatic updates are blocked until its URL and signing key are configured'
-  echo 'sync: binary cache is not configured; waiting' >&2
-  exit 1
-fi
-
 revision=$(g -C "$repo" rev-parse HEAD)
 # roles.json at this revision decides what this machine may be. A retired role
 # or a removed closure is never published again: report exactly that instead
@@ -296,12 +288,12 @@ if [ -f "$registry" ]; then
 else
   echo "sync: revision $revision has no roles.json; the build decides whether $FLAKE_ATTR exists" >&2
 fi
-# A path flake loses self.rev and cannot match the system published by CI.
+# A path flake loses self.rev. Keep the exact Git revision in local builds.
 # Pin the Git source and revision exactly, including the monorepo directory.
 flake="git+file://${repo}?shallow=1&rev=${revision}&dir=${FLAKE_DIR}#nixosConfigurations.${FLAKE_ATTR}.config.system.build.toplevel"
-failure_reason='the requested revision could not be substituted; verify cache publication, signing key and network connectivity'
-if ! toplevel=$(bounded "${FLEET_SUBSTITUTE_TIMEOUT:-600}" "$nix" build --no-write-lock-file --max-jobs 0 --option connect-timeout 15 --option stalled-download-timeout 60 --option narinfo-cache-negative-ttl 0 --no-link --print-out-paths "$flake"); then
-  echo 'sync: system is not in the binary cache; not building locally' >&2
+failure_reason='the requested revision could not be built; inspect the build log and upstream Nix cache connectivity'
+if ! toplevel=$(bounded "${FLEET_BUILD_TIMEOUT:-3600}" "$nix" build --no-write-lock-file --max-jobs 2 --cores 2 --option connect-timeout 15 --option stalled-download-timeout 60 --option narinfo-cache-negative-ttl 0 --no-link --print-out-paths "$flake"); then
+  echo 'sync: local system build failed; keeping the current generation' >&2
   exit 1
 fi
 [ -n "$toplevel" ] && [ -d "$toplevel" ]
@@ -369,7 +361,8 @@ health_check() {
     return
   fi
   local curl_bin=${FLEET_CURL:-curl}
-  local target_cache=$CACHE_URL
+  local target_cache=${CACHE_URL:-https://cache.nixos.org}
+  target_cache=${target_cache:-https://cache.nixos.org}
   local target_key=""
   # Verify the new generation's recovery configuration, not the old process's
   # environment: a bad new cache URL/key must roll back while repair is possible.
@@ -379,6 +372,9 @@ health_check() {
 import json,sys
 from urllib.parse import urlparse
 document=json.load(open(sys.argv[1]))
+if document.get('updateMode') == 'local':
+    print('https://cache.nixos.org'); print('-')
+    sys.exit(0)
 url,key=document['cacheUrl'],document['cachePublicKey']
 parsed=urlparse(url)
 if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or not isinstance(key,str) or '\n' in key:
@@ -388,8 +384,10 @@ PY
     ) || return 1
     target_cache=${cache_config%%$'\n'*}
     target_key=${cache_config#*$'\n'}
-    bounded 45 "$nix" store verify --store "$target_cache" --no-contents --sigs-needed 1 \
-      --option trusted-public-keys "$target_key" --option narinfo-cache-negative-ttl 0 "$toplevel" || return 1
+    if [ "$target_key" != "-" ]; then
+      bounded 45 "$nix" store verify --store "$target_cache" --no-contents --sigs-needed 1 \
+        --option trusted-public-keys "$target_key" --option narinfo-cache-negative-ttl 0 "$toplevel" || return 1
+    fi
   fi
   # guard runs this in a conditional, where set -e does not apply.
   "$curl_bin" -fsS --max-time 20 -o /dev/null https://github.com || return 1

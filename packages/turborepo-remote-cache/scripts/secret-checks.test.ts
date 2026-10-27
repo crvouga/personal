@@ -29,7 +29,7 @@ test('missing or malformed R2 inputs skip the probe without exposing values', as
   }
 });
 
-test('missing portfolio token and invalid optional cache settings do not skip valid R2', async () => {
+test('missing portfolio token does not skip R2 and retired cache settings are ignored', async () => {
   const messages: string[] = [];
   let probes = 0;
   await checkSecretIntegrations(
@@ -49,7 +49,7 @@ test('missing portfolio token and invalid optional cache settings do not skip va
   ).toBe(true);
   expect(
     messages.some((message) => message.startsWith('SKIP TURBO_CACHE'))
-  ).toBe(true);
+  ).toBe(false);
 });
 
 test('rejected credentials skip the optional probe; actual probe bugs still fail it', async () => {

@@ -47,17 +47,17 @@ TODO: no smart PDU model is selected, and this repo does not call one. A remote 
 
 comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Every role polls `main` over HTTPS. There is no `deploy` branch and no `canary` branch.
 
-The node switches only when `nix build --max-jobs 0` can substitute that role's toplevel from the cloud cache (`binaryCache`). Before building, it reads `roles.json` at the fetched revision and stops with the reason when its role was retired or its closure removed. A miss keeps the running generation and the timer retries. The node does not build locally. While `binaryCache.url` or `binaryCache.publicKey` is null or contains `TODO`, the node waits the same way. `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
+The node builds the exact Git revision with `nix build --max-jobs 2 --cores 2`, using upstream Nix substitutes for available dependencies. Before building, it reads `roles.json` at the fetched revision and stops with the reason when its role was retired or its closure removed. A failed build keeps the running generation and the timer retries. There is no private cache dependency. `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
 
 A kernel, initrd, or module change drains first, then waits up to two hours, seeded by the stable node id, so the fleet does not reboot together. The id is read before the drain. If that read fails, the node does not drain and does not reboot. CI nodes run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place.
 
-After the switch, the node checks GitHub, the cache's `nix-cache-info`, and that `fleet-sync` still loads and its timer is not failed. A failure restores the previous generation, skips the reboot, and records `/run/fleet/health-failure`. The unit goes failed. TODO: nothing ships that file off the node. `monitoring.pushUrl` is unused. Do not invent a collector.
+After the switch, the node checks GitHub, the upstream cache's `nix-cache-info`, and that `fleet-sync` still loads and its timer is not failed. A failure restores the previous generation, skips the reboot, and records `/run/fleet/health-failure`. The unit goes failed. TODO: nothing ships that file off the node. `monitoring.pushUrl` is unused. Do not invent a collector.
 
 systemd-boot keeps 8 generations and waits 5 seconds. The newest entry is named with 3 tries left. A generation that never finishes booting falls through to the previous one. `systemd-bless-boot` clears the count when userspace comes up. The weekly garbage collection deletes store paths older than 14 days. The journal is volatile and capped, because the root is tmpfs. `fleet-disk` fails at 90% full on `/nix` or `/boot`. That failure is also local until a collector exists.
 
 The running commit is `cat /etc/fleet/revision` and `curl -fsS http://127.0.0.1:9101/metrics` on the node. The metrics port is localhost only. `systemctl status fleet-drift` fails when this node is still off `origin/main` more than `drift.maxMinutes` (30) after that commit. A newer merge is inside the grace window. TODO: a node that stops reporting at all is not visible from outside, because nothing scrapes `127.0.0.1:9101`. The health report's `fleet revision` check stays `SKIP` until a scraper exists. That check is not OpenTofu plan drift.
 
-A failed pull leaves the running generation in place. A switch that cannot reach GitHub or the cache rolls back by itself. A generation that does not boot falls back to the previous entry. The hardware watchdog reboots a hung userspace. The menu is still there for 5 seconds. TODO: a machine that ignores both the watchdog and the network still needs a person or a PDU, and no PDU is integrated.
+A failed pull leaves the running generation in place. A switch that cannot reach GitHub or the upstream cache rolls back by itself. A generation that does not boot falls back to the previous entry. The hardware watchdog reboots a hung userspace. The menu is still there for 5 seconds. TODO: a machine that ignores both the watchdog and the network still needs a person or a PDU, and no PDU is integrated.
 
 ## Checks, the merge queue, and rollback
 
@@ -65,10 +65,10 @@ The workflow is `.github/workflows/ci.yml`. It runs on GitHub-hosted `ubuntu-lat
 
 - A pull request that touches this package runs `nix flake check` and builds the published closures in `roles.json` (`ci`, `ci-gpu`, `devbox`) and the installer. GPU nodes receive updates through the same signed cache.
 - The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
-- The `Fleet cache` workflow builds, signs and publishes the published closures to the cloud cache for every exact `main` commit.
-- The queue merges with `MERGE`. The commit that was tested and cached is the commit that lands. There is no second cache push after merge.
+- Installer publication follows successful Nix and installer checks, without a private-cache publisher.
+- The queue merges with `MERGE`. Nodes build the exact revision that lands.
 
-A rollback is a revert pull request. It uses the same checks and the same queue. The previous systems are already in the cache, so nodes converge by substituting. systemd-boot keeps 8 generations. If SSH is gone, pick an older generation from the console. Nothing force-pushes `main`.
+A rollback is a revert pull request. It uses the same checks and the same queue. Nodes build the reverted revision with upstream substitutes. systemd-boot keeps 8 generations. If SSH is gone, pick an older generation from the console. Nothing force-pushes `main`.
 
 The `main` ruleset (pull request, `Check`, `Fleet`, merge queue, no force-push) is declared in OpenTofu. This package does not apply it. Apply a reviewed plan from `packages/infra`.
 
@@ -109,7 +109,7 @@ A pull request that touches this package runs `nix flake check`, which includes 
 
 Two caches exist and they are not the same:
 
-- The shared update cache is `settings.binaryCache`: the cloud `turborepo-remote-cache` `/nix` namespace. Clients use it only after the URL and the public key are real and do not contain `TODO`.
+- Private Turbo and Fleet Nix caches are retired. `settings.binaryCache` is unset. Nodes build exact revisions locally with upstream Nix substitutes; installer preflight validates its bundled closure.
 - `cache.remote` in `fleet.nix` is an optional S3 scratch substituter and post-build hook for CI. Leave it off. Do not enable it while `binaryCache.url` is set; both would write `extra-substituters`. Bucket provisioning stays in OpenTofu.
 
 Runner users must never receive the App key or a signing key. Projects can use their own scoped build-cache credentials. Nix signatures do not validate arbitrary project cache objects.

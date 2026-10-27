@@ -4,42 +4,8 @@ mock_provider "vault" {
   }
 }
 mock_provider "random" {}
-mock_provider "tls" {
-  mock_data "tls_public_key" {
-    defaults = { public_key_fingerprint_sha256 = "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc" }
-  }
-}
+mock_provider "tls" {}
 
-run "fleet_cache_signing_is_isolated_and_ci_refs_are_bound" {
-  command = plan
-  assert {
-    condition = (data.tls_public_key.fleet_cache.public_key_fingerprint_sha256 == module.inventory.config.fleet_cache.signing_key_fingerprint &&
-      vault_kv_secret_v2.fleet_cache_publisher.name == "fleet-cache/publisher" &&
-      vault_policy.fleet_cache_publisher.policy == "path \"secret/data/fleet-cache/publisher\" {\n  capabilities = [\"read\"]\n}\n" &&
-      vault_jwt_auth_backend_role.fleet_cache_publisher.bound_claims.ref == "refs/heads/main" &&
-      vault_jwt_auth_backend_role.fleet_cache_publisher.bound_claims.workflow_ref == "crvouga/workspace/.github/workflows/fleet-cache.yml@refs/heads/main" &&
-      vault_jwt_auth_backend_role.fleet_cache_queue_publisher.bound_claims.ref == "refs/heads/gh-readonly-queue/main/*" &&
-      vault_jwt_auth_backend_role.fleet_cache_publisher.token_no_default_policy &&
-    vault_jwt_auth_backend_role.fleet_cache_queue_publisher.token_no_default_policy)
-    error_message = "Only the exact main/queue cache workflows may read the isolated signing credential."
-  }
-  assert {
-    condition = alltrue([for policy in ["ci-read", "personal-read", "dev-read"] :
-      !strcontains(vault_policy.this[policy].policy, "fleet-cache") &&
-      !strcontains(vault_policy.this[policy].policy, "path \"secret/data/*\"")
-    ])
-    error_message = "Shared CI/runtime policies must not expose Fleet signing credentials."
-  }
-}
-
-run "reject_changed_fleet_cache_signing_identity" {
-  command = plan
-  override_data {
-    target = data.tls_public_key.fleet_cache
-    values = { public_key_fingerprint_sha256 = "SHA256:unexpected-key" }
-  }
-  expect_failures = [vault_kv_secret_v2.fleet_cache_publisher]
-}
 
 run "reject_unsafe_auth_agent_id" {
   command = plan
@@ -159,7 +125,7 @@ variables {
   cloudflare_account_id = "test-account-id"
   admin_passwords       = { crvouga = "test-password" }
   secrets = {
-    dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token" }, {
+    dev = merge({ PORTFOLIO_GITHUB_TOKEN = "dev-token", TURBO_TOKEN = "retired-token", TURBO_API = "https://retired.invalid", TURBO_TEAM = "retired-team", TURBO_CACHE = "remote:rw" }, {
       for key in jsondecode(file("../modules/inventory/inventory.tf.json")).locals.inventory.vault.kv_keys : key.name => "test-${key.name}" if try(key.required, false) && !try(key.generated, false) && contains(key.configs, "dev")
     })
     prd = merge(
@@ -340,4 +306,17 @@ run "reject_blank_google_client_secret" {
     }
   }
   expect_failures = [vault_kv_secret_v2.personal["prd"]]
+}
+
+run "retired_cache_credentials_are_filtered_from_stale_inputs" {
+  command = plan
+  assert {
+    condition = alltrue([for config in ["dev", "prd"] :
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_CACHE == "local:rw" &&
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_TELEMETRY_DISABLED == "1" &&
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_LOG_ORDER == "auto" &&
+      length(setintersection(toset(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json))), toset(["TURBO_TOKEN", "TURBO_API", "TURBO_TEAM"]))) == 0
+    ])
+    error_message = "Stale secrets exports cannot restore retired credentials or remote caching."
+  }
 }

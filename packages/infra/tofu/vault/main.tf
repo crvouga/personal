@@ -109,10 +109,6 @@ resource "vault_token" "runtime" {
   lifecycle { prevent_destroy = true }
 }
 
-resource "random_password" "turbo" {
-  length  = 48
-  special = false
-}
 resource "random_password" "fleet_admin" {
   length  = 48
   special = false
@@ -146,7 +142,6 @@ locals {
   # run during planning, even when generated credential values are unknown.
   managed_values = {
     for config in local.vault.kv.configs : config => merge(
-      { TURBO_TOKEN = lookup(var.secrets[config], "TURBO_TOKEN", random_password.turbo.result) },
       config == "prd" ? local.router_values : {},
       config == "prd" ? local.fleet_values : {},
       local.config.auth_relay.live ? merge(
@@ -161,9 +156,7 @@ locals {
         MACHINE_ID_SALT  = local.router_values["9ROUTER_MACHINE_ID_SALT"]
       } : {},
       {
-        TURBO_API                = "https://${one([for service in local.config.services : service.hostname if service.id == "turborepo"])}"
-        TURBO_TEAM               = "local"
-        TURBO_CACHE              = "remote:rw"
+        TURBO_CACHE              = "local:rw"
         TURBO_LOG_ORDER          = "auto"
         TURBO_TELEMETRY_DISABLED = "1"
         S3_ENDPOINT              = "https://${var.cloudflare_account_id}.r2.cloudflarestorage.com"
@@ -188,10 +181,15 @@ locals {
 }
 
 resource "vault_kv_secret_v2" "personal" {
-  for_each  = toset(local.vault.kv.configs)
-  mount     = vault_mount.secret.path
-  name      = "${local.vault.kv.project}/${each.key}"
-  data_json = jsonencode(merge(var.secrets[each.key], local.managed_values[each.key]))
+  for_each = toset(local.vault.kv.configs)
+  mount    = vault_mount.secret.path
+  name     = "${local.vault.kv.project}/${each.key}"
+  # Exclude retired inputs even when an older complete secrets export still
+  # contains them. Do not remove unrelated application values from that export.
+  data_json = jsonencode(merge({
+    for name, value in var.secrets[each.key] : name => value
+    if !contains(["TURBO_TOKEN", "TURBO_API", "TURBO_TEAM"], name)
+  }, local.managed_values[each.key]))
   lifecycle {
     prevent_destroy = true
     precondition {

@@ -4,9 +4,14 @@ import {
 } from './vault-secrets-registry';
 import { verifyS3Credentials } from './verify-s3';
 
+// Shared integrations remain active; retired cache credentials are manual-only.
+const integrationEntries = VAULT_SECRET_REGISTRY.filter(
+  (entry) => !entry.key.startsWith('TURBO_')
+);
+
 export function unavailableSecrets(env: NodeJS.ProcessEnv): Set<string> {
   const unavailable = new Set<string>();
-  for (const entry of VAULT_SECRET_REGISTRY) {
+  for (const entry of integrationEntries) {
     const value = env[entry.key]?.trim() ?? '';
     if (!value || entry.validate(entry.transform(value)) !== null)
       unavailable.add(entry.key);
@@ -28,7 +33,7 @@ export async function checkSecretIntegrations(
   report: (message: string) => void = console.warn
 ): Promise<void> {
   const unavailable = unavailableSecrets(env);
-  for (const entry of VAULT_SECRET_REGISTRY) {
+  for (const entry of integrationEntries) {
     if (unavailable.has(entry.key)) {
       const reason = env[entry.key]?.trim() ? 'invalid format' : 'unset';
       report(`SKIP ${entry.key} (${entry.usedBy.join(', ')}): ${reason}`);

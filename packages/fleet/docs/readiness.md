@@ -6,40 +6,27 @@ The normal Windows/Linux x86-64 UEFI flow is Fleet download → wizard → one
 privileged confirmation → automatic installation → first installed heartbeat.
 Disk consent remains explicit. A restart request is **staged**, never proof of
 installation. Fleet displays **Ready** only with an approved current heartbeat,
-successful automatic update/cache evidence, no failed services, and (for CI)
+successful automatic update/build evidence, no failed services, and (for CI)
 actual online GitHub runner registrations. Old agents remain **Not yet verified**.
 
-| Transition              | Required evidence                                                                                                                                           | Failure and recovery                                                                                                                                                               |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Download                | Checksum-bound release readiness sidecar, then full ISO checksum and internal readiness manifest                                                            | Missing/mismatched metadata fails before boot changes; only publication races and network failures retry                                                                           |
-| Prepare source OS       | Explicit target-disk consent, Wi-Fi support/profile checks, unchanged disk identity                                                                         | Hard refusals remain hard; preparation is rechecked before proceeding                                                                                                              |
-| Stage conversion        | Verified image and exact role, persistent handoff marker                                                                                                    | Staging failure restores only runner withdrawal caused by that attempt; it never reverses an intentional removal                                                                   |
-| Live image, before wipe | Usable network; role key decrypts required secrets; GitHub registration authorized; actual Fleet approval; exact role closure readable from the cloud cache | Bounded temporary network retries; safe permanent diagnostics reported through the approved node credential; staged conversions return to the untouched source OS before disk work |
-| Disk installation       | All preflight checks passed; actual `nixos-install` and private credential readback succeed                                                                 | After disk work begins, failures never restart the destructive install automatically; report the failed phase without claiming success                                             |
-| First installed boot    | Same hardware identity and authenticated credential established by preflight                                                                                | API outages cannot block the update timer or runner lifecycle; the agent retries reporting                                                                                         |
-| Update                  | Exact Git revision with normal Nix signature verification and no local builds                                                                               | Cache miss leaves the current generation running; timer retries; duplicate revisions avoid redundant switches                                                                      |
-| Kernel update           | Reboot jitter completed before drain; successful health probes and bootloader update                                                                        | Failed drain, switch, probe, or reboot request restores admission; failed recovery stays marked for agent retry                                                                    |
-| Boot fallback           | GitHub/cache connectivity and update timer before blessing; protected healthy closure GC roots                                                              | Counted upgrade failures reboot only with a fallback entry; a first install stays alive and retries rather than reboot-looping                                                     |
+| Transition              | Required evidence                                                                                                                                              | Failure and recovery                                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Download                | Checksum-bound release readiness sidecar, then full ISO checksum and internal readiness manifest                                                               | Missing/mismatched metadata fails before boot changes; only publication races and network failures retry                                                                           |
+| Prepare source OS       | Explicit target-disk consent, Wi-Fi support/profile checks, unchanged disk identity                                                                            | Hard refusals remain hard; preparation is rechecked before proceeding                                                                                                              |
+| Stage conversion        | Verified image and exact role, persistent handoff marker                                                                                                       | Staging failure restores only runner withdrawal caused by that attempt; it never reverses an intentional removal                                                                   |
+| Live image, before wipe | Usable network; role key decrypts required secrets; GitHub registration authorized; actual Fleet approval; bundled role closure present in the local Nix store | Bounded temporary network retries; safe permanent diagnostics reported through the approved node credential; staged conversions return to the untouched source OS before disk work |
+| Disk installation       | All preflight checks passed; actual `nixos-install` and private credential readback succeed                                                                    | After disk work begins, failures never restart the destructive install automatically; report the failed phase without claiming success                                             |
+| First installed boot    | Same hardware identity and authenticated credential established by preflight                                                                                   | API outages cannot block the update timer or runner lifecycle; the agent retries reporting                                                                                         |
+| Update                  | Exact Git revision with bounded local builds and signed upstream substitutes                                                                                   | Failed build leaves the current generation running; timer retries; duplicate revisions avoid redundant switches                                                                    |
+| Kernel update           | Reboot jitter completed before drain; successful health probes and bootloader update                                                                           | Failed drain, switch, probe, or reboot request restores admission; failed recovery stays marked for agent retry                                                                    |
+| Boot fallback           | GitHub/upstream-cache connectivity and update timer before blessing; protected healthy closure GC roots                                                        | Counted upgrade failures reboot only with a fallback entry; a first install stays alive and retries rather than reboot-looping                                                     |
 
-The shared cache is the existing **cloud** `turborepo-remote-cache` service with
-an isolated public `/nix` read namespace backed by existing R2 storage. The
-physical Attic `cache` role is retired (`roles.json`). The
-OpenTofu Vault root owns the Ed25519 signing key, isolated publisher document,
-and exact repository/ref/workflow OIDC roles. Only the public key is pinned in
-`settings/shared.nix`. No private signing key reaches nodes or the HTTP service.
-
-`Fleet cache` builds and signs the exact Git commit on GitHub-hosted runners on
-every main push (even an unrelated repository change changes `self.rev`), on
-merge groups, after successful deployment, and every 30 minutes for recovery.
-NAR content uploads before signed narinfo pointers. Native Nix verifies every
-signature before the workflow publishes its exact-revision closure proof.
-Warm-cache runs verify each exact role's public signed metadata and refresh
-that proof without rebuilding or reading publisher credentials.
-Installer release validates that authenticated artifact before publication.
-Public cache reads are separately mandatory before disk erasure, avoiding a
-first-deployment cycle between adding the HTTP route and releasing the installer.
-The personal GitHub repository currently cannot use merge queues; exact-main
-publication remains necessary even when a queue publication path exists.
+The former shared Turbo/Nix cache is retired. Installer preflight checks that
+its bundled role closure is present in the local Nix store before disk erasure.
+Nodes build exact Git revisions locally with two jobs and two cores per job,
+using upstream Nix substitutes for available dependencies. No private signing
+key, publisher workflow or publication proof is required for release. Nix retains
+its normal signature verification for upstream downloads.
 
 Diagnostics use stable `FLEET_*` codes, safe installation events, copyable wizard
 and node reports, and persisted update-failure details. GitHub readiness probes
@@ -169,12 +156,10 @@ skipped checks are not acceptance evidence.
    Complete the full foundation and vault plans, publish the API image, then
    apply the fleet root. These are cloud resources, exclusively managed by
    OpenTofu. Import any resource that already exists before adoption.
-3. Verify that the Fleet cache workflow published the `roles.json` closures to
-   the cloud cache and that a node substitutes them before depending on
-   automatic updates or the merge queue.
+3. Verify the installer contains each deployable role closure. Nodes build
+   missing update closures locally using upstream Nix substitutes.
 4. Merge the final role settings and installer fix through the required checks.
-   Inspect the actual **check**, **wizard**, **publish** and, for a merge group,
-   **cache** results. Confirm the release contains `fleet-node.sh`, all five
+   Inspect the actual **Check**, **Fleet**, installer build and release results. Confirm the release contains `fleet-node.sh`, all five
    wizard downloads, the `.parts.json`, `.sha256` and every listed image part.
    Clients assemble one verified local ISO automatically; do not flash a part.
 5. Run `bun run --filter @pkgs/fleet check` and `bun run health`. Resolve the

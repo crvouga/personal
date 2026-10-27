@@ -120,7 +120,7 @@ ADVICE = (
     (r"FLEET_NETWORK_WAIT_EXPIRED",
      "The checks before erasing were still not ready when the wait ran out.",
      ["Open the Fleet installer in the original system again to retry.", "Report it with the code: it says which check was not ready."]),
-    (r"FLEET_ROLE_SECRETS|FLEET_ROLE_KEY|FLEET_PLATFORM_NOT_READY|FLEET_METADATA|FLEET_BOOTSTRAP_INVALID|FLEET_CACHE_UNCONFIGURED|FLEET_API_UNCONFIGURED|FLEET_GITHUB_UNCONFIGURED",
+    (r"FLEET_ROLE_SECRETS|FLEET_ROLE_KEY|FLEET_PLATFORM_NOT_READY|FLEET_METADATA|FLEET_LOCAL_CLOSURE_UNAVAILABLE|FLEET_BOOTSTRAP_INVALID|FLEET_CACHE_UNCONFIGURED|FLEET_API_UNCONFIGURED|FLEET_GITHUB_UNCONFIGURED",
      "The published installer is not ready for this kind of node. A maintainer has to fix it.",
      ["Report it with the QR code. Nothing on this computer needs to change."]),
     (r"public key|devbox",

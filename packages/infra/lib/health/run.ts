@@ -36,7 +36,7 @@ export const HEALTH_GROUPS: readonly HealthGroup[] = [
   { id: "tunnels", title: "Tunnels", covers: "Cloudflare tunnel connectors", run: checkTunnels },
   { id: "vault", title: "Vault", covers: "seal state, mounts, policies, auth and required KV keys", run: checkVault },
   { id: "secrets", title: "Secrets", covers: "every declared Vault secret is present, well-formed and consistent with the inventory", run: checkSecrets },
-  { id: "storage", title: "Storage", covers: "R2 buckets, PostgreSQL, service databases and the remote cache", run: checkStorage },
+  { id: "storage", title: "Storage", covers: "R2 buckets, PostgreSQL, service databases", run: checkStorage },
   { id: "images", title: "Images", covers: "pullability of every deployed GHCR image with declared registry access", run: checkImages },
   { id: "github", title: "GitHub", covers: "repositories, publishers, secrets, merge gate and last CI run", run: checkGithub },
   { id: "runners", title: "CI runners", covers: "self-hosted runner fleet registrations", run: checkRunners },

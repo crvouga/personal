@@ -12,7 +12,7 @@
       previous=$arg
       case "$arg" in git+file:*) flake=$arg ;; esac
     done
-    [ "$jobs" = 0 ]; [ -n "$flake" ]
+    [ "$jobs" = 2 ]; [ -n "$flake" ]
     checkout=''${flake#git+file://}
     checkout=''${checkout%%\?*}/packages/fleet
     revision=$(${pkgs.git}/bin/git -C "$checkout" rev-parse HEAD)

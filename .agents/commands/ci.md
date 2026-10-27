@@ -24,14 +24,14 @@ bun run gh:ci:log
 
 A green local check is not green CI. Main-branch CI includes the called Deploy
 workflow, so keep watching through image publication, OpenTofu and production
-smoke tests. Fix failures locally, rerun checks, commit and publish again.
+public endpoint checks. Fix failures locally, rerun checks, commit and publish again.
 Report unavailable credentials or infrastructure access precisely; never turn
 an unavailable check into a pass.
 
 | Workflow     | Responsibility                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------- |
 | CI           | Check; conditional Nix and installer tests; installer release; Fleet gate; successful main pushes call Deploy |
-| Deploy       | One ordered production job: credential preflight, images, OpenTofu, readiness, smoke                          |
+| Deploy       | One ordered production job: credential preflight, images, OpenTofu, readiness and public checks               |
 | Maintenance  | Read-only Health, scheduled Update, explicitly manual Repair                                                  |
 | Publish      | Reusable single-image publisher for application repositories                                                  |
 | Runner check | Reusable project toolchain on trusted runners or hosted fallback                                              |
@@ -39,17 +39,17 @@ an unavailable check into a pass.
 
 CI runs on every PR and merge-queue entry, including documentation-only
 changes. Check is the main validation status; Fleet covers platform tests and
-required cache/release publication. Required temporarily covers Check and Fleet while
+required installer release publication. Required temporarily covers Check and Fleet while
 the OpenTofu-owned ruleset migrates. Remove it only after the live ruleset
 requires Check and Fleet and both have passed in the queue.
 
 Optional secret integrations run in their own nonblocking job. An active
-production deployment still requires its own credentials and smoke test.
+production deployment still requires its own credentials and readiness checks.
 
 Manual production operations use `gh workflow run deploy.yml -f action=<name>`:
 `release` builds local images; `deploy` redeploys an existing image; `auth`
 runs the staged auth rollout; `unseal` applies bootstrap without rebuilding
-Vault; `smoke` only probes the remote cache. Deploy/release accept an optional
+Vault; `smoke` probes the active public services. Deploy/release accept an optional
 `service_id`; deploy also accepts `image_tag`. Production operations require main.
 
 Maintenance accepts `task=health|domains|snapshot|dependencies|vault-inputs`.

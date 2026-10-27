@@ -47,22 +47,6 @@
     {
       "to": "vault_kv_secret_v2.personal[\"prd\"]",
       "id": "secret/data/personal/prd"
-    },
-    {
-      "to": "vault_kv_secret_v2.fleet_cache_publisher",
-      "id": "secret/data/fleet-cache/publisher"
-    },
-    {
-      "to": "vault_policy.fleet_cache_publisher",
-      "id": "fleet-cache-publisher"
-    },
-    {
-      "to": "vault_jwt_auth_backend_role.fleet_cache_publisher",
-      "id": "auth/jwt/role/fleet-cache-publisher"
-    },
-    {
-      "to": "vault_jwt_auth_backend_role.fleet_cache_queue_publisher",
-      "id": "auth/jwt/role/fleet-cache-queue-publisher"
     }
   ]
 }

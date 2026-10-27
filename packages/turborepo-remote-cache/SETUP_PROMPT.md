@@ -1,3 +1,5 @@
+> **Retired service.** This historical setup prompt is retained for reference. Do not run it or configure new clients. See [README.md](README.md).
+
 # Agent prompt: wire this repo to the self-hosted Turborepo remote cache
 
 Paste everything below the line into an agent session in the **consumer** monorepo (not the cache server repo).

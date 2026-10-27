@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fleet-sync pulls main and switches only when the system is already cached."""
+"""fleet-sync pulls main, builds locally and keeps the current system on failure."""
 
 import json
 import os
@@ -56,8 +56,8 @@ class SyncTests(unittest.TestCase):
                 git+file:*) flake=$arg ;;
               esac
             done
-            if [ "$jobs" != 0 ]; then
-              echo 'local build refused' >&2
+            if [ "$jobs" != 2 ]; then
+              echo 'bounded local build required' >&2
               exit 2
             fi
             checkout=''${{flake#git+file://}}
@@ -256,21 +256,20 @@ class SyncTests(unittest.TestCase):
         self.assertIn("roles.json: not JSON", result.stderr)
         self.assertFalse(self.nix_log.exists())
 
-    def test_unconfigured_cache_waits(self):
+    def test_local_build_without_private_cache_switches(self):
         self.commit("marker")
         self.write_env(cache="", delay="0")
         result = self.run_sync()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("binary cache is not configured", result.stderr)
-        self.assertFalse(self.profile.exists())
-        self.assertFalse(self.nix_log.exists())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.profile.exists())
+        self.assertIn("--max-jobs 2 --cores 2", self.nix_log.read_text())
 
-    def test_cache_miss_does_not_switch(self):
+    def test_failed_local_build_does_not_switch(self):
         self.commit("NOT_IN_CACHE", "")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("not building locally", result.stderr)
-        self.assertIn("--max-jobs 0", self.nix_log.read_text())
+        self.assertIn("local system build failed", result.stderr)
+        self.assertIn("--max-jobs 2 --cores 2", self.nix_log.read_text())
         self.assertFalse(self.profile.exists())
         self.assertEqual(self.actions(), [])
 
@@ -332,6 +331,19 @@ class SyncTests(unittest.TestCase):
         self.assertNotEqual(self.run_sync().returncode, 0)
         self.assertIn('mode=rollback-failed', (self.root / 'health-failure').read_text())
         self.assertIn('FLEET_ROLLBACK_FAILED', (self.root / 'health-failure').read_text())
+
+    def test_local_build_generation_uses_upstream_health_without_private_cache_verification(self):
+        self.commit('bootstrap.json', json.dumps({'updateMode': 'local', 'cacheUrl': None, 'cachePublicKey': None}))
+        self.env.pop('FLEET_HEALTH')
+        self.env['PYTHON'] = sys.executable
+        curl_log = self.root / 'curl-args'
+        write_executable(self.bin / 'curl', f'#!/bin/sh\nprintf "%s\\n" "$*" >> {curl_log}\nexit 0\n')
+        self.env['FLEET_CURL'] = str(self.bin / 'curl')
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('https://cache.nixos.org/nix-cache-info', curl_log.read_text())
+        self.assertNotIn('cache.invalid', curl_log.read_text())
+        self.assertNotIn('store verify', self.nix_log.read_text())
 
     def test_new_generation_must_verify_its_own_cache_url_and_signing_key_or_roll_back(self):
         self.commit('good')

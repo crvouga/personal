@@ -68,16 +68,17 @@ test('deployment requires successful checks on a main push and cannot cancel act
     index('Deploy services')
   );
   expect(index('Deploy services')).toBeLessThan(index('Check public services'));
-  expect(index('Check public services')).toBeLessThan(index('Smoke test'));
+  expect(index('Smoke test')).toBe(-1);
   const probe = steps[index('Check deployment credentials')];
   expect(probe.run).toBe('bun scripts/ci/deploy-preflight.ts');
   expect(probe['timeout-minutes']).toBe(2);
   expect(probe.if).toBe("steps.plan.outputs.apply == 'true'");
-  const smoke = steps.find(
-    (s: { name: string }) => s.name === 'Read smoke test credentials'
-  );
-  expect(smoke.with.optional).not.toBe('true');
-  expect(steps[index('Smoke test')]['continue-on-error']).not.toBe(true);
+  expect(
+    steps.some(
+      (step: { uses?: string }) =>
+        step.uses === './.github/actions/turborepo-vault-secrets'
+    )
+  ).toBe(false);
 });
 
 test('deployment runs after optional Fleet skips but refuses failed, skipped or cancelled gates', () => {

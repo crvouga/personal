@@ -1,14 +1,12 @@
 /**
- * Stateful backends: R2 buckets, PostgreSQL databases and the remote cache.
+ * Stateful backends: R2 buckets, PostgreSQL databases.
  * Credentials come from the Vault KV documents; without them every check skips.
  */
 import type { ObjectStoreSpec, PostgresConfig } from "../schema.js";
-import { asRecord, errorMessage, getJson, type HealthContext, type KvDocument, type KvRead } from "./context.js";
+import { errorMessage, type HealthContext, type KvDocument, type KvRead } from "./context.js";
 import { readSealStatus } from "./check-vault.js";
-import { checkFleetCache } from './check-fleet-cache.js';
 import { fail, pass, skip, type CheckResult } from "./report.js";
 
-const CACHE_SERVICE_ID = "turborepo";
 const DATABASE_SECRET = /(^|_)(DATABASE_URL|DB_CONNECTION_URI)$/;
 
 /** No credential means the check cannot run; a document Vault cannot serve is a failure. */
@@ -89,31 +87,6 @@ async function postgresChecks(ctx: HealthContext, postgres: PostgresConfig | und
   });
 }
 
-/** `/v8/artifacts/status` is authenticated and read-only: it proves the Vault token is the server's. */
-async function cacheCheck(ctx: HealthContext): Promise<CheckResult[]> {
-  const service = ctx.config.services.find((candidate) => candidate.id === CACHE_SERVICE_ID);
-  if (!service?.hostname) return [];
-  const name = "remote cache";
-  const doc = await ctx.kv("prd");
-  if (!doc.ok) return [unavailable(name, doc)];
-  const api = doc.data["TURBO_API"]?.trim().replace(/\/$/, "");
-  const token = doc.data["TURBO_TOKEN"]?.trim();
-  if (!api || !token) return [fail(name, "Vault prd is missing TURBO_API or TURBO_TOKEN")];
-  if (api !== `https://${service.hostname}`) {
-    return [fail(name, `Vault prd TURBO_API is ${api}, inventory hosts the cache at https://${service.hostname}`)];
-  }
-  try {
-    const res = await getJson(ctx, `${api}/v8/artifacts/status`, { Authorization: `Bearer ${token}` });
-    const status = asRecord(res.body)["status"];
-    if (res.status === 401 || res.status === 403) return [fail(name, `the cache rejected Vault's TURBO_TOKEN (HTTP ${res.status})`)];
-    return res.status === 200
-      ? [pass(name, `${api} accepts Vault's TURBO_TOKEN (status ${String(status)})`)]
-      : [fail(name, `${api}/v8/artifacts/status returned HTTP ${res.status}`)];
-  } catch (err) {
-    return [fail(name, errorMessage(err))];
-  }
-}
-
 export async function checkStorage(ctx: HealthContext): Promise<readonly CheckResult[]> {
   const buckets = (ctx.config.object_stores ?? []).flatMap((store) =>
     (store.namespaces ?? []).map((kvConfig) => checkBucket(ctx, store, kvConfig)),
@@ -122,8 +95,6 @@ export async function checkStorage(ctx: HealthContext): Promise<readonly CheckRe
     Promise.all(buckets),
     postgresChecks(ctx, ctx.config.postgres),
     databaseChecks(ctx),
-    cacheCheck(ctx),
-    checkFleetCache(ctx),
   ]);
   return groups.flat();
 }

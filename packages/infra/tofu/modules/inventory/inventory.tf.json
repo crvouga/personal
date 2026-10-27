@@ -1347,66 +1347,48 @@
             "required": true
           },
           {
-            "name": "TURBO_TOKEN",
-            "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
-            "required": true
-          },
-          {
-            "name": "TURBO_API",
-            "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
-            "required": true
-          },
-          {
-            "name": "TURBO_TEAM",
-            "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"],
-            "required": true
-          },
-          {
             "name": "TURBO_CACHE",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci"]
+            "used_by": ["ci"]
           },
           {
             "name": "TURBO_LOG_ORDER",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo"]
+            "used_by": ["ci"]
           },
           {
             "name": "TURBO_TELEMETRY_DISABLED",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo"]
+            "used_by": ["ci"]
           },
           {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci", "9router"],
+            "used_by": ["ci", "9router"],
             "required": true
           },
           {
             "name": "S3_REGION",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci", "9router"],
+            "used_by": ["ci", "9router"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci", "9router"],
+            "used_by": ["ci", "9router"],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci", "9router"],
+            "used_by": ["ci", "9router"],
             "required": true
           },
           {
             "name": "S3_BUCKET",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "ci", "9router"],
+            "used_by": ["ci", "9router"],
             "required": true
           },
           {
@@ -1422,7 +1404,7 @@
           {
             "name": "VAULT_TOKEN",
             "configs": ["dev", "prd"],
-            "used_by": ["turborepo", "railway"],
+            "used_by": ["railway"],
             "required": true
           },
           {
@@ -2074,30 +2056,6 @@
           }
         },
         {
-          "id": "turborepo",
-          "kind": "railway",
-          "hostname": "turborepo.chrisvouga.dev",
-          "github_repo": "crvouga/workspace",
-          "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/turborepo-remote-cache",
-          "dockerfile": "packages/turborepo-remote-cache/Dockerfile",
-          "build_context": ".",
-          "port": 8080,
-          "health_check": true,
-          "health_path": "/health",
-          "env": {
-            "PORT": "8080",
-            "VAULT_ADDR": "from_vault_addr",
-            "VAULT_PROJECT": "from_vault.kv.project",
-            "VAULT_CONFIG": "prd"
-          },
-          "secrets": [
-            {
-              "name": "VAULT_TOKEN",
-              "source": "vault"
-            }
-          ]
-        },
-        {
           "id": "fleet-api",
           "kind": "railway",
           "hostname": "fleet.chrisvouga.dev",
@@ -2341,9 +2299,6 @@
         "account": "crvougafleet",
         "profile": "fleet-installer",
         "identity_validation_id": "736bedf1-49ee-40f8-a76e-2febf73bcfad"
-      },
-      "fleet_cache": {
-        "signing_key_fingerprint": "SHA256:UL2yb5PUTTx47GXWOhcY/rDkA4TPqMvURO2iYtEt8gc"
       }
     }
   }

@@ -32,7 +32,7 @@ monitoring or cached updates work.
 6. If the firmware would boot the stick again, pull it when the console says the install finished. The lasting boot order stays network, then the internal disk. The console prints the age public key and `ssh-keygen -lf` of `/nix/fleet-state/ssh/ssh_host_ed25519_key.pub`. Encrypt secrets to that public key from any computer. `sshKeys` in `settings/shared.nix` stays empty until remote read-only access is wanted. The hostname is `<role>[-gpu][-highmem]-<4 hex>` from the hardware id.
 7. Apply the reviewed OpenTofu plan that adds the merge queue and the `Fleet` required check to `main`. Until that plan is applied, GitHub is still on the previous ruleset. Do not push `main` directly.
 
-Automatic updates substitute from the cloud cache in `settings/shared.nix`
-(`binaryCache`); the Fleet cache workflow publishes the `roles.json` closures to it.
+The private cloud cache is retired. Automatic updates build missing closures
+locally with upstream Nix substitutes; no private publisher is required.
 The current repository is public, so `repo.auth = "none"` is valid. A private
 repository requires a read credential encrypted separately for each role.

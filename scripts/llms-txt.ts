@@ -1,6 +1,6 @@
 /**
  * Renders the repo-root `llms.txt`: the integration guide external codebases
- * (and their agents) fetch to consume Vault, the Turborepo remote cache, the R2
+ * (and their agents) fetch to consume Vault, the R2
  * object store, and fleet hosting.
  *
  * Prose lives in `scripts/llms-txt.template.md`. Every value an integrator
@@ -33,11 +33,7 @@ import {
   PUBLISH_WORKFLOW_PATH,
   renderPublishWorkflow,
 } from '../packages/infra/lib/publish-workflow.js';
-import {
-  TURBO_CLIENT_OPTIONAL_KEYS,
-  TURBO_CLIENT_REQUIRED_KEYS,
-  VAULT_SECRET_REGISTRY,
-} from '../packages/turborepo-remote-cache/scripts/vault-secrets-registry.js';
+import { VAULT_SECRET_REGISTRY } from '../packages/turborepo-remote-cache/scripts/vault-secrets-registry.js';
 import { OBJECT_KEY_PREFIX } from '../packages/object-store/src/object-key.js';
 import { TOPIC_TO_IMAGE_SRC } from '../packages/portfolio/src/content/topic.js';
 
@@ -121,10 +117,6 @@ function registryHint(key: string): string {
   return VAULT_SECRET_REGISTRY.find((e) => e.key === key)?.hint ?? '';
 }
 
-function registrySeed(key: string): string | undefined {
-  return VAULT_SECRET_REGISTRY.find((e) => e.key === key)?.seed();
-}
-
 function service(ctx: Context, id: string): ServiceSpec {
   return need(
     ctx.config.services.find((s) => s.id === id),
@@ -178,7 +170,6 @@ function values(ctx: Context): Record<string, string> {
   const infraRepo = infraGithubRepo(config);
   const { path: jwtPath, role } = jwtRole(ctx);
   const token = runtimeToken(ctx);
-  const turbo = service(ctx, 'turborepo');
   const portfolio = service(ctx, 'portfolio');
   const databaseSecret = need(
     vault.kv_keys?.find((key) => key.name === APPLICATION_DATABASE_SECRET),
@@ -229,8 +220,6 @@ function values(ctx: Context): Record<string, string> {
     runtimeTokenPeriod: token.period,
     databaseSecret: databaseSecret.name,
     platformDatabaseSecret: platformDatabase.secret_name,
-    turboApi: `https://${need(turbo.hostname, 'turborepo hostname')}`,
-    turboHealthPath: need(serviceHealthPath(turbo), 'turborepo health path'),
     objectKeyPrefix: OBJECT_KEY_PREFIX,
     railwayProject: config.railway.project,
     railwayRegion: config.railway.region,
@@ -287,12 +276,6 @@ function blocks(ctx: Context): Record<string, string> {
     s3.secret_key_secret,
     s3.bucket_secret,
   ];
-  const turboKeys = [
-    ...TURBO_CLIENT_REQUIRED_KEYS,
-    ...TURBO_CLIENT_OPTIONAL_KEYS,
-  ];
-  const required = new Set<string>(TURBO_CLIENT_REQUIRED_KEYS);
-
   const fleet = config.services.filter(
     (s) => (s.kind ?? 'railway') === 'railway' && !s.standalone && s.hostname
   );
@@ -310,11 +293,6 @@ function blocks(ctx: Context): Record<string, string> {
           'PostgreSQL',
           `via ${code(v.databaseSecret!)} (opaque connection URL)`,
           'connection URL from Vault; an app-specific allocation is required',
-        ],
-        [
-          'Turborepo cache',
-          code(v.turboApi!),
-          '`Authorization: Bearer $TURBO_TOKEN`',
         ],
         [
           'Object store',
@@ -365,23 +343,6 @@ function blocks(ctx: Context): Record<string, string> {
       ...oidcSecrets(ctx, ['DATABASE_URL', 'SOME_KEY'])
         .split('\n')
         .map((l) => `        ${l}`),
-    ].join('\n'),
-    turboEnv: table(
-      ['Var', 'Required', 'Default', 'Meaning'],
-      turboKeys.map((k) => [
-        code(k),
-        required.has(k) ? 'yes' : 'optional',
-        registrySeed(k) ? code(registrySeed(k)!) : '',
-        k === 'TURBO_TOKEN'
-          ? `${registryHint(k)} — from Vault, never committed`
-          : registryHint(k),
-      ])
-    ),
-    turboOidcSecrets: [
-      'secrets: |',
-      ...oidcSecrets(ctx, TURBO_CLIENT_REQUIRED_KEYS)
-        .split('\n')
-        .map((l) => `  ${l}`),
     ].join('\n'),
     buckets: table(
       ['Vault config', 'Bucket'],

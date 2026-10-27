@@ -98,6 +98,22 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[0].args[0][0], 'nix')
         self.assertEqual(run.call_count, 2)
 
+    def test_local_build_metadata_checks_bundled_closure_without_private_cache(self):
+        self.metadata.update(updateMode='local', cacheUrl=None, cachePublicKey=None, github=None)
+        self.write_metadata()
+        run = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout=b'{"github-app-key":"fixture"}'))
+        self.run_check(run)
+        self.assertEqual(run.call_args_list[0].args[0], ['nix', 'path-info', '--recursive', str(self.system)])
+        self.assertNotIn('--store', repr(run.call_args_list))
+
+    def test_missing_bundled_closure_refuses_before_secret_access(self):
+        self.metadata.update(updateMode='local', cacheUrl=None, cachePublicKey=None)
+        self.write_metadata()
+        run = mock.Mock(return_value=SimpleNamespace(returncode=1, stdout=b''))
+        with self.assertRaisesRegex(bootstrap.NotReady, 'FLEET_LOCAL_CLOSURE_UNAVAILABLE'):
+            self.run_check(run)
+        self.assertEqual(run.call_count, 1)
+
     def test_missing_or_mismatched_role_key_never_reaches_registration(self):
         run = mock.Mock(side_effect=[SimpleNamespace(returncode=0, stdout=b'{}'),
                                     SimpleNamespace(returncode=1, stdout=b'private-contents')])

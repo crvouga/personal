@@ -225,14 +225,6 @@ label.choice small {
   padding: 16px;
   margin: 20px 0;
 }
-/* Something the person has to do now, or must know before it happens. */
-.callout {
-  background: var(--primary-soft);
-  border: 1px solid var(--primary);
-  border-radius: 8px;
-  padding: 4px 16px;
-  margin: 16px 0;
-}
 .fail {
   color: var(--danger);
   font-weight: 600;

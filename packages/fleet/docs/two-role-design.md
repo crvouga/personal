@@ -1,3 +1,5 @@
+> The shared Turbo/Nix cache described below is retired. Current updates use bounded local builds and upstream Nix substitutes; installation validates bundled closures. See [update reliability](update-reliability.md). Cache design details below are historical.
+
 # Two-role fleet: target design and migration
 
 Status: proposal, 2026-10-26. Migration steps 2 and the code half of 3 are

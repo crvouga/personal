@@ -197,18 +197,5 @@ jobs:
       - name: Load public endpoints
         run: bun run packages/infra/scripts/print-platform-env.ts --format github >> "$GITHUB_ENV"
       - name: Check public services
-        if: steps.plan.outputs.apply == 'true'
+        if: steps.plan.outputs.apply == 'true' || inputs.action == 'smoke'
         run: bun run health-check --all-public --retries 24 --retry-delay-ms 5000
-      - name: Read smoke test credentials
-        if: steps.plan.outputs.smoke == 'true'
-        uses: ./.github/actions/turborepo-vault-secrets
-        with:
-          vault_config: prd
-      - name: Smoke test
-        if: steps.plan.outputs.smoke == 'true'
-        env:
-          CI: "true"
-          GITHUB_ACTIONS: "true"
-          VAULT_CONFIG: prd
-          VAULT_PROJECT: personal
-        run: bun run --filter @pkgs/turborepo-remote-cache smoke

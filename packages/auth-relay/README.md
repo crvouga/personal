@@ -59,7 +59,7 @@ acceptance of all workspace servers. It creates fresh auth state/volumes under a
 unique `AUTH_DEV_INSTANCE`, verifies browser sign-in and client registration,
 restarts on another callback port, and removes only its own fixture afterwards.
 Logs remain in ignored `.superset/.dev-check/`. This check needs a valid local
-Vault login for portfolio and remote-cache, plus Playwright Chromium. Ordinary
+Vault login for portfolio, plus Playwright Chromium. Ordinary
 development keeps its data. `AUTH_DEV_INSTANCE=<name>` optionally selects another
 isolated local stack; names must be lowercase letters, digits and hyphens.
 

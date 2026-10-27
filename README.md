@@ -1,6 +1,6 @@
 # Workspace
 
-Bun + Turborepo monorepo for the portfolio at https://www.chrisvouga.dev, a Turborepo remote cache, an OpenBao secrets service, shared libraries and local workstation tools.
+Bun + Turborepo monorepo for the portfolio at https://www.chrisvouga.dev, a dormant Turborepo remote cache, an OpenBao secrets service, shared libraries and local workstation tools.
 
 Infrastructure is managed exclusively by **OpenTofu**. The resource definitions, canonical fleet inventory, provider locks and migration instructions live in [packages/infra/tofu](packages/infra/tofu/README.md). No custom provisioning or reconciliation controllers remain.
 
@@ -18,7 +18,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | Package                                                                                    | Purpose                                                                   |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
 | `portfolio`                                                                                | Astro static site, content registry, GitHub insights and generated resume |
-| `turborepo-remote-cache`                                                                   | Bun cache server, R2 artifacts and Vault runtime configuration            |
+| `turborepo-remote-cache`                                                                   | Dormant Bun cache server; source and tests retained                       |
 | `infra`                                                                                    | OpenTofu infrastructure and read-only build/health adapters               |
 | `vault-service`                                                                            | OpenBao runtime image and local Vault auth/read CLI                       |
 | `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
@@ -29,7 +29,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 
 The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and fleet hosting. The portfolio publishes it at [www.chrisvouga.dev/llms-infra.txt](https://www.chrisvouga.dev/llms-infra.txt); the site's own `/llms.txt` is a candidate summary for recruiters' screening agents and links to it. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
 
-Local setup: install [mise](https://mise.jdx.dev/), then `mise install` from the repo root. Tool versions live in `mise.toml`, including `just`, `gh`, `age`, `sops`, ShellCheck, actionlint, OpenTofu 1.13.0, Bun 1.3.11, Node 22.22.3, and Atlas. Add `eval "$(mise activate zsh)"` to the shell so those tools are on `PATH`. Then `vault login` and `bun run setup` download runtime settings without writing infrastructure. `bun run dev` starts the cache server on port 8787. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
+Local setup: install [mise](https://mise.jdx.dev/), then `mise install` from the repo root. Tool versions live in `mise.toml`, including `just`, `gh`, `age`, `sops`, ShellCheck, actionlint, OpenTofu 1.13.0, Bun 1.3.11, Node 22.22.3, and Atlas. Add `eval "$(mise activate zsh)"` to the shell so those tools are on `PATH`. Then `bun run setup` installs dependencies and `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. Fleet builds missing system closures locally with upstream Nix substitutes. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
@@ -86,7 +86,7 @@ All 14 domain registrations remain at Squarespace. The Cloudflare migration is c
 | `services`  | Each Railway service's health endpoint; Cloudflare redirects                            | —                 |
 | `tunnels`   | Cloudflare tunnel connectors (an offline workstation connector warns)                   | —                 |
 | `vault`     | Seal state and shares; KV mount, policies, auth roles, users and required KV keys       | Vault token       |
-| `storage`   | R2 buckets, PostgreSQL, service databases (`SELECT 1`) and the remote cache token       | Vault token       |
+| `storage`   | R2 buckets, PostgreSQL, service databases (`SELECT 1`)                                  | Vault token       |
 | `images`    | Every deployed GHCR image is publicly pullable                                          | —                 |
 | `github`    | Repositories, publisher workflows, dispatch secrets, merge gate, last production CI run | GitHub token      |
 | `runners`   | Self-hosted runner fleet registrations                                                  | GitHub token      |

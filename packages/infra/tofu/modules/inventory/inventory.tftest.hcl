@@ -14,8 +14,8 @@ run "fleet_browser_auth_contract" {
 run "fleet_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 22
-    error_message = "The migration must retain all 22 Railway services."
+    condition     = length(output.config.services) == 21
+    error_message = "Retiring the dedicated cache must retain all 21 remaining Railway services."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
@@ -155,5 +155,13 @@ run "moviefinder_ownership" {
   assert {
     condition     = one([for key in output.config.vault.kv_keys : key if key.name == "MOVIEFINDER_AUTH_SECRET"]).generated && one([for key in output.config.vault.kv_keys : key if key.name == "MOVIEFINDER_AUTH_SECRET"]).configs == ["dev", "prd"]
     error_message = "Generate the app-specific auth key through Vault, without rotating any existing key."
+  }
+}
+
+run "private_caches_retired" {
+  command = plan
+  assert {
+    condition     = !contains([for service in output.config.services : service.id], "turborepo") && !contains([for key in output.config.vault.kv_keys : key.name], "TURBO_TOKEN") && !contains([for alias in output.config.aliases : alias.hostname], "turborepo.chrisvouga.dev")
+    error_message = "The private caches must not be hosted or distribute Turbo credentials."
   }
 }
