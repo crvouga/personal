@@ -20,7 +20,7 @@
           "attr": "ci-gpu",
           "host": "hosts/ci-gpu.nix",
           "installer": false,
-          "published": false
+          "published": true
         }
       ]
     },

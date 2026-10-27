@@ -135,6 +135,12 @@ class NodeConsoleTests(unittest.TestCase):
         self.assertIn("[!] Network no connection", screen)
         self.assertIn("[!] Fleet last report failed: API unreachable", screen)
 
+    def test_failed_service_prerequisite_names_the_git_managed_repair(self):
+        self.agent(['FLEET_RUNNER_PREREQUISITE_FAILED: runner slot-1 failed gh discovery/execution inside its service environment.'])
+        screen = self.drawn()
+        self.assertIn('STATUS PROBLEM', screen)
+        self.assertIn('repairs the CI closure through Git', screen)
+
     def test_without_an_agent_report_readiness_stays_unknown(self):
         (self.root / "state/agent/status.json").unlink()
         executable(self.root / "bin/systemctl", '#!/bin/sh\n[ "$1" = is-active ] && echo inactive\nexit 0\n')

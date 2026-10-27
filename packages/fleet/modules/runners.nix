@@ -143,6 +143,8 @@ ${builtins.readFile ../scripts/runner_control.py}
       ${builtins.readFile ../scripts/resume.sh}
     '';
   };
+  prerequisites = pkgs.writeShellScript "fleet-runner-prerequisites"
+    (builtins.readFile ../scripts/runner-prerequisites.sh);
   hooks = event: pkgs.writeShellScript "fleet-job-${event}" (if event == "started" then ''
     exec 9>/run/fleet/gate
     ${pkgs.util-linux}/bin/flock 9
@@ -202,8 +204,11 @@ in {
     # nixos and ci stay in the store. x64, gpu, and high-mem are spliced
     # onto --labels at configure time from /run/fleet/runner-labels.
     extraLabels = [ "nixos" "ci" ];
-    extraPackages = lib.optionals settings.containers [ pkgs.podman ];
+    # Bash, Git and Nix come from the pinned upstream module's service PATH.
+    # gh is needed by workflow steps before a project's toolchain is installed.
+    extraPackages = [ pkgs.gh ] ++ lib.optionals settings.containers [ pkgs.podman ];
     extraEnvironment = {
+      FLEET_PREREQUISITE_STATUS = "/run/fleet/${id}/prerequisites";
       FLEET_JOB_STATE_ROOT = "/nix/ci-state";
       ACTIONS_RUNNER_INPUT_NAME = "%H-${id}";
       FLEET_SLOT = id;
@@ -246,8 +251,11 @@ in {
     # fleet-remove writes /nix/fleet-state/withdrawn. It survives reboots, so a
     # removed node never registers again until it is reinstalled.
     unitConfig.ConditionPathExists = [ "!/run/fleet/draining" "!/nix/fleet-state/withdrawn" ];
-    serviceConfig.ExecStartPre = lib.mkBefore [
-      "+${register id (scopeFor n)}"
+    serviceConfig.ExecStartPre = lib.mkMerge [
+      (lib.mkBefore [ "+${register id (scopeFor n)}" ])
+      # After upstream setup, inside the actual service sandbox as the slot
+      # user. No '+' privilege escape or PATH supplied by an interactive shell.
+      (lib.mkAfter [ "${prerequisites}" ])
     ];
   }) ids);
 }
