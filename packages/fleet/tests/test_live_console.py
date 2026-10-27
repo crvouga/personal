@@ -10,6 +10,7 @@ import tempfile
 import unittest
 import urllib.parse
 from pathlib import Path
+from unittest.mock import patch
 
 FLEET = Path(__file__).resolve().parents[1]
 SCRIPT = FLEET / "scripts" / "live_console.py"
@@ -76,7 +77,11 @@ class LiveConsoleTests(unittest.TestCase):
         Path(str(self.log) + ".diagnostic").write_text(
             "FLEET_CACHE_UNAVAILABLE: this revision is not readable with its pinned signing key. Retrying before disk changes.\n")
         self.console.write_text("")
-        self.live("wait", "--attempt", "2", "--remaining", "330", "--retry", "30")
+        now = json.loads((self.root / "state/state.json").read_text())["updated"] + 0.25
+        # A loaded runner can cross a second between saving and drawing. Fix
+        # the clock so this assertion checks the countdown, not scheduling.
+        with patch.dict(os.environ, self.env, clear=True), patch.object(live_console.time, "time", return_value=now), patch("sys.stdout"):
+            self.assertEqual(live_console.main(["wait", "--attempt", "2", "--remaining", "330", "--retry", "30"]), 0)
         screen = self.console.read_text()
         flat = " ".join(screen.split())
         self.assertIn("[~] 3.", screen)
@@ -85,6 +90,10 @@ class LiveConsoleTests(unittest.TestCase):
         self.assertIn("5 min 30 s", flat)
         self.assertIn("restarts into Windows", flat)
         self.assertIn("Nothing is erased either way", flat)
+        self.console.write_text("")
+        with patch.dict(os.environ, self.env, clear=True), patch.object(live_console.time, "time", return_value=now + 1), patch("sys.stdout"):
+            self.assertEqual(live_console.main(["tick"]), 0)
+        self.assertIn("5 min 29 s", " ".join(self.console.read_text().split()))
 
     def test_a_stop_shows_recovery_a_return_countdown_and_a_scannable_redacted_report(self):
         self.live("step", "checks")
