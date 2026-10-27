@@ -44,7 +44,8 @@ in pkgs.testers.runNixOSTest {
     policy_checks = unittest.TestCase()
     policy_checks.assertEqual(ssh_policy.get("forcecommand"), "${coding.ssh}/bin/fleet-code-ssh")
     policy_checks.assertEqual(ssh_policy.get("allowstreamlocalforwarding"), "local")
-    policy_checks.assertEqual(ssh_policy.get("allowtcpforwarding"), "no")
+    policy_checks.assertEqual(ssh_policy.get("allowtcpforwarding"), "local")
+    policy_checks.assertEqual(ssh_policy.get("permitopen"), "[/run/fleet-code-desktop/web.sock]:*")
     machine.succeed("su - agent -c 'test $(stat -c %a /nix/fleet-code) = 700; echo persistent > ~/coding-test'")
     machine.fail("su - agent -c 'sudo -n true'")
     machine.fail("su - dev -c 'cat /nix/fleet-code/coding-test'")
@@ -62,6 +63,7 @@ in pkgs.testers.runNixOSTest {
     machine.fail("su - dev -c 'cat /run/fleet-code-desktop/Xauthority'")
     machine.succeed("ssh -fNT -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/devbox-test-key -L 127.0.0.1:16080:/run/fleet-code-desktop/web.sock agent@localhost")
     machine.succeed("${pkgs.curl}/bin/curl -fsS http://127.0.0.1:16080/vnc.html | grep -F noVNC")
+    machine.succeed("if ssh -n -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/devbox-test-key -W 127.0.0.1:22 agent@localhost > /run/fleet-agent-tcp-rejection 2>&1; then exit 1; fi; grep -F 'administratively prohibited' /run/fleet-agent-tcp-rejection")
     machine.succeed("test -z \"$(${pkgs.iproute2}/bin/ss -H -lnt '( sport = :5999 or sport = :6099 or sport = :6080 or sport = :9222 )')\"")
     machine.succeed("test ! -L /run/fleet/devbox-authorized-keys; test $(stat -c %u /run/fleet/devbox-authorized-keys) = 0; test $(stat -c %a /run/fleet/devbox-authorized-keys) = 755")
     # SSH must not consume the test driver's command/completion stream on stdin.

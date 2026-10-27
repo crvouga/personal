@@ -65,7 +65,10 @@ in {
   services.openssh.extraConfig = ''
     Match User agent
       ForceCommand ${tools.ssh}/bin/fleet-code-ssh
-      AllowTcpForwarding no
+      # OpenSSH shares the local TCP/Unix forwarding permission gate. PermitOpen
+      # compares this literal path for Unix channels and rejects TCP hostnames.
+      AllowTcpForwarding local
+      PermitOpen [/run/fleet-code-desktop/web.sock]:*
       AllowStreamLocalForwarding local
       AllowAgentForwarding no
       X11Forwarding no

@@ -13,7 +13,8 @@
     && lib.elem "d /nix/fleet-code 0700 agent agent -" config.systemd.tmpfiles.rules
     && lib.hasInfix "Match User agent" config.services.openssh.extraConfig
     && lib.hasInfix "/bin/fleet-code-ssh" config.services.openssh.extraConfig
-    && lib.hasInfix "AllowTcpForwarding no" config.services.openssh.extraConfig
+    && lib.hasInfix "AllowTcpForwarding local" config.services.openssh.extraConfig
+    && lib.hasInfix "PermitOpen [/run/fleet-code-desktop/web.sock]:*" config.services.openssh.extraConfig
     && lib.hasInfix "AllowStreamLocalForwarding local" config.services.openssh.extraConfig
     && desktop != null && lib.elem "multi-user.target" desktop.wantedBy
     && desktop.serviceConfig.User == "agent"

@@ -104,8 +104,11 @@ own `.omp` directory. Runner users cannot read the home or desktop runtime direc
 TigerVNC disables TCP and listens only on its mode-0600 Unix socket. Websockify
 serves noVNC only on another mode-0600 Unix socket. Both live below the agent-owned
 mode-0700 `/run/fleet-code-desktop`. There is no unauthenticated loopback VNC/CDP/HTTP
-port that a CI job can connect to. SSH allows local Unix-socket forwarding, while
-TCP, agent and X11 forwarding remain disabled for this account. Authentication is
+port that a CI job can connect to. SSH permits local forwarding only to the exact
+desktop socket through `PermitOpen [/run/fleet-code-desktop/web.sock]:*`. OpenSSH's
+shared TCP/Unix permission gate requires `AllowTcpForwarding local`, while the
+literal socket destination rejects TCP hostnames. Remote, agent and X11 forwarding
+remain disabled for this account. Authentication is
 the SSH key plus filesystem permissions, so no additional desktop password is
 seeded. Chromium's normal sandbox remains enabled.
 
