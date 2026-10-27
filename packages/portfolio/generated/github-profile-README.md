@@ -10,7 +10,7 @@ Senior engineer in health and education software. Previously technical lead on a
 
 - **Mockingbird** ([case study](https://www.chrisvouga.dev/projects/mockingbird/), [code](https://github.com/crvouga/mockingbird)): 124 stateful vendor-API emulators, published to npm and checked against the vendors’ OpenAPI contracts by property-based parity tests.
 - **gamezilla.app** ([case study](https://www.chrisvouga.dev/projects/gamezilla/)): Local-first multiplayer game app defined by 2,702 executable spec scenarios and 129 formal state models that every pull request must pass.
-- **Workspace platform** ([case study](https://www.chrisvouga.dev/projects/workspace-platform/), [code](https://github.com/crvouga/workspace)): Runs 22 services on OpenTofu-only infrastructure; 12 CI jobs gate every merge, and 21 of 102 pull requests failed CI before merging green.
+- **Workspace platform** ([case study](https://www.chrisvouga.dev/projects/workspace-platform/), [code](https://github.com/crvouga/workspace)): Runs 22 services on OpenTofu-only infrastructure; 12 CI jobs gate every merge, and 24 of 106 pull requests failed CI before merging green.
 
 ## How I build
 
