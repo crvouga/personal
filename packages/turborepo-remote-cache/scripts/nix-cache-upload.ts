@@ -1,5 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import {
+  cacheOperation,
+  type CacheOperationOptions,
+} from './nix-cache-operation';
 
 export interface CacheUploadStore {
   exists(key: string): Promise<boolean>;
@@ -10,12 +14,21 @@ export interface CacheUploadStore {
 /** Publish all immutable content before exposing any signed pointers. */
 export async function uploadNixCache(
   cache: string,
-  store: CacheUploadStore
+  store: CacheUploadStore,
+  options: CacheOperationOptions = {}
 ): Promise<number> {
   const upload = async (relative: string, immutable: boolean) => {
     const key = `turbo-cache/prd/nix/${relative}`;
-    if (immutable && (await store.exists(key))) return;
-    await store.put(key, Bun.file(join(cache, relative)));
+    if (
+      immutable &&
+      (await cacheOperation('HEAD', () => store.exists(key), options))
+    )
+      return;
+    await cacheOperation(
+      'PUT',
+      () => store.put(key, Bun.file(join(cache, relative))),
+      options
+    );
   };
   const nars = await readdir(join(cache, 'nar'));
   for (let offset = 0; offset < nars.length; offset += 4) {
@@ -33,8 +46,11 @@ export async function uploadNixCache(
   }
   await upload('nix-cache-info', false);
   if (
-    (await store.text('turbo-cache/prd/nix/nix-cache-info')) !==
-    (await Bun.file(join(cache, 'nix-cache-info')).text())
+    (await cacheOperation(
+      'GET',
+      () => store.text('turbo-cache/prd/nix/nix-cache-info'),
+      options
+    )) !== (await Bun.file(join(cache, 'nix-cache-info')).text())
   ) {
     throw new Error('FLEET_CACHE_READBACK_FAILED');
   }
