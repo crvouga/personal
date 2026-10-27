@@ -335,6 +335,7 @@ class WifiCaptureTests(unittest.TestCase):
             self.assertNotIn(NETWORK["password"], str(caught.exception))
 
 
+@unittest.skipIf(os.name == "nt", "the live installer's readiness runs on Linux (sysfs, nmcli, POSIX file ownership)")
 class LiveReadinessTests(unittest.TestCase):
     """The live installer connects what it can and says exactly why it could not."""
 
