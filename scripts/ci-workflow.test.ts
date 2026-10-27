@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
@@ -119,7 +119,7 @@ test('health remains read-only and repair runs only through an explicit main-bra
     'foundation',
     'bootstrap',
     'vault',
-    'fleet',
+    'services',
   ]);
   for (const step of prepared) expect(step.with.mode).toBe('prepare');
   expect(JSON.stringify(health)).not.toMatch(/\bapply\b/);
@@ -249,4 +249,54 @@ test('reusable publisher rejects empty build inputs before authenticating', () =
       env: { ...process.env, BUILD_INPUTS: JSON.stringify(valid) },
     }).exitCode
   ).toBe(0);
+});
+
+test('renamed hosting root keeps the existing shared state while auth retains its explicit instance key', () => {
+  const step = read('.github/actions/tofu/action.yml').runs.steps.find(
+    (step: { name: string }) => step.name === 'Configure backend and inputs'
+  );
+  const directory = mkdtempSync(join(tmpdir(), 'hosting-backend-'));
+  try {
+    for (const [root, stateKey, expected] of [
+      ['services', '', 'fleet.tfstate'],
+      ['auth', 'auth-production', 'auth-production.tfstate'],
+    ]) {
+      mkdirSync(join(directory, 'packages/infra/tofu', root!), {
+        recursive: true,
+      });
+      const result = Bun.spawnSync(
+        [
+          'bash',
+          '-c',
+          step.run.replaceAll(
+            '/tmp/tofu-backend.json',
+            join(directory, 'shared-backend.json')
+          ),
+        ],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            TOFU_ROOT: root!,
+            TOFU_STATE_KEY: stateKey!,
+            TOFU_MODE: 'prepare',
+            TF_VAR_cloudflare_account_id: 'test-account',
+            GITHUB_ENV: join(directory, 'job-env'),
+          },
+        }
+      );
+      expect(result.exitCode).toBe(0);
+      const backend = JSON.parse(
+        readFileSync(
+          join(directory, 'packages/infra/tofu', root!, 'backend.backend.json'),
+          'utf8'
+        )
+      );
+      expect(backend.key).toBe(expected);
+      expect(backend.use_lockfile).toBe(true);
+      expect(backend.bucket).toBe('crvouga-tofu-state');
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

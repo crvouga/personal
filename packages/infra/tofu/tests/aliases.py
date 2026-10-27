@@ -8,7 +8,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="workspace-tofu-aliases-") as directory:
     root = Path(directory)
-    source = (ROOT / "fleet/aliases.tf").read_text()
+    source = (ROOT / "services/aliases.tf").read_text()
     source = re.sub(r"(?ms)^import \{\n.*?^\}\n", "", source)
     (root / "aliases.tf").write_text(source)
     (root / "service").mkdir()
@@ -37,7 +37,7 @@ data "terraform_remote_state" "foundation" {
   config = { path = "unused.tfstate" }
 }
 ''')
-    lock = (ROOT / "fleet/.terraform.lock.hcl").read_text()
+    lock = (ROOT / "services/.terraform.lock.hcl").read_text()
     (root / ".terraform.lock.hcl").write_text("\n".join(re.search(
         r'provider "registry.opentofu.org/' + provider + r'" \{[^}]+\}', lock
     ).group() for provider in ["cloudflare/cloudflare", "terraform-community-providers/railway"]))

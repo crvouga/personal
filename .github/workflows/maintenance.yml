@@ -79,7 +79,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache verified providers
@@ -117,11 +116,11 @@ jobs:
         with:
           root: vault
           mode: prepare
-      - name: Prepare fleet root
+      - name: Prepare services root
         if: ${{ !cancelled() && env.DRIFT == 'true' }}
         uses: ./.github/actions/tofu
         with:
-          root: fleet
+          root: services
           mode: prepare
       - name: Log in to Vault (OIDC, read-only)
         if: "!cancelled() && inputs.task != 'domains'"
@@ -161,8 +160,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Check every public link the portfolio shows
@@ -222,7 +219,6 @@ jobs:
           fetch-depth: 0
           ref: main
           token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Choose update
@@ -238,9 +234,6 @@ jobs:
           fi
 
           echo "task=$task" >> "$GITHUB_OUTPUT"
-      - name: Set up Nix
-        if: steps.task.outputs.task == 'dependencies'
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - name: Read snapshot credentials
         if: steps.task.outputs.task == 'snapshot'
         uses: hashicorp/vault-action@v4
@@ -319,50 +312,6 @@ jobs:
           fi
 
           gh pr merge "${REFRESH_BRANCH}" --auto --merge
-      - name: Update Nix dependencies
-        if: steps.task.outputs.task == 'dependencies'
-        env:
-          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-        run: >
-          set -euo pipefail
-
-          git config user.name 'github-actions[bot]'
-
-          git config user.email
-          '41898282+github-actions[bot]@users.noreply.github.com'
-
-          # A bare relative path is read as a flake-registry name
-          ("flake:packages/fleet").
-
-          nix flake update --flake ./packages/fleet
-
-          if git diff --quiet -- packages/fleet/flake.lock; then
-            echo 'flake.lock is unchanged'
-            exit 0
-          fi
-
-          branch=chore/fleet-flake-lock
-
-          git checkout -B "${branch}"
-
-          git add -- packages/fleet/flake.lock
-
-          git commit -m 'chore(fleet): update flake.lock'
-
-          if git fetch origin "${branch}"; then
-            git push --force-with-lease="refs/heads/${branch}:refs/remotes/origin/${branch}" origin "HEAD:refs/heads/${branch}"
-          else
-            git push origin "HEAD:refs/heads/${branch}"
-          fi
-
-          if [ -z "$(gh pr list --head "${branch}" --base main --state open
-          --json number --jq '.[].number')" ]; then
-            gh pr create \
-              --base main \
-              --head "${branch}" \
-              --title 'chore(fleet): update flake.lock' \
-              --body 'Weekly Nix input update for packages/fleet. It goes through the fleet checks and the merge queue. Do not push it to main directly.'
-          fi
   repair:
     name: Repair
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' &&
@@ -399,7 +348,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Prepare foundation

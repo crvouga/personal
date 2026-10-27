@@ -63,7 +63,7 @@ function provider(failState?: string, recorded = before) {
               VAULT_TOKEN: 'keep-managed',
             }),
           };
-          expect(vars.fleet_age_keys).toEqual(before.fleet_age_keys);
+          expect(vars.legacy_input_map).toBeUndefined();
           expect(vars.admin_passwords).toEqual(before.admin_passwords);
           expect(vars.state_passphrase).toBe(
             'fixture-passphrase-at-least-32-characters'

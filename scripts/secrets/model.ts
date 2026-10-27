@@ -17,7 +17,7 @@ export const GOOGLE_KEYS = [
 /** Historical input documents can include stale backend/provider credentials. */
 export function vaultSecretVariables(inputs: VaultInputs) {
   return Object.fromEntries(
-    ['secrets', 'admin_passwords', 'fleet_age_keys', 'auth_agent_credentials']
+    ['secrets', 'admin_passwords', 'auth_agent_credentials']
       .filter((key) => inputs[key] !== undefined)
       .map((key) => [key, inputs[key]])
   );

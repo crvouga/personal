@@ -46,7 +46,6 @@ crash.log
 .cache/tofu-providers/
 
 # Evaluated Nix derivations and public CI result records.
-packages/fleet/.ci/
 
 # Content-validated formatting results.
 .cache/prettier

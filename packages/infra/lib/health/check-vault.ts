@@ -118,7 +118,7 @@ function configChecks(config: InfraConfig, vault: VaultConfig, read: Read): Prom
   return checks;
 }
 
-/** Keys a KV config must hold for the fleet, tunnels, cache and object stores to work. */
+/** Keys a KV config must hold for the services, tunnels, cache and object stores to work. */
 export function requiredKvKeys(config: InfraConfig, kvConfig: string): readonly string[] {
   const vault = vaultConfigOrDefault(config);
   const keys = (vault.kv_keys ?? [])
@@ -135,7 +135,7 @@ export function requiredKvKeys(config: InfraConfig, kvConfig: string): readonly 
       if (config.auth_relay?.enabled && config.auth_relay.live !== false) keys.push('AUTH_RELAY_DATABASE_URL', 'AUTH_CONSOLE_CLIENT_ID', 'AUTH_CONSOLE_CLIENT_SECRET', 'AUTH_MANAGER_CLIENT_ID', 'AUTH_MANAGER_CLIENT_SECRET');
     }
   }
-  // The fleet root copies service secrets, and tunnels read theirs, from production only.
+  // The services root copies service secrets, and tunnels read theirs, from production only.
   if (kvConfig === "prd") {
     for (const service of config.services) {
       for (const secret of service.secrets ?? []) if (secret.source === "vault") keys.push(secret.name);

@@ -2,11 +2,7 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/.github/**",
-        "$TURBO_ROOT$/vendor/fleet/packages/fleet-api/schema.hcl"
-      ]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.github/**"]
     }
   }
 }

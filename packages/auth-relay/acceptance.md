@@ -20,7 +20,7 @@ These are mock development results, not Google/deployment acceptance evidence.
 
 The repeatable `bun run check:dev` acceptance also passed on 2026-10-16 through
 the real root Turborepo command: fresh PostgreSQL/schema/system identities,
-portfolio live GitHub data, the explicitly synthetic fleet dashboard,
+portfolio live GitHub data,
 Vault-authenticated cache access and a read-only R2 miss, browser OIDC sign-in,
 operator setup and client registration. A full stop and restart on another
 callback port retained the operator/client and allowed sign-in and revocation.
@@ -31,13 +31,6 @@ The stopped-Colima bootstrap path was exercised on this Apple Silicon host;
 port-conflict checks cover both loopback and wildcard listeners. These local
 checks do not replace any production gate below.
 
-Managed-data development was checked on 2026-10-16 after making fixtures opt-in.
-The local Fleet API and deployed Fleet API both returned HTTP 200 with zero
-registered nodes, matching the managed database. Local anonymous access remained
-unauthorized; its dashboard showed the live-data label. A second local startup
-passed the same read-only comparison. The isolated server regression verifies
-that local startup preserves old heartbeat history instead of launching pruning.
-Fleet's 572 tests and 25 browser scenarios passed, along with auth's 16 tests.
 Managed auth startup correctly failed with missing deployed settings and no
 fixture fallback; this is a deployment blocker, not live Google evidence.
 
@@ -47,22 +40,6 @@ and private upstream now resolve from canonical inventory rather than appearing
 as missing local settings. Scope/environment mismatch is rejected. Auth's 20
 unit tests and nine relay health tests passed. This improves configuration and
 blocker reporting; it does not establish live authentication or deployment.
-
-Fleet's Google-only consumer integration was verified locally on 2026-10-16:
-OIDC code/S256 PKCE/state/nonce, explicit ID-token signature validation,
-PostgreSQL-backed login/session persistence, verified-email allowlist management,
-nonmember denial with working sign-out/account selection, cross-origin CSRF
-rejection, callback replay/expiry, concurrent tabs, session context isolation,
-revocation and concurrent final-account protection. Chromium followed real
-HTTPS mock-relay redirects using independently signed tokens. Fleet's 555 tests
-and 25 browser scenarios passed; the installer/API chain passed all nine tests;
-the full local `bun run check` passed all 46 tasks, including 578 fleet tests.
-The old Vault password-login implementation and its obsolete tests were removed;
-Vault remains a secret store. The Google provider's verified-email assertion is
-now trusted without enabling automatic account linking; inspect existing
-unverified broker users during adoption. The updated real Keycloak/Google
-integration and live rollout remain unverified. No live schema, client or
-allowlist data was applied or seeded. Nix/VM checks were not run.
 
 The React/Mantine console replacement was checked locally on 2026-10-24 with
 43 passing auth unit/render/request tests, package typecheck/lint/production build,

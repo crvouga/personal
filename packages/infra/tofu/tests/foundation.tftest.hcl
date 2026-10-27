@@ -75,29 +75,6 @@ run "complete_adoption_plan" {
   }
 }
 
-run "fleet_database_is_isolated_in_its_own_schema" {
-  command = plan
-  assert {
-    condition     = postgresql_schema.fleet.name == "fleet" && postgresql_schema.fleet.if_not_exists
-    error_message = "OpenTofu's PostgreSQL provider must create the empty fleet schema, which Atlas needs to exist already."
-  }
-  assert {
-    condition     = endswith(atlas_schema.fleet.url, "&search_path=fleet") && !strcontains(atlas_schema.openbao.url, "search_path=fleet")
-    error_message = "The fleet Atlas resource must be scoped to the fleet schema; without search_path Atlas diffs and drops every schema in the shared database."
-  }
-  assert {
-    condition     = atlas_schema.fleet.hcl == file("${path.module}/../../../../vendor/fleet/packages/fleet-api/schema.hcl")
-    error_message = "The fleet schema must be read from vendor/fleet/packages/fleet-api/schema.hcl."
-  }
-  assert {
-    condition     = length(regexall("(?m)^schema \"", atlas_schema.fleet.hcl)) == 1 && strcontains(atlas_schema.fleet.hcl, "schema \"fleet\" {}")
-    error_message = "The fleet HCL must declare only the fleet schema."
-  }
-  assert {
-    condition     = atlas_schema.fleet.dev_url == var.schema_dev_url
-    error_message = "Atlas must plan against the disposable dev database."
-  }
-}
 
 run "missing_secrets_skip_only_their_resources" {
   command = plan
@@ -141,8 +118,8 @@ run "personal_repository_merge_gate" {
     error_message = "GitHub rejects merge queues for personally owned repositories."
   }
   assert {
-    condition     = one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check", "Fleet"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["merge"])
-    error_message = "The supported merge gate must still require up-to-date Check and Fleet results and a merge-commit PR."
+    condition     = one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["merge"])
+    error_message = "The supported merge gate must still require up-to-date Check results and a merge-commit PR."
   }
 }
 

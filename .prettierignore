@@ -23,6 +23,3 @@ scripts/llms-txt.template.md
 
 # Generated session metadata is not source.
 .sc/
-
-# Pinned external application; validated by its own CI.
-vendor/

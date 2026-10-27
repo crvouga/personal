@@ -137,7 +137,7 @@ const arrayLiteral = (source: string, name: string, where: string): string => {
  * Registered health groups: entries of `HEALTH_GROUPS` in health/run.ts, one
  * `run: check…` each. Counting registrations rather than `check-*.ts` files
  * matters because `check-services.ts` registers two groups and helpers such
- * as `check-fleet-cache.ts` register none.
+ * as `cache-probe.ts` register none.
  */
 export const countHealthChecks = (root: string): number => {
   const groups = arrayLiteral(

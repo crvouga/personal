@@ -5,7 +5,7 @@ import { PRD_KV, fakeContext, statusOf } from "./fixtures.test-support.js";
 import { RULES, problemsFor } from "./secret-rules.js";
 
 const STRONG = "a".repeat(48);
-const GOOD: Record<string, string> = { ...PRD_KV, FLEET_ADMIN_TOKEN: STRONG };
+const GOOD: Record<string, string> = { ...PRD_KV, PICKFLIX_SECRET: STRONG };
 
 const run = (data: Record<string, string>) =>
   checkSecrets(fakeContext({ kv: async () => ({ ok: true, data }) }));
@@ -38,7 +38,7 @@ describe("secrets health", () => {
     expect(problemsFor("RESEND_API_KEY", "changeme")[0]?.severity).toBe("fail");
     expect(problemsFor("RESEND_API_KEY", "abc")[0]?.severity).toBe("warn");
     expect(problemsFor("RESEND_API_KEY", "re_123")).toEqual([]);
-    const results = await run({ ...GOOD, FLEET_ADMIN_TOKEN: "short" });
+    const results = await run({ ...GOOD, PICKFLIX_SECRET: "short" });
     expect(statusOf(results, "shape personal/prd")).toBe("warn");
   });
 

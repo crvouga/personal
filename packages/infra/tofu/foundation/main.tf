@@ -207,8 +207,8 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "router" {
   }
 }
 
-# Transfer the existing DNS record to the fleet root without deleting it.
-# The fleet import adopts the same record before changing its Railway target.
+# Transfer the existing DNS record to the services root without deleting it.
+# The services import adopts the same record before changing its Railway target.
 removed {
   from = cloudflare_dns_record.router
   lifecycle { destroy = false }

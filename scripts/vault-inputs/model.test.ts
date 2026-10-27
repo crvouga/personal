@@ -36,7 +36,7 @@ test('rejects malformed inputs', () => {
   ).toThrow('secrets.dev.A');
 });
 
-test('keeps unrelated top-level inputs such as fleet_age_keys', () => {
+test('keeps unrelated top-level inputs such as legacy_input_map', () => {
   expect(base({}, {})['extra']).toBe(1);
 });
 

@@ -12,13 +12,9 @@ from older secrets exports. Clients should remove `TURBO_API`, `TURBO_TOKEN` and
 `TURBO_TEAM`, use `TURBO_CACHE=local:rw`, and set `remoteCache.enabled` to `false`.
 GitHub Actions still persists local `.turbo` artifacts.
 
-Fleet's Nix cache is retired as well. Its historical routes and publication
-scripts stay here as dormant code. The dedicated service, public hostname,
-Vault publisher credentials, publication workflow and release dependency are
-removed. Fleet builds closures locally with upstream Nix substitutes and validates
-bundled installer closures before disk changes. Shared R2 buckets and their contents remain owned by other applications.
+The generic Nix cache HTTP routes, upload/retry helpers and named Ed25519 key conversion remain available as dormant cache functionality. Application-specific publication and probe scripts have been removed. Shared R2 buckets and their contents remain owned by other applications.
 
 Production deprovisioning requires the authenticated deployment workflow to
 review and apply encrypted saved plans. Local validation does not remove live
 resources. Verify the dedicated Railway service and DNS records are gone after
-applying the fleet root and that the Vault publisher roles are removed.
+applying the services root and that the Vault publisher roles are removed.

@@ -25,3 +25,21 @@ removed {
   from = vault_jwt_auth_backend_role.fleet_cache_queue_publisher
   lifecycle { destroy = true }
 }
+
+# Explicit decommissioning; never delete the shared personal KV documents.
+removed {
+  from = random_password.fleet_admin
+  lifecycle { destroy = true }
+}
+removed {
+  from = random_password.fleet_session
+  lifecycle { destroy = true }
+}
+removed {
+  from = random_password.fleet_role_token
+  lifecycle { destroy = true }
+}
+removed {
+  from = vault_kv_secret_v2.fleet
+  lifecycle { destroy = true }
+}

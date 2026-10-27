@@ -28,7 +28,7 @@ system client's exact callback. See [operations.md](operations.md).
 
 ```sh
 # Prerequisites: Bun, Docker, OpenTofu 1.13 and the Atlas CLI on PATH.
-AUTH_DEV_MODE=local FLEET_DEV_MODE=fixtures bun run dev
+AUTH_DEV_MODE=local bun run dev
 # Or run only this service:
 bun run --cwd packages/auth-relay dev:fixtures
 ```
@@ -73,28 +73,11 @@ An explicitly configured or partially configured provider never falls back to
 mock sign-in on failure. Production uses `start`, which remains strict and does
 not prepare local fixtures. Local fixture mode refuses production environments.
 
-## Guided Fleet setup
+## Guided relay setup
 
-After the deploy workflow is green, `bun run auth:setup` walks the one-time
-human steps for Fleet and automates the rest. It reads your own Vault login and
-checks live state first, so every step skips when already done and the command is
-safe to re-run:
+After deployment, `bun run auth:setup` reads the production relay's managed Vault credentials, displays its Google callbacks, waits for relay readiness and guides the initial operator claim. It opens the management UI for application registration. This setup reads only the relay database; it does not register clients, edit application access lists or change hosting inventory.
 
-1. Shows (and copies) the two fixed Google redirect URIs to add to the OAuth client.
-2. Waits for both relay endpoints to answer.
-3. Copies the one-time setup token to your clipboard (never printed), opens the
-   relay UI and waits until the operator claim appears in the database.
-4. Shows the exact Fleet registration form values, and
-   and waits for the registration to appear, then reads back its client ID.
-5. Adds your email to Fleet's access list in the Fleet database, after asking.
-6. Writes `FLEET_OIDC_ISSUER`, `FLEET_OIDC_CLIENT_ID` and `FLEET_PUBLIC_ORIGIN`
-   into the `fleet-api` inventory entry. Merge that change (`/pr-ready`), then re-run
-   the command to check the live sign-in page.
-
-The Google console and initial operator claim stay manual. Fleet can still use
-the registration form; approved agents can use the scoped registration API described below. Production
-registrations expire after at most 366 days, and the command prints the date to
-renew before.
+The Google console and initial operator claim remain manual. Approved agents can use the scoped registration API described below. Application registrations and access decisions belong to each consuming application.
 
 ## Console interface
 
@@ -114,7 +97,7 @@ page so a broken bundle cannot prevent restarting sign-in.
 
 The appearance menu is available before and after sign-in with **Light**, **Dark**
 and **System** modes. System is the default and follows operating-system changes.
-Preferences share the same visual contract and storage key as Fleet, persist in browser storage and synchronize across tabs on the same origin; blocked or
+Preferences use the shared administration UI theme, persist in browser storage and synchronize across tabs on the same origin; blocked or
 invalid storage falls back to the system preference. A small same-origin script
 sets the theme before styles paint, including on sign-in recovery pages. All
 surfaces use theme-aware colors. Navigation has route titles, active-page
@@ -147,7 +130,7 @@ Open the relay's public origin (`https://auth.chrisvouga.dev` for production, `h
 
 **Registrations and allowed URLs live in PostgreSQL, never an application list in source code or infrastructure inventory.** UI operations are runtime application data, explicitly separate from OpenTofu-owned hosting, secrets, roles and Atlas schema definitions. Do not use the Keycloak admin console or old registration workflows to edit consuming clients. Only the console's own two system clients are bootstrapped through OpenTofu, so the UI can authenticate before any application exists.
 
-The database is the existing shared Postgres. Application tables live exclusively in `auth_relay_production` or `auth_relay_nonproduction`, each with a restricted runtime role. They are separate from `public`, `fleet`, other projects and Keycloak's internal schemas. [schema.hcl](schema.hcl) is applied by the foundation root's Atlas provider with an explicit schema-scoped `search_path`. Bun never creates or migrates tables on startup.
+The database is the existing shared Postgres. Application tables live exclusively in `auth_relay_production` or `auth_relay_nonproduction`, each with a restricted runtime role. They are separate from `public`, other projects and Keycloak's internal schemas. [schema.hcl](schema.hcl) is applied by the foundation root's Atlas provider with an explicit schema-scoped `search_path`. Bun never creates or migrates tables on startup.
 
 ## Agent registration
 

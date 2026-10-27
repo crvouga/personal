@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { loadServicesConfig } from "../services.js";
 import { checkDrift, judgePlan, summarizePlan } from "./check-drift.js";
 import { checkGithub } from "./check-github.js";
-import { checkRunners, parseFleetGithub } from "./check-runners.js";
 import { checkStorage } from "./check-storage.js";
 import { checkVault, requiredKvKeys } from "./check-vault.js";
 import type { CommandResult } from "./context.js";
@@ -129,7 +128,7 @@ describe("storage", () => {
         },
       }),
     );
-    expect(statuses(results.filter((result) => !result.name.startsWith("postgres") && result.name !== "Fleet Nix cache"))).toEqual(["fail"]);
+    expect(statuses(results.filter((result) => !result.name.startsWith("postgres")))).toEqual(["fail"]);
     const database = results.find((result) => result.name === "database DATABASE_URL")!;
     expect(database.detail).toBe("connection failed: connection refused");
   });
@@ -263,58 +262,6 @@ describe("github", () => {
   });
 });
 
-describe("runners", () => {
-  test("central JSON registration data is checked without parsing Nix code", () => {
-    const registration = {
-      scope: "repository", organization: "", repositories: ["acme/private"],
-      runnerGroup: null, appId: "123", installationId: "456",
-    };
-    expect(parseFleetGithub(JSON.stringify(registration))).toEqual({
-      configured: true, scope: "repository", organization: "", repositories: ["acme/private"],
-    });
-    expect(parseFleetGithub(JSON.stringify({ ...registration, installationId: "TODO" })).configured).toBe(false);
-    expect(parseFleetGithub(JSON.stringify({ ...registration, repositories: [] })).configured).toBe(false);
-  });
-  const configured = JSON.stringify({
-    scope: "repository", organization: "", repositories: ["acme/private"], appId: "1", installationId: "2",
-  });
-  const runner = (status: string, labels: string[]) => ({ status, labels: labels.map((name) => ({ name })) });
-
-  test("the committed fleet definition is reported as not deployed until its placeholders are filled", () => {
-    expect(parseFleetGithub(JSON.stringify({ scope: "organization", organization: "TODO" })).configured).toBe(false);
-    expect(parseFleetGithub(configured)).toEqual({
-      configured: true,
-      scope: "repository",
-      organization: "",
-      repositories: ["acme/private"],
-    });
-  });
-
-  test("an unconfigured fleet skips", async () => {
-    const results = await checkRunners(fakeContext({ readFile: () => JSON.stringify({ appId: "TODO" }) }));
-    expect(results.map((result) => result.status)).toEqual(["skip", "skip"]);
-    expect(results[1]).toMatchObject({ name: "fleet revision", status: "skip" });
-  });
-
-  test("only runners carrying the fleet labels count, and one must be online", async () => {
-    const url = `${GITHUB}/repos/acme/private/actions/runners`;
-    const online = await checkRunners(
-      fakeContext({
-        readFile: () => configured,
-        fetch: fakeFetch({ [url]: { body: { runners: [runner("online", ["nixos", "ci"]), runner("offline", ["nixos", "ci"])] } } }),
-      }),
-    );
-    expect(online[0]).toMatchObject({ status: "pass", detail: "1 of 2 fleet runner(s) online" });
-    const offline = await checkRunners(
-      fakeContext({
-        readFile: () => configured,
-        fetch: fakeFetch({ [url]: { body: { runners: [runner("offline", ["nixos", "ci"]), runner("online", ["self-hosted"])] } } }),
-      }),
-    );
-    expect(offline[0]!.status).toBe("fail");
-  });
-});
-
 describe("drift", () => {
   const plan = (lines: object[]): string => lines.map((line) => JSON.stringify(line)).join("\n");
   const changed = plan([
@@ -326,17 +273,17 @@ describe("drift", () => {
 
   test("a plan is summarized by address and action only", () => {
     expect(summarizePlan(changed)).toEqual({ changes: ["railway_service.this (update)"], errors: [] });
-    expect(JSON.stringify(judgePlan("fleet", { code: 2, stdout: changed, stderr: "" }))).not.toContain("hunter2");
+    expect(JSON.stringify(judgePlan("services", { code: 2, stdout: changed, stderr: "" }))).not.toContain("hunter2");
   });
 
   test("exit code 0 passes, 2 is drift, anything else is an error", () => {
-    expect(judgePlan("fleet", { code: 0, stdout: "", stderr: "" }).status).toBe("pass");
-    expect(judgePlan("fleet", { code: 2, stdout: changed, stderr: "" })).toMatchObject({
+    expect(judgePlan("services", { code: 0, stdout: "", stderr: "" }).status).toBe("pass");
+    expect(judgePlan("services", { code: 2, stdout: changed, stderr: "" })).toMatchObject({
       status: "fail",
       detail: "1 pending change(s): railway_service.this (update)",
     });
     const errored = plan([{ type: "diagnostic", "@level": "error", diagnostic: { summary: "Invalid credentials" } }]);
-    expect(judgePlan("fleet", { code: 1, stdout: errored, stderr: "" }).detail).toContain("Invalid credentials");
+    expect(judgePlan("services", { code: 1, stdout: errored, stderr: "" }).detail).toContain("Invalid credentials");
   });
 
   test("plans are opt-in and skip, never pass, when not requested or not initialized", async () => {
@@ -355,7 +302,7 @@ describe("drift", () => {
       running--;
       calls.push({ args, env: options?.env ?? {} });
       if (args.includes("output")) return { code: 0, stdout: args.includes("image_tags") ? '{"web":"abc"}\n' : "v1\n", stderr: "" };
-      return { code: args.some((arg) => arg.endsWith("/fleet")) ? 2 : 0, stdout: changed, stderr: "" };
+      return { code: args.some((arg) => arg.endsWith("/services")) ? 2 : 0, stdout: changed, stderr: "" };
     };
     const ctx = fakeContext({
       run,
@@ -370,7 +317,7 @@ describe("drift", () => {
       ["plan foundation", "pass"],
       ["plan bootstrap", "pass"],
       ["plan vault", "pass"],
-      ["plan fleet", "fail"],
+      ["plan services", "fail"],
     ]);
     expect(results[0]!.detail).toContain("fleet.tfstate");
     const plans = calls.filter((call) => call.args.includes("plan"));

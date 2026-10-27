@@ -261,8 +261,8 @@ const SERVICES_YAML = path.resolve(
   '../../infra/tofu/modules/inventory/inventory.tf.json'
 );
 
-/** Hostnames the fleet declares in `packages/infra/tofu/modules/inventory/inventory.tf.json`. */
-async function readFleetHostnames(): Promise<ReadonlySet<string>> {
+/** Hostnames the services declares in `packages/infra/tofu/modules/inventory/inventory.tf.json`. */
+async function readHostedHostnames(): Promise<ReadonlySet<string>> {
   const doc = JSON.parse(await readFile(SERVICES_YAML, 'utf8')).locals
     .inventory as {
     services?: readonly { hostname?: string }[];
@@ -291,11 +291,11 @@ async function resolves(hostname: string): Promise<boolean> {
 async function splitPendingUrls(
   urls: readonly string[]
 ): Promise<{ readonly live: string[]; readonly pending: string[] }> {
-  const fleet = await readFleetHostnames();
+  const services = await readHostedHostnames();
   const pendingFlags = await Promise.all(
     urls.map(async (url) => {
       const host = new URL(url).hostname.toLowerCase();
-      return fleet.has(host) && !(await resolves(host));
+      return services.has(host) && !(await resolves(host));
     })
   );
   return {

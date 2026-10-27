@@ -74,9 +74,6 @@ on:
         required: false
       TOFU_VAULT_INPUTS:
         required: false
-      FLEET_ATTIC_TOKEN:
-        required: false
-        description: Only used by native fleet merge-queue runs.
     outputs:
       image_tag:
         description: Image tag pushed (commit SHA).
@@ -102,8 +99,6 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      fleet: ${{ steps.filter.outputs.fleet == 'true' || github.event_name ==
-        'workflow_dispatch' }}
       auth: ${{ steps.filter.outputs.auth == 'true' || github.event_name ==
         'workflow_dispatch' }}
       portfolio: ${{ steps.filter.outputs.portfolio == 'true' || github.event_name ==
@@ -116,7 +111,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
-          submodules: recursive
       - name: Find affected integrations
         id: filter
         uses: dorny/paths-filter@v4
@@ -133,13 +127,6 @@ jobs:
               - .github/**
               - package.json
               - bun.lock
-              - vendor/fleet
-              - .gitmodules
-            fleet:
-              - packages/fleet/**
-              - vendor/fleet
-              - .gitmodules
-              - .github/**
             auth:
               - packages/admin-ui/**
               - packages/assert/**
@@ -167,7 +154,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: recursive
       - name: Check branches
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         env:
@@ -229,8 +215,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache task results
@@ -294,8 +278,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         if: matrix.group == 'contracts'
         uses: ./.github/actions/setup
@@ -336,8 +318,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Set up Docker Buildx
@@ -389,8 +369,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Health-check portfolio public URLs
@@ -409,8 +387,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Read optional integration credentials
@@ -438,8 +414,6 @@ jobs:
       - portfolio_urls
     runs-on: ubuntu-slim
     timeout-minutes: 2
-    outputs:
-      fleet: ${{ needs.changes.outputs.fleet }}
     steps:
       - name: Check validation results
         env:
@@ -469,32 +443,18 @@ jobs:
             fi
           done
   fleet:
+    # Compatibility status required by the existing live GitHub ruleset.
+    # Remove after a reviewed foundation apply requires only Check.
     name: Fleet
     if: always() && inputs.service_id == ''
-    needs:
-      - changes
-      - check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
     steps:
-      - name: Check platform validation
+      - name: Report platform validation under the legacy required name
         env:
           CHECK: ${{ needs.check.result }}
         run: test "$CHECK" = success
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: Install dependencies
-        uses: ./.github/actions/setup
-      - name: Verify external Fleet source contract
-        run: bun test scripts/fleet-source.test.ts
-      - name: Set up Nix
-        if: needs.changes.outputs.fleet == 'true'
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
-      - name: Evaluate platform machine configuration
-        if: needs.changes.outputs.fleet == 'true'
-        run: nix flake check path:./packages/fleet --no-build --system x86_64-linux
   Required:
     name: Required
     if: always() && inputs.service_id == '' && (github.event_name == 'pull_request'

@@ -1,6 +1,6 @@
 # {{infraRepo}} — shared infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway fleet — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway services — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: {{siteGuideUrl}} (the site's own `/llms.txt` is the candidate summary for recruiters and links here)
 
@@ -15,7 +15,7 @@ Source snapshot (always current `main`): {{rawUrl}}
   {{siteGuideUrl}}
   ```
 
-- Re-fetch it instead of trusting a cached copy — ports, hostnames and the fleet list change.
+- Re-fetch it instead of trusting a cached copy — ports, hostnames and the services list change.
 - Pick the sections that apply (checklist below); each one is self-contained.
 - If anything here disagrees with `OpenTofu inventory` in `{{infraRepo}}`, the OpenTofu definition wins — tell the human the file is stale.
 
@@ -33,7 +33,7 @@ Source snapshot (always current `main`): {{rawUrl}}
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
 3. Uses Turborepo (`turbo.json` exists)? → [3. Local Turborepo caching](#3-local-turborepo-caching).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
-5. Should be publicly hosted at `*.{{zone}}` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-fleet). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `{{infraRepo}}` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
+5. Should be publicly hosted at `*.{{zone}}` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `{{infraRepo}}` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
 
 ## Resources at a glance
@@ -121,7 +121,7 @@ if (!res.ok) throw new Error(`vault ${res.status}`); // 503 = sealed → retry w
 const secrets = (await res.json()).data.data as Record<string, string>;
 ```
 
-Honor `Retry-After` on 429 and cache the result for the process lifetime. **Apps hosted on the fleet do not need this** — declare `secrets:` in `OpenTofu inventory` (§5) and they arrive as plain env vars.
+Honor `Retry-After` on 429 and cache the result for the process lifetime. **Apps hosted on the services do not need this** — declare `secrets:` in `OpenTofu inventory` (§5) and they arrive as plain env vars.
 
 ---
 
@@ -171,7 +171,7 @@ Do not add an unconditional custom `ssl` object: many clients let it override TL
 ### CI and hosted runtime
 
 - **CI:** request `{{databaseSecret}}` with the GitHub OIDC Vault step from §1. Expose it only to the migration/test step that needs it; do not write it to `$GITHUB_ENV`, artifacts, caches, summaries, or logs.
-- **Hosted runtime:** list `{ "name": "{{databaseSecret}}", "source": "vault" }` in the service's OpenTofu inventory `secrets`. The fleet copies the `prd` value into Railway. The app does not fetch Vault directly.
+- **Hosted runtime:** list `{ "name": "{{databaseSecret}}", "source": "vault" }` in the service's OpenTofu inventory `secrets`. The services copies the `prd` value into Railway. The app does not fetch Vault directly.
 - **Tests:** prefer an isolated disposable local PostgreSQL instance. Tests must not mutate the shared dev database unless the human explicitly requests an integration test and the app has an isolated schema.
 - **Health checks:** do not make the public liveness path depend on a database query. Check database readiness separately at boot or through a diagnostic endpoint; transient database trouble must not create a restart loop.
 
@@ -259,17 +259,17 @@ Recommended shape: hide the SDK behind a small interface — `get(key) → {body
 
 ---
 
-## 5. Hosting on the managed fleet
+## 5. Hosting on the managed services
 
-`{{infraRepo}}` hosts apps on Railway (project `{{railwayProject}}`, region `{{railwayRegion}}`) behind `*.{{zone}}` hostnames with TLS and DNS managed by OpenTofu. **Railway never builds your code.** Every hosted project is Dockerized, CI publishes a **prebuilt image** to GHCR, and the fleet deploys that exact image.
+`{{infraRepo}}` hosts apps on Railway (project `{{railwayProject}}`, region `{{railwayRegion}}`) behind `*.{{zone}}` hostnames with TLS and DNS managed by OpenTofu. **Railway never builds your code.** Every hosted project is Dockerized, CI publishes a **prebuilt image** to GHCR, and the services deploys that exact image.
 
 ### Contract your project must meet
 
 - **Dockerized.** A `Dockerfile` (multi-stage; build tools in the build stage, minimal runtime stage) that builds with plain `docker build -f <dockerfile> <context>` — no build args or secrets required. The build must run in CI for `linux/amd64`.
 - **Prebuilt image.** Built and pushed only by the shared publish workflow below, as `{{ghcrPattern}}:<git-sha>` and `:latest`. Never enable Railway's GitHub/Nixpacks builds, never run `railway up`, never push images by hand. Railway pulls the GHCR image selected by OpenTofu. All images must be public and allow anonymous pulls. The inventory rejects private registry credentials; `bun run health --only images` checks anonymous GHCR pulls.
-- **One port.** The container listens on `0.0.0.0:<port>` and that port equals `port` in `OpenTofu inventory`. Read `PORT` from env (the fleet sets it via `env:`) with the same default in code.
+- **One port.** The container listens on `0.0.0.0:<port>` and that port equals `port` in `OpenTofu inventory`. Read `PORT` from env (the services sets it via `env:`) with the same default in code.
 - **Health check.** `GET <health_path>` (default `/`) returns 2xx within seconds of boot, without auth and without depending on third-party services. Deploys that fail it are marked failed.
-- **Config from env only.** Runtime secrets are injected by the fleet from Vault as env vars (`secrets:` in `OpenTofu inventory`). Nothing secret in the image, repo, or Dockerfile; no `.env` files read in production. Fail fast at boot with a clear message naming any missing var.
+- **Config from env only.** Runtime secrets are injected by the services from Vault as env vars (`secrets:` in `OpenTofu inventory`). Nothing secret in the image, repo, or Dockerfile; no `.env` files read in production. Fail fast at boot with a clear message naming any missing var.
 - **Stateless.** Containers can be replaced at any time: no local disk state (use Postgres via `DATABASE_URL` or the object store), logs to stdout/stderr, handle `SIGTERM` gracefully.
 - **Small and reproducible.** Pin base images (e.g. `node:22-bookworm-slim`, `oven/bun:1.3`, `nginx:alpine`), commit a lockfile and install with it frozen, and add a `.dockerignore` (`node_modules`, `.git`, `.env*`, build output).
 
@@ -310,7 +310,7 @@ Verify locally before wiring CI: `docker build -t app . && docker run --rm -p 80
 
 ### Step 1 — open a hosting request issue (on `{{infraRepo}}`)
 
-You cannot add a service from another repo — the fleet only runs what `packages/infra/tofu/modules/inventory/inventory.tf.json` in `{{infraRepo}}` declares, and an agent working there adds it. Your job is to hand that agent **everything** it needs in one GitHub issue, so it never has to open your repo to guess: where the image lives, how to run it, which secrets it needs, and how the project should appear on the portfolio at `https://www.{{zone}}`.
+You cannot add a service from another repo — the services only runs what `packages/infra/tofu/modules/inventory/inventory.tf.json` in `{{infraRepo}}` declares, and an agent working there adds it. Your job is to hand that agent **everything** it needs in one GitHub issue, so it never has to open your repo to guess: where the image lives, how to run it, which secrets it needs, and how the project should appear on the portfolio at `https://www.{{zone}}`.
 
 1. Meet the contract above and verify the image locally (`docker build` + `docker run` + `curl` the health path). Do not open the issue until that works.
 2. Commit the publish workflow (Step 3) in the same change, so the image already exists on GHCR when the infra agent deploys it. Until the service entry lands, the deploy step in `{{infraRepo}}` fails with "service id not found" — that is expected.
@@ -429,7 +429,7 @@ Portfolio topics (use these exact keys; a new topic needs an icon, so ask for it
 
 Application repositories own publisher workflows and validation. Set `managed_publisher = false` and list `required_status_checks` in the repository inventory entry to retain that ownership while using the shared image build/deploy workflow.
 
-The infra agent turns your issue into an entry like this in `packages/infra/tofu/modules/inventory/inventory.tf.json` (when you are working inside `{{infraRepo}}` yourself, add it and run `{{script:infra:fleet}} plan` to review the plan). Use it to check that your issue answers every field:
+The infra agent turns your issue into an entry like this in `packages/infra/tofu/modules/inventory/inventory.tf.json` (when you are working inside `{{infraRepo}}` yourself, add it and run `{{script:infra:services}} plan` to review the plan). Use it to check that your issue answers every field:
 
 ```json
 {{block:serviceExample}}
@@ -472,11 +472,11 @@ Caller secrets: `{{dispatchSecret}}` (the OpenTofu-managed platform PAT, used to
 
 Check it: `gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`, then `curl -fsS https://<hostname><health_path>`. Never redeploy from the Railway dashboard; a human can redeploy with `gh workflow run deploy.yml -R {{infraRepo}} -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
-### Current fleet
+### Current services
 
 Working examples to copy from — each links to its source repo:
 
-{{block:fleet}}
+{{block:services}}
 
 ---
 
@@ -641,10 +641,10 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R {
 
 1. **Validate the request.** Every field is filled; the id and hostname are unused in {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}; the image reference exists (`docker manifest inspect <ref>` or the GHCR package page); no secret values appear anywhere in the issue (if one does, tell the human to rotate it and edit the issue). Ask for anything missing in an issue comment and stop — never guess a port, health path or secret.
 2. **Declare the service.** Add the entry to `locals.inventory.services` in the OpenTofu JSON definition (fields as in Step 2; `image:` only for an external image). For each new secret, add it to `vault.kv_keys` with `configs` and `used_by: [<id>]`, then tell the human the required OpenTofu vault secrets input changes — never write values yourself.
-3. **Plan.** `{{script:infra:fleet}} plan` (dry run) and check the plan only adds this service, its DNS record and its variable bindings.
+3. **Plan.** `{{script:infra:services}} plan` (dry run) and check the plan only adds this service, its DNS record and its variable bindings.
 4. **Publish workflow.** If the issue says it is not committed yet, `{{script:infra}} apply` generates it (ask the human before pushing to another repo).
 5. **Portfolio.** When the issue asks for a listing, add a `Project` to {{path:packages/portfolio/src/content/projects/entries-part-2.ts}} (main list; append at the end) or {{path:packages/portfolio/src/content/projects/entries-archive.ts}} (archive), following {{path:packages/portfolio/src/content/projects/types.ts}}: `deployment: { t: 'public', url: 'https://<hostname>' }`, `code`, `description`, `topics` from {{path:packages/portfolio/src/content/topic.ts}}, and `imageSrc` / `galleryImageSrc` set to `/<id>-screenshot.optimized.webp`. Once the service is live, the human runs `bun run --filter @pkgs/portfolio gen` locally to capture the screenshot into `assets/` and its optimized derivative into `public/` (Playwright; never in CI) — commit both.
-6. **Regenerate and check.** `{{script:llms:sync}}` (the fleet table changes), then `bun run check`.
+6. **Regenerate and check.** `{{script:llms:sync}}` (the services table changes), then `bun run check`.
 7. **Ship.** Open the PR with `Closes #<issue>` in the body. After merge, watch CI (`gh run list -R {{infraRepo}} --workflow ci.yml --limit 3`), confirm `curl -fsS https://<hostname><health_path>`, and comment the live URL on the issue. If the deploy failed only because the entry was missing, redeploy with `gh workflow run deploy.yml -R {{infraRepo}} -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
 ---

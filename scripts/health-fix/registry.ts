@@ -58,11 +58,6 @@ const when = (group: string, pattern: RegExp, text: string): Advice => ({
 
 export const ADVICE: Advice[] = [
   when(
-    'windows-signing',
-    /./,
-    'Use packages/infra/docs/fleet-windows-signing.md: authenticate Azure, complete the personal identity check if pending, then review and apply a saved plan through bun run infra:signing. Do not create signing resources in the dashboard.'
-  ),
-  when(
     'vault',
     /operator credentials/,
     'Publish the admin-only operator document through a reviewed Vault OpenTofu apply in CI. Existing CI supplies the state and deployment credentials; do not enter them into the secret editor or personal runtime secrets.'
@@ -76,11 +71,6 @@ export const ADVICE: Advice[] = [
     'github',
     /publish\.yml is missing/,
     'The application repo owns its publisher workflow: add .github/workflows/publish.yml there (see llms.txt), or set managed_publisher=false in the inventory.'
-  ),
-  when(
-    'runners',
-    /no runner registered/,
-    'Register a runner for that repo on a fleet machine (packages/fleet, role ci); see packages/fleet/AGENTS.md.'
   ),
   when(
     'domains',

@@ -52,7 +52,7 @@ export async function uploadNixCache(
       options
     )) !== (await Bun.file(join(cache, 'nix-cache-info')).text())
   ) {
-    throw new Error('FLEET_CACHE_READBACK_FAILED');
+    throw new Error('NIX_CACHE_READBACK_FAILED');
   }
   return metadata.length;
 }

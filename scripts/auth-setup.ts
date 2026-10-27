@@ -1,8 +1,5 @@
-// `bun run auth:setup` — guided, re-runnable setup that puts Fleet behind the
-// shared auth relay. It automates everything except the steps that are human by
-// design (Google console, the one-time operator claim, the registration form) and
-// detects their completion from the live databases. See packages/auth-relay.
-import { readFileSync, writeFileSync } from 'node:fs';
+// Guided setup for the shared authentication relay only.
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { authSetup } from './auth-setup/flow';
 import { terminal } from './auth-setup/io';
@@ -25,10 +22,8 @@ async function main() {
   await authSetup({
     io: terminal,
     inventory,
-    inventoryText,
-    writeInventory: (text) => writeFileSync(path, text),
     vault: readLiveVault,
-    store: (urls) => openStore(relay, urls),
+    store: (url) => openStore(relay, url),
   });
 }
 

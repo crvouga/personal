@@ -1,5 +1,3 @@
-Provisions resources through provider APIs, including DNS, networking, and anything that routes to the fleet. This platform’s machine configuration lives in `../fleet`; implementation lives in the pinned external `vendor/fleet` repository.
+This package owns cloud resources through OpenTofu in `tofu/`, plus read-only inventory, build, health and documentation adapters. Do not add application schemas, physical-machine configurations, provisioning scripts or reconciliation controllers here.
 
-OpenTofu in `tofu/` is the only tool that creates or changes cloud resources. Do not define NixOS hosts, physical disks, or fleet systemd services here. Read-only health checks may observe the runner fleet in `../fleet/fleet.nix`; they must not provision or reconcile it.
-
-See `tofu/README.md` for roots, state, and migration rules.
+See `tofu/README.md` for roots, encrypted state and migration rules. External application repositories own their code, schemas, migrations and publisher workflows. The `services` root hosts applications through generic inventory entries.

@@ -80,6 +80,5 @@ Status key: **open**, **derived** (answered from repository evidence; confirm), 
 ## Raised by the round-4 audit
 
 40. **open** — The "Recognized by Cursor" badge was removed: its only public evidence is your own Short (tagged #vibecoding), which cannot be cited as Cursor's statement. If Cursor posted about it, send the link and it comes back with that receipt.
-41. **open** — The daily Health report is red: `runners repos/crvouga/gamezilla — no runner registered`, and no fleet node has reported yet. The site links this report as evidence, so a red run reads as a contradiction. Register the runner (or remove it from the inventory) and enrol the nodes.
-42. **open** — Retitle the Triangulator YouTube video (currently "triangulator e2e tests complete low quality"); it is the link on the One Origin bullet.
-43. **open** — Retitle the open portfolio PR before merging (e.g. "feat(portfolio): case studies, verification metrics, résumé generator"); the current title stays in `main`'s history.
+41. **open** — Retitle the Triangulator YouTube video (currently "triangulator e2e tests complete low quality"); it is the link on the One Origin bullet.
+42. **open** — Retitle the open portfolio PR before merging (e.g. "feat(portfolio): case studies, verification metrics, résumé generator"); the current title stays in `main`'s history.

@@ -55,7 +55,7 @@ export const before: VaultInputs = {
     },
   },
   admin_passwords: { operator: 'private-password' },
-  fleet_age_keys: { ci: 'private-age-key' },
+  legacy_input_map: { ci: 'private-age-key' },
 };
 export const fills: Fill[] = ['prd', 'dev'].flatMap((config) => [
   {

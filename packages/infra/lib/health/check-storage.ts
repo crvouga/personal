@@ -53,7 +53,7 @@ async function checkDatabase(ctx: HealthContext, secret: string, doc: KvDocument
   }
 }
 
-/** Databases the fleet connects to, named by the Vault secret that holds their URL. */
+/** Databases the services connects to, named by the Vault secret that holds their URL. */
 async function databaseChecks(ctx: HealthContext): Promise<CheckResult[]> {
   const secrets = new Set<string>();
   for (const service of ctx.config.services) {

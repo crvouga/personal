@@ -1226,10 +1226,6 @@
                     {
                       "context": "Check",
                       "integration_id": 15368
-                    },
-                    {
-                      "context": "Fleet",
-                      "integration_id": 15368
                     }
                   ]
                 }
@@ -1277,10 +1273,6 @@
           {
             "name": "dev-read",
             "file": "packages/vault-service/config/policies/dev-read.hcl"
-          },
-          {
-            "name": "fleet-enroll",
-            "file": "packages/vault-service/config/policies/fleet-enroll.hcl"
           }
         ],
         "auth": {
@@ -1295,18 +1287,6 @@
                 "user_claim": "actor",
                 "max_ttl": "30m",
                 "no_default_policy": true
-              },
-              {
-                "name": "fleet-enroll",
-                "policy": "fleet-enroll",
-                "ttl": "5m",
-                "audience": "from_vault_addr",
-                "user_claim": "actor",
-                "max_ttl": "10m",
-                "no_default_policy": true,
-                "bound_claims": {
-                  "job_workflow_ref": "crvouga/workspace/.github/workflows/fleet-enroll.yml@refs/heads/main"
-                }
               }
             ]
           },
@@ -1410,14 +1390,7 @@
           {
             "name": "DATABASE_URL",
             "configs": ["dev", "prd"],
-            "used_by": [
-              "moviefinder",
-              "llm-proxy",
-              "fleet-api",
-              "ci",
-              "9router",
-              "pickflix"
-            ]
+            "used_by": ["moviefinder", "llm-proxy", "ci", "9router", "pickflix"]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
@@ -1517,24 +1490,6 @@
             "name": "9ROUTER_TUNNEL_TOKEN",
             "configs": ["prd"],
             "used_by": []
-          },
-          {
-            "name": "FLEET_ADMIN_TOKEN",
-            "configs": ["prd"],
-            "used_by": ["fleet-api", "infra"],
-            "required": true
-          },
-          {
-            "name": "FLEET_SESSION_SECRET",
-            "configs": ["prd"],
-            "used_by": ["fleet-api"],
-            "required": true
-          },
-          {
-            "name": "FLEET_ROLE_TOKEN_HASHES",
-            "configs": ["prd"],
-            "used_by": ["fleet-api"],
-            "required": true
           },
           {
             "name": "INITIAL_PASSWORD",
@@ -2056,44 +2011,6 @@
           }
         },
         {
-          "id": "fleet-api",
-          "kind": "railway",
-          "hostname": "fleet.chrisvouga.dev",
-          "github_repo": "crvouga/workspace",
-          "source_code_url": "https://github.com/crvouga/fleet",
-          "dockerfile": "vendor/fleet/packages/fleet-api/Dockerfile",
-          "build_context": "vendor/fleet",
-          "port": 8080,
-          "health_check": true,
-          "health_path": "/health",
-          "env": {
-            "PORT": "8080",
-            "VAULT_ADDR": "from_vault_addr",
-            "FLEET_GITHUB_REPO": "crvouga/workspace",
-            "FLEET_OIDC_ISSUER": "https://auth.chrisvouga.dev/realms/projects",
-            "FLEET_OIDC_CLIENT_ID": "app-f00cf29d-b5ee-44cd-857e-777b3ff5d354",
-            "FLEET_PUBLIC_ORIGIN": "https://fleet.chrisvouga.dev"
-          },
-          "secrets": [
-            {
-              "name": "DATABASE_URL",
-              "source": "vault"
-            },
-            {
-              "name": "FLEET_ADMIN_TOKEN",
-              "source": "vault"
-            },
-            {
-              "name": "FLEET_SESSION_SECRET",
-              "source": "vault"
-            },
-            {
-              "name": "FLEET_ROLE_TOKEN_HASHES",
-              "source": "vault"
-            }
-          ]
-        },
-        {
           "id": "llm-proxy",
           "kind": "railway",
           "hostname": "llm-proxy.chrisvouga.dev",
@@ -2288,18 +2205,7 @@
             }
           ]
         }
-      ],
-      "fleet_windows_signing": {
-        "enabled": true,
-        "subscription_id": "ec5b738b-49cb-46dd-8f23-82505a63b5ef",
-        "tenant_id": "11a45a90-b0b7-45ea-a1b4-8f9172c33b6b",
-        "operator_object_id": "ebffe2db-696f-49d8-a475-0bf1e8fbe416",
-        "resource_group": "fleet-windows-signing",
-        "location": "eastus",
-        "account": "crvougafleet",
-        "profile": "fleet-installer",
-        "identity_validation_id": "736bedf1-49ee-40f8-a76e-2febf73bcfad"
-      }
+      ]
     }
   }
 }

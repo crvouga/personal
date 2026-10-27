@@ -13,7 +13,7 @@ test('Nix cache streams only its public namespace without exposing Turbo artifac
   );
   await store.put(
     `nix/${hash}.narinfo`,
-    encode('Sig: fleet-1:test\n'),
+    encode('Sig: test-cache-1:test\n'),
     'text/plain'
   );
   await store.put(
@@ -32,7 +32,7 @@ test('Nix cache streams only its public namespace without exposing Turbo artifac
   });
   const metadata = await app.request(`/nix/${hash}.narinfo`);
   expect(metadata.status).toBe(200);
-  expect(await metadata.text()).toContain('Sig: fleet-1:');
+  expect(await metadata.text()).toContain('Sig: test-cache-1:');
   const nar = await app.request(`/nix/nar/${hash}.nar.zst`);
   expect(nar.status).toBe(200);
   expect([...new Uint8Array(await nar.arrayBuffer())]).toEqual([1, 2, 3]);
@@ -68,7 +68,7 @@ test('Nix cache streams only its public namespace without exposing Turbo artifac
   });
   expect(escape.status).toBe(400);
   expect(await (await app.request(`/nix/${hash}.narinfo`)).text()).toBe(
-    'Sig: fleet-1:test\n'
+    'Sig: test-cache-1:test\n'
   );
   const miss = await app.request(`/nix/${'b'.repeat(32)}.narinfo`);
   expect(miss.status).toBe(404);

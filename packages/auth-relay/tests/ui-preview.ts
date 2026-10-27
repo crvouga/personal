@@ -22,12 +22,12 @@ let failList = false;
 const operators = [{ subject: session.subject }];
 const clients: Client[] = [
   'Portfolio',
-  'Fleet dashboard',
+  'Example dashboard',
   'Preview environment',
 ].map((name, index) => {
   const config: Registration = {
     name,
-    project: ['portfolio', 'fleet', 'web'][index]!,
+    project: ['portfolio', 'example', 'web'][index]!,
     instance: 'primary',
     environment: 'localhost',
     callbacks: [`http://localhost:${5173 + index}/callback`],

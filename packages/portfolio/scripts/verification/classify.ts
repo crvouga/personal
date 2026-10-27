@@ -17,7 +17,6 @@ import type { AiTool } from '../../src/lib/platform-facts';
  */
 export const AUTOMATION_BRANCHES: readonly string[] = [
   'chore/github-insights-refresh',
-  'chore/fleet-flake-lock',
 ];
 
 export type PrAuthorship = {

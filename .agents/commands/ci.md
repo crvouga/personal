@@ -28,20 +28,15 @@ public endpoint checks. Fix failures locally, rerun checks, commit and publish a
 Report unavailable credentials or infrastructure access precisely; never turn
 an unavailable check into a pass.
 
-| Workflow     | Responsibility                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------- |
-| CI           | Check; conditional Nix and installer tests; installer release; Fleet gate; successful main pushes call Deploy |
-| Deploy       | One ordered production job: credential preflight, images, OpenTofu, readiness and public checks               |
-| Maintenance  | Read-only Health, scheduled Update, explicitly manual Repair                                                  |
-| Publish      | Reusable single-image publisher for application repositories                                                  |
-| Runner check | Reusable project toolchain on trusted runners or hosted fallback                                              |
-| Fleet enroll | Owner-approved issue enrollment with a workflow-bound Vault identity                                          |
+| Workflow    | Responsibility                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| CI          | Check; package, infrastructure and auth validation; successful main pushes call Deploy          |
+| Deploy      | One ordered production job: credential preflight, images, OpenTofu, readiness and public checks |
+| Maintenance | Read-only Health, scheduled Update, explicitly manual Repair                                    |
+| Publish     | Reusable single-image publisher for application repositories                                    |
 
 CI runs on every PR and merge-queue entry, including documentation-only
-changes. Check is the main validation status; Fleet covers platform tests and
-required installer release publication. Required temporarily covers Check and Fleet while
-the OpenTofu-owned ruleset migrates. Remove it only after the live ruleset
-requires Check and Fleet and both have passed in the queue.
+changes. Check is the validation status. Fleet and Required are temporary status aliases for existing live branch rules. Remove them after a reviewed foundation plan requires only Check and live verification confirms the migration.
 
 Optional secret integrations run in their own nonblocking job. An active
 production deployment still requires its own credentials and readiness checks.

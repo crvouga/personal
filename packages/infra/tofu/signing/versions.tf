@@ -29,18 +29,24 @@ variable "state_passphrase" {
 # ARM_* credentials. Provider initialization must never register resources.
 provider "azurerm" {
   features {}
-  subscription_id                 = local.config.subscription_id
-  tenant_id                       = local.config.tenant_id
+  subscription_id                 = var.subscription_id
+  tenant_id                       = var.tenant_id
   resource_provider_registrations = "none"
 }
 
 provider "azapi" {
-  subscription_id            = local.config.subscription_id
-  tenant_id                  = local.config.tenant_id
+  subscription_id            = var.subscription_id
+  tenant_id                  = var.tenant_id
   skip_provider_registration = true
   enable_preflight           = false
 }
 
 provider "github" {
-  owner = split("/", local.repository)[0]
+  owner = var.github_owner
 }
+
+# Existing state contains the identifiers of resources to retire. These inputs
+# configure authenticated providers only; they do not declare new resources.
+variable "subscription_id" { type = string }
+variable "tenant_id" { type = string }
+variable "github_owner" { type = string }

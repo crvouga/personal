@@ -75,7 +75,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          submodules: recursive
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache verified providers
@@ -190,7 +189,7 @@ jobs:
         if: steps.plan.outputs.services == 'true'
         uses: ./.github/actions/tofu
         with:
-          root: fleet
+          root: services
           service_ids: ${{ steps.plan.outputs.service_ids }}
           image_tag: ${{ steps.plan.outputs.image_tag }}
       - name: Verify active service deployments
