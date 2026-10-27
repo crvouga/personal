@@ -27,6 +27,53 @@ class TokenTests(unittest.TestCase):
         with patch.object(token.urllib.request, 'urlopen', side_effect=error), self.assertRaises(token.GitHubUnavailable):
             token.request('GET', '/fixture', 'fixture-token')
 
+    def test_refusals_say_what_a_person_has_to_change(self):
+        cases = ((401, '/app/installations/2/access_tokens', 'FLEET_GITHUB_KEY'),
+                 (404, '/app/installations/2/access_tokens', 'FLEET_GITHUB_SCOPE'),
+                 (404, '/repos/example/a/actions/runners/registration-token', 'FLEET_GITHUB_SCOPE'),
+                 (403, '/repos/example/a/actions/runners/registration-token', 'FLEET_GITHUB_SCOPE'),
+                 (422, '/repos/example/a/actions/runners/registration-token', 'FLEET_GITHUB_REGISTRATION'))
+        for status, path, code in cases:
+            error = token.urllib.error.HTTPError('https://api.github.invalid', status, 'fixture', {}, None)
+            with self.subTest(status=status, path=path), patch.object(token.urllib.request, 'urlopen', side_effect=error):
+                with self.assertRaises(token.Refused) as caught:
+                    token.request('POST', path, 'fixture-token')
+                self.assertEqual(caught.exception.code, code)
+                self.assertIn(f'HTTP {status}', str(caught.exception))
+
+    def test_a_missing_key_file_names_the_secrets_not_python(self):
+        with self.assertRaises(token.Refused) as caught:
+            token.app_token('1', '2', '/nonexistent/github-app-key')
+        self.assertEqual(caught.exception.code, 'FLEET_SECRET_MISSING')
+
+    def test_registration_outcomes_are_recorded_for_the_console(self):
+        with tempfile.TemporaryDirectory() as directory:
+            status = Path(directory) / 'register/slot-1.json'
+            argv = ['runner_control.py', 'register', 'repository', 'example/a', '1', '2', '/nonexistent/key', str(Path(directory) / 'token')]
+            stderr = io.StringIO()
+            with patch.object(sys, 'argv', argv), patch.dict('os.environ', {'FLEET_REGISTER_STATUS': str(status)}), \
+                    contextlib.redirect_stderr(stderr):
+                self.assertEqual(token.run(), 78)
+            recorded = json.loads(status.read_text())
+            self.assertEqual((recorded['code'], recorded['exit']), ('FLEET_SECRET_MISSING', 78))
+            self.assertTrue(stderr.getvalue().startswith('FLEET_SECRET_MISSING: '))
+            error = token.urllib.error.HTTPError('https://api.github.invalid', 503, 'fixture', {}, None)
+            with patch.object(sys, 'argv', argv), patch.dict('os.environ', {'FLEET_REGISTER_STATUS': str(status)}), \
+                    patch.object(token, 'app_token', return_value='fixture'), \
+                    patch.object(token.urllib.request, 'urlopen', side_effect=error), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(token.run(), 75)
+            self.assertEqual(json.loads(status.read_text())['code'], 'FLEET_GITHUB_UNAVAILABLE')
+
+    def test_a_refused_status_check_is_readable_from_stdout(self):
+        error = token.urllib.error.HTTPError('https://api.github.invalid', 404, 'fixture', {}, None)
+        argv = ['runner_control.py', 'status', 'repository', 'example/a', '1', '2', '/key', 'ci-aaaa']
+        out = io.StringIO()
+        with patch.object(sys, 'argv', argv), patch.object(token, 'app_token', return_value='fixture'), \
+                patch.object(token.urllib.request, 'urlopen', side_effect=error), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(token.run(), 78)
+        self.assertEqual(json.loads(out.getvalue())['code'], 'FLEET_GITHUB_SCOPE')
+
     def test_status_is_read_only_and_counts_only_this_full_node_prefix(self):
         prefix = 'ci-aaaa-' + '1' * 32
         runners = [{'name': prefix + '-slot-1', 'status': 'online'},

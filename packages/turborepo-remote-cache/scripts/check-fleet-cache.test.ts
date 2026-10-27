@@ -9,7 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const paths = ['ci', 'web', 'cache', 'netboot', 'devbox'].map(
+const paths = ['ci', 'devbox'].map(
   (role) => `/nix/store/${'a'.repeat(32)}-${role}`
 );
 const metadata = {
@@ -99,7 +99,7 @@ test('one evaluation retains every exact path and pinned signature check before 
     revision: 'a'.repeat(40),
     publicKey: metadata.cachePublicKey,
     paths,
-    signedPaths: 5,
+    signedPaths: paths.length,
   });
 });
 

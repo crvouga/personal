@@ -14,6 +14,8 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "fleet-sync.sh"
 FLEETCONF = Path(__file__).parents[1] / "scripts" / "fleetconf.py"
+FLEET_ROLES = Path(__file__).parents[1] / "scripts" / "fleet_roles.py"
+REGISTRY = Path(__file__).parents[1] / "roles.json"
 
 
 def write_executable(path: Path, body: str) -> None:
@@ -148,6 +150,7 @@ class SyncTests(unittest.TestCase):
             "BOOTED_SYSTEM": str(self.booted),
             "PYTHON": sys.executable,
             "CATTLE_PY": str(self.bin / "cattle"),
+            "FLEET_ROLES_PY": str(FLEET_ROLES),
             "FLEET_HEALTH": str(self.bin / "health"),
             "FLEET_REPORT": str(self.root / "health-failure"),
             "FLEET_REBOOT_PENDING": str(self.root / "reboot-pending"),
@@ -208,6 +211,49 @@ class SyncTests(unittest.TestCase):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.profile.exists())
+        self.assertFalse(self.nix_log.exists())
+
+    def commit_registry(self, change):
+        registry = json.loads(REGISTRY.read_text())
+        change(registry)
+        self.commit("roles.json", json.dumps(registry))
+
+    def test_registry_with_this_role_switches(self):
+        self.commit_registry(lambda registry: None)
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions(), ["switch"])
+
+    def test_retired_role_reports_the_registry_and_never_builds(self):
+        def retire_ci(registry):
+            ci = next(role for role in registry["roles"] if role["name"] == "ci")
+            for key in ("settings", "secrets", "closures"):
+                del ci[key]
+            ci["state"] = "retired"
+            registry["installerDefault"] = "devbox"
+        self.commit_registry(retire_ci)
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("FLEET_ROLE_RETIRED: roles.json retired role ci", result.stderr)
+        self.assertFalse(self.nix_log.exists())
+        self.assertFalse(self.profile.exists())
+        report = (self.root / "health-failure").read_text()
+        self.assertTrue(report.startswith("mode=sync\nFLEET_ROLE_RETIRED:"), report)
+
+    def test_removed_closure_reports_the_registry_and_never_builds(self):
+        self.write_env(cache="https://cache.invalid/fleet", delay="0")
+        (self.root / "sync.env").write_text((self.root / "sync.env").read_text().replace("FLAKE_ATTR=ci", "FLAKE_ATTR=ci-retired"))
+        self.commit_registry(lambda registry: None)
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("FLEET_CLOSURE_REMOVED: roles.json no longer builds ci-retired", result.stderr)
+        self.assertFalse(self.nix_log.exists())
+
+    def test_unreadable_registry_stops_before_building(self):
+        self.commit("roles.json", "{not json")
+        result = self.run_sync()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("roles.json: not JSON", result.stderr)
         self.assertFalse(self.nix_log.exists())
 
     def test_unconfigured_cache_waits(self):
@@ -557,6 +603,82 @@ class SyncTests(unittest.TestCase):
         self.configure({"reboot": {"delayMaxSeconds": 45}})
         self.assertEqual(self.run_sync().returncode, 0)
         self.assertEqual(self.actions(), ["sleep", "drain", "boot", "reboot"])
+
+    def booted_switch(self, body):
+        (self.booted / "bin").mkdir(exist_ok=True)
+        write_executable(self.booted / "bin" / "switch-to-configuration", body)
+
+    def boot(self, identity):
+        boot_file = self.root / "boot_id"
+        boot_file.write_text(identity + "\n")
+        self.env["FLEET_BOOT_ID_FILE"] = str(boot_file)
+
+    def test_a_kernel_that_falls_back_is_quarantined_instead_of_rebooting_forever(self):
+        # Before: the next run saw the old kernel, installed the same kernel again
+        # and drained and rebooted into it on every poll.
+        self.kernel_change(delay="0")
+        self.booted_switch(f"#!/bin/bash\nprintf 'booted-%s\\n' \"$1\" >> {self.log}\n")
+        self.env["RECOVERY_PY"] = str(SCRIPT.with_name("recovery.py"))
+        self.env["FLEET_RECOVERY_STATE"] = str(self.root / "recovery")
+        self.boot("boot-a")
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions()[-3:], ["drain", "boot", "reboot"])
+        self.assertIn("boot_id=boot-a", (self.state / "pending-boot").read_text())
+        # systemd-boot ran out of tries and fell back: the booted system is the old one.
+        self.boot("boot-b")
+        self.log.write_text("")
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions(), ["booted-boot", "switch"], "the working system is the default again; no drain, no reboot")
+        self.assertFalse((self.state / "pending-boot").exists())
+        quarantine = json.loads((self.state / "quarantine.json").read_text())
+        self.assertIn("not certain", quarantine["reason"])
+        self.assertIn("reason=quarantined", (self.root / "reboot-pending").read_text())
+        events = [json.loads(p.read_text()) for p in (self.root / "recovery" / "outbox").glob("*.json")]
+        self.assertEqual([event["kind"] for event in events], ["update-quarantined"])
+        # Later polls keep the node working on the old kernel without rebooting.
+        self.log.write_text("")
+        self.assertEqual(self.run_sync().returncode, 0)
+        self.assertNotIn("reboot", self.actions())
+        # A person presses Retry the update: the next poll reboots into it again.
+        self.configure({"sync": {"retryBootAfter": quarantine["atEpoch"] + 1}})
+        self.log.write_text("")
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions()[-3:], ["drain", "boot", "reboot"])
+        self.assertFalse((self.state / "quarantine.json").exists())
+
+    def test_a_new_kernel_lifts_the_quarantine(self):
+        self.kernel_change(delay="0")
+        self.booted_switch("#!/bin/bash\nexit 0\n")
+        self.boot("boot-a")
+        self.run_sync()
+        self.boot("boot-b")
+        self.run_sync()
+        self.assertTrue((self.state / "quarantine.json").exists())
+        (self.flake / "KERNEL_CHANGE").write_text("2")
+        self._git(["-C", str(self.origin), "commit", "-am", "another kernel"])
+        self.log.write_text("")
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions()[-3:], ["drain", "boot", "reboot"])
+        self.assertFalse((self.state / "quarantine.json").exists())
+
+    def test_a_reboot_that_comes_up_is_not_quarantined(self):
+        self.kernel_change(delay="0")
+        self.boot("boot-a")
+        self.run_sync()
+        pending = (self.state / "pending-boot").read_text()
+        toplevel = next(line.split("=", 1)[1] for line in pending.splitlines() if line.startswith("toplevel="))
+        self.booted.rename(self.root / "old-booted")
+        self.booted.symlink_to(toplevel)
+        self.boot("boot-b")
+        self.log.write_text("")
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.state / "quarantine.json").exists())
+        self.assertTrue((self.state / "pending-boot").exists(), "boot-health clears it once the boot is blessed")
 
     def seed_booted(self):
         kernel = self.root / "old-kernel"

@@ -17,7 +17,7 @@ describeApi('read-only enrollment readiness', (ctx) => {
     const { h, store } = ctx();
     for (const body of [
       { role: 'ci', roleToken: 'wrong' },
-      { role: 'web', roleToken: CI_ROLE_TOKEN },
+      { role: 'devbox', roleToken: CI_ROLE_TOKEN },
     ]) {
       const reply = await h.call('POST', '/v1/enrollment/check', {
         json: body,
@@ -25,6 +25,14 @@ describeApi('read-only enrollment readiness', (ctx) => {
       expect(reply.status).toBe(401);
       expect(reply.text).not.toContain(CI_ROLE_TOKEN);
     }
+    expect(await store.listNodes()).toEqual([]);
+  });
+  test('a retired role cannot pass the enrollment check', async () => {
+    const { h, store } = ctx();
+    const reply = await h.call('POST', '/v1/enrollment/check', {
+      json: { role: 'web', roleToken: CI_ROLE_TOKEN },
+    });
+    expect(reply.status).toBe(400);
     expect(await store.listNodes()).toEqual([]);
   });
 });

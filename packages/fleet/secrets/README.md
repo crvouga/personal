@@ -1,20 +1,19 @@
 # Encrypted role secrets only
 
-Do not commit plaintext, PEMs, age private keys, or decrypted example files here. Each role has its own age key and its own sops file. CI and web must never share either. Cache, netboot and devbox do not use `secrets/fleet.yaml` or `secrets/web.yaml`.
+Do not commit plaintext, PEMs, age private keys, or decrypted example files here. Each role has its own age key and its own sops file (`secrets` in `roles.json`); roles never share either. Devbox does not use `secrets/fleet.yaml`.
 
-| Role    | Private key                                     | Encrypted file         | Settings      |
-| ------- | ----------------------------------------------- | ---------------------- | ------------- |
-| ci      | `/nix/fleet-state/secrets/age.key` on a ci node | `secrets/fleet.yaml`   | `fleet.nix`   |
-| web     | the same path on a web node                     | `secrets/web.yaml`     | `web.nix`     |
-| cache   | the same path on a cache node                   | `secrets/cache.yaml`   | `cache.nix`   |
-| devbox  | the same path on a devbox node                  | `secrets/devbox.yaml`  | `devbox.nix`  |
-| netboot | the same path on a netboot node                 | `secrets/netboot.yaml` | `netboot.nix` |
+| Role   | Private key                                     | Encrypted file        | Settings     |
+| ------ | ----------------------------------------------- | --------------------- | ------------ |
+| ci     | `/nix/fleet-state/secrets/age.key` on a ci node | `secrets/fleet.yaml`  | `fleet.nix`  |
+| devbox | the same path on a devbox node                  | `secrets/devbox.yaml` | `devbox.nix` |
 
-`just setup` (once, by the owner) creates one key per role, keeps the private halves only in the vault root's ignored tfvars (applied to Vault by a reviewed plan), puts the public halves in `.sops.yaml`, and encrypts `secrets/fleet.yaml` from the runner GitHub App's key. A new node receives its role's key through the approval flow, never from git. Without an approval or a `FLEET-KEY` volume, `fleet-install` creates a key on the machine. The public half is `age.pub` next to it and is printed on the console. A volume labeled `FLEET-KEY` with `<role>.age` is reused instead of generating a new key, and a new key is copied onto that volume when the file is absent. `secretsFile = null` until that role's file exists, so the flake evaluates before bring-up. The private key is never built into an ISO and never printed. This package does not generate a key into git. `ci-gpu` uses the ci key.
+Retired roles (`web`, `cache`, `netboot`) have no sops file or recipient. Their private keys stay in the vault input until a reviewed vault plan deletes the role from `roles.json`; `just fleet-keys` keeps them and creates keys only for active roles.
+
+`just setup` (once, by the owner) creates one key per active role, keeps the private halves only in the vault root's ignored tfvars (applied to Vault by a reviewed plan), puts the public halves in `.sops.yaml`, and encrypts `secrets/fleet.yaml` from the runner GitHub App's key. A new node receives its role's key through the approval flow, never from git. Without an approval or a `FLEET-KEY` volume, `fleet-install` creates a key on the machine. The public half is `age.pub` next to it and is printed on the console. A volume labeled `FLEET-KEY` with `<role>.age` is reused instead of generating a new key, and a new key is copied onto that volume when the file is absent. `secretsFile = null` until that role's file exists, so the flake evaluates before bring-up. The private key is never built into an ISO and never printed. This package does not generate a key into git. `ci-gpu` uses the ci key.
 
 Root-only decryption produces `/run/secrets/*`. CI runner slots receive only one-hour registration tokens. A compromised node exposes that role's key, so this remains a trusted private-code fleet.
 
-CI YAML contains `github-app-key` (the PEM as a block scalar). Optional CI scratch-cache entries are `cache-credentials` (AWS shared-credentials INI) and `cache-signing-key` (a Nix private signing key). Those are not the attic server. The cache role's YAML contains `attic-env`, an env file whose value is `ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64=...`. Do not generate that RSA material into the Nix store. Web app environment is a sops key named by `envSecret`.
+CI YAML contains `github-app-key` (the PEM as a block scalar). Optional CI scratch-cache entries are `cache-credentials` (AWS shared-credentials INI) and `cache-signing-key` (a Nix private signing key).
 
 When `repo.auth` is `ssh` or `token`, encrypt `git-read-key` or `git-read-token` into each role's own file. The ciphertext is per age key, so the same GitHub read credential is encrypted separately for each role. Do not copy one role's yaml onto another to avoid that.
 

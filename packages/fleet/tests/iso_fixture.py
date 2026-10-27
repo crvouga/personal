@@ -92,7 +92,7 @@ def installer_tree(kernel=b"kernel-bytes\n", initrd=b"initrd-bytes\n", grub=b"gr
     # /boot//nix/store/..., while the actual ISO has ordinary directory names.
     linux_path = KERNEL_PATH.replace("/boot/", "/boot//") if nix_store else "/boot/bzImage"
     initrd_path = INITRD_PATH.replace("/boot/", "/boot//") if nix_store else "/boot/initrd"
-    entries = [("boot", "ci", "")] + [(f"boot-{role}", role, "") for role in ("web", "cache", "netboot", "devbox")]
+    entries = [("boot", "ci", "")] + [(f"boot-{role}", role, "") for role in ("devbox",)]
     entries.append(("boot-copytoram", "ci", " copytoram"))
     config = ["DEFAULT boot"]
     for label, role, extra in entries:

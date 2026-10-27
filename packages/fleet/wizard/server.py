@@ -9,6 +9,7 @@ import datetime
 import hmac
 import json
 import os
+import re
 import secrets
 import shutil
 import socketserver
@@ -44,11 +45,10 @@ PLAN_TTL = 15 * 60
 
 OS_LABEL = {"Darwin": "macOS"}
 
+# One entry per role in decide.ROLES (the active roles in roles.json);
+# tests/test_roles.py fails when the two differ.
 ROLE_INFO = {
     "ci": ("CI runner", "Runs GitHub Actions jobs for the repository."),
-    "web": ("Web server", "Hosts the apps behind Caddy."),
-    "cache": ("Build cache", "The attic binary cache the other nodes pull from."),
-    "netboot": ("Network boot server", "Lets machines on this network start from the network."),
     "devbox": ("Remote devbox", "SSH development machine with persistent workspace and development tools."),
 }
 
@@ -106,6 +106,7 @@ class Job:
         self.role = None
         self.step = None
         self.changed = False  # the privileged helper may have changed this computer
+        self.approval = None  # {"url", "deadline"} while GitHub approval is awaited
         self.scratch = None  # the folder shared with the helper, once there is one
         self.cancel = threading.Event()
         self.lock = threading.Lock()
@@ -137,6 +138,9 @@ class Job:
                     self.timeline.append(f"{time.monotonic() - self.started:.1f}s step={step}")
                     del self.timeline[:-80]
                     decide.log(f"attempt={self.attempt} step={step}")
+                    # A new step has no measured progress until it reports some:
+                    # the page shows a moving bar, never the last step's 100%.
+                    self.percent = None
                 self.step = step
             if message:
                 message = decide.redact(str(message))
@@ -154,6 +158,7 @@ class Job:
                     "timeline": list(self.timeline), "checks": list(self.checks),
                     "image": dict(self.image),
                     "message": self.message, "log": list(self.log), "result": self.result,
+                    "approval": dict(self.approval) if self.approval else None,
                     # Cancel works while downloading, and while the permission prompt is open.
                     "cancellable": self.state == "downloading" or (self.state == "working" and self.step in (None, "permission") and not self.changed)}
 
@@ -276,10 +281,18 @@ class Wizard:
                 summary += " Windows preparation, boot setup and restart are automatic. Back up your files and save your BitLocker recovery key on another device before continuing."
             summary += " The installer will prepare the required tools, repeat its checks, install and restart automatically."
         problems = [item for item in findings if item["status"] == "fail"]
+        # Which Wi-Fi the installer will use after the restart, by name only.
+        if wifi is not None:
+            network = {"ssid": wifi["ssid"], "source": "entered"}
+        elif mode == "here" and not fleet_wifi.simulated():
+            from wifi_capture import connected_name
+            network = {"ssid": connected_name(self.os_name), "source": "detected"}
+        else:
+            network = None
         plan = {
             "id": secrets.token_hex(8), "mode": mode, "role": role, "reinstall": reinstall, "token": token, "ssh_key": ssh_key, "disk_id": disk_id, "path": target,
             "wifi": wifi,
-            "erase": erase, "summary": summary, "findings": findings, "ready": not problems, "created": time.time(),
+            "erase": erase, "summary": summary, "findings": findings, "network": network, "ready": not problems, "created": time.time(),
         }
         with self.lock:
             decide.invariant(self.job.snapshot()["state"] in ("idle", "done", "failed", "cancelled"),
@@ -365,7 +378,22 @@ class Wizard:
                 job.note("Using the approval GitHub gave earlier in this session.")
                 return {**plan, "token": earlier}
             self.approved.pop(plan["role"], None)
-        token, error = decide.self_enroll(plan["role"], notify=job.note, cancel=job.cancel.is_set)
+        deadline = time.time() + int(os.environ.get("FLEET_ENROLL_WAIT") or decide.ENROLL_WAIT)
+
+        def notify(message, *args, **kwargs):
+            # The approval address becomes a link with a countdown on the page.
+            found = re.search(r"https://github\.com/\S+", str(message))
+            with job.lock:
+                if found and "open this address" in str(message):
+                    job.approval = {"url": found.group(0), "deadline": deadline, "received": False}
+                elif job.approval and "request was received" in str(message):
+                    job.approval["received"] = True
+            job.note(message, *args, **kwargs)
+        try:
+            token, error = decide.self_enroll(plan["role"], notify=notify, cancel=job.cancel.is_set)
+        finally:
+            with job.lock:
+                job.approval = None
         if error == "cancelled":
             raise imaging.Cancelled()
         decide.invariant(token is not None, f"this computer was not approved ({error})",

@@ -56,6 +56,11 @@ export const SETTING_META: Readonly<Record<string, SettingMeta>> = {
     label: 'Pause updates',
     help: 'When on, nodes stay on the system they run now and ignore new commits on main. Use it to freeze a machine during an incident. Reports continue.',
   },
+  'sync.retryBootAfter': {
+    label: 'Retry a quarantined kernel',
+    unit: 'Unix time',
+    help: 'Set by the node page’s Retry the update button. A kernel the node fell back from before this time is tried again: the node drains, reboots into it, and quarantines it again if it still does not come up healthy.',
+  },
   'reboot.enabled': {
     label: 'Allow automatic reboots',
     help: 'When on, a node may reboot itself to finish an update that needs it. When off it applies what it can and waits for you.',
@@ -102,6 +107,11 @@ export const SETTING_META: Readonly<Record<string, SettingMeta>> = {
   'runners.cordoned': {
     label: 'Cordoned',
     help: 'When on, the node finishes the jobs it has but accepts no new ones. Use it to drain a machine before maintenance.',
+  },
+  'runners.reopenAfter': {
+    label: 'Reopen admission after a manual drain',
+    unit: 'Unix time',
+    help: 'Set by the node page’s Reopen runner admission button. A manual drain started before this time is lifted. Low disk space and an update in progress still keep admission closed.',
   },
   'runners.repositories': {
     label: 'Repositories',

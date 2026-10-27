@@ -38,6 +38,7 @@ if HERE not in sys.path:
 import cattle  # noqa: E402  (sibling module; the Nix derivation puts all three scripts together)
 import fleetconf  # noqa: E402
 import node_readiness  # noqa: E402
+import recovery  # noqa: E402
 import telemetry  # noqa: E402
 
 VERSION = "1"
@@ -50,7 +51,8 @@ MAX_RESPONSE = 1 << 20
 MAX_EVENTS = 20
 MAX_MESSAGE = 500
 DRAIN_RETRY_SECONDS = 900
-ROLES = ("ci", "web", "cache", "netboot", "devbox")
+# Active roles in roles.json; rewritten by scripts/fleet_roles.py sync.
+ROLES = ("ci", "devbox")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 REVISION = re.compile(r"[0-9a-f]{1,64}")
 TOKEN_CHARS = re.compile(r"[A-Za-z0-9._-]{8,512}")
@@ -246,6 +248,9 @@ class Agent:
         self.settings = {}
         self.problems = []
         self.last_drain_attempt = None
+        self.readiness = None
+        self.readiness_at = None
+        self.outbox_sent = []
         self.loaded = False
         self.applied_once = False
         self.services_unknown = False
@@ -418,18 +423,40 @@ class Agent:
             return None
         return {"slots": len(selected), "busy": len(busy)}
 
+    def recovery_facts(self):
+        try:
+            return recovery.status(self.recovery_base, run=self.paths.run, sync=self.paths.state.parent / "sync")
+        except OSError:
+            return None
+
     def revision(self):
         value = (read_text(self.paths.etc / "revision", 256) or "").strip()
         return value if value and value != "unknown" else None
 
+    @property
+    def recovery_base(self):
+        return self.paths.state.parent / "recovery"
+
+    def note_recovery(self, kind, severity, key, message, data=None):
+        """A recovery fact, kept on disk until Fleet accepts it (scripts/recovery.py)."""
+        try:
+            recovery.queue(kind, severity, key, message, data, base=self.recovery_base)
+        except (OSError, ValueError) as error:
+            self.log(f"could not record a {kind} event: {type(error).__name__}")
+
     def collect_events(self, identity):
-        """Events since the last accepted report, and the state to remember once the server accepted them."""
+        """Events since the last accepted report, and the state to remember once the server accepted them.
+
+        Every event carries a key, so a report the server stored but whose
+        answer was lost cannot record the same event twice when it is resent.
+        Recovery events come from the durable outbox and leave it only once a
+        heartbeat carrying them was accepted (self.outbox_sent)."""
         reported = self.reported_state()
         update = dict(reported)
         events = []
         boot_id = (read_text(self.paths.proc / "sys/kernel/random/boot_id", 128) or "").strip() or None
         if boot_id and reported.get("bootId") != boot_id:
-            events.append({"kind": "boot", "severity": "info", "message": "node started"})
+            events.append({"kind": "boot", "severity": "info", "message": "node started", "key": f"boot:{boot_id}"})
             update["bootId"] = boot_id
         failure = self.rollback_reason()
         if failure is not None:
@@ -438,7 +465,8 @@ class Agent:
             if reported.get("rollback") != signature:
                 rolled_back = mode in ("boot", "switch")
                 events.append({"kind": "rollback" if rolled_back else "update-failed", "severity": "error",
-                    "message": f"sync {'rolled back' if rolled_back else 'failed'} ({mode}): {reason}"})
+                    "message": f"sync {'rolled back' if rolled_back else 'failed'} ({mode}): {reason}",
+                    "key": f"sync:{signature}"})
                 update["rollback"] = signature
         else:
             update.pop("rollback", None)
@@ -450,17 +478,37 @@ class Agent:
                     "kind": "reboot-pending",
                     "severity": "warn",
                     "message": "a new kernel is installed; the reboot waits for reboot.enabled",
+                    "key": f"reboot-pending:{signature}",
                 })
                 update["rebootPending"] = signature
         else:
             update.pop("rebootPending", None)
         for problem in self.problems:
-            events.append({"kind": "config", "severity": "warn", "message": problem})
+            signature = hashlib.sha256(f"{boot_id}\n{problem}".encode()).hexdigest()[:16]
+            events.append({"kind": "config", "severity": "warn", "message": problem, "key": f"config:{signature}"})
+        try:
+            recovery.recover_jobs(base=self.recovery_base)
+            queued = recovery.pending(self.recovery_base)
+        except OSError as error:
+            self.log(f"could not read the recovery outbox: {type(error).__name__}")
+            queued = []
+        room = max(0, MAX_EVENTS - len(events))
+        self.outbox_sent = [record["key"] for record in queued[:room]]
+        events += [{"kind": record["kind"], "severity": record["severity"], "message": record["message"],
+                    "key": record["key"], "at": record.get("at"), "data": record.get("data") or {}}
+                   for record in queued[:room]]
+        secrets_ = [self.secret or "", self._token() or ""]
         events = [
             {
                 "kind": clip(event["kind"], 40),
                 "severity": event["severity"],
-                "message": clip(redact(event["message"], [self.secret or "", self._token() or ""]), MAX_MESSAGE),
+                "message": clip(redact(event["message"], secrets_), MAX_MESSAGE),
+                **({"key": event["key"]} if event.get("key") else {}),
+                **({"at": event["at"]} if event.get("at") else {}),
+                **({"data": {name: (clip(redact(value, secrets_), 300) if isinstance(value, str) else value)
+                             for name, value in event["data"].items()
+                             if isinstance(value, (str, int, float, bool)) or value is None}}
+                   if event.get("data") else {}),
             }
             for event in events[:MAX_EVENTS]
         ]
@@ -516,7 +564,11 @@ class Agent:
                 for item in readiness]},
             "agent": {"version": VERSION, "configRevision": self.config_revision},
             "events": events,
+            "recovery": self.recovery_facts(),
         }
+        # Kept for the node's console screen (node_console.py): what Fleet is told.
+        self.readiness = body["readiness"]["issues"]
+        self.readiness_at = iso(self.clock.time())
         try:
             body["telemetry"] = self.telemetry.collect(identity, failed_units, self.services_unknown)
         except Exception:
@@ -636,6 +688,28 @@ class Agent:
             return
         self.step("drain and resume", self.apply_drain, self.settings, node_conf)
         self.step("capacity", self.apply_capacity, {})
+        self.step("runner refresh", self.refresh_stale_slots, node_conf)
+
+    def refresh_stale_slots(self, node_conf):
+        """Bring idle runners onto the system an update installed.
+
+        Runner units are not restarted by an update (runners.nix sets
+        restartIfChanged = false): restarting them killed the jobs they were
+        running. A busy runner takes the new system when its job ends and it
+        registers again; an idle one is restarted here. Each slot records the
+        system it started on (/run/fleet/slot-N/system)."""
+        if (self.paths.run / "draining").exists():
+            return
+        current = os.path.realpath(os.environ.get("FLEET_CURRENT_SYSTEM") or "/run/current-system")
+        states = self.units_state(node_conf)
+        for number, state in sorted(states.items()):
+            slot = f"slot-{number}"
+            started = (read_text(self.paths.run / slot / "system", 1024) or "").strip()
+            if state != "active" or not started or started == current:
+                continue
+            if (self.paths.run / slot / "busy").exists():
+                continue
+            self.command([self.paths.systemctl, "--no-block", "try-restart", f"github-runner-{slot}.service"], 15)
 
     def step(self, name, function, *args):
         try:
@@ -678,12 +752,13 @@ class Agent:
         lines = out.splitlines()
         return {n: (lines[i].strip() if i < len(lines) else "unknown") for i, n in enumerate(numbers)}
 
-    def launch(self, unit, argv):
+    def launch(self, unit, argv, env=None):
         """Start a transient unit and return at once; the agent never waits on a drain."""
         code, _ = self.command([self.paths.systemctl, "is-active", "--quiet", unit + ".service"], 10)
         if code == 0:
             return False
-        code, _ = self.command([self.paths.systemd_run, "--no-block", "--collect", f"--unit={unit}", "--", *argv], 15)
+        options = [f"--setenv={name}={value}" for name, value in sorted((env or {}).items())]
+        code, _ = self.command([self.paths.systemd_run, "--no-block", "--collect", f"--unit={unit}", *options, "--", *argv], 15)
         if code != 0:
             self.log(f"could not start {unit}")
         return code == 0
@@ -697,7 +772,7 @@ class Agent:
             due = self.last_drain_attempt is None or self.clock.monotonic() - self.last_drain_attempt >= DRAIN_RETRY_SECONDS
             if (not draining or active) and due:
                 self.last_drain_attempt = self.clock.monotonic()
-                if self.launch("fleet-config-drain", [self.paths.drain]):
+                if self.launch("fleet-config-drain", [self.paths.drain], {"FLEET_DRAIN_REASON": "config"}):
                     fleetconf.write_atomic(str(marker), "drain started by fleet configuration\n", 0o644)
                     self.log("runners disabled or cordoned by configuration; draining")
         else:
@@ -709,6 +784,37 @@ class Agent:
                     self.log("runners enabled by configuration; resuming")
                     # Keep the marker until a later cycle observes that resume
                     # actually removed the drain gate. Launching is not success.
+            elif draining:
+                self.reopen_orphaned_gate(flat)
+
+    def reopen_orphaned_gate(self, flat):
+        """Admission closed with nothing left that wants it closed: reopen it.
+
+        Each holder of the gate records a reason (scripts/drain.sh). A cordon
+        lifted while its drain was still starting, or a drain from before
+        reasons existed, leaves the gate closed with no owner; without this the
+        node silently serves no jobs until it reboots. A manual drain stays closed
+        until a person reopens it, here through runners.reopenAfter in Fleet."""
+        if (self.paths.run / "update-draining").exists():
+            return  # an update holds admission; fleet-sync resumes or reboots
+        reasons = self.paths.run / "drain-reasons"
+        try:
+            held = {path.name: path.stat().st_mtime for path in reasons.iterdir()}
+        except OSError:
+            held = {}
+        reopen_after = flat.get("runners.reopenAfter")
+        if "manual" in held and type(reopen_after) is int and reopen_after > held["manual"]:
+            held.pop("manual")
+            (reasons / "manual").unlink(missing_ok=True)
+            self.note_recovery("gate-reopened", "info", f"gate:manual:{reopen_after}",
+                               "Runner admission was reopened from Fleet after a manual drain.")
+        if set(held) - {"config", "unknown"}:
+            return  # an update, low disk or a manual drain still holds it
+        if self.launch("fleet-gate-resume", [self.paths.resume]):
+            self.log("runner admission was closed with no remaining reason; reopening")
+            self.note_recovery("gate-reopened", "warn", f"gate:orphan:{int(self.clock.time()) // 3600}",
+                               "Runner admission was closed with no remaining reason (for example a cordon lifted "
+                               "while its drain was starting); it was reopened automatically.")
 
     def apply_capacity(self, outcome):
         pending = (self.paths.run / "capacity-pending").exists()
@@ -763,6 +869,8 @@ class Agent:
             "configRevision": self.config_revision,
             "intervalSeconds": self.interval(),
             "nextInSeconds": int(delay),
+            "readiness": self.readiness,
+            "readinessAt": self.readiness_at,
         }
         try:
             write_private(self.paths.status, json.dumps(document, sort_keys=True) + "\n")
@@ -833,6 +941,13 @@ class Agent:
             write_private(self.paths.reported, json.dumps(update, sort_keys=True) + "\n")
         except OSError:
             self.log("could not save reported state")
+        # Fleet stored these recovery events; a crash before this line only
+        # resends them, and the server ignores keys it already has.
+        try:
+            recovery.acknowledge(self.outbox_sent, base=self.recovery_base)
+        except OSError:
+            self.log("could not clear the recovery outbox")
+        self.outbox_sent = []
         self.problems = []
         if "config" in document:
             self.accept_config(document["config"])

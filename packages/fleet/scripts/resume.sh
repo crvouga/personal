@@ -16,6 +16,11 @@ if update_in_progress; then
   echo 'FLEET_UPDATE_DRAIN_ACTIVE: preserving admission until the update commits or recovers'
   exit 75
 fi
+reasons=$run/drain-reasons
+if [ -e "$reasons/low-disk" ]; then
+  echo 'FLEET_LOW_DISK: keeping the drain gate until fleet-cache-clean measures enough free space again'
+  exit 0
+fi
 enabled=$("${FLEETCONF:?}" get runners.enabled true)
 cordoned=$("$FLEETCONF" get runners.cordoned false)
 if [ "$enabled" = false ] || [ "$cordoned" = true ]; then
@@ -64,6 +69,8 @@ done
   # Conditions are evaluated when systemd processes StartUnit. Queueing starts
   # before removing this file can silently skip them instead of recovering.
   rm -f "$run/draining"
+  # Resuming answers every reason but low disk, which returned above.
+  rm -f "$reasons/config" "$reasons/update" "$reasons/manual" "$reasons/unknown"
   if ! "$systemctl" --no-block start "${units[@]}"; then
     touch "$run/draining"
     printf 'recover failed runner start\n' > "$run/agent-drained"

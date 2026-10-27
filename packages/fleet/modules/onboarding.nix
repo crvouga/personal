@@ -1,12 +1,11 @@
 { config, settings, ... }: let
   cache = settings.binaryCache;
-  providesCache = (settings.bootstrap or { }).providesCache or false;
   apiUrl = (settings.fleetApi or { }).url or "";
   present = value: value != null && value != "" && !(builtins.match ".*TODO.*" value != null);
   metadata = {
     version = 1;
     role = settings.role;
-    inherit apiUrl providesCache;
+    inherit apiUrl;
     cacheUrl = cache.url;
     cachePublicKey = cache.publicKey;
     secretsFile = if settings.secretsFile == null then null else toString settings.secretsFile;
@@ -17,9 +16,6 @@
       "FLEET_CACHE_UNCONFIGURED: automatic updates require the fleet binary-cache URL and signing public key. Configure the platform before installing nodes."
     ]) ++ (if present apiUrl then [ ] else [
       "FLEET_API_UNCONFIGURED: this image cannot register or report to Fleet."
-    ]) ++ (if providesCache && settings.secretsFile == null then [
-      "FLEET_CACHE_SECRET_MISSING: the cache server's encrypted signing/authentication secret must be configured before bootstrap."
-    ] else [
     ]) ++ (if present settings.repo.url then [ ] else [
       "FLEET_REPOSITORY_UNCONFIGURED: the Git source for automatic updates is not configured."
     ]);

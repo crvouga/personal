@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { roleTokenValid } from '../auth/role-token';
 import type { AppDeps } from '../deps';
 import { isRecord } from '../domain/heartbeat-fields';
-import { isRole } from '../types';
+import { isActiveRole } from '../types';
 import { apiError, readJson } from './http';
 
 /** Prove that the installed credential can auto-approve, without registering a
@@ -14,7 +14,7 @@ export function enrollmentCheck(deps: AppDeps) {
     const value = body.value;
     if (
       !isRecord(value) ||
-      !isRole(value['role']) ||
+      !isActiveRole(value['role']) ||
       typeof value['roleToken'] !== 'string' ||
       value['roleToken'].length > 512
     )

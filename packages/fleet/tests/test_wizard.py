@@ -324,7 +324,7 @@ class InvariantTests(unittest.TestCase):
             self.assertEqual(decide.checked_marker(directory, "installed"), {})
             (directory / "installed").write_text("role=ci\nstatus=installed\n")
             self.assertTrue(decide.installed_for("ci", directory))
-            self.assertFalse(decide.installed_for("web", directory))
+            self.assertFalse(decide.installed_for("devbox", directory))
             for corrupt in ("", "garbage", "role=ci\n", "status=installed\n", "role=toaster\nstatus=installed\n", "role=ci\nstatus=maybe\n"):
                 (directory / "installed").write_text(corrupt)
                 with self.assertRaises(decide.Invariant, msg=repr(corrupt)) as caught:
@@ -334,9 +334,28 @@ class InvariantTests(unittest.TestCase):
     def test_unknown_roles_cannot_reach_the_boot_command(self):
         with self.assertRaises(decide.Invariant):
             decide._boot_command("init=/x", "toaster", "/tmp/a.iso")
-        command = decide._boot_command("init=/x fleet.role=ci", "web", "/tmp/a.iso", "hvs.TOKENVALUE1", "https://v.example")
-        self.assertTrue(command.endswith("fleet.role=web"))
-        self.assertEqual(command.rsplit("fleet.role=", 1)[1], "web")  # the installer reads the last one
+        command = decide._boot_command("init=/x fleet.role=ci", "devbox", "/tmp/a.iso", "hvs.TOKENVALUE1", "https://v.example")
+        self.assertTrue(command.endswith("fleet.role=devbox"))
+        self.assertEqual(command.rsplit("fleet.role=", 1)[1], "devbox")  # the installer reads the last one
+
+    def test_the_boot_command_names_the_wizard_attempt_only_when_well_formed(self):
+        with mock.patch.dict(decide.HANDOFF, {"attempt": "0123456789abcdef", "wizard": "1a2b3c4"}):
+            command = decide._boot_command("fleet.attempt=old fleet.role=ci", "ci", "/tmp/a.iso", origin="windows")
+        self.assertIn("fleet.attempt=0123456789abcdef fleet.wizard=1a2b3c4", command)
+        self.assertNotIn("fleet.attempt=old", command)
+        with mock.patch.dict(decide.HANDOFF, {"attempt": "bad value; rm", "wizard": "x y"}):
+            command = decide._boot_command("fleet.role=ci", "ci", "/tmp/a.iso", origin="windows")
+        self.assertNotIn("fleet.attempt=", command)
+        self.assertNotIn("fleet.wizard=", command)
+
+    def test_the_boot_command_says_whether_wifi_settings_rode_along(self):
+        # The live installer's screen and report tell "none sent" from "sent but lost".
+        for carried, word in ((True, "fleet.wifi=sent"), (False, "fleet.wifi=none")):
+            command = decide._boot_command("init=/x fleet.wifi=stale fleet.role=ci", "ci", "/tmp/a.iso", origin="windows", wifi=carried)
+            self.assertEqual(command.split().count(word), 1)
+            self.assertNotIn("fleet.wifi=stale", command)
+            self.assertTrue(command.endswith("fleet.role=ci"))
+        self.assertNotIn("fleet.wifi=", decide._boot_command("init=/x fleet.role=ci", "ci", "/tmp/a.iso"))
 
     def test_a_mounted_internal_disk_is_the_running_system_and_is_eligible(self):
         chosen = decide.plan_disks([INTERNAL, USB], "install")
@@ -824,7 +843,7 @@ class WindowsHereTests(unittest.TestCase):
             calls = []
 
             def perform(os_name, role, image, token, vault, directory, chosen, on_progress=None):
-                calls.append((os_name, role, image))
+                calls.append((os_name, role, image, dict(decide.HANDOFF)))
                 on_progress(1, 2)
                 return 0
 
@@ -835,15 +854,50 @@ class WindowsHereTests(unittest.TestCase):
                     mock.patch.object(decide, "preflight", return_value=[]), \
                     mock.patch.object(decide, "perform_install", perform), \
                     mock.patch.dict(decide.NET, {"probe": lambda: (None, 1), "lookup": lambda t, r: decide.finding("enrollment", "ok", "x")}):
-                request = {"role": "ci", "iso": str(iso), "sha256": sha, "disk_id": decide.disk_id(disk)}
+                request = {"role": "ci", "iso": str(iso), "sha256": sha, "disk_id": decide.disk_id(disk), "attempt": "0123456789abcdef"}
                 progress = helper.Progress(root)
                 (root / "state").mkdir()
-                message = helper.install_here(request, progress)
-            self.assertEqual(calls, [("Windows", "ci", str(iso))], "Windows writes the image where it was verified; no second copy")
+                result = helper.install_here(request, progress)
+                self.assertEqual(calls[0][3]["attempt"], "0123456789abcdef", "the boot names the wizard attempt")
+                self.assertEqual(decide.HANDOFF, {}, "nothing leaks into a later boot command")
+                # A refusal from the Windows staging keeps its own reason, not a generic one.
+                def refuse(*args, **kwargs):
+                    decide.say("Next: turn Secure Boot off with shutdown /r /fw. Nothing was written.")
+                    return 2
+                with mock.patch.object(decide, "perform_install", refuse), self.assertRaises(decide.Invariant) as caught:
+                    helper.install_here(request, progress)
+                self.assertEqual(caught.exception.fix, "turn Secure Boot off with shutdown /r /fw. Nothing was written.")
+            self.assertEqual([call[:3] for call in calls], [("Windows", "ci", str(iso))], "Windows writes the image where it was verified; no second copy")
             self.assertFalse((root / "state" / "fleet-installer.iso").exists())
-            self.assertIn("Installing ci", message)
+            self.assertEqual(result["restart"], True)
+            self.assertIn("ci", result["message"])
             rows = [json.loads(line) for line in (root / "progress.jsonl").read_text().splitlines()]
             self.assertTrue(any(r["step"] == "write" and r["percent"] == 50 for r in rows), rows)
+            steps = [r["step"] for r in rows]
+            # The page says "restarting" only once the restart is actually scheduled.
+            self.assertLess(steps.index("prepare"), steps.index("write"))
+            self.assertGreater(steps.index("reboot"), steps.index("write"))
+
+    def test_an_installed_computer_is_not_told_a_restart_is_coming(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            iso = root / "fleet-installer.iso"
+            tree = iso_fixture.installer_tree()
+            tree['fleet-readiness.json'] = b'{"version":1,"roles":{"ci":{"blocked":[]}}}'
+            iso.write_bytes(iso_fixture.build(tree))
+            disk = {"path": "/dev/nvme0n1", "tran": "nvme", "rm": False, "hotplug": False, "usb": False, "internal": True,
+                    "mounted": True, "whole": True, "size": 10**12, "model": "SSD", "serial": "S1"}
+            with mock.patch.dict(os.environ, {"FLEET_STATE": str(root / "state"), "FLEET_NO_ENROLL": "1"}), \
+                    mock.patch.object(decide, "current_os", return_value="Linux"), \
+                    mock.patch.object(decide, "collect", return_value=[disk]), \
+                    mock.patch.object(decide, "preflight", return_value=[]), \
+                    mock.patch.object(decide, "installed_for", return_value=True), \
+                    mock.patch.object(decide, "perform_install") as perform:
+                result = helper.install_here({"role": "ci", "iso": str(iso), "sha256": imaging.sha256_of(iso),
+                                              "disk_id": decide.disk_id(disk)}, helper.Progress(root))
+            perform.assert_not_called()
+            self.assertEqual(result["restart"], False)
+            self.assertIn("already installed as ci", result["message"])
 
 
 class QuitServerTests(WizardCase):
@@ -897,7 +951,7 @@ class InstallHereTests(WizardCase):
     def test_converting_this_machine_hands_the_verified_image_to_the_installer(self):
         _status, scan = self.call("GET", "/api/scan")
         self.assertEqual(scan["here_blockers"], [])
-        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "token": "hvs.CAESIwrapped", "disk_id": scan["internal"]["id"]})
+        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "token": "hvs.CAESIwrapped", "disk_id": scan["internal"]["id"]})
         self.assertEqual(status, 200, plan)
         self.assertTrue(plan["ready"], plan["findings"])
         self.assertIn("including this computer's operating system", plan["summary"])
@@ -907,7 +961,7 @@ class InstallHereTests(WizardCase):
         self.assertEqual(job["state"], "done", job)
         self.assertEqual(len(self.calls), 1)
         call = self.calls[0]
-        self.assertEqual((call["role"], call["token"], call["vault"], call["disk"]), ("web", "hvs.CAESIwrapped", "https://vault.example", INTERNAL["path"]))
+        self.assertEqual((call["role"], call["token"], call["vault"], call["disk"]), ("ci", "hvs.CAESIwrapped", "https://vault.example", INTERNAL["path"]))
         self.assertEqual(call["sha"], self.sha)
         log = Path(decide.LOG["path"]).read_text()
         self.assertNotIn("hvs.CAESIwrapped", log)
@@ -927,20 +981,34 @@ class InstallHereTests(WizardCase):
         """The owner's click, once the wizard has shown the link in its job log."""
         from urllib.parse import parse_qs, urlparse
         for _ in range(100):
-            link = next((line[line.index("https://"):] for line in self.call("GET", "/api/job")[1]["log"] if "issues/new?" in line), None)
+            job = self.call("GET", "/api/job")[1]
+            link = next((line[line.index("https://"):] for line in job["log"] if "issues/new?" in line), None)
             if link:
+                # The page shows it as a link with a deadline, not only as a log line.
+                self.assertEqual(job["approval"]["url"], link.strip())
+                self.assertGreater(job["approval"]["deadline"], time.time())
+                self.assertIsNone(job["percent"], "a new step does not inherit the download's 100%")
                 break
             time.sleep(0.2)
         self.assertTrue(link, "the wizard never showed the approval link")
         query = parse_qs(urlparse(link.strip()).query)
         _, public = decide.parse_enroll_request(query["title"][0], query["body"][0])
         number = github.open_issue(query["title"][0], query["body"][0])
-        github.comment(number, answer or "fleet-sealed: " + decide.seal(json.dumps({"role": "web", "token": "hvs.CAESIapproved"}).encode(), public))
+        github.comment(number, answer or "fleet-sealed: " + decide.seal(json.dumps({"role": "ci", "token": "hvs.CAESIapproved"}).encode(), public))
+
+    def test_the_review_names_the_wifi_network_but_never_its_password(self):
+        _status, scan = self.call("GET", "/api/scan")
+        network = {"ssid": "Fixture Wi-Fi", "password": "fixture-wifi-password", "auth": "wpa-psk", "hidden": False}
+        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "token": "hvs.CAESIwrapped",
+                                                       "disk_id": scan["internal"]["id"], "wifi": network})
+        self.assertEqual(status, 200, plan)
+        self.assertEqual(plan["network"], {"ssid": "Fixture Wi-Fi", "source": "entered"})
+        self.assertNotIn("fixture-wifi-password", json.dumps(plan))
 
     def test_converting_without_a_token_waits_for_the_owner_on_github(self):
         github = self._enrolling_wizard()
         _status, scan = self.call("GET", "/api/scan")
-        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "disk_id": scan["internal"]["id"]})
         self.assertEqual(status, 200, plan)
         self.assertTrue(plan["ready"], plan["findings"])
         self.assertTrue(any(f["name"] == "enrollment" and "approve" in f["detail"] for f in plan["findings"]), plan["findings"])
@@ -955,9 +1023,9 @@ class InstallHereTests(WizardCase):
     def test_a_refused_approval_ends_the_job_before_anything_is_erased(self):
         github = self._enrolling_wizard()
         _status, scan = self.call("GET", "/api/scan")
-        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "disk_id": scan["internal"]["id"]})
         self.run_plan(plan)
-        self._approve_when_asked(github, answer="fleet-error: Vault has no age key for the web role. Run `just setup`.")
+        self._approve_when_asked(github, answer="fleet-error: Vault has no age key for the ci role. Run `just setup`.")
         job = self.wait_job()
         self.assertEqual(job["state"], "failed", job)
         self.assertIn("just setup", job["result"]["message"])
@@ -966,7 +1034,7 @@ class InstallHereTests(WizardCase):
     def test_no_approval_in_time_ends_the_job_before_anything_is_erased(self):
         self._enrolling_wizard(wait="2")
         _status, scan = self.call("GET", "/api/scan")
-        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "disk_id": scan["internal"]["id"]})
         self.run_plan(plan)
         job = self.wait_job()
         self.assertEqual(job["state"], "failed", job)
@@ -976,7 +1044,7 @@ class InstallHereTests(WizardCase):
     def test_cancel_stops_the_wait_for_approval(self):
         self._enrolling_wizard()
         _status, scan = self.call("GET", "/api/scan")
-        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "web", "disk_id": scan["internal"]["id"]})
+        _status, plan = self.call("POST", "/api/plan", {"mode": "here", "role": "ci", "disk_id": scan["internal"]["id"]})
         self.run_plan(plan)
         for _ in range(100):
             if any("issues/new?" in line for line in self.call("GET", "/api/job")[1]["log"]):
@@ -1004,7 +1072,7 @@ class InstallHereTests(WizardCase):
         holder.start()
         try:
             self.assertTrue(entered.wait(5), "the foreign writer did not acquire its lease")
-            request = {"role": "web", "iso": str(replacement), "sha256": imaging.sha256_of(replacement), "disk_id": decide.disk_id(INTERNAL)}
+            request = {"role": "ci", "iso": str(replacement), "sha256": imaging.sha256_of(replacement), "disk_id": decide.disk_id(INTERNAL)}
             with self.assertRaises(decide.Invariant):
                 helper.install_here(request, helper.Progress(self.root))
             self.assertEqual(staged.read_bytes(), original, "the active writer's handoff image must remain intact")

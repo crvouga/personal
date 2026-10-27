@@ -27,6 +27,7 @@ import { settingMeta } from '../ui/lib/setting-meta';
 import { Status } from './nodes';
 import { NodeCharts } from './node-charts';
 import { NodeReadiness } from './node-readiness';
+import { NodeRecovery } from './node-recovery';
 import { NodeTelemetry } from './node-telemetry';
 import { NodeEdit, NodeManage } from './node-edit';
 import { EventFeed } from './events';
@@ -71,6 +72,12 @@ export function NodeDetail({
       />
       <NodeNotices entry={entry} />
       <NodeReadiness entry={entry} />
+      <NodeRecovery
+        entry={entry}
+        events={state.events}
+        now={state.fleet.now}
+        reload={reload}
+      />
       <NodeCharts state={state} entry={entry} />
       <NodeTelemetry entry={entry} now={new Date()} />
       <NodePanels entry={entry} reload={reload} />

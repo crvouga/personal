@@ -28,10 +28,10 @@
       "type": "map(string)",
       "sensitive": true,
       "default": {},
-      "description": "Per-role age private keys for packages/fleet, keyed ci, web, cache or netboot. Written to secret/fleet/<role>, field age_key, for single-use wrapped enrollment tokens. Complete map: an omitted role is removed. Each key must be distinct.",
+      "description": "Per-role age private keys for packages/fleet, keyed by a role in packages/fleet/roles.json. Written to secret/fleet/<role>, field age_key, for single-use wrapped enrollment tokens. Complete map: an omitted role is removed. Each key must be distinct.",
       "validation": {
         "condition": "${alltrue([for role, key in var.fleet_age_keys : contains([\"ci\", \"web\", \"cache\", \"netboot\", \"devbox\"], role) && startswith(key, \"AGE-SECRET-KEY-\")]) && length(distinct(values(var.fleet_age_keys))) == length(var.fleet_age_keys)}",
-        "error_message": "fleet_age_keys needs roles ci, web, cache or netboot, AGE-SECRET-KEY- values, and no key shared between roles."
+        "error_message": "fleet_age_keys needs roles from packages/fleet/roles.json, AGE-SECRET-KEY- values, and no key shared between roles."
       }
     }
   }

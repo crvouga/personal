@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # Install one role from the live image. The USB ISO that CI built already
-# contains ci, web, cache, netboot, and devbox. This machine picks the disk, generates
+# contains every installer role in roles.json. This machine picks the disk, generates
 # the age key, and installs. No work computer, Nix build, or SSH key is required.
 # FLEET_ALLOW_UNPRIVILEGED=1 is a unit-test seam. A real install is root.
 set -euo pipefail
+
+# The installer roles in roles.json; rewritten by scripts/fleet_roles.py sync.
+installer_roles=(ci devbox)
+is_installer_role() {
+  local candidate
+  for candidate in "${installer_roles[@]}"; do
+    [ "$candidate" = "$1" ] && return 0
+  done
+  return 1
+}
 
 if [ "$(id -u)" -ne 0 ] && [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
   exec sudo -n --preserve-env=FLEET_AUTO,FLEET_ROLE,FLEET_CMDLINE,FLEET_KEY_DIR,FLEET_MANIFEST,FLEET_ENROLL_TOKEN,FLEET_VAULT_ADDR,FLEET_DEVBOX_SSH_KEY_FILE,FLEET_LIVE,FLEET_LIVE_STATE -- "$0" "$@"
@@ -50,7 +60,7 @@ if [ "${FLEET_ALLOW_UNPRIVILEGED:-}" != 1 ]; then
 fi
 
 usage() {
-  echo 'usage: fleet-install ci|web|cache|netboot|devbox' >&2
+  echo "usage: fleet-install $(IFS='|'; echo "${installer_roles[*]}")" >&2
   echo 'The boot menu sets fleet.role= and the image installs that role.' >&2
   echo 'ci-gpu is not on this image.' >&2
 }
@@ -81,17 +91,14 @@ fi
 if [ -z "$role" ]; then
   role=$(role_from_cmdline "${FLEET_CMDLINE:-/proc/cmdline}")
 fi
-case "$role" in
-  ci|web|cache|netboot|devbox) ;;
-  ci-gpu)
-    echo 'ci-gpu is not on the shared installer image. This image has ci, web, cache, netboot, and devbox.' >&2
-    exit 2
-    ;;
-  *)
-    usage
-    exit 2
-    ;;
-esac
+if [ "$role" = ci-gpu ]; then
+  echo "ci-gpu is not on the shared installer image. This image has: ${installer_roles[*]}." >&2
+  exit 2
+fi
+if ! is_installer_role "$role"; then
+  usage
+  exit 2
+fi
 
 key_dir=${FLEET_KEY_DIR:-}
 mounted_key=0
@@ -114,7 +121,7 @@ if [ -z "${FLEET_KEY_DIR:-}" ] && [ -e /dev/disk/by-label/FLEET-KEY ]; then
 fi
 
 if [ -n "$key_dir" ] && [ -d "$key_dir" ]; then
-  roles=(ci web cache netboot devbox)
+  roles=("${installer_roles[@]}")
   for ((i = 0; i < ${#roles[@]}; i++)); do
     for ((j = i + 1; j < ${#roles[@]}; j++)); do
       left=$key_dir/${roles[$i]}.age
@@ -159,6 +166,9 @@ cmdline_value() {
 }
 
 enrolled=""
+# Public identifiers that tie this install to the wizard run that sent it. The
+# installed node keeps this log, so its own console report can name them too.
+note "handoff from=$(cmdline_value fleet.from) wizard=$(cmdline_value fleet.wizard) attempt=$(cmdline_value fleet.attempt) wifi=$(cmdline_value fleet.wifi)"
 live_step network
 # Connect with the carried profile before consuming a one-time token or wiping
 # anything. The helper never prints passwords or places them in arguments.
@@ -466,4 +476,4 @@ printf '%s\n' "$pub" >&2
 if [ -s "$ssh_dir/ssh_host_ed25519_key.pub" ]; then
   "$ssh_keygen" -lf "$ssh_dir/ssh_host_ed25519_key.pub" >&2
 fi
-echo 'Remove the USB and reboot. The console prints the public key again.' >&2
+echo 'Remove the USB and reboot. The node console then shows its status, its age public key and its SSH fingerprint.' >&2

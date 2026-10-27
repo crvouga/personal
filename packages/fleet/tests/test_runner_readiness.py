@@ -38,6 +38,39 @@ class RunnerReadinessTests(unittest.TestCase):
             return 0, json.dumps({'online': len(online), 'onlineNames': online})
         return node_readiness.github_issues(self.paths, self.identity, run, self.github, {})
 
+    def inactive(self, restarts=0, register=None):
+        if register is not None:
+            (self.paths.run / 'register').mkdir(exist_ok=True)
+            (self.paths.run / 'register' / 'slot-2.json').write_text(json.dumps(register))
+        def run(args, timeout):
+            if args[1] == 'is-active':
+                return 3, 'active\nactivating'
+            if args[1] == 'show':
+                return 0, ('Id=github-runner-slot-1.service\nActiveState=active\nNRestarts=0\n\n'
+                           f'Id=github-runner-slot-2.service\nActiveState=activating\nNRestarts={restarts}\n')
+            raise AssertionError(args)
+        return node_readiness.github_issues(self.paths, self.identity, run, self.github, {})[0]
+
+    def test_an_inactive_slot_is_explained_by_its_last_registration_or_said_to_be_unknown(self):
+        self.assertEqual(self.inactive(), 'FLEET_RUNNERS_STARTING: 1 of 2 runner services are active.')
+        refused = {'code': 'FLEET_GITHUB_KEY', 'message': 'GitHub refused the App credential (HTTP 401)', 'exit': 78}
+        self.assertTrue(self.inactive(register=refused).startswith('FLEET_GITHUB_KEY: runner slot-2 cannot register with GitHub'))
+        temporary = {'code': 'FLEET_GITHUB_UNAVAILABLE', 'message': 'GitHub could not be reached', 'exit': 75}
+        self.assertIn('retrying automatically', self.inactive(register=temporary))
+        (self.paths.run / 'register' / 'slot-2.json').unlink()
+        looping = self.inactive(restarts=5)
+        self.assertTrue(looping.startswith('FLEET_RUNNER_RESTARTING: runner slot-2 has restarted 5 times'))
+        self.assertIn('not recorded', looping)
+
+    def test_a_refused_status_check_names_the_refusal_not_a_retry(self):
+        def run(args, timeout):
+            if args[0] == 'systemctl':
+                return 0, 'active\nactive'
+            return 78, json.dumps({'code': 'FLEET_GITHUB_SCOPE', 'message': 'GitHub answered HTTP 404 for the runner target'})
+        issue = node_readiness.github_issues(self.paths, self.identity, run, self.github, {})[0]
+        self.assertTrue(issue.startswith('FLEET_GITHUB_SCOPE: GitHub answered HTTP 404'))
+        self.assertNotIn('retrying', issue)
+
     def test_extra_runners_on_one_repository_cannot_hide_a_missing_assigned_runner(self):
         names = {'example/a': [self.prefix + '-slot-1', self.prefix + '-slot-2'], 'example/b': []}
         self.assertIn('1 of 2 expected runners', self.check(names)[0])

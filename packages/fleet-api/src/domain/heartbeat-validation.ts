@@ -1,5 +1,6 @@
 import type { HeartbeatBody, NodeEventInput, Role, Severity } from '../types';
 import { isRole } from '../types';
+import { readEventExtras, readRecovery } from './recovery-validation';
 import { readTelemetry } from './telemetry-validation';
 
 import {
@@ -56,7 +57,12 @@ function readEvent(
     problems.list.push(`${path}.severity must be info, warn or error`);
     return null;
   }
-  return { kind, severity: severity as Severity, message };
+  return {
+    kind,
+    severity: severity as Severity,
+    message,
+    ...readEventExtras(problems, path, value),
+  };
 }
 
 function readEvents(problems: Problems, value: unknown): NodeEventInput[] {
@@ -239,6 +245,7 @@ export function validateHeartbeat(input: unknown): HeartbeatResult {
   const problems: Problems = { list: [] };
   if (input['v'] !== 1) problems.list.push('v must be 1');
   const telemetry = readTelemetry(problems, input['telemetry']);
+  const recovery = readRecovery(problems, input['recovery']);
   const value: HeartbeatBody = {
     v: 1,
     ...readIdentity(problems, input),
@@ -267,6 +274,7 @@ export function validateHeartbeat(input: unknown): HeartbeatResult {
     agent: readAgent(problems, input['agent']),
     events: readEvents(problems, input['events']),
     ...(telemetry ? { telemetry } : {}),
+    ...(recovery ? { recovery } : {}),
     ...(input['readiness'] === undefined
       ? {}
       : {

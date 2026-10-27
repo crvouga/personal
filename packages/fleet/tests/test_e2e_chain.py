@@ -110,7 +110,7 @@ class FullChainTest(unittest.TestCase):
         directory = cls.root / "release"
         directory.mkdir()
         tree = iso_fixture.installer_tree()
-        tree['fleet-readiness.json'] = json.dumps({'version': 1, 'roles': {role: {'blocked': []} for role in ('ci', 'web', 'cache', 'netboot', 'devbox')}}).encode()
+        tree['fleet-readiness.json'] = json.dumps({'version': 1, 'roles': {role: {'blocked': []} for role in ('ci', 'devbox')}}).encode()
         iso = iso_fixture.build(tree)
         source = cls.root / "source.iso"
         source.write_bytes(iso)
@@ -299,7 +299,7 @@ class FullChainTest(unittest.TestCase):
 
     def test_02_unknown_node_waits_for_a_person_then_receives_config(self):
         identity = machine_id("chain-b")
-        node = NodeFiles(self.root / "node-b", f"web-{identity[:4]}", "web", identity)
+        node = NodeFiles(self.root / "node-b", f"devbox-{identity[:4]}", "devbox", identity)
         first = node.agent(self.api, "once")
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
         self.assertIn("registration: pending", first.stdout)
@@ -307,7 +307,7 @@ class FullChainTest(unittest.TestCase):
 
         status, page, _ = http("GET", self.api + "/pending", self.admin)
         self.assertEqual(status, 200)
-        self.assertIn(f"web-{identity[:4]}", page.decode())
+        self.assertIn(f"devbox-{identity[:4]}", page.decode())
         cached = json.loads((node.state / "config.json").read_text())
         self.assertEqual(set(cached["values"]), {"heartbeat"}, "a pending node learns its report interval and nothing else")
 

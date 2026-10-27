@@ -335,7 +335,7 @@ class RealSopsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             keys = {}
-            for role in ("ci", "web"):
+            for role in ("ci", "devbox"):
                 out = subprocess.run(["age-keygen"], capture_output=True, text=True, check=True)
                 keys[role] = (re.search(r"public key: (age1\w+)", out.stderr + out.stdout).group(1), out.stdout)
             pem = "-----BEGIN RSA PRIVATE KEY-----\nAAAA\nBBBB\n-----END RSA PRIVATE KEY-----\n"
@@ -346,8 +346,8 @@ class RealSopsTest(unittest.TestCase):
                                   env={**os.environ, "SOPS_AGE_KEY": keys["ci"][1]})
             self.assertEqual(good.stdout, pem.rstrip("\n") + "\n" if good.stdout.endswith("\n") else pem.rstrip("\n"))
             bad = subprocess.run(["sops", "--decrypt", str(destination)], capture_output=True, text=True,
-                                 env={**os.environ, "SOPS_AGE_KEY": keys["web"][1]})
-            self.assertNotEqual(bad.returncode, 0, "the web role's key must not open the ci secret")
+                                 env={**os.environ, "SOPS_AGE_KEY": keys["devbox"][1]})
+            self.assertNotEqual(bad.returncode, 0, "the devbox role's key must not open the ci secret")
 
 
 if __name__ == "__main__":

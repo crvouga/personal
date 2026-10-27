@@ -112,6 +112,13 @@ ${builtins.readFile ../scripts/runner_control.py}
       printf '%s\n' "$repo" > "$used/${id}"
       ${pkgs.coreutils}/bin/chmod 0644 "$used/${id}"
     fi
+    # The system this slot runs on: the agent restarts an idle slot onto a
+    # newer one after an update (agent.py refresh_stale_slots).
+    # Advisory: it never stops registration.
+    { ${pkgs.coreutils}/bin/install -d -m 0700 -o ${id} -g ${id} /run/fleet/${id} \
+      && ${pkgs.coreutils}/bin/readlink -f /run/current-system > /run/fleet/${id}/system; } 2>/dev/null || true
+    # The outcome, public text only, for the console screen and readiness.
+    export FLEET_REGISTER_STATUS=/run/fleet/register/${id}.json
     exec ${token} register "$scope" "$target" ${lib.escapeShellArgs [ settings.github.appId settings.github.installationId "/run/secrets/github-app-key" "/run/fleet/tokens/${id}" ]}
   '';
   targets = if settings.github.scope == "organization" then [ settings.github.organization ] else settings.github.repositories;
@@ -177,6 +184,9 @@ in {
   });
   systemd.tmpfiles.rules = lib.concatMap (id: [
     "d /nix/ci-cache/${id} 0700 ${id} ${id} -"
+    # The job this slot is running, durably (runner_job.py; recovery.py reads it
+    # after a power loss). Written by the slot's own user, so never trusted.
+    "d /nix/ci-state/${id} 0700 ${id} ${id} -"
     "d /run/fleet/${id} 0700 ${id} ${id} -"
   ]) ids ++ [ "d /run/fleet 0755 root root -" "f /run/fleet/gate 0666 root root -" ];
   services.github-runners = builtins.listToAttrs (lib.imap1 (n: id: lib.nameValuePair id {
@@ -194,6 +204,7 @@ in {
     extraLabels = [ "nixos" "ci" ];
     extraPackages = lib.optionals settings.containers [ pkgs.podman ];
     extraEnvironment = {
+      FLEET_JOB_STATE_ROOT = "/nix/ci-state";
       ACTIONS_RUNNER_INPUT_NAME = "%H-${id}";
       FLEET_SLOT = id;
       CI_CACHE_DIR = "/nix/ci-cache/${id}";
@@ -213,7 +224,7 @@ in {
         "${pkgs.coreutils}/bin/rm -f /run/fleet/${id}/busy"
         "${tools.runnerJob}/bin/fleet-runner-job stopped"
       ];
-      ReadWritePaths = [ "/nix/ci-cache/${id}" "/run/fleet/${id}" ]
+      ReadWritePaths = [ "/nix/ci-cache/${id}" "/nix/ci-state/${id}" "/run/fleet/${id}" ]
         ++ lib.optional settings.containers "/run/user/${toString (2000 + lib.lists.findFirstIndex (x: x == id) 0 ids)}";
       # Rootless Podman requires namespaces and mounts; enabled only explicitly.
     } // lib.optionalAttrs settings.containers {
@@ -227,6 +238,10 @@ in {
   systemd.services = builtins.listToAttrs (lib.imap1 (n: id: lib.nameValuePair "github-runner-${id}" {
     wantedBy = lib.mkForce [ ];
     requires = [ "node-identity.service" ];
+    # An update must not restart a runner: that killed the job it was running.
+    # The new unit takes effect when the slot next starts: after its job for a
+    # busy slot, at once for an idle one (agent.py refresh_stale_slots).
+    restartIfChanged = false;
     after = [ "node-identity.service" ] ++ lib.optional (settings.secretsFile != null) "sops-install-secrets.service";
     # fleet-remove writes /nix/fleet-state/withdrawn. It survives reboots, so a
     # removed node never registers again until it is reinstalled.

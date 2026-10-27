@@ -32,7 +32,7 @@ class CheckScheduling(unittest.TestCase):
         self.addCleanup(self.mock_context.stop)
 
     def test_every_check_runs_once_and_new_checks_are_not_lost(self):
-        names = ["node", "web", "cache", "netboot", "devbox", "agent-units", "cattle", "future-check"]
+        names = ["ci", "devbox", "roles", "agent-units", "cattle", "future-check"]
         names += [name for group in ci_checks.SPECIAL.values() for name in group]
         groups = ci_checks.partition(names)
         self.assertCountEqual([name for group in groups.values() for name in group], names)
@@ -71,21 +71,21 @@ class CheckScheduling(unittest.TestCase):
     def test_only_unchanged_successful_derivations_can_reuse_a_result(self, build):
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "results.json"
-            original = plan("runtime", {"vm": drv("a"), "web-vm": drv("b")})
+            original = plan("runtime", {"vm": drv("a"), "native-vm": drv("b")})
             with patch.dict("os.environ", {"GITHUB_SHA": "first-commit"}):
                 ci_checks.run("runtime", original, cache)
             build.assert_called_once()
             build.reset_mock()
             ci_checks.run("runtime", original, cache)
             build.assert_not_called()
-            updated = plan("runtime", {"vm": drv("c"), "web-vm": drv("b")})
+            updated = plan("runtime", {"vm": drv("c"), "native-vm": drv("b")})
             with patch.dict("os.environ", {"GITHUB_SHA": "second-commit"}):
                 ci_checks.run("runtime", updated, cache)
             self.assertEqual(build.call_args.args[0][-1], drv("c") + "^*")
             self.assertNotIn(drv("b") + "^*", build.call_args.args[0])
             saved = json.loads(cache.read_text())["passed"]
             self.assertEqual(saved["vm"]["revision"], "second-commit")
-            self.assertEqual(saved["web-vm"]["revision"], "first-commit")
+            self.assertEqual(saved["native-vm"]["revision"], "first-commit")
 
     @patch.object(ci_checks, "realized_checks", return_value=[])
     @patch.object(subprocess, "run", side_effect=subprocess.CalledProcessError(1, "nix"))
@@ -161,6 +161,6 @@ class PartialResults(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "results.json"
             with self.assertRaises(subprocess.CalledProcessError):
-                ci_checks.run("runtime", plan("runtime", {"vm": drv("a"), "web-vm": drv("b")}), cache)
+                ci_checks.run("runtime", plan("runtime", {"vm": drv("a"), "native-vm": drv("b")}), cache)
             self.assertEqual(set(json.loads(cache.read_text())["passed"]), {"vm"})
             self.assertIn("--keep-going", build.call_args.args[0])

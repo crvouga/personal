@@ -58,6 +58,22 @@ if args[0]=='--no-block':
     def calls(self):
         return [json.loads(line) for line in (self.root / 'calls').read_text().splitlines()]
 
+    def test_low_disk_keeps_admission_closed_and_a_resume_clears_every_other_reason(self):
+        reasons = self.run / 'drain-reasons'
+        reasons.mkdir()
+        (reasons / 'low-disk').write_text('2026-10-26T00:00:00Z\n')
+        result = self.resume()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('FLEET_LOW_DISK', result.stdout)
+        self.assertTrue((self.run / 'draining').exists(), 'only the cache cleanup lifts a low-disk drain')
+        (reasons / 'low-disk').unlink()
+        for name in ('config', 'manual', 'unknown'):
+            (reasons / name).write_text('2026-10-26T00:00:00Z\n')
+        result = self.resume()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.run / 'draining').exists())
+        self.assertEqual(list(reasons.iterdir()), [], 'no orphaned reason survives a resume')
+
     def test_start_conditions_see_the_reopened_gate_and_busy_jobs_are_not_stopped(self):
         (self.run / 'slot-1').mkdir()
         (self.run / 'slot-1/busy').touch()

@@ -337,8 +337,8 @@ describeApi('GET /v1/summary', (ctx) => {
     await h.register(2, { roleToken: CI_ROLE_TOKEN });
     await h.register(3);
     await h.register(4, {
-      role: 'web',
-      hostname: 'web-1234',
+      role: 'devbox',
+      hostname: 'devbox-1234',
       roleToken: 'wrong',
     });
     await h.asNode(

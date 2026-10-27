@@ -5,8 +5,16 @@ export type { Telemetry } from './telemetry';
  * node agent. Nothing here touches I/O.
  */
 
+/**
+ * Roles come from packages/fleet/roles.json; `fleet_roles.py sync` rewrites the
+ * two lists below. ROLES is every role in the registry, so node rows and
+ * settings of a retired role stay valid until a reviewed change deletes it.
+ * ACTIVE_ROLES are the roles a new machine may enroll as.
+ */
 export const ROLES = ['ci', 'web', 'cache', 'netboot', 'devbox'] as const;
 export type Role = (typeof ROLES)[number];
+export const ACTIVE_ROLES = ['ci', 'devbox'] as const satisfies readonly Role[];
+export type ActiveRole = (typeof ACTIVE_ROLES)[number];
 
 /** What a person decided about a machine. */
 export type Approval = 'pending' | 'approved' | 'rejected' | 'retired';
@@ -23,6 +31,40 @@ export interface NodeEventInput {
   readonly kind: string;
   readonly severity: Severity;
   readonly message: string;
+  /**
+   * Stable identity from the node's durable outbox (packages/fleet/scripts/recovery.py).
+   * An event whose key this node already reported is not stored again, so a
+   * retried heartbeat cannot record it twice.
+   */
+  readonly key?: string;
+  /** When the node says it happened, by its own clock. Stored as data.occurredAt. */
+  readonly at?: string;
+  readonly data?: Readonly<Record<string, string | number | boolean | null>>;
+}
+
+/** What a node remembers across power loss (recovery.py status). */
+export interface RecoveryFacts {
+  readonly boot: {
+    /** Whether the boot before this one shut down cleanly; null when unknown. */
+    readonly previousClean: boolean | null;
+    readonly previousEndedAt: string | null;
+    /** [unclean boots, boots] over the node's recent boot history. */
+    readonly uncleanOfLast: readonly [number, number];
+  };
+  /** A kernel/initrd the node fell back from and will not reboot into again. */
+  readonly quarantine: {
+    readonly revision: string | null;
+    readonly toplevel: string | null;
+    readonly at: string | null;
+    readonly reason: string | null;
+  } | null;
+  /** Runner admission, and every reason that holds it closed. */
+  readonly gate: {
+    readonly closed: boolean;
+    readonly reasons: readonly string[];
+  };
+  /** Recovery events still waiting for Fleet to accept them. */
+  readonly outbox: number;
 }
 
 /** POST /v1/heartbeat body. Every field a node cannot know is null. */
@@ -66,6 +108,7 @@ export interface HeartbeatBody {
     readonly configRevision: string | null;
   };
   readonly events: readonly NodeEventInput[];
+  readonly recovery?: RecoveryFacts;
 }
 
 export interface NodeRow {
@@ -167,5 +210,12 @@ export interface FleetSummary {
 export function isRole(value: unknown): value is Role {
   return (
     typeof value === 'string' && (ROLES as readonly string[]).includes(value)
+  );
+}
+
+export function isActiveRole(value: unknown): value is ActiveRole {
+  return (
+    typeof value === 'string' &&
+    (ACTIVE_ROLES as readonly string[]).includes(value)
   );
 }

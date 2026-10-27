@@ -3,6 +3,7 @@ import {
   deriveReportEvents,
   DEFAULT_DISK_ALERT_PERCENT,
 } from '../domain/heartbeat-events';
+import { storedEvent } from '../domain/event-keys';
 import { DEFAULT_HEARTBEAT_SECONDS } from '../domain/status';
 import {
   compactTelemetry,
@@ -122,7 +123,7 @@ export async function storeHeartbeat(
   await insertEvents(
     db,
     { id: row.id, label },
-    [...derived, ...body.events],
+    [...derived, ...body.events].map(storedEvent),
     at
   );
   return row;

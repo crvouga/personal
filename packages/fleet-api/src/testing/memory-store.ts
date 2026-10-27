@@ -1,4 +1,5 @@
 import type { FleetConfig, Scope } from '../config/schema';
+import { storedEvent, unseen } from '../domain/event-keys';
 import { boundedHistory, compactTelemetry } from '../domain/heartbeat-history';
 import { diskPercent, readFacts } from '../ui/lib/facts';
 import type { EventQuery, NodePatch, RegisterInput, Store } from '../store';
@@ -128,7 +129,13 @@ export class MemoryStore implements Store {
         ? { telemetry: compactTelemetry(body.telemetry) }
         : {}),
     });
-    for (const event of body.events) {
+    const seen = new Set(
+      this.events
+        .filter((event) => event.nodeId === id)
+        .map((event) => event.data['key'])
+        .filter((key): key is string => typeof key === 'string')
+    );
+    for (const event of unseen(body.events.map(storedEvent), seen)) {
       this.pushEvent(
         {
           ...event,

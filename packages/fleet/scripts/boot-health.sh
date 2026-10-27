@@ -29,6 +29,12 @@ if last.is_symlink() and last.resolve()!=current and last.exists():
     point(previous,last.resolve())
 point(last,current)
 PY
+  # The system an update rebooted into came up healthy: nothing to quarantine.
+  state=${FLEET_STATE:-/nix/fleet-state}
+  if [ -f "$state/sync/pending-boot" ] \
+    && grep -qxF "toplevel=$(readlink -f "${FLEET_BOOTED_SYSTEM:-/run/booted-system}")" "$state/sync/pending-boot"; then
+    rm -f "$state/sync/pending-boot"
+  fi
   echo 'FLEET_BOOT_HEALTHY: update connectivity and timer verified; this boot may be blessed'
   exit 0
 fi

@@ -1,12 +1,6 @@
-# One age recipient per role. CI and web never share a key.
+# One age recipient per active role in roles.json. Roles never share a key.
 creation_rules:
   - path_regex: secrets/fleet\.(yaml|yml|json)$
     age: age15gnpd4d83e2szeg8gzjgjqhk0agugywvgrr444h9mk75aqha89dq7q2cnr
-  - path_regex: secrets/web\.(yaml|yml|json)$
-    age: age1au6sgfhc30g24wf0emd8xvj970cewykhq7nxpkqmacftexj3pgqstw4zj3
-  - path_regex: secrets/cache\.(yaml|yml|json)$
-    age: age1f5dj80uz0zjwhyvur8hh98w7crr3jlszl8vm6n0emfhy00psve0qtrr9nd
-  - path_regex: secrets/netboot\.(yaml|yml|json)$
-    age: age1pjyzl9pxqsxll9p9cwrvn9llpksvx74h3lzqm27lzyxvrtdkwg6ste5a83
   - path_regex: secrets/devbox\.(yaml|yml|json)$
     age: age1cmg9vu39pwv8u38mndql7h20fgl80wveweq4jgdexyrkrpgnqy3ss4dzkv

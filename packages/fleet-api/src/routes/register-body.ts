@@ -5,11 +5,11 @@ import {
   requireString,
   type Problems,
 } from '../domain/heartbeat-fields';
-import { isRole, type Role } from '../types';
+import { ACTIVE_ROLES, isActiveRole, type ActiveRole } from '../types';
 
 export interface RegisterBody {
   readonly nodeId: string;
-  readonly role: Role;
+  readonly role: ActiveRole;
   readonly hostname: string;
   readonly secret: string;
   readonly roleToken: string | undefined;
@@ -42,8 +42,10 @@ export function validateRegister(input: unknown): RegisterResult {
     max: MAX_ROLE_TOKEN,
   });
   const role = input['role'];
-  if (!isRole(role)) problems.list.push('role must be one of the known roles');
-  if (problems.list.length > 0 || !isRole(role))
+  // A retired role keeps its rows, but no new machine may enroll as one.
+  if (!isActiveRole(role))
+    problems.list.push(`role must be one of: ${ACTIVE_ROLES.join(', ')}`);
+  if (problems.list.length > 0 || !isActiveRole(role))
     return { ok: false, errors: problems.list };
   return {
     ok: true,

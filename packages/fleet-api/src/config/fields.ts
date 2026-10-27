@@ -6,7 +6,11 @@
  */
 export interface FleetConfig {
   heartbeat?: { intervalSeconds?: number };
-  sync?: { paused?: boolean };
+  /**
+   * retryBootAfter: a Unix time. A kernel this node quarantined before then may
+   * be tried again (the node page's "Retry the update" sets it to now).
+   */
+  sync?: { paused?: boolean; retryBootAfter?: number };
   reboot?: { enabled?: boolean; delayMaxSeconds?: number };
   disk?: { alertPercent?: number };
   capacity?: {
@@ -19,6 +23,11 @@ export interface FleetConfig {
   runners?: {
     enabled?: boolean;
     cordoned?: boolean;
+    /**
+     * A Unix time. A manual drain recorded before then is lifted (the node
+     * page's "Reopen runner admission" sets it to now).
+     */
+    reopenAfter?: number;
     repositories?: string[];
     extraLabels?: string[];
   };
@@ -68,7 +77,10 @@ export const MAX_URL_LENGTH = 500;
 export const RULES: Readonly<Record<Section, Readonly<Record<string, Rule>>>> =
   {
     heartbeat: { intervalSeconds: { kind: 'int', min: 15, max: 3600 } },
-    sync: { paused: { kind: 'bool' } },
+    sync: {
+      paused: { kind: 'bool' },
+      retryBootAfter: { kind: 'int', min: 0, max: 4102444800 },
+    },
     reboot: {
       enabled: { kind: 'bool' },
       delayMaxSeconds: { kind: 'int', min: 0, max: 86400 },
@@ -84,6 +96,7 @@ export const RULES: Readonly<Record<Section, Readonly<Record<string, Rule>>>> =
     runners: {
       enabled: { kind: 'bool' },
       cordoned: { kind: 'bool' },
+      reopenAfter: { kind: 'int', min: 0, max: 4102444800 },
       repositories: {
         kind: 'list',
         max: MAX_REPOSITORIES,

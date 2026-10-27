@@ -4,7 +4,9 @@ locals {
   vault         = local.config.vault
   vault_addr    = "https://${local.vault.hostname}"
   router_values = { for key, password in random_password.router : key => lookup(var.secrets["prd"], key, password.result) }
-  # Roles that may enroll without a person approving them in the fleet dashboard.
+  # Every role in packages/fleet/roles.json, active or retired: a retired role
+  # keeps its token until a reviewed change deletes it from the registry.
+  # scripts/fleet_roles.py sync rewrites this list; its check fails on drift.
   fleet_roles = ["ci", "web", "cache", "netboot", "devbox"]
   # The fleet API holds only the SHA-256 of each role token; nodes hold the raw token.
   fleet_values = {

@@ -10,6 +10,12 @@ install -d -m 0755 /run/fleet
 exec 9>/run/fleet/gate
 flock 9
 touch /run/fleet/draining
+# Why admission is closed (docs/resilience.md). Each holder clears only its own
+# reason, and admission reopens when none is left: a drain is never orphaned.
+reason=${FLEET_DRAIN_REASON:-manual}
+[[ "$reason" =~ ^[a-z-]{1,30}$ ]] || reason=manual
+install -d -m 0755 /run/fleet/drain-reasons
+date -u +%Y-%m-%dT%H:%M:%SZ > "/run/fleet/drain-reasons/$reason"
 flock -u 9
 host=""
 if [ -r /run/fleet/node ]; then

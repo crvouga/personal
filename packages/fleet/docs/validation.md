@@ -285,3 +285,11 @@ Still not run, so not claimed:
 - The wizard's PyInstaller builds on the five platforms.
 - The production rollout: the Vault and foundation plans, Atlas against the real PlanetScale database, the Railway service, DNS, TLS, and the GitHub App creation on github.com. The container was exercised against a local Postgres container, not PlanetScale (`sslmode=require`, the pooler).
 - The `fleet-e2e` job itself. It mirrors the local run (process, then image with host networking) but has not run on GitHub. The image-mode path of `test/e2e/stack.ts` could not run on this Mac, where the Docker VM cannot reach the host's loopback Postgres.
+
+## 2026-10-26 role registry and the two-role fleet
+
+Added: `roles.json` as the only definition of a role, `roles.nix` (validated read for the flake and modules), and `scripts/fleet_roles.py` (complete rules, repository-side reads, `sync`/`check` of the copies node scripts, fleet-api, Atlas and the vault root keep, and `placement`, which `fleet-sync` runs against `roles.json` at the fetched revision). `ci` and `devbox` are active; `web`, `cache` and `netboot` are retired, with their modules, hosts, settings, tests and sops recipients deleted. The web VM's native-without-nix-ld coverage moved to `tests/native.nix`. Postgres check constraint, vault role list and token set are byte-identical to before, so neither the Atlas schema nor the vault plan changes.
+
+Ran on a Mac without Nix and passed: the fleet suite (`tests/run.py`, including the new `test_roles.py` and the `fleet-sync` registry cases) with `scripts/lint.sh` (shellcheck, actionlint, bundle freshness, `fleet_roles.py check`); fleet-api unit tests, lint and typecheck of the changed files; the cache-probe test; `tofu fmt` of the vault root and tests; Prettier.
+
+Not run, so not claimed: `nix flake check`, any closure or ISO build, and the NixOS VM tests (including the new `native-vm` and the `checks.roles` derivation); the `Fleet cache` workflow's registry-driven role list and the `lib.cacheProbe` evaluation; the vault plan and Atlas apply. Whether any live node still carries a retired role is runtime data; such a node's own `fleet-sync` predates this change and fails as a cache miss, while fleet-api marks it not ready with the retirement reason.

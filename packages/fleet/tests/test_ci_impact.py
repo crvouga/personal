@@ -18,7 +18,7 @@ class FleetImpactTests(unittest.TestCase):
                          {"fleet": True, "nix": False, "installer": False})
 
     def test_role_configuration_pr_keeps_nix_and_skips_unaffected_packagers(self):
-        for path in ["fleet.nix", "cache.nix", "hosts/ci.nix", "settings/shared.nix", "hardware/gpu.nix"]:
+        for path in ["fleet.nix", "devbox.nix", "hosts/ci.nix", "settings/shared.nix", "hardware/gpu.nix"]:
             with self.subTest(path=path):
                 self.assertEqual(impact.classify(["packages/fleet/" + path], "pull_request", True),
                                  {"fleet": True, "nix": True, "installer": False})

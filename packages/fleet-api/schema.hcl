@@ -113,6 +113,8 @@ table "nodes" {
   check "nodes_id_is_sha256" {
     expr = "id ~ '^[0-9a-f]{64}$'"
   }
+  # Every role in packages/fleet/roles.json; scripts/fleet_roles.py sync
+  # rewrites the list. A retired role stays until its rows are gone.
   check "nodes_role_known" {
     expr = "role IN ('ci', 'web', 'cache', 'netboot', 'devbox')"
   }

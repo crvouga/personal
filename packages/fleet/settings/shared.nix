@@ -40,14 +40,6 @@
     pushUrl = null;
   };
 
-  # Empty: the netboot server tells every client to boot the local disk.
-  # A 4-hex stable id or a role name selects the netboot ramdisk. That ramdisk
-  # does not carry the role closures, so the flag does not install a node.
-  reinstall = {
-    nodes = [ ];
-    roles = [ ];
-  };
-
   repo = {
     # Every role polls main over HTTPS. There is no deploy branch and no
     # canary branch.

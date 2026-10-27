@@ -42,24 +42,71 @@ for a running helper to finish; never kill it or erase again just to get logs.
 
 Issues titled `Fleet installer screen: …` come from the live image after a
 restart (`scripts/live_console.py`, driven by `scripts/fleet-auto.sh` and
-`scripts/fleet-install.sh`). The QR code carries only a short summary: role,
-the first 8 characters of the **revision**, where it started from
-(`windows`, `linux` or `usb`), the outcome with its exit status, and the
-reason. The issue title holds the `FLEET_*` code when there is one. Read the
+`scripts/fleet-install.sh`). The QR code is as large as the console allows
+(about 900 bytes on a 1920x1080 screen, 450 on 1024x768) and its report is
+ordered most useful first, so a cut report loses only the end. The issue title
+holds the `FLEET_*` code, and in brackets the network verdict when the network
+was not ready. The compact lines are:
+
+- First line: role, the first 8 characters of the **revision**, where it started
+  from (`windows`, `linux` or `usb`), the outcome before or after erasing,
+  `exit=`, `step=N/7`, `t=` elapsed and `tries=` (readiness attempts).
+- `why` / `lastwait`: the reason, when the network verdict does not already say it.
+- `net CODE wifi=SENT,ARRIVED auth= seen= nearby= run=`: the network verdict
+  from `wizard/fleet_wifi.py` (`refused`, `not-visible`, `no-settings`,
+  `settings-lost`, `no-driver`, `no-adapter`, `adapter-unavailable`,
+  `radio-off`, `no-address`, `internet`, `timeout`, `no-connect`). `SENT` is the
+  `fleet.wifi=` boot word (`sent`, `none`, or `unknown` for a USB boot or an
+  older handoff). `ARRIVED` says whether the settings reached
+  `/run/fleet-wifi/wifi.json`. `seen=` is the carried network's signal, band and
+  security in the scan, or `no`.
+- `try AUTH:RESULT …`: each connection attempt, with NetworkManager's reason.
+- `nic`, `nodriver`, `rfkill`: interfaces with driver and PCI/USB id, network
+  controllers no driver claimed, and radio blocks.
+- `check NAME=STATE`: network checks that did not pass. `klog`: the kernel's last
+  complaints about wireless hardware or firmware. `clock`: the live system's UTC
+  time, to compare against certificate errors.
+- `hw`, then `log`: the last install-log lines, joined with `|`.
+
+The network name, MAC addresses, passwords and tokens are never in a report. Read the
 reason codes in `scripts/bootstrap-readiness.py` (75 means retried before
 erasing; anything else stopped). The **Step** field names the screen step:
 1 network, 2 approval, 3 checks, 4 disk, 5 erase, 6 install, 7 restart. The
 same `step <name>` lines are in `/run/fleet-install.log`, and in
 `/nix/fleet-state/logs/install.log` on an installed node.
 
-A photo of the screen, or `fleet-report --full` copied over SSH, adds the
-machine, network links, the last 40 install-log lines and the last attempt's
-output. When the node had enrolled, Fleet also records each stop as an
+A photo of the screen, or `fleet-report --full` copied over SSH, adds every
+network check with its detail, the last 40 install-log lines and the last
+attempt's output. `/run/fleet-live/network.json` on the machine is the raw
+network record (it does contain the network name). When the node had enrolled, Fleet also records each stop as an
 installation event. On the machine, `journalctl -u fleet-auto-install` has
 everything the installer printed; the screens themselves go straight to the
 console because systemd's `journal+console` prefixes each line and breaks the
 QR code. Reproduce screens with `tests/test_live_console.py` and the retry and
 return decisions with `tests/test_auto.py`; both use stand-ins, never a disk.
+
+## Reports from an installed node's console
+
+Issues titled `Fleet node console: …` come from a node after installation
+(`scripts/node_console.py`). The title holds the first problem's code and the
+role. Its compact lines:
+
+- `node HOST ROLE rev= state= up=`: `state` is `problem` (something lasting, or
+  still not ready after 20 minutes) or `unknown` (the Fleet agent is not
+  reporting, so readiness could not be confirmed).
+- `why`, then `issue temp|lasting …`: the readiness issues the agent last sent
+  to Fleet, plus local findings. `temp` codes usually clear by themselves.
+- `slots A/N active`, then one line per unhealthy slot with its systemd state,
+  restart count and last registration outcome (`register=CODE exit=78` is a
+  refusal from GitHub; see `scripts/runner_control.py` `refusal`).
+- `fleet agent= outcome= approval= last= failures= error=`: the agent's last
+  report attempt.
+- `net`, `sync`, `failed`, `hw`, `installed` (the install log's handoff line:
+  wizard build and attempt), and `journal UNIT | …`: the last journal lines of the
+  first unhealthy runner or failed unit, with long opaque strings redacted.
+
+Over SSH, `fleet-node-status --report` prints the full report link. Reproduce
+with `tests/test_node_console.py`.
 
 ## Reproduce without touching hardware
 

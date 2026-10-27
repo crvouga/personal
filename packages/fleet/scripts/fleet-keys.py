@@ -5,6 +5,10 @@ Writes the private keys to the vault root's ignored auto.tfvars.json (the
 `fleet_age_keys` input) and the matching public recipients to .sops.yaml.
 Existing keys are kept, so running it twice changes nothing. Private keys are
 never printed and never written under a tracked path.
+
+Keys are created for the active roles in roles.json. A retired role's existing
+key stays in the input, because the vault root keeps its document until a
+reviewed change deletes the role from the registry.
 """
 import json
 import os
@@ -13,8 +17,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROLES = ("ci", "web", "cache", "netboot", "devbox")
-FILES = {"ci": "fleet", "web": "web", "cache": "cache", "netboot": "netboot", "devbox": "devbox"}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fleet_roles  # noqa: E402  (a sibling file, not an installed package)
+
+REGISTRY = fleet_roles.load()
+ROLES = REGISTRY.view("active")
+# The sops file each active role's recipient encrypts: secrets/fleet.yaml -> fleet.
+FILES = {role.name: Path(role.secrets).stem for role in REGISTRY.roles if role.is_active}
+KNOWN = frozenset(REGISTRY.view("known"))
 HERE = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = HERE.parent / "infra" / "tofu" / "vault" / "fleet-age-keys.auto.tfvars.json"
 
@@ -48,7 +58,7 @@ def write_private(path, data):
 
 
 def sops_text(publics):
-    lines = ["# One age recipient per role. CI and web never share a key.", "creation_rules:"]
+    lines = ["# One age recipient per active role in roles.json. Roles never share a key.", "creation_rules:"]
     for role in ROLES:
         lines += [f"  - path_regex: secrets/{FILES[role]}\\.(yaml|yml|json)$", f"    age: {publics[role]}"]
     return "\n".join(lines) + "\n"
@@ -68,6 +78,11 @@ def main(argv):
             created.append(role)
     if len(set(keys.values())) != len(keys):
         print("Two roles share a key. Fix the input by hand.", file=sys.stderr)
+        return 1
+    unknown = sorted(set(keys) - KNOWN)
+    if unknown:
+        # The vault root's validation refuses these too; stop before it does.
+        print("Keys for roles not in roles.json: " + ", ".join(unknown) + ". Remove them from " + str(out) + ".", file=sys.stderr)
         return 1
     if created:
         write_private(out, {"fleet_age_keys": keys})

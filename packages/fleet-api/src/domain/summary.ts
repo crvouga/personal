@@ -1,6 +1,7 @@
 import { readFacts } from '../ui/lib/facts';
 import {
   ROLES,
+  isActiveRole,
   type FleetSummary,
   type NodeStatus,
   type NodeView,
@@ -27,6 +28,11 @@ function emptyByRole(): Record<Role, { total: number; online: number }> {
   return Object.fromEntries(
     ROLES.map((role) => [role, { total: 0, online: 0 }])
   ) as Record<Role, { total: number; online: number }>;
+}
+
+/** Active roles, plus a retired role only while approved nodes still carry it. */
+export function visibleRoles(byRole: FleetSummary['byRole']): Role[] {
+  return ROLES.filter((role) => isActiveRole(role) || byRole[role].total > 0);
 }
 
 function revisionCounts(views: readonly NodeView[]): FleetSummary['revisions'] {

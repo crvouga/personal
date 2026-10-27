@@ -122,10 +122,10 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual((root / "run/fleet/node").stat().st_mode & 0o777, 0o644)
             self.assertEqual((root / "run/fleet/slot-count").read_text(), "2\n")
             self.assertIn("ACTIONS_RUNNER_INPUT_NAME=ci-gpu-highmem-ab12\n", (root / "run/fleet/identity").read_text())
-            conf["role"] = "web"
+            conf["role"] = "devbox"
             cattle.apply_identity(root, conf, "ab12", 512, "x86_64", names.append, cores=2)
             self.assertFalse((root / "run/fleet/identity").exists())
-            self.assertIn("hostname=web-gpu-ab12\n", (root / "run/fleet/node").read_text())
+            self.assertIn("hostname=devbox-gpu-ab12\n", (root / "run/fleet/node").read_text())
 
 
 class MachineIdTests(unittest.TestCase):
@@ -143,11 +143,11 @@ class MachineIdTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             digest = cattle.machine_digest("abc-def", None)
-            conf = {"role": "web", "high_mem_gib": "60"}
+            conf = {"role": "devbox", "high_mem_gib": "60"}
             cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None, machine_id=digest)
             node = (root / "run/fleet/node").read_text()
             self.assertIn(f"id={digest[:4]}\nmachine_id={digest}\n", node)
-            self.assertIn(f"runner_prefix=web-{digest[:4]}-{digest[:32]}\ncapabilities=", node)
+            self.assertIn(f"runner_prefix=devbox-{digest[:4]}-{digest[:32]}\ncapabilities=", node)
             cattle.apply_identity(root, conf, digest[:4], 1024, "x86_64", lambda _name: None)
             self.assertNotIn("machine_id", (root / "run/fleet/node").read_text())
             for wrong in ("a" * 64, digest[:63], digest.upper(), "zz" + digest[2:]):

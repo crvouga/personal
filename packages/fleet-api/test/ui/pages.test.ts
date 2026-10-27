@@ -47,9 +47,11 @@ describe('overview', () => {
     expect(page).toContain('Missed check-ins');
     expect(page).toContain('caddy.service failed');
     expect(page).not.toContain('quiet info event');
-    for (const role of ['ci', 'web', 'cache', 'netboot', 'devbox']) {
+    // Active roles always; a retired role only while approved nodes carry it.
+    for (const role of ['ci', 'devbox', 'web', 'cache']) {
       expect(page).toContain(`href="/nodes?role=${role}"`);
     }
+    expect(page).not.toContain('href="/nodes?role=netboot"');
   });
 
   test('counts: 3 slots busy of 13 over online and stale ci nodes', async () => {

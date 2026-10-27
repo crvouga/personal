@@ -3,7 +3,7 @@ let shared = import ./settings/shared.nix;
 in {
   role = "ci";
   flakeAttr = "ci";
-  inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache capacity drift disk monitoring reinstall fleetApi;
+  inherit (shared) sshKeys bootGenerationLimit bootTries repo binaryCache capacity drift disk monitoring fleetApi;
   # Set true only in the commit that adds the sops secret age-key-next.
   rotateAgeKey = false;
   reboot = shared.reboot // { drainCommand = "fleet-drain"; resumeCommand = "fleet-resume"; };
@@ -15,7 +15,7 @@ in {
   cache = {
     maxGiB = 100;
     minFreeGiB = 30;
-    # Optional CI scratch store. This is not the fleet attic cache.
+    # Optional CI scratch store. The shared update cache is binaryCache.
     remote = {
       enable = false;
       url = "s3://TODO?endpoint=TODO&region=auto";

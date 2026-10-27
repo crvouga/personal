@@ -215,14 +215,14 @@ class InstallTests(unittest.TestCase):
 
     def test_cmdline_role_uses_the_last_value(self):
         cmdline = self.root / "cmdline"
-        cmdline.write_text("root=LABEL=nixos fleet.role=ci fleet.role=web\n")
-        web = self.root / "systems" / "web"
-        web.mkdir()
+        cmdline.write_text("root=LABEL=nixos fleet.role=ci fleet.role=devbox\n")
+        devbox = self.root / "systems" / "devbox"
+        devbox.mkdir()
+        key = "ssh-ed25519 " + base64.b64encode(b"\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20" + b"x" * 32).decode()
+        env = self.devbox_env(key=key + "\n")
         self.manifest.write_text(
-            f"ci {self.system}\nweb {web}\ndisko {self.disko}\n"
+            f"ci {self.system}\ndevbox {devbox}\ndisko {self.disko}\n"
         )
-        env = self.env.copy()
-        env["FLEET_AUTO"] = "1"
         env["FLEET_CMDLINE"] = str(cmdline)
         result = subprocess.run(
             [str(SCRIPT)],
@@ -232,8 +232,8 @@ class InstallTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"install --no-root-passwd --root {self.mnt} --system {web}", self.log.read_text())
-        self.assertIn("Role: web", result.stderr)
+        self.assertIn(f"install --no-root-passwd --root {self.mnt} --system {devbox}", self.log.read_text())
+        self.assertIn("Role: devbox", result.stderr)
 
     def test_non_tty_refuses_before_disko(self):
         result = subprocess.run(
@@ -481,11 +481,11 @@ class InstallTests(unittest.TestCase):
         stick = self.root / "stick"
         stick.mkdir()
         (stick / "ci.age").write_text("SAME\n")
-        (stick / "web.age").write_text("SAME\n")
+        (stick / "devbox.age").write_text("SAME\n")
         env = self.env.copy()
         env["FLEET_KEY_DIR"] = str(stick)
         result = subprocess.run(
-            [str(SCRIPT), "web"],
+            [str(SCRIPT), "devbox"],
             capture_output=True,
             text=True,
             env=env,
@@ -499,7 +499,7 @@ class InstallTests(unittest.TestCase):
         stick = self.root / "stick"
         stick.mkdir()
         (stick / "ci.age").write_text("# ci\nSAME-IDENTITY\n")
-        (stick / "web.age").write_text("# web\nSAME-IDENTITY\n")
+        (stick / "devbox.age").write_text("# devbox\nSAME-IDENTITY\n")
         env = dict(self.env, FLEET_KEY_DIR=str(stick), FLEET_AUTO="1")
         result = subprocess.run([str(SCRIPT), "ci"], capture_output=True, text=True, env=env, check=False)
         self.assertEqual(result.returncode, 2, result.stderr)

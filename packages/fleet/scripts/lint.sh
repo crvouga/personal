@@ -34,3 +34,5 @@ assert not list(Path('secrets').glob('*.key'))
 assert not list(Path('secrets').glob('*.pem'))
 CHECK
 python3 scripts/cattle.py check .
+# roles.json is the one definition of a role; every copy must match it.
+python3 scripts/fleet_roles.py check

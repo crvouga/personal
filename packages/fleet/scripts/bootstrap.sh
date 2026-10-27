@@ -4,21 +4,24 @@
 # This computer does not build Nix and does not read an age key.
 set -euo pipefail
 
-role=${1:?role required: ci, web, cache, netboot, or devbox}
+# The installer roles in roles.json; rewritten by scripts/fleet_roles.py sync.
+installer_roles=(ci devbox)
+role=${1:?role required: one of ${installer_roles[*]}}
 ip=${2:?IP address required}
 [[ "$ip" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]] || { echo 'Use a DNS name or IPv4 address' >&2; exit 2; }
 
-case "$role" in
-  ci|web|cache|netboot|devbox) ;;
-  ci-gpu)
-    echo 'ci-gpu is not on the shared installer image.' >&2
-    exit 2
-    ;;
-  *)
-    echo 'role must be ci, web, cache, netboot, or devbox' >&2
-    exit 2
-    ;;
-esac
+if [ "$role" = ci-gpu ]; then
+  echo 'ci-gpu is not on the shared installer image.' >&2
+  exit 2
+fi
+known=0
+for candidate in "${installer_roles[@]}"; do
+  [ "$candidate" = "$role" ] && known=1
+done
+if [ "$known" -ne 1 ]; then
+  echo "role must be one of: ${installer_roles[*]}" >&2
+  exit 2
+fi
 
 if [ ! -t 0 ]; then
   echo "Refusing to install without a terminal. On the machine, run: fleet-install $role" >&2
