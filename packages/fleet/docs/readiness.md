@@ -159,8 +159,7 @@ skipped checks are not acceptance evidence.
 3. Verify the installer contains each deployable role closure. Nodes build
    missing update closures locally using upstream Nix substitutes.
 4. Merge the final role settings and installer fix through the required checks.
-   Inspect the actual **check**, **wizard**, **publish** and, for a merge group,
-   **cache** results. Confirm the release contains `fleet-node.sh`, all five
+   Inspect the actual **Check**, **Fleet**, installer build and release results. Confirm the release contains `fleet-node.sh`, all five
    wizard downloads, the `.parts.json`, `.sha256` and every listed image part.
    Clients assemble one verified local ISO automatically; do not flash a part.
 5. Run `bun run --filter @pkgs/fleet check` and `bun run health`. Resolve the

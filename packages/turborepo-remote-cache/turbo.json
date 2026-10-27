@@ -9,7 +9,7 @@
         "$TURBO_ROOT$/packages/infra/tofu/modules/inventory/**"
       ]
     },
-    "dev": {
+    "dev:dormant": {
       "dependsOn": ["setup"],
       "persistent": true,
       "cache": false
