@@ -5,13 +5,17 @@
 Before the first rollout, read the [bring-up readiness record](docs/readiness.md)
 for the verified builds, outstanding production prerequisites and installation order.
 
-| Role      | What the machine does                                                          |
-| --------- | ------------------------------------------------------------------------------ |
-| `ci`      | GitHub Actions runners for trusted private repositories                        |
-| `web`     | Caddy in front of one OCI image per app                                        |
-| `cache`   | Optional physical Attic server; shared updates use the independent cloud cache |
-| `netboot` | Pixiecore; machines on the network boot from their own disk unless flagged     |
-| `devbox`  | SSH development machine (`dev` account, persistent `/nix/devbox`, no sudo)     |
+Roles are defined once, in [`roles.json`](roles.json). Change a role there,
+then run `python3 scripts/fleet_roles.py sync` (`just roles-sync`); see the
+Roles section of [AGENTS.md](AGENTS.md).
+
+| Role     | What the machine does                                                      |
+| -------- | -------------------------------------------------------------------------- |
+| `ci`     | GitHub Actions runners for trusted private repositories                    |
+| `devbox` | SSH development machine (`dev` account, persistent `/nix/devbox`, no sudo) |
+
+`web`, `cache` and `netboot` are retired: no machine can be installed as them,
+and a remaining node reports `FLEET_ROLE_RETIRED` until it is reinstalled.
 
 ## Add a machine
 
@@ -29,7 +33,7 @@ are listed in the readiness record.
    | macOS                  | the wizard makes a USB stick instead    |
    | nothing (a blank disk) | see [a blank machine](#a-blank-machine) |
 
-2. Open it and answer one question: **what kind of machine is this?** (`ci`, `web`, `cache`, `netboot`, `devbox`). The installer shows the exact disk it will erase and asks you to confirm.
+2. Open it and answer one question: **what kind of machine is this?** (`ci` or `devbox`). The installer shows the exact disk it will erase and asks you to confirm.
 3. A GitHub page opens. Press **Submit new issue**, signed in as the repository owner. That click approves this machine and is the only approval anywhere. (Over SSH or without a browser, the installer prints the same link.)
 4. Accept the operating system's permission prompt (Windows UAC).
 
@@ -132,7 +136,7 @@ The installer release is public, so a machine cannot simply ask Vault for its ro
 4. The workflow posts the single-use wrapping token as a comment, **sealed to the machine's public key**. Anyone can read the comment; only that machine can open it.
 5. The machine opens it, checks the token with `sys/wrapping/lookup` (which does not spend it), and the installer unwraps it before the disk is touched. A refused, expired or spent token erases nothing.
 
-If the workflow cannot help (no key in Vault yet, Vault down) it comments `fleet-error: …` with the fix, and the installer stops at once, still having erased nothing. CI and web never share an age key or a secrets file.
+If the workflow cannot help (no key in Vault yet, Vault down) it comments `fleet-error: …` with the fix, and the installer stops at once, still having erased nothing. Roles never share an age key or a secrets file.
 
 ## The fleet API and dashboard
 
@@ -179,7 +183,7 @@ bun run test:bdd:local
 
 `playwright-bdd` generates Playwright tests from `bdd/features/*.feature`.
 The local scenarios drive the real setup form/callback and installer wizard
-in Chromium. They also exercise hard reinstalls for all five roles, CLI
+in Chromium. They also exercise hard reinstalls for every installer role, CLI
 idempotence and preview, busy-job refusal, changed-disk refusal and recovery
 after a failed boot handoff. Reinstall scenarios use stand-in disks, firmware
 facts, runner control and kexec; ISO parsing, checksums, helper processes and

@@ -660,16 +660,16 @@ class FindingsExtrasTest(unittest.TestCase):
         self.assertEqual(found["shrink"]["status"], "ok")
 
     def test_the_plan_names_every_step_and_the_sizes(self):
-        lines = decide.windows_plan_lines({**FACTS}, 6 * 1024 ** 3, "web")
+        lines = decide.windows_plan_lines({**FACTS}, 6 * 1024 ** 3, "devbox")
         text = "\n".join(lines)
         self.assertEqual(len(lines), 6)
         self.assertIn("Shrink C: from 500.0 GiB to 493.9 GiB", text)
         self.assertIn("gives up 6208 MiB", text)
         self.assertIn("6144 MiB partition of type Linux data on disk 0", text)
         self.assertIn("partition 1 of disk 0", text)
-        self.assertIn("(web installer)", text)
+        self.assertIn("(devbox installer)", text)
         self.assertIn("ERASES the whole of disk 0", text)
-        self.assertIn("installs web", text)
+        self.assertIn("installs devbox", text)
 
 
 
@@ -787,7 +787,7 @@ class RerunTest(StageCase):
     def test_a_stale_fleet_boot_config_is_not_kept_as_the_owners(self):
         world = self.world()
         (world.esp / "EFI" / "BOOT").mkdir(parents=True)
-        (world.esp / "EFI" / "BOOT" / "grub.cfg").write_text("set timeout=3\nmenuentry 'Fleet installer: ERASES the internal disk and installs web' {\n}\n")
+        (world.esp / "EFI" / "BOOT" / "grub.cfg").write_text("set timeout=3\nmenuentry 'Fleet installer: ERASES the internal disk and installs devbox' {\n}\n")
         (world.esp / "EFI" / "fleet").mkdir()
         (world.esp / "EFI" / "fleet" / "fleet-wifi.initrd").write_bytes(b"old password")
         world.fail_at = {"shutdown"}

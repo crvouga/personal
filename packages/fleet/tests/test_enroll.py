@@ -100,14 +100,14 @@ class RequestTest(unittest.TestCase):
 
     def test_round_trip_through_the_parser(self):
         _, public = decide.new_keypair()
-        body = f"x\n\n{decide.FIELD_ROLE}web\n{decide.FIELD_KEY}{decide._b64(public)}\n"
-        self.assertEqual(decide.parse_enroll_request("fleet-enroll web", body), ("web", public))
+        body = f"x\n\n{decide.FIELD_ROLE}devbox\n{decide.FIELD_KEY}{decide._b64(public)}\n"
+        self.assertEqual(decide.parse_enroll_request("fleet-enroll devbox", body), ("devbox", public))
 
     def test_bad_requests_are_refused(self):
         _, public = decide.new_keypair()
         good = f"{decide.FIELD_ROLE}ci\n{decide.FIELD_KEY}{decide._b64(public)}\n"
         cases = [
-            ("fleet-enroll web", good),  # title and role disagree
+            ("fleet-enroll devbox", good),  # title and role disagree
             ("fleet-enroll ci", good.replace("ci\n", "root\n", 1)),
             ("fleet-enroll ci", f"{decide.FIELD_ROLE}ci\n"),  # no key
             ("fleet-enroll ci", f"{decide.FIELD_ROLE}ci\n{decide.FIELD_KEY}AAAA\n"),  # short key
@@ -169,7 +169,7 @@ class PollTest(unittest.TestCase):
 
     def test_a_token_for_another_role_or_key_is_ignored(self):
         number = self.github.open_issue("fleet-enroll ci", self.body)
-        self.github.comment(number, self.answer(role="web"))
+        self.github.comment(number, self.answer(role="devbox"))
         _, other_public = decide.new_keypair()
         self.github.comment(number, "fleet-sealed: " + decide.seal(json.dumps({"role": "ci", "token": "hvs.stolen-0001"}).encode(), other_public))
         token, _ = decide.await_approval("ci", self.private, self.public, wait=0, interval=0)
@@ -263,8 +263,8 @@ class WorkflowTest(unittest.TestCase):
         self.assertTrue(line.startswith("fleet-error: "), line)
 
     def test_every_role_has_its_own_read_path(self):
-        self.vault.keys.update({"web": "AGE-SECRET-KEY-1WEB", "devbox": "AGE-SECRET-KEY-1DEV"})
-        for role in ("web", "devbox"):
+        self.vault.keys.update({"ci": "AGE-SECRET-KEY-1CI", "devbox": "AGE-SECRET-KEY-1DEV"})
+        for role in ("ci", "devbox"):
             _, line = self.run_script(title=f"fleet-enroll {role}", role=role)
             answer = json.loads(decide.open_sealed(line[len("fleet-sealed: "):], self.private))
             self.assertEqual(answer["role"], role)

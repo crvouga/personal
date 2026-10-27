@@ -50,7 +50,7 @@ class BootstrapTests(unittest.TestCase):
     def test_tty_sshs_fleet_install(self):
         master, slave = pty.openpty()
         proc = subprocess.Popen(
-            [str(SCRIPT), "web", "192.0.2.10"],
+            [str(SCRIPT), "devbox", "192.0.2.10"],
             stdin=slave,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -64,7 +64,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, err.decode())
         command = self.log.read_text()
         self.assertIn("root@192.0.2.10", command)
-        self.assertIn("fleet-install web", command)
+        self.assertIn("fleet-install devbox", command)
         self.assertNotIn("nix", command)
         self.assertNotIn("age", command)
 

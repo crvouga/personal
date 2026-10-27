@@ -1,6 +1,6 @@
 """Exercise the installed CLI inside NixOS; all disks/firmware/boot are stand-ins.
 
-Called by the NixOS web VM, where nix-ld is disabled. No real disk is opened.
+Called by the NixOS native VM (tests/native.nix), where nix-ld is disabled. No real disk is opened.
 """
 import hashlib
 import json

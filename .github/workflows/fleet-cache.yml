@@ -42,11 +42,14 @@ jobs:
           primary-key: nix-store-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-${{ hashFiles('packages/fleet/flake.lock') }}
           save: false
       - name: Build exact main role closures independently of physical nodes
+        id: build
         if: steps.existing.outputs.hit != 'true'
         working-directory: packages/fleet
         run: |
           set -euo pipefail
-          roles=(ci web cache netboot devbox)
+          # The published closures in roles.json, never a list kept here.
+          mapfile -t roles < <(python3 scripts/fleet_roles.py list published)
+          [ "${#roles[@]}" -gt 0 ]
           nix build --no-write-lock-file --max-jobs 4 --cores 4 \
             --out-link result-role-batch "${roles[@]/#/.#}"
           for index in "${!roles[@]}"; do
@@ -54,6 +57,7 @@ jobs:
             if [ "$index" -ne 0 ]; then output+="-$index"; fi
             ln -sfn "$(readlink "$output")" "result-${roles[$index]}"
           done
+          echo "results=${roles[*]/#/packages/fleet/result-}" >> "$GITHUB_OUTPUT"
       - name: Read isolated publisher credentials through GitHub OIDC
         if: steps.existing.outputs.hit != 'true'
         uses: hashicorp/vault-action@v4
@@ -73,7 +77,12 @@ jobs:
         if: steps.existing.outputs.hit != 'true'
         env:
           FLEET_CACHE_PROOF: fleet-cache-proof.json
-        run: bun packages/turborepo-remote-cache/scripts/publish-fleet-cache.ts packages/fleet/result-ci packages/fleet/result-web packages/fleet/result-cache packages/fleet/result-netboot packages/fleet/result-devbox
+          FLEET_RESULTS: ${{ steps.build.outputs.results }}
+        run: |
+          set -euo pipefail
+          read -ra results <<< "$FLEET_RESULTS"
+          [ "${#results[@]}" -gt 0 ]
+          bun packages/turborepo-remote-cache/scripts/publish-fleet-cache.ts "${results[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: fleet-cache-proof

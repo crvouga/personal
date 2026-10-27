@@ -57,8 +57,8 @@ describeApi('POST /v1/nodes/register', (ctx) => {
   test('the token of one role does not approve another role', async () => {
     const { h } = ctx();
     const reply = await h.register(1, {
-      role: 'web',
-      hostname: 'web-1234',
+      role: 'devbox',
+      hostname: 'devbox-1234',
       roleToken: CI_ROLE_TOKEN,
     });
     expect(reply.body.status).toBe('pending');
@@ -121,11 +121,14 @@ describeApi('POST /v1/nodes/register', (ctx) => {
       heartbeat: { intervalSeconds: 30 },
     });
     expect((await h.register(1)).body.heartbeatIntervalSeconds).toBe(30);
-    await h.admin('PUT', '/v1/settings/role:web', {
+    await h.admin('PUT', '/v1/settings/role:devbox', {
       heartbeat: { intervalSeconds: 120 },
     });
-    const web = await h.register(2, { role: 'web', hostname: 'web-1234' });
-    expect(web.body.heartbeatIntervalSeconds).toBe(120);
+    const devbox = await h.register(2, {
+      role: 'devbox',
+      hostname: 'devbox-1234',
+    });
+    expect(devbox.body.heartbeatIntervalSeconds).toBe(120);
   });
 
   describe('validation', () => {
@@ -146,6 +149,8 @@ describeApi('POST /v1/nodes/register', (ctx) => {
     test('role', async () => {
       await reject({ role: 'gpu' }, 'role');
       await reject({ role: undefined }, 'role');
+      // Retired in packages/fleet/roles.json: rows stay, enrollment stops.
+      await reject({ role: 'web' }, 'role must be one of: ci, devbox');
     });
     test('hostname', async () => {
       await reject({ hostname: 'has space' }, 'hostname');

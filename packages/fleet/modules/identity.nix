@@ -1,4 +1,5 @@
 { config, lib, pkgs, settings, ... }: let
+  roles = import ../roles.nix { inherit lib; };
   cap = settings.capacity;
   token = value: let text = toString value; in
     assert builtins.match "[A-Za-z0-9._-]+" text != null; text;
@@ -11,12 +12,12 @@ in {
       message = "Hostnames are assigned at boot. Leave networking.hostName empty.";
     }
     {
-      assertion = builtins.elem settings.role [ "ci" "web" "cache" "netboot" "devbox" ];
-      message = "settings.role must be a role, not a machine.";
+      assertion = builtins.elem settings.role roles.active;
+      message = "settings.role must be an active role in roles.json, not a machine.";
     }
     {
-      assertion = lib.hasPrefix settings.role settings.flakeAttr;
-      message = "settings.flakeAttr must be this role or a capability variant of it.";
+      assertion = lib.any (closure: closure.attr == settings.flakeAttr && closure.role == settings.role) roles.closures;
+      message = "settings.flakeAttr must be a closure that roles.json gives to this role.";
     }
     {
       assertion = cap.slotMax >= 1 && cap.slotMax <= 64

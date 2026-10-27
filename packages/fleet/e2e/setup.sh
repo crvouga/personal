@@ -1,6 +1,8 @@
 #!/bin/bash
 # Runs inside the container as root. Builds the world the wizard will meet.
 set -euo pipefail
+# The installer roles in roles.json; rewritten by scripts/fleet_roles.py sync.
+installer_roles=(ci devbox)
 mkdir -p /work /srv/release /mnt/stick /mnt/verify /var/e2e-state
 cd /work
 
@@ -10,7 +12,7 @@ head -c 3000000 /dev/urandom > iso/boot/bzImage
 head -c 5000000 /dev/urandom > iso/boot/initrd
 {
   echo "DEFAULT boot"
-  for role in ci web cache netboot devbox; do
+  for role in "${installer_roles[@]}"; do
     label=boot; [ "$role" = ci ] || label="boot-$role"
     echo "LABEL $label"; echo "LINUX /boot/bzImage"
     echo "APPEND init=/nix/store/fleet/init fleet.role=$role"; echo "INITRD /boot/initrd"

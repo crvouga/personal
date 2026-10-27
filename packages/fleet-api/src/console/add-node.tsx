@@ -16,6 +16,7 @@ import {
   Title,
 } from '@mantine/core';
 import { PageHeading } from '@pkgs/admin-ui/components';
+import { ACTIVE_ROLES, type ActiveRole } from '../types';
 import {
   INSTALLERS,
   INSTALLER_RELEASE,
@@ -23,13 +24,11 @@ import {
   installerUrl,
 } from '../ui/lib/installers';
 import { detectedPlatform, type PlatformHints } from './platform';
-const roles = [
-  { id: 'ci', label: 'GitHub Actions runners' },
-  { id: 'web', label: 'Web hosting' },
-  { id: 'cache', label: 'Binary build cache' },
-  { id: 'netboot', label: 'Network boot service' },
-  { id: 'devbox', label: 'Developer workstation' },
-];
+const ROLE_LABELS: Record<ActiveRole, string> = {
+  ci: 'GitHub Actions runners',
+  devbox: 'Developer workstation',
+};
+const roles = ACTIVE_ROLES.map((id) => ({ id, label: ROLE_LABELS[id] }));
 export function AddNode({ empty = false }: { empty?: boolean }) {
   return (
     <Stack gap="lg">
@@ -59,7 +58,7 @@ export function AddNode({ empty = false }: { empty?: boolean }) {
                       [
                         'Choose the computer that will run the installer below.',
                         'The local wizard checks hardware and reviews the exact disk.',
-                        'Select CI, web, cache, netboot, or devbox.',
+                        `Select ${ACTIVE_ROLES.join(' or ')}.`,
                         'The installer opens a prefilled GitHub issue. Submit it as the repository owner, then review Pending approvals.',
                       ][index]
                     }

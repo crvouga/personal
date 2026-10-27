@@ -7,17 +7,13 @@ build-iso:
 build-node:
     nix build -L path:.#ci -o result-node
 
-build-web:
-    nix build -L path:.#web -o result-web
+# Any closure in roles.json: just build devbox, just build ci-gpu.
+build closure:
+    nix build -L path:.#{{closure}} -o result-{{closure}}
 
-build-cache:
-    nix build -L path:.#cache -o result-cache
-
-build-netboot:
-    nix build -L path:.#netboot -o result-netboot
-
-build-devbox:
-    nix build -L path:.#devbox -o result-devbox
+# Role lists outside roles.json are copies. Rewrite them after editing it.
+roles-sync:
+    python3 scripts/fleet_roles.py sync
 
 flash-usb iso device:
     bash scripts/flash-usb.sh {{quote(iso)}} {{quote(device)}}
@@ -45,7 +41,7 @@ setup *args:
 enroll role:
     #!/usr/bin/env bash
     set -euo pipefail
-    case {{quote(role)}} in ci|web|cache|netboot|devbox) ;; *) echo 'role must be ci, web, cache, netboot, or devbox' >&2; exit 2 ;; esac
+    python3 scripts/fleet_roles.py require-active {{quote(role)}}
     for tool in bao jq; do command -v "$tool" >/dev/null || { echo "Next: install $tool, then run this again." >&2; exit 1; }; done
     token=$(bao kv get -wrap-ttl=1h -format=json "secret/fleet/{{role}}" | jq -er '.wrap_info.token') \
       || { echo "Next: could not read secret/fleet/{{role}}. Run 'bao login', and 'just fleet-keys' plus an applied vault root if the key was never created." >&2; exit 1; }
@@ -71,10 +67,9 @@ check:
 
 vm-test:
     nix build -L path:.#checks.x86_64-linux.vm
-    nix build -L path:.#checks.x86_64-linux.web-vm
     nix build -L path:.#checks.x86_64-linux.devbox-vm
+    nix build -L path:.#checks.x86_64-linux.native-vm
     nix build -L path:.#checks.x86_64-linux.lifecycle
     nix build -L path:.#checks.x86_64-linux.follow-up
-    nix build -L path:.#checks.x86_64-linux.netboot-vm
     nix build -L path:.#checks.x86_64-linux.cattle
     nix build -L path:.#checks.x86_64-linux.cattle-vm

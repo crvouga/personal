@@ -1,13 +1,10 @@
-import { ROLES } from '../../types';
+import { ACTIVE_ROLES, type ActiveRole } from '../../types';
 import { Icon } from './icon';
 import { NixosInstall } from './nixos-install';
 import { InstallerDownloads } from './installer-downloads';
 
-const ROLE_HELP: Record<(typeof ROLES)[number], string> = {
+const ROLE_HELP: Record<ActiveRole, string> = {
   ci: 'GitHub Actions runners',
-  web: 'serves websites',
-  cache: 'build cache',
-  netboot: 'installs other machines over the network',
   devbox: 'a developer workstation',
 };
 
@@ -72,7 +69,7 @@ export function AddNodeSteps(props: { heading: 'h1' | 'h2'; title: string }) {
         ))}
       </ol>
       <dl class="mt-6 grid gap-x-6 gap-y-1.5 rounded-lg bg-muted p-4 text-sm sm:grid-cols-2">
-        {ROLES.map((role) => (
+        {ACTIVE_ROLES.map((role) => (
           <div key={role} class="flex gap-2">
             <dt class="w-16 font-medium">{role}</dt>
             <dd class="text-fg-2">{ROLE_HELP[role]}</dd>

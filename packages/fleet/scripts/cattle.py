@@ -16,7 +16,8 @@ from pathlib import Path
 
 DEVICE_RE = re.compile(r"^/dev/[A-Za-z0-9._/:-]+$")
 MAC_RE = re.compile(r"^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$")
-HOST_ROLES = {"ci", "web", "cache", "netboot", "devbox"}
+# Active roles in roles.json; rewritten by scripts/fleet_roles.py sync.
+HOST_ROLES = frozenset({"ci", "devbox"})
 HOST_CAPABILITIES = {"gpu"}
 # Hostname tags, in this order. The runner label for highmem is high-mem.
 TAG_ORDER = ("gpu", "highmem")
@@ -253,7 +254,7 @@ def capability_tags(cap_dir, ram_mib, high_mem_gib):
 
 def hostname_for(role, tags, ident):
     if role not in HOST_ROLES:
-        raise ValueError("role must be ci, web, cache, netboot, or devbox")
+        raise ValueError("role must be one of " + ", ".join(sorted(HOST_ROLES)))
     if not re.fullmatch(r"[0-9a-f]{4}", ident or ""):
         raise ValueError("id must be 4 hex digits")
     unknown = set(tags) - set(TAG_ORDER)

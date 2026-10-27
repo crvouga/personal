@@ -545,11 +545,11 @@ class NodeEntryTests(unittest.TestCase):
     def test_a_token_for_another_role_is_refused_before_the_prompt(self):
         token = self.root / "token"
         token.write_text("hvs.CAESIwrapped\n")
-        self._lookup("web")
+        self._lookup("devbox")
         result = self.run_entry(["ci", "--yes", "--token-file", str(token)], "")
         text = self.combined(result)
         self.assertEqual(result.returncode, 2, text)
-        self.assertIn("secret/data/fleet/web", text)
+        self.assertIn("secret/data/fleet/devbox", text)
         self.assertIn("just enroll ci", text)
         self.assertFalse(self.boot_log.exists())
 
@@ -997,7 +997,7 @@ class NodeEntryTests(unittest.TestCase):
         github, env = self._enrolling({"FLEET_ENROLL_WAIT": "4"})
         process = self._start(["ci", "--yes"], env)
         link, lines = self._read_request(process)
-        self._owner_approves(github, link, role="web")
+        self._owner_approves(github, link, role="devbox")
         rest, _ = process.communicate(timeout=60)
         self.assertEqual(process.returncode, 2, "".join(lines) + rest)
         self.assertFalse(self.boot_log.exists(), "a token for another role must never be used")
@@ -1210,7 +1210,7 @@ class NodeEntryTests(unittest.TestCase):
         self.assert_one_next(self.combined(bad))
 
     def test_each_role_is_confirmed_and_records_a_marker_without_a_secret(self):
-        for role in ("ci", "web", "cache", "netboot", "devbox"):
+        for role in ("ci", "devbox"):
             with self.subTest(role=role):
                 self.boot_log.unlink(missing_ok=True)
                 marker = self.state / "handoff"
@@ -1311,7 +1311,7 @@ class NodeEntryTests(unittest.TestCase):
         self.assertFalse(self.boot_log.exists())
 
     def test_yes_installs_without_typing_and_never_waits_for_input(self):
-        for args in (["ci", "--yes"], ["--yes", "web"], ["install", "cache", "-y"]):
+        for args in (["ci", "--yes"], ["--yes", "ci"], ["install", "ci", "-y"]):
             with self.subTest(args=args):
                 self.boot_log.unlink(missing_ok=True)
                 (self.state / "installed").unlink(missing_ok=True)
@@ -1324,9 +1324,9 @@ class NodeEntryTests(unittest.TestCase):
     def test_the_environment_can_say_yes(self):
         env = self.env.copy()
         env["FLEET_YES"] = "1"
-        result = self.run_entry(["netboot"], "", env)
+        result = self.run_entry(["ci"], "", env)
         self.assertEqual(result.returncode, 0, self.combined(result))
-        self.assertIn("FLEET-WIPE role=netboot", self.combined(result))
+        self.assertIn("FLEET-WIPE role=ci", self.combined(result))
 
     def test_a_mounted_internal_disk_is_the_running_system_and_installs(self):
         for os_name in ("Linux", "Darwin", "Windows"):
@@ -1364,8 +1364,8 @@ class NodeEntryTests(unittest.TestCase):
     def test_the_token_can_come_from_the_environment(self):
         env = self.env.copy()
         env["FLEET_ENROLL_TOKEN"] = "hvs.CAESIwrapped"
-        self._lookup("web")
-        result = self.run_entry(["web", "--yes"], "", env)
+        self._lookup("ci")
+        result = self.run_entry(["ci", "--yes"], "", env)
         self.assertEqual(result.returncode, 0, self.combined(result))
         self.assertIn("fleet.enroll=hvs.CAESIwrapped", self.boot_log.read_text())
 
@@ -1933,8 +1933,8 @@ class RemoveTests(unittest.TestCase):
         self.assertFalse(self.stop_log.exists())
         self.assertFalse((self.state / "withdrawn").exists())
 
-    def test_a_web_node_without_a_runner_can_be_powered_off(self):
-        (self.root / "node.conf").write_text("role=web\n")
+    def test_a_devbox_node_without_a_runner_can_be_powered_off(self):
+        (self.root / "node.conf").write_text("role=devbox\n")
         self.key.unlink()
         result = self.run_remove()
         text = result.stdout + result.stderr

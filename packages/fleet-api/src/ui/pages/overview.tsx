@@ -1,4 +1,5 @@
-import { ROLES, type EventRow, type Role } from '../../types';
+import { type EventRow, type Role } from '../../types';
+import { visibleRoles } from '../../domain/summary';
 import { AddNodeSteps } from '../components/add-node';
 import { Icon, type IconName } from '../components/icon';
 import { Meter } from '../components/meter';
@@ -182,7 +183,7 @@ function RoleCards(props: { data: FleetData }) {
         Roles
       </h2>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {ROLES.map((role) => (
+        {visibleRoles(props.data.summary.byRole).map((role) => (
           <RoleCard
             key={role}
             role={role}

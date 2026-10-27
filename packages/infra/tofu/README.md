@@ -142,7 +142,7 @@ remains a fallback when no platform token is supplied.
 | `module.service["fleet-api"]` (service, domain, variables, DNS)                                      | `fleet`      | New resources, created by the plan. See "First deploy".                                                     |
 | `postgresql_schema.fleet`                                                                            | `foundation` | The single `CREATE SCHEMA fleet`. `if_not_exists`, `prevent_destroy`, no cascade.                           |
 | `atlas_schema.fleet`                                                                                 | `foundation` | Every table, column, index and constraint, from `packages/fleet-api/schema.hcl`. `prevent_destroy`.         |
-| `random_password.fleet_admin` / `fleet_session` / `fleet_role_token["<role>"]`                       | `vault`      | 48 character alphanumeric credentials; roles `ci`, `web`, `cache`, `netboot`, `devbox`.                     |
+| `random_password.fleet_admin` / `fleet_session` / `fleet_role_token["<role>"]`                       | `vault`      | 48 character alphanumeric credentials; one per role in `packages/fleet/roles.json`, active or retired.      |
 | `FLEET_ADMIN_TOKEN`, `FLEET_SESSION_SECRET`, `FLEET_ROLE_TOKEN_HASHES` in `secret/data/personal/prd` | `vault`      | Read by the `fleet` root and copied into the Railway service variables. Production only.                    |
 | `api_token` in `secret/data/fleet/<role>`                                                            | `vault`      | The raw role token, next to the existing `age_key`. Only roles present in `fleet_age_keys` have a document. |
 

@@ -20,7 +20,7 @@ The machine can already be running Windows, macOS, or Linux. Download one file o
    bash fleet-node.sh
    ```
 
-   Windows, from PowerShell: `curl.exe -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh` and then `bash fleet-node.sh`. `bash fleet-node.sh ci --yes` (or `web`, `cache`, `netboot`, `devbox`) runs with no prompts; `--yes` skips only the typed confirmation and every disk refusal still applies. Without it, the program asks for `ci`, `web`, `cache`, `netboot`, or `devbox`. It names that role and the internal disk in plain language. Nothing is erased until you type the line it shows. A timeout, an empty answer, a wrong line, or a USB, removable, hotplug, or ambiguous disk leaves every disk unchanged and prints one next step. If the download fails, the program exits non-zero, writes nothing, and prints one next step. `ci-gpu` is not on this image.
+   Windows, from PowerShell: `curl.exe -fsSL -o fleet-node.sh https://github.com/crvouga/workspace/releases/download/fleet-installer/fleet-node.sh` and then `bash fleet-node.sh`. `bash fleet-node.sh ci --yes` (or `devbox`) runs with no prompts; `--yes` skips only the typed confirmation and every disk refusal still applies. Without it, the program asks for an active role in `roles.json` (`ci` or `devbox`). It names that role and the internal disk in plain language. Nothing is erased until you type the line it shows. A timeout, an empty answer, a wrong line, or a USB, removable, hotplug, or ambiguous disk leaves every disk unchanged and prints one next step. If the download fails, the program exits non-zero, writes nothing, and prints one next step. `ci-gpu` is not on this image.
 
    Or hand it to an agent on the machine: tell it `Set this machine up as a fleet <role> node by following https://raw.githubusercontent.com/crvouga/workspace/main/packages/fleet/docs/agent-install.md`. It runs `doctor` first (read-only, every problem at once, the exact disk named), asks you to confirm that disk, and then installs. See [agent-install.md](agent-install.md).
 
@@ -35,15 +35,11 @@ A blank disk uses the same program's `flash` action. It refuses an internal disk
 
 `just bootstrap ROLE IP` is optional. It SSHs to a live image that already authorizes `settings.sshKeys` and runs `fleet-install` there with the wipe already approved. It does not build and it does not read a key file. With `sshKeys` empty, the download above is the install.
 
-The netboot ramdisk does not carry the role closures, and the netboot host does not serve this ISO. Setting `reinstall.nodes` or `reinstall.roles` does not install a node. Use `fleet-node.sh` on the machine.
+A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A devbox hostname looks like `devbox-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same USB and leave the menu on that role. For a shared sops file, plug in the same `FLEET-KEY` volume. The DMI UUID supplies the stable id. No per-node Nix file is added.
 
-A CI hostname looks like `ci-a3f9` or `ci-highmem-02be`. A web hostname looks like `web-a3f9` and does not write `/run/fleet/identity`. To install another node of the same role, boot the same USB and leave the menu on that role. For a shared sops file, plug in the same `FLEET-KEY` volume. The DMI UUID supplies the stable id. No per-node Nix file is added.
+## Reinstall or change a role
 
-## Reinstall from the netboot server
-
-One-time BIOS setup puts the network first and the internal disk second. On every boot the netboot server is asked what to do. With `reinstall.nodes` and `reinstall.roles` both empty, the client boots the local disk (`exit 1` back to firmware, or `sanboot` on BIOS).
-
-The netboot host does not serve an installer that can finish an install. Adding a 4-hex stable id to `reinstall.nodes`, or `ci`, `web`, `cache`, `netboot`, or `devbox` to `reinstall.roles`, does not install a node. Reinstall by running `fleet-node.sh` on that machine. The id `cattle.py` prints is the first 4 hex digits of sha256 of `dmi:` plus the SMBIOS UUID. `ci-gpu` is role `ci`. The installed system writes that role to `/boot/fleet-role.ipxe` on the ESP volume `SHBOOT`. The iPXE script reads it. A machine with no ESP file is selected only by its stable id. Clear a flag in a follow-up commit after `fleet-node.sh` has installed the machine. Leaving a role flagged is not an install.
+Reinstall, or change a machine's role, by running `fleet-node <role> --reinstall` (or `fleet-node.sh`) on that machine. There is no remote reinstall. When a change to `roles.json` retires a role or removes a closure, its nodes stop updating and report `FLEET_ROLE_RETIRED`, `FLEET_ROLE_REMOVED` or `FLEET_CLOSURE_REMOVED` on the dashboard until they are reinstalled as an active role.
 
 TODO: no smart PDU model is selected, and this repo does not call one. A remote power cycle is physical until a model and its integration are added in code. Do not invent a vendor, a host, or a credential. There is no SSH reinstall command.
 
@@ -51,7 +47,7 @@ TODO: no smart PDU model is selected, and this repo does not call one. A remote 
 
 comin is not in the pinned nixpkgs, so `fleet-sync` is the timer. It is off while `settings/shared.nix` `repo.url` contains `TODO`. Set that URL in a commit. Every role polls `main` over HTTPS. There is no `deploy` branch and no `canary` branch.
 
-The node switches only when `nix build --max-jobs 0` can substitute that role's toplevel from the attic cache. A miss keeps the running generation and the timer retries. The node does not build locally. While `binaryCache.url` or `binaryCache.publicKey` is null or contains `TODO`, the node waits the same way. `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
+The node switches only when `nix build --max-jobs 0` can substitute that role's toplevel from the cloud cache (`binaryCache`). Before building, it reads `roles.json` at the fetched revision and stops with the reason when its role was retired or its closure removed. A miss keeps the running generation and the timer retries. The node does not build locally. While `binaryCache.url` or `binaryCache.publicKey` is null or contains `TODO`, the node waits the same way. `repo.auth` stays `none` until a read-only deploy key or a GitHub token is encrypted into that role's sops file. Then set `ssh` or `token`. Encrypt the credential separately for each role.
 
 A kernel, initrd, or module change drains first, then waits up to two hours, seeded by the stable node id, so the fleet does not reboot together. The id is read before the drain. If that read fails, the node does not drain and does not reboot. CI nodes run `fleet-drain` (stop new jobs, wait for the current job, stop the runner units). If the drain fails, the node does not switch and does not reboot. Other changes switch in place.
 
@@ -67,9 +63,9 @@ A failed pull leaves the running generation in place. A switch that cannot reach
 
 The workflow is `.github/workflows/ci.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
 
-- A pull request that touches this package runs `nix flake check` and builds `ci`, `web`, `cache`, `netboot`, `devbox`, and the installer. `ci-gpu` is not in that build.
+- A pull request that touches this package runs `nix flake check` and builds the published closures in `roles.json` (`ci`, `devbox`) and the installer. `ci-gpu` is not in that build.
 - The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
-- The merge queue repeats the check and pushes the four toplevels to attic before the commit reaches `main`. Missing `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, or `FLEET_ATTIC_TOKEN` fails the queue. Do not invent the cache URL.
+- The `Fleet cache` workflow builds, signs and publishes the published closures to the cloud cache for every exact `main` commit.
 - The queue merges with `MERGE`. The commit that was tested and cached is the commit that lands. There is no second cache push after merge.
 
 A rollback is a revert pull request. It uses the same checks and the same queue. The previous systems are already in the cache, so nodes converge by substituting. systemd-boot keeps 8 generations. If SSH is gone, pick an older generation from the console. Nothing force-pushes `main`.
@@ -113,7 +109,7 @@ A pull request that touches this package runs `nix flake check`, which includes 
 
 Two caches exist and they are not the same:
 
-- The fleet attic cache is `settings.binaryCache` plus the cache role. Clients use it only after the URL and the public key are real and do not contain `TODO`. The server listens on port 8080 and stores data under `/nix/fleet-state/attic`. It stays disabled until `secrets/cache.yaml` provides `attic-env`.
+- The shared update cache is `settings.binaryCache`: the cloud `turborepo-remote-cache` `/nix` namespace. Clients use it only after the URL and the public key are real and do not contain `TODO`.
 - `cache.remote` in `fleet.nix` is an optional S3 scratch substituter and post-build hook for CI. Leave it off. Do not enable it while `binaryCache.url` is set; both would write `extra-substituters`. Bucket provisioning stays in OpenTofu.
 
-Runner users must never receive the App key, a signing key, or the attic token. Projects can use their own scoped build-cache credentials. Nix signatures do not validate arbitrary project cache objects.
+Runner users must never receive the App key or a signing key. Projects can use their own scoped build-cache credentials. Nix signatures do not validate arbitrary project cache objects.

@@ -15,7 +15,7 @@ import {
 import { PageHeading } from '@pkgs/admin-ui/components';
 import { attentionList, fleetHealth } from '../ui/lib/attention';
 import { shortRevision } from '../ui/lib/format';
-import { ROLES } from '../types';
+import { visibleRoles } from '../domain/summary';
 import type { ConsoleState } from './model';
 import { EventFeed } from './events';
 import { AddNode } from './add-node';
@@ -98,7 +98,7 @@ function RoleCards({ state }: { state: ConsoleState }) {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {ROLES.map((role) => (
+            {visibleRoles(state.fleet.summary.byRole).map((role) => (
               <Table.Tr key={role}>
                 <Table.Td>
                   <Anchor href={`/nodes?role=${role}`}>{role}</Anchor>

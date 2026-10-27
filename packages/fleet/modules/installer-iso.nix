@@ -1,4 +1,8 @@
-{ lib, ... }: {
+{ lib, ... }: let
+  # The boot menu lists exactly the installer closures in roles.json.
+  roles = import ../roles.nix { inherit lib; };
+  default = roles.installerDefault;
+in {
   # make-iso9660-image writes $out/iso/${image.baseName}.iso. image.fileName
   # only sets image.filePath, so the built file stayed nixos-<label>-<system>.iso
   # and the Fleet upload found nothing at iso/fleet-installer.iso.
@@ -17,10 +21,10 @@
   # Legacy BIOS is refused by fleet-install before any disk is touched.
   # iso-image.nix sets this to 10 at the same priority.
   boot.loader.timeout = lib.mkForce null;
-  boot.kernelParams = [ "fleet.role=ci" ];
+  boot.kernelParams = [ "fleet.role=${default}" ];
   isoImage.appendToMenuLabel = lib.mkForce "";
-  isoImage.configurationName = "ci - ERASES internal disk";
-  specialisation = lib.genAttrs [ "web" "cache" "netboot" "devbox" ] (role: {
+  isoImage.configurationName = "${default} - ERASES internal disk";
+  specialisation = lib.genAttrs (builtins.filter (role: role != default) roles.installer) (role: {
     configuration = {
       isoImage.configurationName = lib.mkForce "${role} - ERASES internal disk";
       boot.kernelParams = [ "fleet.role=${role}" ];

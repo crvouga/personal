@@ -11,8 +11,6 @@ import tempfile
 import time
 from pathlib import Path
 
-ROLES = ('ci', 'web', 'cache', 'netboot', 'devbox')
-
 
 def capture(args):
     return subprocess.check_output(args, text=True, timeout=60).strip()
@@ -27,12 +25,13 @@ def validate(proof, revision, paths, public_key):
 
 def main():
     revision = capture(['git', 'rev-parse', 'HEAD'])
-    paths = [capture(['nix', 'eval', '--no-write-lock-file', '--raw',
-        f'.#nixosConfigurations.{role}.config.system.build.toplevel']) for role in ROLES]
-    metadata = json.loads(capture(['nix', 'eval', '--no-write-lock-file', '--json',
-        '.#nixosConfigurations.ci.config.environment.etc."fleet/bootstrap.json".text']))
-    # The public key is also evaluated from the flake, not parsed from Nix text.
-    key = json.loads(metadata)['cachePublicKey']
+    # One evaluation: the published closures in roles.json and the key that
+    # signs them, both from the flake rather than parsed from Nix text.
+    probe = json.loads(capture(['nix', 'eval', '--no-write-lock-file', '--json', '.#lib.cacheProbe']))
+    paths = probe['paths']
+    key = probe['metadata']['cachePublicKey']
+    if not paths or not all(isinstance(path, str) and path.startswith('/nix/store/') for path in paths):
+        raise ValueError('FLEET_CACHE_PROBE_INVALID: the flake named no published store paths.')
     deadline = time.monotonic() + 3600
     while time.monotonic() < deadline:
         runs = json.loads(capture(['gh', 'run', 'list', '--workflow', 'fleet-cache.yml',

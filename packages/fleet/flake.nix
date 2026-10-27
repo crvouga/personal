@@ -15,25 +15,28 @@
     # match a system in the binary cache.
     revision = if (self.rev or null) != null then self.rev else "unknown";
     installerSettings = import ./settings/installer.nix;
-    mkHost = settings: hostModule: extraArgs: lib.nixosSystem {
+    # roles.json is the only definition of a role; roles.nix validates it.
+    roles = import ./roles.nix { inherit lib; };
+    toplevel = attr: hosts.${attr}.config.system.build.toplevel;
+    # A settings file names its role; the registry names the closure. They must
+    # agree, so a role's settings cannot be wired to another role's system.
+    settingsFor = closure: let settings = import closure.settings; in
+      if settings.role != closure.role
+      then throw "${toString closure.settings} says role ${settings.role}; roles.json gives it to ${closure.role}"
+      else settings // { flakeAttr = closure.attr; };
+    mkHost = settings: hostModule: lib.nixosSystem {
       inherit system;
-      specialArgs = { inherit settings revision; } // extraArgs;
+      specialArgs = { inherit settings revision; };
       modules = [
         disko.nixosModules.disko
         sops-nix.nixosModules.sops
         hostModule
       ];
     };
-    ciSettings = import ./fleet.nix;
-    webSettings = import ./web.nix;
-    cacheSettings = import ./cache.nix;
-    netbootSettings = import ./netboot.nix;
-    devboxSettings = import ./devbox.nix;
-    ci = mkHost ciSettings ./hosts/ci.nix { };
-    ciGpu = mkHost (ciSettings // { flakeAttr = "ci-gpu"; }) ./hosts/ci-gpu.nix { };
-    web = mkHost webSettings ./hosts/web.nix { };
-    cache = mkHost cacheSettings ./hosts/cache.nix { };
-    devbox = mkHost devboxSettings ./hosts/devbox.nix { };
+    hosts = builtins.listToAttrs (map (closure:
+      lib.nameValuePair closure.attr (mkHost (settingsFor closure) closure.host)) roles.closures);
+    # A role's own closure, without capability variants (ci, not ci-gpu).
+    primaryHosts = lib.getAttrs roles.active hosts;
     installerIso = lib.nixosSystem {
       inherit system;
       specialArgs = { settings = installerSettings; };
@@ -41,49 +44,25 @@
         (nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix")
         ./modules/installer.nix
         ./modules/installer-iso.nix
-        # Role closures live on the ISO only. The netboot ramdisk must not
-        # reference them; a multi-gigabyte initrd will not boot.
         {
-          isoImage.storeContents = [
-            ci.config.system.build.toplevel
-            web.config.system.build.toplevel
-            cache.config.system.build.toplevel
-            netboot.config.system.build.toplevel
-            devbox.config.system.build.toplevel
-            installDisk
-          ];
+          isoImage.storeContents = map toplevel roles.installer ++ [ installDisk ];
           isoImage.contents = [{
             source = pkgs.writeText "fleet-readiness.json" (builtins.toJSON {
               version = 1;
-              roles = builtins.mapAttrs (_: host: {
-                blocked = (builtins.fromJSON host.config.environment.etc."fleet/bootstrap.json".text).installBlocked;
-              }) { inherit ci web cache netboot devbox; };
+              roles = lib.genAttrs roles.installer (attr: {
+                blocked = (builtins.fromJSON hosts.${attr}.config.environment.etc."fleet/bootstrap.json".text).installBlocked;
+              });
             });
             target = "/fleet-readiness.json";
           } {
-            source = pkgs.writeText "fleet-install-manifest" ''
-              ci ${ci.config.system.build.toplevel}
-              web ${web.config.system.build.toplevel}
-              cache ${cache.config.system.build.toplevel}
-              netboot ${netboot.config.system.build.toplevel}
-              devbox ${devbox.config.system.build.toplevel}
-              disko ${installDisk}
-            '';
+            source = pkgs.writeText "fleet-install-manifest"
+              (lib.concatMapStrings (attr: "${attr} ${toplevel attr}\n") roles.installer
+                + "disko ${installDisk}\n");
             target = "/fleet-install-manifest";
           }];
         }
       ];
     };
-    installerNetboot = lib.nixosSystem {
-      inherit system;
-      specialArgs = { settings = installerSettings; };
-      modules = [
-        (nixpkgs + "/nixos/modules/installer/netboot/netboot-minimal.nix")
-        ./modules/installer.nix
-        { netboot.squashfsCompression = "zstd -Xcompression-level 3"; }
-      ];
-    };
-    netboot = mkHost netbootSettings ./hosts/netboot.nix { installer = installerNetboot; };
     # Every role shares this layout. The recorded path is checked again on the
     # target, then linked to the sentinel disko opens.
     installDisk = pkgs.writeShellScript "disko" ''
@@ -96,7 +75,7 @@
       again=$(python3 ${./scripts/cattle.py} select-disk)
       [ "$again" = "$device" ]
       ln -sfn "$device" /dev/fleet-install-disk
-      exec ${ci.config.system.build.diskoScript}
+      exec ${hosts.${roles.installerDefault}.config.system.build.diskoScript}
     '';
     bootstrapFor = pkgs': pkgs'.writeShellScript "bootstrap" ''
       export PATH=${lib.makeBinPath [ pkgs'.openssh ]}:$PATH
@@ -109,53 +88,43 @@
       diskoModule = disko.nixosModules.disko;
     };
   in {
-    nixosConfigurations = {
-      ci = ci;
-      ci-gpu = ciGpu;
-      web = web;
-      cache = cache;
-      netboot = netboot;
-      devbox = devbox;
-      installer = installerIso;
+    # The registry, for workflows and scripts that must not keep their own list:
+    # nix eval --json .#lib.roles.published
+    lib.roles = { inherit (roles) known active installer published installerDefault; };
+    # One evaluation for the cache probes (check-fleet-cache.ts, wait-cache.py):
+    # every published closure path and the key that must have signed it.
+    lib.cacheProbe = let
+      bootstrap = builtins.fromJSON hosts.${roles.installerDefault}.config.environment.etc."fleet/bootstrap.json".text;
+    in {
+      metadata = { inherit (bootstrap) cacheUrl cachePublicKey; };
+      paths = map (attr: toString (toplevel attr)) roles.published;
     };
-    packages.${system} = {
-      ci = ci.config.system.build.toplevel;
-      node = self.packages.${system}.ci;
-      web = web.config.system.build.toplevel;
-      cache = cache.config.system.build.toplevel;
-      netboot = netboot.config.system.build.toplevel;
-      devbox = devbox.config.system.build.toplevel;
+    nixosConfigurations = hosts // { installer = installerIso; };
+    # Every closure, including opt-in variants such as ci-gpu. Only
+    # roles.published is built by default and by the Fleet cache workflow.
+    packages.${system} = lib.mapAttrs (attr: _: toplevel attr) hosts // {
+      node = self.packages.${system}.${roles.installerDefault};
       installer = installerIso.config.system.build.isoImage;
       fleet-installer = import ./modules/installer-package.nix { inherit pkgs lib revision; };
       fleet-node = self.packages.${system}.fleet-installer;
-      default = self.packages.${system}.ci;
+      default = self.packages.${system}.${roles.installerDefault};
       disko = installDisk;
-      disko-ci = installDisk;
-      disko-web = installDisk;
-      disko-cache = installDisk;
-      disko-netboot = installDisk;
-      disko-devbox = installDisk;
-      attic-client = pkgs.attic-client;
       nixos-anywhere = pkgs.nixos-anywhere;
       bootstrap = bootstrapFor pkgs;
     };
-    checks.${system} = {
-      node = self.packages.${system}.ci;
-      web = self.packages.${system}.web;
-      cache = self.packages.${system}.cache;
-      netboot = self.packages.${system}.netboot;
-      devbox = self.packages.${system}.devbox;
+    checks.${system} = lib.genAttrs roles.published (attr: toplevel attr) // {
       devbox-vm = import ./tests/devbox.nix testArgs;
+      native-vm = import ./tests/native.nix testArgs;
       installer = self.packages.${system}.installer;
       vm = import ./tests/vm.nix (testArgs // { settings = import ./fleet.nix; });
-      web-vm = import ./tests/web.nix testArgs;
       lifecycle = import ./tests/lifecycle.nix testArgs;
       follow-up = import ./tests/follow-up.nix testArgs;
-      update-units = import ./tests/update-units.nix {
-        inherit pkgs lib;
-        roles = { inherit ci web cache netboot devbox; ci-gpu = ciGpu; };
-      };
-      netboot-vm = import ./tests/netboot.nix (testArgs // { inherit installerNetboot; });
+      update-units = import ./tests/update-units.nix { inherit pkgs lib; roles = hosts; };
+      # The complete registry rules and its files, from inside the build.
+      roles = pkgs.runCommand "fleet-roles" { } ''
+        ${pkgs.python3}/bin/python3 ${./scripts/fleet_roles.py} validate ${./.}
+        mkdir -p "$out"
+      '';
       cattle = pkgs.runCommand "fleet-cattle" { } ''
         ${pkgs.python3}/bin/python3 ${./scripts/cattle.py} check ${./.}
         mkdir -p "$out"
@@ -165,14 +134,13 @@
       # Every role reports to the fleet API. Pure evaluation: a role that loses
       # the unit, its boot target or its address fails here, not at a boot.
       agent-units = let
-        roles = { inherit ci web cache netboot devbox; };
         url = (import ./settings/shared.nix).fleetApi.url;
         working = system: let unit = system.config.systemd.services.fleet-agent or null; in
           unit != null
           && builtins.elem "multi-user.target" unit.wantedBy
           && unit.environment.FLEET_API_URL == url
           && lib.hasInfix "fleet-agent run" unit.serviceConfig.ExecStart;
-        broken = lib.attrNames (lib.filterAttrs (_: system: !(working system)) roles);
+        broken = lib.attrNames (lib.filterAttrs (_: system: !(working system)) primaryHosts);
       in pkgs.runCommand "fleet-agent-units" { } (
         if broken == [ ] then "mkdir -p $out"
         else "echo 'roles without a working fleet-agent: ${lib.concatStringsSep ", " broken}' >&2; exit 1");

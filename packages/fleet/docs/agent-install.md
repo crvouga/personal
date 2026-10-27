@@ -19,7 +19,7 @@ Rules that never bend:
 
    Windows PowerShell: `curl.exe -fsSL -o fleet-node.sh <same url>`, then use `bash fleet-node.sh`. Python 3 is the only requirement. If it is missing, install Python 3 with the system package manager and continue.
 
-2. Learn the role. It is `ci`, `web`, `cache`, `netboot`, or `devbox`. If the person did not say, ask once. Do not guess.
+2. Learn the role. It is `ci` or `devbox` (the active roles in `packages/fleet/roles.json`). If the person did not say, ask once. Do not guess.
 
 For `devbox`, collect the public `.pub` SSH key from the computer the person will connect from. Never request or transport the private key. Set `FLEET_DEVBOX_SSH_KEY_FILE` to a root-readable copy of that public file for both doctor and install. A missing key refuses the install. A devbox home persists over reboot but a role conversion wipes it: back up project work first.
 

@@ -9,27 +9,25 @@ async function capture(args: string[]): Promise<string> {
   return text.trim();
 }
 
-const expression = `hosts: let
-  bootstrap = builtins.fromJSON hosts.ci.config.environment.etc."fleet/bootstrap.json".text;
-in {
-  metadata = { inherit (bootstrap) cacheUrl cachePublicKey; };
-  paths = map (role: builtins.toString (builtins.getAttr role hosts).config.system.build.toplevel)
-    [ "ci" "web" "cache" "netboot" "devbox" ];
-}`;
+// The flake derives the published closures from packages/fleet/roles.json,
+// so this probe never keeps its own role list.
 const { metadata, paths } = JSON.parse(
   await capture([
     'nix',
     'eval',
     '--no-write-lock-file',
     '--json',
-    '.#nixosConfigurations',
-    '--apply',
-    expression,
+    '.#lib.cacheProbe',
   ])
 ) as {
   metadata: { cacheUrl: string; cachePublicKey: string };
   paths: string[];
 };
+if (
+  paths.length === 0 ||
+  !paths.every((path) => path.startsWith('/nix/store/'))
+)
+  throw new Error('FLEET_CACHE_PROBE_INVALID');
 const child = Bun.spawn(
   [
     'timeout',

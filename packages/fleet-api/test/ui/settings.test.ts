@@ -100,9 +100,11 @@ describe('settings form generation', () => {
     );
     const page = await html(app, '/settings');
     expect(page).toContain('href="/settings/fleet"');
-    for (const role of ['ci', 'web', 'cache', 'netboot', 'devbox']) {
+    for (const role of ['ci', 'devbox']) {
       expect(page).toContain(`href="/settings/role:${role}"`);
     }
+    // Retired roles have no scope tab unless they still hold settings.
+    expect(page).not.toContain('href="/settings/role:web"');
     expect(page).toContain('1<span class="sr-only"> settings set');
   });
 

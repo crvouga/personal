@@ -4,10 +4,16 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fleet_roles  # noqa: E402  (a sibling file, not an installed package)
 
 
 FLEET = "packages/fleet/"
-ROLE_FILES = {FLEET + name + ".nix" for name in ("fleet", "web", "cache", "netboot", "devbox")}
+# Active roles' settings files. roles.json itself is not role-only: it decides
+# which closures the installer image carries.
+ROLE_FILES = {FLEET + role.settings for role in fleet_roles.load().roles if role.is_active}
 ROLE_DIRECTORIES = tuple(FLEET + name + "/" for name in ("hosts", "hardware", "settings"))
 
 

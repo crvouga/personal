@@ -22,8 +22,8 @@ actual online GitHub runner registrations. Old agents remain **Not yet verified*
 | Boot fallback           | GitHub/cache connectivity and update timer before blessing; protected healthy closure GC roots                                                              | Counted upgrade failures reboot only with a fallback entry; a first install stays alive and retries rather than reboot-looping                                                     |
 
 The shared cache is the existing **cloud** `turborepo-remote-cache` service with
-an isolated public `/nix` read namespace backed by existing R2 storage. A physical
-Attic machine is optional and is not the bootstrap/update dependency. The
+an isolated public `/nix` read namespace backed by existing R2 storage. The
+physical Attic `cache` role is retired (`roles.json`). The
 OpenTofu Vault root owns the Ed25519 signing key, isolated publisher document,
 and exact repository/ref/workflow OIDC roles. Only the public key is pinned in
 `settings/shared.nix`. No private signing key reaches nodes or the HTTP service.
@@ -129,7 +129,7 @@ second repository-specific constant into scripts or workflows.
 | Initial database schema                      | [CI deployment](https://github.com/crvouga/workspace/actions/runs/38676867317) fails planning Atlas: `schema "fleet" was not found`.                                                                                       | Bootstrap only the empty schema through a reviewed targeted foundation plan, then review/apply the full foundation plan (details below).                                                                                |
 | Automatic updates                            | Shared binary-cache URL/key are null; the cache role's secret file is null. GitHub lacks `FLEET_CACHE_URL`, `FLEET_CACHE_NAME`, `FLEET_ATTIC_TOKEN`.                                                                       | Bring up Attic with its own encrypted secret, commit its actual URL/public key, and manage workflow values through OpenTofu. Require a successful merge-group cache push. Without this, nodes wait instead of updating. |
 | Merge protections                            | Live `main` requires `Required`, but lacks the declared `Fleet` check and merge queue.                                                                                                                                     | Apply the reviewed foundation ruleset change after its cache prerequisites are available.                                                                                                                               |
-| Web / cache / netboot                        | Web serves only the placeholder; cache service is disabled; netboot flags cannot finish an install.                                                                                                                        | Supply real web apps and role secrets where needed. Use the ISO for installation, including the first netboot server.                                                                                                   |
+| Web / cache / netboot                        | Retired in `roles.json` on 2026-10-26; their Vault role tokens and age keys remain until a reviewed vault plan removes them.                                                                                               | Supply real web apps and role secrets where needed. Use the ISO for installation, including the first netboot server.                                                                                                   |
 | Devbox access                                | Installer requires a valid SSH public key. Shared emergency SSH keys are empty.                                                                                                                                            | Have the intended dev public key available before wiping; its private half stays on the connecting computer. Empty emergency keys are valid.                                                                            |
 
 `bun run health` was run against production: **220 pass, 14 warn, 8 fail,
@@ -152,11 +152,9 @@ skipped checks are not acceptance evidence.
    Complete the full foundation and vault plans, publish the API image, then
    apply the fleet root. These are cloud resources, exclusively managed by
    OpenTofu. Import any resource that already exists before adoption.
-3. Configure the first cache node's encrypted `attic-env` and its intended
-   reachable address, then build/publish that configuration. Bootstrap it from
-   the ISO. Add the resulting cache URL and public key to shared settings;
-   configure the CI cache inputs through OpenTofu. Verify substitution and the
-   merge-group push before depending on automatic updates or the merge queue.
+3. Verify that the Fleet cache workflow published the `roles.json` closures to
+   the cloud cache and that a node substitutes them before depending on
+   automatic updates or the merge queue.
 4. Merge the final role settings and installer fix through the required checks.
    Inspect the actual **check**, **wizard**, **publish** and, for a merge group,
    **cache** results. Confirm the release contains `fleet-node.sh`, all five

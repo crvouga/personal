@@ -4,7 +4,12 @@ import {
   type FleetConfig,
   type Scope,
 } from '../../config/schema';
-import { ROLES, type NodeView, type SettingsHistoryRow } from '../../types';
+import {
+  ROLES,
+  isActiveRole,
+  type NodeView,
+  type SettingsHistoryRow,
+} from '../../types';
 import { Icon } from '../components/icon';
 import { Time } from '../components/time';
 import { inheritedSettings, scopeLabel } from '../lib/effective';
@@ -83,7 +88,10 @@ function ScopeSwitcher(props: {
         current={scope === 'fleet'}
         count={countKeys(documents.get('fleet'))}
       />
-      {ROLES.map((role) => (
+      {ROLES.filter(
+        (role) =>
+          isActiveRole(role) || countKeys(documents.get(`role:${role}`)) > 0
+      ).map((role) => (
         <ScopeTab
           key={role}
           href={`/settings/role:${role}`}

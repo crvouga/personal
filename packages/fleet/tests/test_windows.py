@@ -114,11 +114,11 @@ class WriteRegionTest(unittest.TestCase):
 
 class GrubConfigTest(unittest.TestCase):
     def test_the_entry_boots_the_chosen_role_from_the_image(self):
-        config = decide.grub_config("web", "/boot/k", "/boot/i", "root=LABEL=X copytoram fleet.role=web")
+        config = decide.grub_config("devbox", "/boot/k", "/boot/i", "root=LABEL=X copytoram fleet.role=devbox")
         self.assertIn("search --no-floppy --set=root --file /EFI/nixos-installer-image", config)
-        self.assertIn("linux /boot/k root=LABEL=X copytoram fleet.role=web\n", config)
+        self.assertIn("linux /boot/k root=LABEL=X copytoram fleet.role=devbox\n", config)
         self.assertIn("initrd /boot/i\n", config)
-        self.assertIn("installs web", config)
+        self.assertIn("installs devbox", config)
 
     def test_a_value_that_could_break_out_of_the_entry_is_refused(self):
         for bad in ("a\nb", "a'b", "a\rb"):

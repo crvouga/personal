@@ -14,7 +14,7 @@ import {
 } from '@mantine/core';
 import { PageHeading } from '@pkgs/admin-ui/components';
 import type { ConsoleState } from './model';
-import { ROLES } from '../types';
+import { ACTIVE_ROLES, ROLES } from '../types';
 import type { Scope } from '../config/schema';
 import { SettingsEditor } from './settings-editor';
 import { useAction } from './action';
@@ -46,17 +46,19 @@ export function Settings({
         description="Runtime configuration. Fleet defaults flow into roles and individual nodes."
       />
       <Group>
-        {['fleet', ...ROLES.map((role) => `role:${role}`)].map((item) => (
-          <Button
-            key={item}
-            component="a"
-            href={`/settings/${item}`}
-            variant={scope === item ? 'filled' : 'default'}
-            size="xs"
-          >
-            {item}
-          </Button>
-        ))}
+        {['fleet', ...ACTIVE_ROLES.map((role) => `role:${role}`)].map(
+          (item) => (
+            <Button
+              key={item}
+              component="a"
+              href={`/settings/${item}`}
+              variant={scope === item ? 'filled' : 'default'}
+              size="xs"
+            >
+              {item}
+            </Button>
+          )
+        )}
       </Group>
       <Alert color="indigo" title={scope}>
         Empty values inherit from the fleet, then the role. Changes reach nodes

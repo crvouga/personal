@@ -13,9 +13,6 @@ Feature: Hard reinstall an existing NixOS fleet node safely
     Examples:
       | role    |
       | ci      |
-      | web     |
-      | cache   |
-      | netboot |
       | devbox  |
 
   Scenario: The normal command preserves an existing healthy installation
