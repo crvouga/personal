@@ -619,14 +619,22 @@ class ServerTests(WizardCase):
         self.assertEqual(self.run_plan(plan)[0], 200)
         job = self.wait_job()
         self.assertEqual(job["state"], "done", job)
+        first_scratch = self.wizard.job.scratch
         self.assertTrue(job["result"]["ok"])
         self.assertEqual(self.target.read_bytes()[:self.iso.stat().st_size], self.iso.read_bytes())
         self.assertTrue(any("Writing" in line for line in job["log"]), job["log"])
         self.assertEqual(self.run_plan(plan)[0], 409, "a completed acknowledgement cannot be replayed")
         _status, fresh = self.usb_plan()
         self.assertEqual(self.run_plan(fresh)[0], 200)
-        self.wait_job()
-        self.assertEqual([p for p in Path(tempfile.gettempdir()).glob("fleet-job-*/request*.json") if p.read_text() != "{}"], [])
+        job = self.wait_job()
+        self.assertEqual(job["state"], "done", job)
+        scratches = [first_scratch, self.wizard.job.scratch]
+        # The worker publishes its result before its finally block removes the
+        # request directory. Observe only these jobs and wait for that cleanup.
+        deadline = time.monotonic() + 5
+        while any(path.exists() for path in scratches) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual([path for path in scratches if path.exists()], [])
 
     def test_a_corrupt_release_stops_before_any_disk_is_touched(self):
         self.sumfile.write_text("0" * 64 + "  fleet-installer.iso\n")

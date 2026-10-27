@@ -79,16 +79,33 @@ The planned rollout is **CI runners converted from existing Windows installation
 
 ### Project compatibility still needs qualification
 
-The allowed repository was checked read-only on GitHub: it is private and has
-no registered runners. Its current `check-pr.yml` and `check-nightly.yml` jobs
-use `ubuntu-24.04`; its setup uses mise, and its browser action downloads Chrome
-assuming Ubuntu libraries are already installed. There is no root `flake.nix`.
-These jobs will keep using hosted Ubuntu after a node registers. Do not replace
-`runs-on` alone: first provide the project's NixOS-compatible toolchain/browser
-libraries (see [project onboarding](onboard-project.md)), qualify a smoke job
-using `[self-hosted, nixos, ci]`, then move eligible trusted jobs with bounded
-parallelism and the hosted path kept available. No project workflow was changed
-in this readiness audit.
+The earlier observations about hosted Ubuntu jobs and no registered runners
+are historical, not a statement of current readiness. The 2026-10-27 review
+read the supplied run's revision `67a59c6e7980225c3f15dbafad32f16c44736356`:
+`verify-pr.yml` requests self-hosted runners, the setup action installs tools
+through mise, and the browser action downloads pinned Chrome without system
+dependencies. That revision's runner requirements explicitly require Git,
+Bash and `gh` on the service PATH before project setup. This is source
+inspection, not evidence of a successful NixOS job.
+
+The CI role now adds `gh` to the service PATH; Bash, Git and Nix come from the
+locked NixOS runner module. Every slot checks tool execution, filesystem
+symlinks, long paths and a local Git checkout before starting its listener.
+Fleet readiness requires that probe's success as well as the existing live
+GitHub checks. The Windows `bash: command not found` and REST-checkout fallback
+show failed tool discovery there; they do not distinguish missing installs,
+service PATH configuration or stale service environments.
+
+Project compatibility remains an open gate: follow [project onboarding](onboard-project.md)
+to supply the project's pinned devShell and browser libraries, and qualify an
+actual checkout/toolchain/browser smoke job within the runner sandbox. `nix-ld`
+alone is not proof that downloaded tools or Chrome will work. Chrome's sandbox
+needs testing against the runner's namespace restrictions; do not assume an
+Ubuntu AppArmor sysctl or passwordless sudo is required on NixOS.
+Require `[self-hosted, nixos, ci]`, bounded parallelism and trusted jobs before
+production routing. Bare `self-hosted` does not honor the custom-label routing
+contract used by draining. Preserve an explicit hosted fallback. No application
+repository or workflow was changed, and no physical node was qualified here.
 
 ### Configuration ownership
 

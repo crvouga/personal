@@ -1,5 +1,6 @@
 """Readiness needs each expected runner, not aggregate registration counts."""
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +30,9 @@ class RunnerReadinessTests(unittest.TestCase):
         self.prefix = self.identity['runner_prefix']
         self.github = {'scope': 'repository', 'repositories': ['example/a', 'example/b'],
                        'appId': '1', 'installationId': '2'}
+        for slot in ('slot-1', 'slot-2'):
+            (runtime / slot).mkdir()
+            (runtime / slot / 'prerequisites').write_text('ok\n')
 
     def check(self, names):
         def run(args, timeout):
@@ -70,6 +74,41 @@ class RunnerReadinessTests(unittest.TestCase):
         issue = node_readiness.github_issues(self.paths, self.identity, run, self.github, {})[0]
         self.assertTrue(issue.startswith('FLEET_GITHUB_SCOPE: GitHub answered HTTP 404'))
         self.assertNotIn('retrying', issue)
+
+    def test_online_runner_without_a_successful_service_probe_is_not_ready(self):
+        names = {'example/a': [self.prefix + '-slot-1'], 'example/b': [self.prefix + '-slot-2']}
+        status = self.paths.run / 'slot-1/prerequisites'
+        for value in (None, 'checking', 'unknown', 'x' * 1000):
+            if value is None:
+                status.unlink()
+            else:
+                status.write_text(value)
+            self.assertIn('no successful service prerequisite check', self.check(names)[0])
+
+    def test_failed_probe_names_the_stage_even_when_the_service_is_restarting(self):
+        status = self.paths.run / 'slot-2/prerequisites'
+        for stage, expected in [('tool:gh', 'gh discovery/execution'), ('checkout', 'Git checkout'),
+                                ('filesystem', 'filesystem operations')]:
+            status.write_text('failed:' + stage)
+            issue = self.inactive(restarts=5)
+            self.assertIn('FLEET_RUNNER_PREREQUISITE_FAILED', issue)
+            self.assertIn(expected, issue)
+        status.write_text('failed:password=do-not-report')
+        self.assertNotIn('do-not-report', self.inactive())
+
+    def test_probe_status_rejects_nonregular_files_and_malformed_bytes(self):
+        status = self.paths.run / 'slot-1/prerequisites'
+        target = self.root / 'outside'
+        target.write_text('ok')
+        status.unlink()
+        status.symlink_to(target)
+        self.assertEqual(node_readiness.prerequisite_status(status), '')
+        status.unlink()
+        os.mkfifo(status)
+        self.assertEqual(node_readiness.prerequisite_status(status), '')
+        status.unlink()
+        status.write_bytes(b'\xff')
+        self.assertEqual(node_readiness.prerequisite_status(status), '')
 
     def test_extra_runners_on_one_repository_cannot_hide_a_missing_assigned_runner(self):
         names = {'example/a': [self.prefix + '-slot-1', self.prefix + '-slot-2'], 'example/b': []}

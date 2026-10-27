@@ -233,6 +233,14 @@ firmware handoff or a boot on the user's physical machine.
 
 Run the portable ones with `bun run --filter @pkgs/fleet check`. The owner has created and installed the runner App on github.com; live acceptance tests check its registration permission and the deployed download. Windows conversion, the unsigned-GRUB boot from a raw partition and installation on physical hardware still need a spare-machine test. See [the validation record](docs/validation.md) for the dated evidence and remaining limits.
 
+## Coding on every node
+
+Every fleet role installs Oh My Pi (OMP), Chromium and a private browser desktop, alongside
+native Claude Code and Codex. OMP provides one conversation with a model picker;
+SSH and the desktop share its session. People give goals to the agent and complete
+browser consent. See [the interaction and rollout guide](docs/coding.md), including
+provider billing, browser consent and per-node verification.
+
 ## Reference
 
 - [Installer guide](docs/installer.md) for people, [agent runbook](docs/agent-install.md) for agents.

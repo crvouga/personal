@@ -12,7 +12,15 @@ case "$1" in
       printf '{}' > "$RUNNER_ROOT/$name"
     done
     ;;
-  run) exec ${pkgs.coreutils}/bin/sleep infinity ;;
+  run)
+    # A job shell must resolve tools through the service PATH, not a root
+    # login shell or the absolute interpreter used to launch this mock.
+    bash --noprofile --norc -euo pipefail -c '
+      for tool in bash git gh nix; do command -v "$tool"; "$tool" --version; done
+      test "$(cat "$FLEET_PREREQUISITE_STATUS")" = ok
+    ' > "/run/fleet/$FLEET_SLOT/job-tools"
+    exec ${pkgs.coreutils}/bin/sleep infinity
+    ;;
   *) exit 2 ;;
 esac
 MOCK
@@ -58,7 +66,14 @@ in pkgs.testers.runNixOSTest {
     };
     boot.loader.systemd-boot.enable = lib.mkForce false;
     users.users.root.hashedPassword = lib.mkForce null;
-    services.github-runners = lib.genAttrs [ "slot-1" "slot-2" ] (_: { package = mock; });
+    services.github-runners = lib.genAttrs [ "slot-1" "slot-2" ] (id: {
+      package = mock;
+      extraPackages = lib.mkBefore (lib.optional (id == "slot-2")
+        (pkgs.writeShellScriptBin "gh" ''
+          [ ! -e /run/fleet/block-gh ] || exit 91
+          exec ${pkgs.gh}/bin/gh "$@"
+        ''));
+    });
     environment.etc."ci-fleet-vm-test".text = ''
       firewall=${lib.boolToString config.networking.firewall.enable}
       sshPorts=${lib.concatStringsSep "," (map toString config.networking.firewall.allowedTCPPorts)}
@@ -80,6 +95,11 @@ in pkgs.testers.runNixOSTest {
     machine.succeed("command -v kexec lsblk findmnt")
     machine.wait_for_unit("github-runner-slot-1.service")
     machine.wait_for_unit("github-runner-slot-2.service")
+    for slot in ("slot-1", "slot-2"):
+        machine.succeed(f"grep -qx ok /run/fleet/{slot}/prerequisites")
+        machine.succeed(f"grep -F 'gh version' /run/fleet/{slot}/job-tools")
+        machine.succeed(f"test $(stat -c %U /run/fleet/{slot}/prerequisites) = {slot}")
+        machine.succeed(f"test -z \"$(find /run/github-runner/{slot} -maxdepth 1 -name '.fleet-prerequisites.*' -print)\"")
     machine.succeed("hostname | grep -Eq '^ci-[0-9a-f]{4}$'")
     machine.succeed("grep -qx \"ACTIONS_RUNNER_INPUT_NAME=$(hostname)\" /run/fleet/identity")
     machine.succeed("grep -qx 2 /run/fleet/slot-count")
@@ -129,5 +149,14 @@ in pkgs.testers.runNixOSTest {
     machine.succeed("test ! -e /run/fleet/draining && test ! -e /run/fleet/update-draining")
     machine.succeed("rm /run/systemd/system/fleet-sync.service.d/test.conf; systemctl daemon-reload")
     machine.fail("grep -F cache.invalid /etc/nix/nix.conf")
+    # A tool present on PATH but unable to execute must prevent admission;
+    # repairing it lets the normal service start replace the failed evidence.
+    machine.succeed("touch /run/fleet/block-gh; systemctl stop github-runner-slot-2.service")
+    machine.fail("systemctl start github-runner-slot-2.service")
+    machine.succeed("grep -qx failed:tool:gh /run/fleet/slot-2/prerequisites")
+    machine.fail("systemctl is-active --quiet github-runner-slot-2.service")
+    machine.succeed("rm /run/fleet/block-gh; systemctl reset-failed github-runner-slot-2.service; systemctl restart github-runner-slot-2.service")
+    machine.wait_for_unit("github-runner-slot-2.service")
+    machine.succeed("grep -qx ok /run/fleet/slot-2/prerequisites")
   '';
 }

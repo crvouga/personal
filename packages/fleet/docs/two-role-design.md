@@ -67,11 +67,11 @@ settled before the step that depends on it.
 
 ### Roles and capabilities
 
-| Closure  | Purpose                 | Notes                                                                                                             |
-| -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ci`     | GitHub Actions jobs     | Default CI box.                                                                                                   |
-| `ci-gpu` | `ci` plus NVIDIA driver | Kept only if [Q4](#q4-gpu-closures) has an answer; today it is never published, so a GPU node could never update. |
-| `devbox` | Development over SSH    | One closure.                                                                                                      |
+| Closure  | Purpose                 | Notes                                                                                     |
+| -------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| `ci`     | GitHub Actions jobs     | Default CI box.                                                                           |
+| `ci-gpu` | `ci` plus NVIDIA driver | Published with the base closures; kept off the installer ISO. See [Q4](#q4-gpu-closures). |
+| `devbox` | Development over SSH    | One closure.                                                                              |
 
 `high-mem` stays a runtime threshold, not a closure. A new `kvm` capability
 (runtime label, opt-in per node through dynamic config) is proposed for jobs
@@ -443,11 +443,12 @@ and changes the "merge to change a node" contract in AGENTS.md.
 
 ### Q4. GPU closures
 
-`fleet-cache.yml` builds only the five base roles, so a `ci-gpu` node can never
-find its closure and never updates. Publishing it puts the unfree NVIDIA driver
-in a public cache; check the driver licence on redistribution. Options: a
-private cache namespace for unfree closures, or dropping `ci-gpu` until a GPU
-node exists.
+Resolved in the 2026-10-27 coding-harness configuration: `ci-gpu` is marked
+published in `roles.json`, so its closure is built, signed and cached with the
+base closures. The [locked Nixpkgs driver package](https://github.com/NixOS/nixpkgs/blob/7c8764b7c7b09b34f632464276218ef9090eaa11/pkgs/os-specific/linux/nvidia-x11/generic.nix)
+marks its licence `unfreeRedistributable`; the fleet uses that maintained package
+without changing its contents or licence files. Publishing still depends on
+successful CI and the signed-cache workflow. The GPU variant is not on the ISO.
 
 ### Q5. Content-addressed release identity
 

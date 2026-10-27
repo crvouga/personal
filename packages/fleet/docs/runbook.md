@@ -63,7 +63,7 @@ A failed pull leaves the running generation in place. A switch that cannot reach
 
 The workflow is `.github/workflows/ci.yml`. It runs on GitHub-hosted `ubuntu-latest`, not on this fleet. One path changes a node: pull request, required checks, merge queue, `main`, nodes pull.
 
-- A pull request that touches this package runs `nix flake check` and builds the published closures in `roles.json` (`ci`, `devbox`) and the installer. `ci-gpu` is not in that build.
+- A pull request that touches this package runs `nix flake check` and builds the published closures in `roles.json` (`ci`, `ci-gpu`, `devbox`) and the installer. GPU nodes receive updates through the same signed cache.
 - The `Fleet` check reports on every pull request. A diff outside this package succeeds without building, so the queue is not stuck on a skipped workflow.
 - Installer publication follows successful Nix and installer checks, without a private-cache publisher.
 - The queue merges with `MERGE`. Nodes build the exact revision that lands.

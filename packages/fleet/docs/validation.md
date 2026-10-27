@@ -1,5 +1,84 @@
 # Validation record
 
+## 2026-10-27 native CI toolchain timeouts
+
+PR #158's four native Nix lanes reached the 12-minute check limit while compiling
+the shared upstream OMP Rust component, before launcher and VM acceptance could
+complete. The pipeline now builds that runtime once in a separate bounded job,
+tests its real launcher, and transfers its complete closure to the four lanes
+through a same-workflow artifact. Those lanes retain their existing timeouts,
+resource limits, exact derivation checks and release gates.
+
+Local workflow and transfer fault tests cover full closure export, compressed
+round-trip, failed queries/exports/imports, damaged archives and a missing
+evaluated runtime. Native build and VM results must still be collected from CI;
+the host has no Nix installation and its Docker daemon is unavailable.
+
+## 2026-10-27 Oh My Pi configuration review
+
+The shared coding launcher uses OMP's native `modelRoles.default` and
+`PI_CONFIG_FILES`. Passing `--provider` alone did not select an initial model,
+and configuration subcommands ignored the session's `--config` flag. The real
+v18.13.1 CLI now reads the fleet defaults and accepts an explicit Anthropic model
+through RPC `get_state`, without credentials or inference. `coding-launcher`
+adds that regression check to the Linux build checks. Boot readiness also probes
+the private browser HTTP endpoint. `ci-gpu` is now included in signed-cache
+publication alongside `ci` and `devbox`, so GPU nodes have an update path.
+
+Local verification includes the portable Fleet checks, typechecking, formatting,
+agent links, generated integration guides, and all-system flake evaluation with
+`--no-build`. Runtime OMP configuration/RPC checks used the SHA-256-verified
+upstream macOS ARM64 release binary, with an isolated home and no account state.
+Existing Nixpkgs, disko and sops pins are unchanged.
+
+The x86_64 Linux launcher build was attempted under Rosetta, but stopped in the
+pinned Claude Code package's `auto-patchelf` helper with `ModuleNotFoundError:
+elftools`. A diagnostic found the module installed in the Python environment,
+while the emulated interpreter used its base prefix instead. The same pinned
+Python environment imports the module successfully in native ARM64 Linux. This
+does not prove the x86_64 build: native CI must still build the launcher and run
+the VM tests. No dependency was patched and no VM acceptance result is claimed.
+
+The read-only live fleet health report still says no nodes have registered.
+The shared SSH key list remains empty. Deployment, owner-approved subscription
+authentication, model requests and physical-node acceptance remain unverified.
+
+## 2026-10-27 runner service prerequisites
+
+The CI role supplies `gh` alongside the pinned NixOS module's Bash, Git and
+Nix. Before accepting a job, every slot now probes tool discovery/execution,
+symlinks, paths longer than 260 characters and a local Git clone, under its
+actual service identity, PATH and sandbox. Fleet readiness and the node console
+explain failed probes and refuse readiness without successful evidence. The
+slot-written result is diagnostic evidence, not a security attestation.
+
+Passed locally on macOS ARM64:
+
+- Five real-shell probe tests, with real Bash/Git and fixture `gh`/`nix` tools:
+  successful checkout and cleanup, missing/nonexecuting tools, symlinks
+  materialized as files, Git's `core.symlinks=false`, and filesystem failure.
+- Thirteen runner-readiness tests, including an online runner with missing
+  proof, failed probe stages and rejection of FIFO/symlink/malformed records.
+- Existing runner-job tests, 17 onboarding tests, eight node-console tests,
+  61 agent tests and 14 telemetry tests.
+- Package shell lint (including ShellCheck), BDD lint, typecheck, documentation
+  formatting, agent links, generated integration guides and `git diff --check`.
+- Nix syntax parsing for the runner module and VM test in disposable Docker
+  using Nix 2.28.5. The host has no Nix installation.
+- `nix flake check --no-build --all-systems path:/fleet` in that disposable
+  container passed, including CI closures and the updated VM derivation.
+  This used a filesystem snapshot with revision `unknown`; it did not build
+  or publish release closures.
+
+The VM test now runs a shell through the service PATH, checks that probe records
+belong to each slot user, and exercises failed `gh` execution followed by service
+recovery. These VM scenarios have not been executed locally. A mock listener
+does not prove a real GitHub Actions job. No physical node, Windows registry,
+service, application repository or workflow was changed. A real checkout and
+the application's pinned toolchain/browser smoke job remain rollout gates;
+see [project onboarding](onboard-project.md). Repository-wide checks, builds,
+VM execution and hardware acceptance still require their normal CI/live gates.
+
 ## 2026-10-24 automatic installer preparation across platforms
 
 The wizard now performs bounded preparation after disk consent: missing Linux

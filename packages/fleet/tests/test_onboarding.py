@@ -198,6 +198,8 @@ class OnboardingTests(unittest.TestCase):
         runtime = self.root / 'run'
         runtime.mkdir()
         (runtime / 'slot-count').write_text('1')
+        (runtime / 'slot-1').mkdir()
+        (runtime / 'slot-1/prerequisites').write_text('ok')
         (self.etc / 'revision').write_text('a' * 40)
         (self.root / 'sync').mkdir()
         (self.root / 'sync/last-success').write_text('a' * 40)
@@ -218,6 +220,9 @@ class OnboardingTests(unittest.TestCase):
         runtime = self.root / 'run'
         (runtime / 'assign-used').mkdir(parents=True)
         (runtime / 'slot-count').write_text('2')
+        for slot in ('slot-1', 'slot-2'):
+            (runtime / slot).mkdir()
+            (runtime / slot / 'prerequisites').write_text('ok')
         (runtime / 'assign-used/slot-1').write_text('example/override')
         paths = SimpleNamespace(run=runtime, state=self.root / 'agent', systemctl='systemctl')
         github = {'scope': 'organization', 'organization': 'example', 'appId': '1', 'installationId': '2'}

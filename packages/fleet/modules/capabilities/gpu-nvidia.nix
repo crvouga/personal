@@ -3,8 +3,8 @@
   # (hosts/ci-gpu.nix), not a fact discovered from lspci on the plain ci image.
   # A legacy branch would be another module, still not a per-machine file.
   # This pin turns the driver on only when nvidia is a video driver. The X
-  # server stays off. nix build .#nixosConfigurations.ci-gpu is opt-in;
-  # the default CI build does not download the unfree driver.
+  # server stays off. The GPU closure is built and published alongside ci so
+  # an installed GPU node can receive the same Git-managed updates.
   nixpkgs.config.allowUnfree = true;
   hardware.graphics.enable = true;
   hardware.nvidia = {
