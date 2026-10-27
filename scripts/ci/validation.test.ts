@@ -72,13 +72,14 @@ test('expensive work starts from the plan, without waiting for package validatio
     'fleet_e2e',
     'auth',
     'portfolio_urls',
-    'nix',
+    'coding_tools',
     'installer',
   ]) {
     expect(jobs[job].needs).toBe('changes');
     expect(jobs[job].if).toContain('needs.changes.outputs.');
   }
   expect(jobs.packages.needs).toBeUndefined();
+  expect(jobs.nix.needs).toEqual(['changes', 'coding_tools']);
   expect(jobs.optional.needs).toBeUndefined();
   expect(jobs.check.needs).not.toContain('optional');
   for (const job of ['packages', 'infra', 'fleet_e2e', 'nix', 'installer'])

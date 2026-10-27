@@ -49,6 +49,8 @@ ACTIONS = (
      f"{OWNER} completes settings/github.json (App ID, installation ID, runner targets)."),
     (r"FLEET_RUNNER_RESTARTING|FLEET_GITHUB_OPERATION_FAILED",
      "Report it with the code: the node's journal has the cause, which this screen cannot see."),
+    (r"FLEET_RUNNER_PREREQUISITE_FAILED",
+     f"{OWNER} repairs the CI closure through Git. The runner service journal names the failed tool or filesystem check."),
     (r"FLEET_BOOT_HEALTH_FAILED|FLEET_UPDATE",
      "Check that this computer reaches the internet. If it does, report it: updates are not being applied."),
     (r"no-network",

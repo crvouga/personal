@@ -15,6 +15,7 @@ in {
     ./boot-health.nix
     ./console.nix
     ./recovery.nix
+    ./coding.nix
   ];
   # The module system ignores `revision ? null` and throws if the argument is
   # absent. Tests omit it. The flake passes the real commit via specialArgs,

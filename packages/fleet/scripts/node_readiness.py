@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import stat
 import time
 
 
@@ -47,6 +48,35 @@ def collect_issues(paths, identity, run, credential, settings):
 
 
 RESTART_LOOP = 3  # restarts before a slot that keeps failing is a problem, not a start
+
+
+def prerequisite_status(path):
+    # Jobs share the slot identity: a FIFO or device must not stall the root
+    # agent's heartbeat, and a symlink must not make it read another file.
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        with os.fdopen(descriptor) as stream:
+            info = os.fstat(stream.fileno())
+            return stream.read(128).strip() if stat.S_ISREG(info.st_mode) and info.st_size < 128 else ''
+    except (OSError, UnicodeError):
+        return ''
+
+
+def prerequisite_problem(paths, slots, require_success=False):
+    """Slot-written diagnostics are advisory: accept only known probe stages."""
+    stages = {'tool:bash': 'bash discovery/execution', 'tool:git': 'git discovery/execution',
+              'tool:gh': 'gh discovery/execution', 'tool:nix': 'nix discovery/execution',
+              'filesystem': 'symlink/long-path filesystem operations', 'checkout': 'Git checkout with symlinks/long paths'}
+    pending = None
+    for n in range(1, slots + 1):
+        slot = f'slot-{n}'
+        status = prerequisite_status(paths.run / slot / 'prerequisites')
+        if status.startswith('failed:') and status[7:] in stages:
+            return (f'FLEET_RUNNER_PREREQUISITE_FAILED: runner {slot} failed {stages[status[7:]]} '
+                    'inside its service environment. Repair the CI closure through Git; see its journal.')
+        if status != 'ok' and pending is None:
+            pending = f'FLEET_RUNNERS_STARTING: runner {slot} has no successful service prerequisite check.'
+    return pending if require_success else None
 
 
 def slot_problem(paths, run, slots, active):
@@ -102,6 +132,9 @@ def github_issues(paths, identity, run, github, settings):
             return ['FLEET_GITHUB_SCOPE_INVALID: runner registration targets are not configured correctly.']
         targets.setdefault((target_scope, target), set()).add(f'{prefix}-slot-{slot}')
     code, states = run([paths.systemctl, 'is-active', *[f'github-runner-slot-{n}.service' for n in range(1, slots + 1)]], 5)
+    problem = prerequisite_problem(paths, slots, require_success=code == 0 and states.splitlines().count('active') == slots)
+    if problem:
+        return [problem]
     if code or states.splitlines().count('active') != slots:
         return [slot_problem(paths, run, slots, states.splitlines().count('active'))]
     cache_file = paths.state / 'github-readiness.json'

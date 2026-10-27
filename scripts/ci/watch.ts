@@ -33,7 +33,18 @@ if (!run)
     `No CI run found for ${sha}; publish this commit in a PR first`
   );
 process.exit(
-  spawnSync('gh', ['run', 'watch', String(run.databaseId), '--exit-status'], {
-    stdio: 'inherit',
-  }).status ?? 1
+  spawnSync(
+    'gh',
+    [
+      'run',
+      'watch',
+      String(run.databaseId),
+      '--exit-status',
+      '--interval',
+      '30',
+    ],
+    {
+      stdio: 'inherit',
+    }
+  ).status ?? 1
 );

@@ -6,11 +6,23 @@
     disko.inputs.nixpkgs.follows = "nixpkgs";
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+    # Use OMP's maintained Nix build and its own pinned toolchain inputs.
+    oh-my-pi.url = "github:can1357/oh-my-pi/v18.13.1";
   };
-  outputs = { self, nixpkgs, disko, sops-nix }: let
+  outputs = { self, nixpkgs, disko, sops-nix, oh-my-pi }: let
     system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
     lib = nixpkgs.lib;
+    codingLicense = package: lib.getName package == "claude-code";
+    ompOverlay = final: _: {
+      omp = oh-my-pi.packages.${final.stdenv.hostPlatform.system}.omp;
+    };
+    # VM tests reuse this package set read-only. Apply the license policy here,
+    # rather than attempting to change their locked nixpkgs.config in base.
+    pkgs = import nixpkgs {
+      inherit system;
+      config.allowUnfreePredicate = codingLicense;
+      overlays = [ ompOverlay ];
+    };
     # A dirty tree has no self.rev. Do not publish dirtyRev: it will never
     # match a system in the binary cache.
     revision = if (self.rev or null) != null then self.rev else "unknown";
@@ -28,6 +40,10 @@
       inherit system;
       specialArgs = { inherit settings revision; };
       modules = [
+        {
+          nixpkgs.config.allowUnfreePredicate = codingLicense;
+          nixpkgs.overlays = [ ompOverlay ];
+        }
         disko.nixosModules.disko
         sops-nix.nixosModules.sops
         hostModule
@@ -100,13 +116,15 @@
       paths = map (attr: toString (toplevel attr)) roles.published;
     };
     nixosConfigurations = hosts // { installer = installerIso; };
-    # Every closure, including opt-in variants such as ci-gpu. Only
+    # Every closure, including capability variants such as ci-gpu. Only
     # roles.published is built by default and by the Fleet cache workflow.
     packages.${system} = lib.mapAttrs (attr: _: toplevel attr) hosts // {
       node = self.packages.${system}.${roles.installerDefault};
       installer = installerIso.config.system.build.isoImage;
       fleet-installer = import ./modules/installer-package.nix { inherit pkgs lib revision; };
       fleet-node = self.packages.${system}.fleet-installer;
+      # A revision-independent runtime closure shared by all CI check lanes.
+      coding-tools = (import ./modules/coding-package.nix { inherit pkgs lib; }).session;
       default = self.packages.${system}.${roles.installerDefault};
       disko = installDisk;
       nixos-anywhere = pkgs.nixos-anywhere;
@@ -120,6 +138,8 @@
       lifecycle = import ./tests/lifecycle.nix testArgs;
       follow-up = import ./tests/follow-up.nix testArgs;
       update-units = import ./tests/update-units.nix { inherit pkgs lib; roles = hosts; };
+      coding-units = import ./tests/coding-units.nix { inherit pkgs lib; roles = hosts; };
+      coding-launcher = import ./tests/coding-launcher.nix { inherit pkgs lib; };
       # The complete registry rules and its files, from inside the build.
       roles = pkgs.runCommand "fleet-roles" { } ''
         ${pkgs.python3}/bin/python3 ${./scripts/fleet_roles.py} validate ${./.}

@@ -35,7 +35,7 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(registry.view("active"), ("ci", "devbox"))
         self.assertEqual(registry.view("known"), ("ci", "web", "cache", "netboot", "devbox"))
         self.assertEqual(registry.view("installer"), ("ci", "devbox"))
-        self.assertEqual(registry.view("published"), ("ci", "devbox"))
+        self.assertEqual(registry.view("published"), ("ci", "ci-gpu", "devbox"))
         self.assertEqual(registry.installer_default, "ci")
         self.assertEqual([closure.attr for closure in registry.role("ci").closures], ["ci", "ci-gpu"])
 
