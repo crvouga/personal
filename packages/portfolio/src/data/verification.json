@@ -1,27 +1,27 @@
 {
   "version": 1,
-  "fetchedAt": "2026-10-26T20:05:09.199Z",
-  "window": { "from": "2026-09-17", "to": "2026-10-26" },
+  "fetchedAt": "2026-10-27T18:27:28.775Z",
+  "window": { "from": "2026-09-17", "to": "2026-10-27" },
   "workspace": {
     "repo": "crvouga/workspace",
-    "mergedPrs": 102,
+    "mergedPrs": 106,
     "automatedPrsExcluded": 33,
     "automationPatterns": [
       "chore/github-insights-refresh",
       "chore/fleet-flake-lock"
     ],
-    "prsFailedCiBeforeMerge": 21,
+    "prsFailedCiBeforeMerge": 24,
     "prsFailedCiBeforeMergeNumbers": [
       2, 16, 28, 40, 49, 59, 72, 87, 89, 93, 97, 101, 106, 115, 120, 121, 126,
-      127, 129, 131, 141
+      127, 129, 131, 141, 152, 153, 156
     ],
-    "aiCoAuthoredPrs": 38,
+    "aiCoAuthoredPrs": 41,
     "aiCoAuthoredPrNumbers": [
       3, 4, 6, 7, 11, 13, 14, 16, 17, 20, 28, 54, 55, 59, 61, 63, 89, 90, 91,
       92, 93, 96, 97, 98, 99, 100, 101, 103, 104, 106, 107, 108, 109, 110, 111,
-      113, 114, 141
+      113, 114, 141, 152, 153, 156
     ],
-    "pullRequestRunsExamined": 463,
+    "pullRequestRunsExamined": 481,
     "earlierAttemptsExamined": 4
   },
   "repos": [
@@ -31,7 +31,7 @@
       "defaultBranch": "main",
       "stars": 3,
       "commits": 1051,
-      "openIssues": 0,
+      "openIssues": 1,
       "openPrs": 1,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
@@ -58,14 +58,14 @@
       "url": "https://github.com/crvouga/workspace",
       "defaultBranch": "main",
       "stars": 1,
-      "commits": 1654,
-      "openIssues": 0,
+      "commits": 1692,
+      "openIssues": 1,
       "openPrs": 1,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
       "defaultBranchCiConclusion": "success",
-      "defaultBranchCiRunUrl": "https://github.com/crvouga/workspace/actions/runs/40382273469",
-      "defaultBranchCiCompletedAt": "2026-10-26T19:06:04Z"
+      "defaultBranchCiRunUrl": "https://github.com/crvouga/workspace/actions/runs/40533848004",
+      "defaultBranchCiCompletedAt": "2026-10-27T15:52:28Z"
     }
   ],
   "mockingbird": {
