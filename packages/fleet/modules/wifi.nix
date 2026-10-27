@@ -6,7 +6,7 @@
   '';
   wifi = "${source}/fleet_wifi.py";
   tool = operation: pkgs.writeShellScriptBin "fleet-wifi-${operation}" ''
-    export PATH=${lib.makeBinPath [ pkgs.networkmanager pkgs.iproute2 pkgs.python3 ]}:$PATH
+    export PATH=${lib.makeBinPath [ pkgs.networkmanager pkgs.iproute2 pkgs.python3 pkgs.util-linux pkgs.systemd ]}:$PATH
     exec ${pkgs.python3}/bin/python3 ${wifi} ${operation} "$@"
   '';
 in {

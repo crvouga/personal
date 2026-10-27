@@ -71,7 +71,7 @@ def validate_heartbeat(body):
 
     need(body.get("v") == 1, "v")
     need(isinstance(body.get("nodeId"), str) and re.fullmatch(r"[0-9a-f]{64}", body["nodeId"]), "nodeId")
-    need(body.get("role") in ("ci", "web", "cache", "netboot", "devbox"), "role")
+    need(body.get("role") in agent.ROLES, "role")
     need(isinstance(body.get("hostname"), str) and HOSTNAME_RE.match(body["hostname"]), "hostname")
     caps = body.get("capabilities")
     need(isinstance(caps, list) and len(caps) <= 32 and all(isinstance(c, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,50}", c) for c in caps), "capabilities")
@@ -541,11 +541,11 @@ class HeartbeatPayloadTests(AgentCase):
     def test_a_non_ci_node_has_no_runner_block(self):
         self.tmp.cleanup()
         self.tmp = tempfile.TemporaryDirectory()
-        self.node = Node(self.tmp.name, "web")
-        self.api.role_tokens["web"] = ROLE_TOKEN
+        self.node = Node(self.tmp.name, "devbox")
+        self.api.role_tokens["devbox"] = ROLE_TOKEN
         self.make().cycle()
         self.assertIsNone(self.heartbeats()[0]["runners"])
-        self.assertEqual(self.heartbeats()[0]["role"], "web")
+        self.assertEqual(self.heartbeats()[0]["role"], "devbox")
 
     def test_ip_missing_falls_back_to_the_route_address(self):
         original = self.run_stub.__call__
@@ -773,7 +773,8 @@ class ConfigTests(AgentCase):
         worker.cycle()
         launches = self.run_stub.matching("systemd-run")
         self.assertEqual(len(launches), 1)
-        self.assertEqual(launches[0], ["systemd-run", "--no-block", "--collect", "--unit=fleet-config-drain", "--", "/test/fleet-drain"])
+        self.assertEqual(launches[0], ["systemd-run", "--no-block", "--collect", "--unit=fleet-config-drain",
+                                       "--setenv=FLEET_DRAIN_REASON=config", "--", "/test/fleet-drain"])
         self.assertTrue((self.node.run / "agent-drained").exists())
         (self.node.run / "draining").write_text("")
         worker.cycle()
@@ -788,16 +789,48 @@ class ConfigTests(AgentCase):
         worker.cycle()
         self.assertFalse((self.node.run / "agent-drained").exists())
 
-    def test_disabled_runners_drain_too_and_a_drain_the_agent_did_not_start_is_left_alone(self):
+    def test_disabled_runners_drain_too_and_a_drain_held_by_another_reason_is_left_alone(self):
         worker = self.approved({"runners": {"enabled": False}})
         worker.cycle()
         self.assertEqual(len(self.run_stub.matching("systemd-run")), 1)
         other = self.make()
         (self.node.run / "agent-drained").unlink()
         (self.node.run / "draining").write_text("")
-        other.settings = {}
+        for reason in ("update", "low-disk", "manual"):
+            (self.node.run / "drain-reasons").mkdir(exist_ok=True)
+            (self.node.run / "drain-reasons" / reason).write_text("2026-10-26T00:00:00Z\n")
+            other.settings = {}
+            other.reconcile()
+            self.assertEqual(len(self.run_stub.matching("systemd-run")), 1, reason)
+            (self.node.run / "drain-reasons" / reason).unlink()
+        (self.node.run / "update-draining").write_text("")
         other.reconcile()
-        self.assertEqual(len(self.run_stub.matching("systemd-run")), 1)
+        self.assertEqual(len(self.run_stub.matching("systemd-run")), 1, "an update in progress holds admission")
+
+    def test_a_gate_nobody_holds_is_reopened_and_reported(self):
+        # A cordon lifted while its drain was still starting left the gate closed
+        # with no owner: the node silently served nothing until it rebooted.
+        worker = self.approved({})
+        (self.node.run / "draining").write_text("")
+        worker.reconcile()
+        self.assertEqual(self.run_stub.matching("systemd-run")[-1][-1], "/test/fleet-resume")
+        import recovery
+        events = recovery.pending(worker.recovery_base)
+        self.assertEqual([event["kind"] for event in events], ["gate-reopened"])
+
+    def test_a_manual_drain_is_lifted_only_by_reopen_after_from_fleet(self):
+        worker = self.approved({})
+        (self.node.run / "draining").write_text("")
+        (self.node.run / "drain-reasons").mkdir()
+        manual = self.node.run / "drain-reasons" / "manual"
+        manual.write_text("2026-10-26T00:00:00Z\n")
+        os.utime(manual, (1000, 1000))
+        worker.reconcile()
+        self.assertEqual(self.run_stub.matching("systemd-run"), [])
+        worker.settings = {"runners": {"reopenAfter": 2000}}
+        worker.apply_drain({"runners.reopenAfter": 2000}, {})
+        self.assertFalse(manual.exists())
+        self.assertEqual(self.run_stub.matching("systemd-run")[-1][-1], "/test/fleet-resume")
 
     def test_an_unfinished_drain_is_retried_no_faster_than_every_fifteen_minutes(self):
         worker = self.approved({"runners": {"cordoned": True}})
@@ -826,11 +859,11 @@ class ConfigTests(AgentCase):
         self.assertEqual(self.read("runner-labels").split(), ["x64", "gpu", "fast"])
         self.assertEqual(self.heartbeats()[0]["events"][-1]["kind"], "config")
 
-    def test_a_web_node_applies_only_the_settings_that_apply_to_it(self):
+    def test_a_devbox_node_applies_only_the_settings_that_apply_to_it(self):
         self.tmp.cleanup()
         self.tmp = tempfile.TemporaryDirectory()
-        self.node = Node(self.tmp.name, "web")
-        self.api.role_tokens["web"] = ROLE_TOKEN
+        self.node = Node(self.tmp.name, "devbox")
+        self.api.role_tokens["devbox"] = ROLE_TOKEN
         self.api.values = {"runners": {"cordoned": True, "repositories": ["o/a"]}, "sync": {"paused": True}}
         worker = self.make(role_token=ROLE_TOKEN)
         worker.cycle()

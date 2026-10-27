@@ -13,6 +13,8 @@ in {
     ./agent.nix
     ./onboarding.nix
     ./boot-health.nix
+    ./console.nix
+    ./recovery.nix
   ];
   # The module system ignores `revision ? null` and throws if the argument is
   # absent. Tests omit it. The flake passes the real commit via specialArgs,
@@ -36,12 +38,6 @@ in {
   boot.loader.systemd-boot.enable = true;
   boot.loader.systemd-boot.configurationLimit = settings.bootGenerationLimit;
   boot.loader.efi.canTouchEfiVariables = true;
-  # The role name on the ESP. The netboot iPXE script reads it by volume label.
-  # ci-gpu is role ci. This is not a per-machine file.
-  boot.loader.systemd-boot.extraFiles."fleet-role.ipxe" = pkgs.writeText "fleet-role.ipxe" ''
-    #!ipxe
-    set fleet_role ${settings.role}
-  '';
   # Newest entry gets tries-left. See scripts/boot-count.sh. This pin has no
   # boot-counting module option. graceful is not fallback.
   boot.loader.systemd-boot.extraInstallCommands = ''
@@ -111,30 +107,9 @@ in {
     "d /nix/fleet-state/secrets 0700 root root -"
     "d /run/fleet 0755 root root -"
   ];
+  # The console screen (console.nix) shows the age public key and host fingerprint.
   # Local signal. A failed unit is the alert, and fleet-agent reports failed
   # units to the fleet API. Nothing scrapes 127.0.0.1:9101.
-  # Public material only. The private age key stays in fleet-state.
-  systemd.services.fleet-console-info = {
-    description = "Print the age public key and host fingerprint on the console";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "systemd-user-sessions.service" ];
-    serviceConfig.Type = "oneshot";
-    script = ''
-      exec > /dev/console
-      echo "fleet revision: $(cat /etc/fleet/revision 2>/dev/null || echo unknown)"
-      echo "hostname: $(${pkgs.nettools}/bin/hostname)"
-      echo "network addresses:"
-      ${pkgs.iproute2}/bin/ip -brief address show scope global || true
-      if [ -s /nix/fleet-state/secrets/age.pub ]; then
-        echo "age public key:"
-        cat /nix/fleet-state/secrets/age.pub
-      fi
-      if [ -s /nix/fleet-state/ssh/ssh_host_ed25519_key.pub ]; then
-        ${pkgs.openssh}/bin/ssh-keygen -lf /nix/fleet-state/ssh/ssh_host_ed25519_key.pub || true
-      fi
-      exit 0
-    '';
-  };
   systemd.services.fleet-disk = {
     description = "Fail when /nix or /boot is too full";
     serviceConfig.Type = "oneshot";
@@ -205,14 +180,6 @@ in {
     {
       assertion = settings.disk.alertPercent >= 50 && settings.disk.alertPercent <= 99;
       message = "disk.alertPercent is the /nix and /boot fullness threshold.";
-    }
-    {
-      assertion = lib.all (id: lib.match "[0-9a-f][0-9a-f][0-9a-f][0-9a-f]" id != null) settings.reinstall.nodes;
-      message = "reinstall.nodes entries are 4 lowercase hex digits, the stable id.";
-    }
-    {
-      assertion = lib.all (role: builtins.elem role [ "ci" "web" "cache" "netboot" "devbox" ]) settings.reinstall.roles;
-      message = "reinstall.roles names a role. ci-gpu is role ci.";
     }
     {
       assertion = (settings.rotateAgeKey or false) -> settings.secretsFile != null;

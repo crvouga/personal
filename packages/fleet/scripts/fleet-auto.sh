@@ -122,7 +122,7 @@ while :; do
   [[ "$wait_limit" =~ ^[0-9]+$ ]] || wait_limit=600
   remaining=$((wait_limit - (now - 10#$started)))
   if [ "$remaining" -le 0 ]; then
-    echo 'FLEET_NETWORK_WAIT_EXPIRED: bounded network retries did not establish connectivity. Nothing was erased.' | tee -a "$attempt_log" >&2
+    echo "FLEET_NETWORK_WAIT_EXPIRED: the checks before erasing were still not ready after $((wait_limit / 60)) minutes. Nothing was erased." | tee -a "$attempt_log" >&2
     status=2
     break
   fi

@@ -47,8 +47,21 @@ in {
         free=$(df --output=avail -B1 /nix | tail -n1)
         if [ "$free" -lt ${toString (settings.cache.minFreeGiB * 1024 * 1024 * 1024)} ]; then
           echo 'Low disk space: preventing new runner starts; existing jobs continue.'
+          install -d -m 0755 /run/fleet/drain-reasons
+          date -u +%Y-%m-%dT%H:%M:%SZ > /run/fleet/drain-reasons/low-disk
           touch /run/fleet/draining
           exit 1
+        fi
+      fi
+      # Space is back: lift only this unit's own reason. Admission reopens when
+      # no other reason (an update, a cordon, a manual drain) still holds it.
+      free=$(df --output=avail -B1 /nix | tail -n1)
+      if [ -e /run/fleet/drain-reasons/low-disk ] && [ "$free" -ge ${toString (settings.cache.minFreeGiB * 1024 * 1024 * 1024)} ]; then
+        rm -f /run/fleet/drain-reasons/low-disk
+        echo 'Free space recovered; lifting the low-disk drain reason.'
+        if [ -z "$(ls -A /run/fleet/drain-reasons 2>/dev/null)" ]; then
+          flock -u 9
+          /run/current-system/sw/bin/fleet-resume || echo 'fleet-resume did not reopen admission; the agent retries' >&2
         fi
       fi
     '';

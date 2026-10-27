@@ -115,7 +115,12 @@ def check(toplevel, role, age_file, token_file, run=subprocess.run, api=check_ap
                         raise Retryable('FLEET_GITHUB_UNAVAILABLE: retrying GitHub registration readiness before disk changes.') from None
                     if result.returncode == 75:
                         raise Retryable('FLEET_GITHUB_UNAVAILABLE: GitHub transport, throttling or server failure; retrying before disk changes.')
-                    require(result.returncode == 0, 'FLEET_GITHUB_REGISTRATION: GitHub rejected runner registration. Check the App installation and repository access before installing.')
+                    # runner_control prints one public line: CODE: what GitHub refused.
+                    said = getattr(result, 'stderr', b'') if result.returncode else b''
+                    said = (said.decode('utf-8', 'replace') if isinstance(said, bytes) else str(said or '')).strip().splitlines()
+                    said = said[-1][:300] if said and said[-1].startswith('FLEET_') else ''
+                    require(result.returncode == 0, (said + f' (target {target}). Nothing was erased.') if said else
+                            'FLEET_GITHUB_REGISTRATION: GitHub rejected runner registration. Check the App installation and repository access before installing.')
     api(metadata['apiUrl'], role, token)
 
 

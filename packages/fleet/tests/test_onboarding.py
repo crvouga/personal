@@ -67,6 +67,20 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotIn(self.token.read_text(), repr(calls))
         api.assert_called_once_with('https://fleet.invalid', 'ci', self.token.read_text())
 
+    def test_a_github_refusal_reaches_the_installer_screen_as_said(self):
+        def run(args, **kwargs):
+            if args[0] == 'sops':
+                return SimpleNamespace(returncode=0, stdout=b'{"github-app-key":"test-only-private-material"}')
+            if len(args) > 1 and args[1].endswith('runner_control.py'):
+                return SimpleNamespace(returncode=78, stdout=b'', stderr=(
+                    b'FLEET_GITHUB_SCOPE: GitHub answered HTTP 404 for the runner target: the App installation '
+                    b'cannot reach this repository or organization\n'))
+            return SimpleNamespace(returncode=0, stdout=b'{}')
+        with self.assertRaises(bootstrap.NotReady) as caught:
+            self.run_check(run)
+        self.assertTrue(str(caught.exception).startswith('FLEET_GITHUB_SCOPE: GitHub answered HTTP 404'), str(caught.exception))
+        self.assertIn('(target example/private). Nothing was erased.', str(caught.exception))
+
     def test_missing_cache_configuration_refuses_without_network_or_secret_access(self):
         self.metadata['blocked'] = ['FLEET_CACHE_UNCONFIGURED: configure the cache']
         self.write_metadata()

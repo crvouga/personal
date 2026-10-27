@@ -30,7 +30,14 @@ import uuid
 import webbrowser
 from pathlib import Path
 
-ROLES = ("ci", "web", "cache", "netboot", "devbox")
+# The active roles in roles.json. This file is bundled into fleet-node.sh and
+# runs with no checkout, so it keeps a copy: scripts/fleet_roles.py sync
+# rewrites the next line and its check fails while the copy is stale.
+ROLES = ("ci", "devbox")
+# The roles as prose for prompts: "ci or devbox", "a, b, or c".
+ROLE_CHOICES = ROLES[0] if len(ROLES) == 1 else ", ".join(ROLES[:-1]) + ("," if len(ROLES) > 2 else "") + " or " + ROLES[-1]
+# Only this role registers GitHub runners, so only it withdraws them on removal.
+RUNNER_ROLE = "ci"
 TRAN_RANK = {"nvme": 0, "sata": 1, "ata": 1, "sas": 2, "scsi": 2, "virtio": 3}
 BUS_NAME = {
     "nvme": "NVMe",
@@ -66,6 +73,8 @@ WINDOWS_BUS = {
 # Every run writes a timestamped log. Secrets are redacted before they reach
 # the screen or the file, so the log can be pasted anywhere.
 LOG = {"path": None}
+# Set by the wizard's helper before a handoff: {"attempt": ..., "wizard": ...}.
+HANDOFF = {}
 LOG_KEEP = 20
 SECRET_RE = re.compile(
     r"AGE-SECRET-KEY-\S+"
@@ -147,6 +156,8 @@ def invariant(condition, what, fix="Run `fleet-node doctor` and read the log; do
 def say(message):
     print(redact(message), file=sys.stderr)
     log(message)
+    if str(message).startswith("Next:"):
+        LOG["next"] = redact(str(message))[len("Next:"):].strip()
     sink = LOG.get("sink")
     if sink:
         sink(redact(message))
@@ -514,9 +525,9 @@ def plan_disks(disks, action):
 
 def role_error(role):
     if role == "ci-gpu":
-        return "Next: ci-gpu is not on the shared installer. Choose ci, web, cache, netboot, or devbox. Nothing was written."
+        return f"Next: ci-gpu is not on the shared installer. Choose {ROLE_CHOICES}. Nothing was written."
     if role not in ROLES:
-        return "Next: the role must be ci, web, cache, netboot, or devbox. Nothing was written."
+        return f"Next: the role must be {ROLE_CHOICES}. Nothing was written."
     return None
 
 
@@ -551,7 +562,7 @@ def removal_plan(busy, credential, withdrawn, role):
         }
     if withdrawn:
         return {"action": "noop", "code": 0, "stop_job": False, "power_off": True, "next": ""}
-    if role in ("web", "cache", "netboot", "devbox"):
+    if role in ROLES and role != RUNNER_ROLE:
         return {"action": "retire", "code": 0, "stop_job": False, "power_off": True, "next": ""}
     if not credential:
         return {
@@ -1112,7 +1123,7 @@ def extract_boot(iso_path, role):
     return str(kernel_path), str(initrd_path), block.get("append", "")
 
 
-def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True, origin=None):
+def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, findiso=True, origin=None, wifi=None):
     tokens = append.split()
     if any(any(char.isspace() for char in token) for token in tokens):
         raise ValueError("boot command is not one line")
@@ -1125,7 +1136,8 @@ def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, 
     role_token = f"fleet.role={role}"
     if vault and any(char.isspace() for char in vault):
         raise ValueError("vault address is not a single word")
-    kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "fleet.from=", "findiso="))]
+    kept = [t for t in tokens if t not in extras and t != role_token and not t.startswith(
+        ("fleet.enroll=", "fleet.vault=", "fleet.ssh=", "fleet.from=", "fleet.wifi=", "fleet.attempt=", "fleet.wizard=", "findiso="))]
     enroll = [f"fleet.enroll={token}"] if token else []
     where = [f"fleet.vault={vault}"] if token and vault else []
     invariant(role in ROLES, "refusing to build a boot command for an unknown role", role=role)
@@ -1133,7 +1145,15 @@ def _boot_command(append, role, iso_path, token=None, vault=None, ssh_key=None, 
     # The live installer's screens name the system it returns to (scripts/live_console.py).
     invariant(origin in (None, "windows", "linux"), "refusing an unknown handoff origin", origin=origin)
     came = [f"fleet.from={origin}"] if origin else []
-    command = " ".join([*kept, *extras, *enroll, *where, *access, *came, role_token])
+    # Which wizard attempt and build sent this boot, for the installer screen's
+    # report. Public identifiers only; anything malformed is left out.
+    tags = [f"fleet.{name}={value}" for name, value, pattern in (
+        ("attempt", HANDOFF.get("attempt"), r"[0-9a-f]{16}"), ("wizard", HANDOFF.get("wizard"), r"[A-Za-z0-9._-]{1,40}"))
+        if origin and isinstance(value, str) and re.fullmatch(pattern, value)]
+    # Whether Wi-Fi settings rode along (never the settings themselves). The live
+    # installer tells "none were sent" from "sent but lost" on its screen and report.
+    carried = [] if wifi is None else ["fleet.wifi=" + ("sent" if wifi else "none")]
+    command = " ".join([*kept, *extras, *enroll, *where, *access, *came, *tags, *carried, role_token])
     invariant(len(command.encode()) < 4096, "the installer boot command is too long", "Use an Ed25519 public key.", bytes=len(command.encode()))
     # The installer reads the LAST fleet.role=, so ours must be last.
     invariant(command.endswith(role_token) and command.rsplit("fleet.role=", 1)[1] == role,
@@ -1173,7 +1193,7 @@ def stage_reboot(os_name, role, iso, token=None, vault=None, wifi=None):
         return 1
     try:
         kernel, initrd, append = extract_boot(iso, role)
-        cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, origin="linux")
+        cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, origin="linux", wifi=wifi is not None)
     except (OSError, ValueError):
         say("Next: the installer image could not be read. Nothing was written. Plug in one USB disk and run this program again with the word flash.")
         return 1
@@ -2425,7 +2445,7 @@ def stage_windows(role, iso, token=None, vault=None, chosen=None, on_progress=No
         say("Next: " + ram["fix"] + " Nothing was written.")
         return 2
     linux_path, initrd_path, append, grub = iso_boot_material(iso, role)
-    cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False, origin="windows")
+    cmdline = _boot_command(append, role, iso, token, vault, devbox_key() if role == "devbox" else None, findiso=False, origin="windows", wifi=wifi is not None)
     wireless_initrd = wifi_module().initrd(wifi) if wifi is not None else b""
     config = grub_config(role, linux_path, initrd_path, cmdline, wifi=wifi is not None)
     disk, need, letter = int(facts["DiskNumber"]), windows_need(iso_size), facts["Letter"]
@@ -2581,10 +2601,10 @@ def write_media(os_name, iso, device, wifi=None, capacity=None):
 def load_role(argv_role):
     if argv_role:
         return argv_role.strip()
-    say("Type the role (ci, web, cache, netboot, or devbox):")
+    say(f"Type the role ({ROLE_CHOICES}):")
     answer, timed_out = read_answer(os.environ.get("FLEET_CONFIRM_TIMEOUT", "120"))
     if timed_out or answer.strip() == "":
-        say("Next: the role was not given. Nothing was written. Run this program again and type ci, web, cache, netboot, or devbox.")
+        say(f"Next: the role was not given. Nothing was written. Run this program again and type {ROLE_CHOICES}.")
         return None
     return answer.strip()
 
@@ -3087,7 +3107,8 @@ def issue_form_url(title, step="", diagnostic="", happened=""):
     fields = {"template": ISSUE_FORM, "title": redact(title).strip()[:120] or "Fleet installer problem",
               "step": redact(step).strip()[:200], "what-happened": redact(happened).strip(),
               "diagnostic": redact(diagnostic).strip()}
-    query = urllib.parse.urlencode({key: value for key, value in fields.items() if value}, quote_via=urllib.parse.quote)
+    # A space is "+", not "%20": a QR code holds about a fifth more of the report.
+    query = urllib.parse.urlencode({key: value for key, value in fields.items() if value}, quote_via=urllib.parse.quote_plus)
     return f"https://github.com/{REPO}/issues/new?{query}"
 
 
@@ -3395,7 +3416,7 @@ def cmd_install(argv, action):
     if written != 0:
         return written
     say("FLEET-WIPE media")
-    say("The USB disk now holds the installer. Boot that disk. On the installer menu choose ci, web, cache, netboot, or devbox. Choose a role and press Enter; every entry erases the internal disk.")
+    say(f"The USB disk now holds the installer. Boot that disk. On the installer menu choose {ROLE_CHOICES}. Choose a role and press Enter; every entry erases the internal disk.")
     return 0
 
 
@@ -3632,9 +3653,9 @@ def power_off(role):
     return 0
 
 
-USAGE = """usage: fleet-node.sh COMMAND
+USAGE = f"""usage: fleet-node.sh COMMAND
 
-  ROLE              install this machine as ci, web, cache, netboot, or devbox
+  ROLE              install this machine as {ROLE_CHOICES}
   doctor [ROLE]     read-only: what would be erased, and what stands in the way
   status            health of an installed node
   remove            take this node out of the fleet and power it off

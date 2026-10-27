@@ -58,7 +58,7 @@ Then(
   async ({ page, world }) => {
     await expect(
       page.getByRole('heading', {
-        name: 'Restart scheduled — Fleet confirmation pending',
+        name: 'Restarting into the installer',
         exact: true,
       })
     ).toBeVisible();

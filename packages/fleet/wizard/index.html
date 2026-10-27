@@ -436,14 +436,14 @@
           (windows
             ? '<li>Windows restarts by itself about 15 seconds after the installer is ready. Save your work first.</li>'
             : '<li>This computer restarts straight into the installer.</li>') +
-          '<li>A text screen titled <b>FLEET INSTALLER</b> appears. It lists seven steps and says what to do at each one; usually that is nothing. Keep the network cable plugged in, or stay near the same Wi-Fi.</li>' +
+          '<li>A text screen titled <b>FLEET INSTALLER</b> appears. It lists seven steps and says what to do at each one; usually that is nothing. Keep the network cable plugged in, or stay near the same Wi-Fi. If the Wi-Fi does not connect, the screen says why; a cable, a phone&#39;s USB tethering, or a network chosen there with <code>fleet-wifi</code> (Alt+F2) also works. Its DISK line says whether anything has been erased.</li>' +
           '<li>Steps 1 to 4 check the network, the approval, Fleet and GitHub. Nothing is erased yet. If something is wrong, the screen says what happened and what to do, shows a QR code that opens a pre-filled GitHub issue, and returns to ' +
           original +
           ' after two minutes (press Enter to stay).</li>' +
           '<li>Step 5 erases this disk, ' +
           original +
           ' included. Do not turn the computer off from then on. Step 6 installs the system; it usually takes 5 to 20 minutes and the screen updates every 30 seconds.</li>' +
-          '<li>Step 7 restarts into the new node by itself. It appears in <a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Fleet</a> a few minutes later. There is nothing else to do.</li>' +
+          '<li>Step 7 restarts into the new node by itself. Its screen then shows the node&#39;s own status: <b>READY</b> once its runners are online in GitHub, or what is wrong and a QR code to report it. It appears in <a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Fleet</a> a few minutes later. There is nothing else to do.</li>' +
           '</ol><p><small>Anything unexpected? On that screen press Alt+F2 and type <code>fleet-status</code> or <code>fleet-report</code>. Back in ' +
           original +
           ', open this installer again and press <b>Report a problem</b>.</small></p>'
@@ -764,6 +764,18 @@
           return show(h);
         }
         h += '<div class="erase"><b>' + esc(p.summary) + '</b></div>';
+        if (p.mode === 'here' && p.network)
+          h +=
+            '<p><b>Network after the restart:</b> ' +
+            (p.network.ssid
+              ? 'the Wi-Fi network “' +
+                esc(p.network.ssid) +
+                '” ' +
+                (p.network.source === 'entered'
+                  ? '(as you entered it).'
+                  : 'is carried over. Its password is read only when the installer is prepared, and stays on this computer and the new node.')
+              : 'no Wi-Fi connection was found to carry over. Plug in a network cable before the restart, or enter the Wi-Fi network under <b>Use a different Wi-Fi network</b>.') +
+            ' The installer checks the connection before it erases anything.</p>';
         if (state.mode === 'here') h += nextSteps();
         h +=
           '<label><input type="checkbox" id="ack"> I understand that <b>' +
@@ -832,19 +844,115 @@
           j.state === 'cancelled'
         )
           return finish(j);
-        let h =
-          '<h2>Working…</h2><p>' +
-          esc(j.message) +
-          '</p><progress max=100 ' +
-          (j.percent == null ? '' : 'value="' + j.percent + '"') +
-          '></progress>';
+        working(j);
+        setTimeout(progress, 600);
+      }
+
+      // What each long step is called, and what it has changed so far.
+      const STEP_TITLES = {
+        download: 'Downloading and verifying the installer',
+        readiness: 'Checking the installer for this role',
+        enroll: 'Waiting for approval on GitHub',
+        permission: 'Waiting for administrator permission',
+        prepare: 'Preparing Windows to start the installer',
+        write: 'Writing the installer partition',
+        stage: 'Placing the installer next to the system',
+        network: 'Saving Wi-Fi settings on the USB disk',
+        // Not the done page's heading: that one appears only once the job has finished.
+        reboot: 'Handing over to the installer',
+      };
+      function changedSoFar(j) {
+        if (state.mode === 'usb')
+          return j.step === 'write' || j.step === 'network'
+            ? 'The USB disk is being overwritten. Nothing else on this computer changes.'
+            : 'Nothing has been written yet.';
+        if (j.step === 'prepare' || j.step === 'write')
+          return 'Windows is being prepared: C: shrinks to make room for the installer and a one-time boot entry is added. Nothing is erased, and the wizard undoes these changes if a step fails.';
+        if (j.step === 'reboot')
+          return 'Nothing is erased yet. After the restart the installer checks the network, the approval and GitHub first; it erases the disk only at its step 5.';
+        return 'Nothing on this computer has been changed yet.';
+      }
+      // Updated in place, not redrawn: a link in the log or the approval box
+      // stays clickable and selectable, and the log keeps its scroll position.
+      function working(j) {
+        let view = document.getElementById('job');
+        if (!view) {
+          show(
+            '<h2 id="job-title">Working…</h2><div id="job"><p id="job-message"></p>' +
+              '<div id="job-approval"></div><progress id="job-bar" max="100"></progress>' +
+              '<p id="job-changed"><small></small></p><p id="job-cancel"></p>' +
+              '<details open><summary>Everything so far</summary><pre id="job-log"></pre></details></div>'
+          );
+          view = document.getElementById('job');
+        }
+        document.getElementById('job-title').textContent =
+          STEP_TITLES[j.step] || 'Working…';
+        document.getElementById('job-message').textContent = j.message || '';
+        const bar = document.getElementById('job-bar');
+        if (j.percent == null) bar.removeAttribute('value');
+        else bar.value = j.percent;
+        document.querySelector('#job-changed small').textContent =
+          changedSoFar(j);
+        const approval = j.approval;
+        const box = document.getElementById('job-approval');
+        const key = approval
+          ? approval.url + approval.received + Math.floor(approval.deadline)
+          : '';
+        if (box.dataset.key !== key) {
+          box.dataset.key = key;
+          box.innerHTML = approval
+            ? '<div class="callout"><p><b>Action needed: approve this computer on GitHub.</b> ' +
+              (approval.received
+                ? 'GitHub received the request; waiting for the approval workflow to answer.'
+                : 'The repository owner opens this link, signed in to GitHub, and presses <b>Submit new issue</b>. Nothing is erased while this waits.') +
+              '</p><p><a href="' +
+              esc(approval.url) +
+              '" target="_blank" rel="noreferrer">Open the approval page on GitHub</a> ' +
+              '<button onclick="navigator.clipboard?.writeText(' +
+              esc(JSON.stringify(approval.url)) +
+              ')">Copy link</button></p><p><small id="job-deadline"></small></p></div>'
+            : '';
+        }
+        const deadline = document.getElementById('job-deadline');
+        if (deadline && approval) {
+          const left = Math.max(
+            0,
+            Math.round(approval.deadline - Date.now() / 1000)
+          );
+          deadline.textContent =
+            'Waits ' +
+            Math.floor(left / 60) +
+            ' min ' +
+            (left % 60) +
+            ' s more, then stops with nothing changed.';
+        }
         // The server allows Cancel until the administrator step claims its work,
         // including while the permission prompt is still open.
-        if (j.cancellable ?? j.state === 'downloading')
-          h += '<p><button onclick="cancelBeforeWrite()">Cancel</button></p>';
-        h += '<pre>' + esc(j.log.join('\n')) + '</pre>';
-        show(h);
-        setTimeout(progress, 600);
+        const cancel = document.getElementById('job-cancel');
+        const cancellable = j.cancellable ?? j.state === 'downloading';
+        if (cancel.dataset.on !== String(cancellable)) {
+          cancel.dataset.on = String(cancellable);
+          cancel.innerHTML = cancellable
+            ? '<button onclick="cancelBeforeWrite()">Cancel</button>'
+            : '<small>Cancel is no longer possible: the administrator step is changing this computer. Wait for it to finish.</small>';
+        }
+        const log = document.getElementById('job-log');
+        const text = j.log.join('\n');
+        if (log.dataset.text !== text) {
+          const atEnd =
+            log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+          log.dataset.text = text;
+          log.innerHTML = esc(text).replace(
+            /https:\/\/[^\s<"']+/g,
+            (url) =>
+              '<a href="' +
+              url +
+              '" target="_blank" rel="noreferrer">' +
+              url +
+              '</a>'
+          );
+          if (atEnd) log.scrollTop = log.scrollHeight;
+        }
       }
 
       async function cancelBeforeWrite() {
@@ -859,22 +967,29 @@
         const r = j.result || {};
         let h;
         if (j.state === 'done') {
+          const restarting = state.mode === 'here' && r.restart !== false;
           h =
             '<h2 class="ok">' +
-            (state.mode === 'here'
-              ? 'Restart scheduled — Fleet confirmation pending'
-              : 'USB ready') +
+            (state.mode !== 'here'
+              ? 'USB ready'
+              : restarting
+                ? 'Restarting into the installer'
+                : 'Nothing to install') +
             '</h2><p>' +
             esc(r.message) +
             '</p>';
-          if (state.mode === 'here')
+          if (restarting && state.scan?.os === 'Windows')
+            h +=
+              '<div class="callout"><p><b>Windows restarts in about 15 seconds.</b> Save your work now. If Windows says apps are preventing the restart, choose <b>Restart anyway</b>.</p>' +
+              '<p><small>Nothing is erased yet. If the computer comes back to Windows instead of the installer, open this wizard again: it takes back the preparation and you can try again or make an install USB.</small></p></div>';
+          if (restarting)
             h +=
               nextSteps() +
               '<p><a href="https://fleet.chrisvouga.dev/nodes" target="_blank" rel="noreferrer">Monitor in Fleet</a></p>';
           if (state.mode === 'usb')
             h +=
               '<h2>Next</h2><ol><li>Plug the stick into the new computer and start it from the stick (usually F12, F11, Esc or Option at power-on).</li>' +
-              '<li>Choose ci, web, cache, netboot or devbox in the installer menu, then press Enter. The menu waits for your choice; every entry erases the internal disk. A devbox asks for your SSH public key before erasing anything; paste your .pub file contents at that prompt.</li>' +
+              '<li>Choose the role you picked here in the installer menu, then press Enter. The menu waits for your choice; every entry erases the internal disk. A devbox asks for your SSH public key before erasing anything; paste your .pub file contents at that prompt.</li>' +
               "<li>It erases the computer's internal disk and installs by itself. Remove the stick when it says so.</li></ol>";
         } else {
           const body = state.lastBody;

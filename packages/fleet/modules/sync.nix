@@ -46,6 +46,8 @@ in {
     FLEET_GIT=${lib.escapeShellArg "${pkgs.git}/bin/git"}
     FLEET_HEALTH=${lib.escapeShellArg (settings.fleetHealth or "")}
     CATTLE_PY=${lib.escapeShellArg "${tools.scripts}/cattle.py"}
+    RECOVERY_PY=${lib.escapeShellArg "${tools.scripts}/recovery.py"}
+    FLEET_ROLES_PY=${lib.escapeShellArg "${tools.scripts}/fleet_roles.py"}
     FLEETCONF=${lib.escapeShellArg "${tools.fleetconf}/bin/fleetconf"}
     PYTHON=${lib.escapeShellArg "${pkgs.python3}/bin/python3"}
   '';

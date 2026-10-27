@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """The live installer always says what is happening, what to do and how to report it."""
+import json
 import os
 import re
 import stat
@@ -43,7 +44,8 @@ class LiveConsoleTests(unittest.TestCase):
         self.env = {**os.environ, "FLEET_LIVE_STATE": str(self.root / "state"), "FLEET_INSTALL_LOG": str(self.log),
                     "FLEET_CMDLINE": str(self.cmdline), "FLEET_MANIFEST": str(self.root / "manifest"),
                     "FLEET_CONSOLE": str(self.console), "FLEET_QRENCODE": str(qrencode),
-                    "FLEET_SYSTEMCTL": str(self.systemctl), "FLEET_AUTO_STATE": str(self.root / "started")}
+                    "FLEET_SYSTEMCTL": str(self.systemctl), "FLEET_AUTO_STATE": str(self.root / "started"),
+                    "FLEET_CONSOLE_SIZE": "128x48"}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -59,9 +61,15 @@ class LiveConsoleTests(unittest.TestCase):
             self.assertEqual(self.live("step", ident).returncode, 0)
             screen = self.console.read_text()
             self.assertIn(f"[>] {number}.", screen)
-            self.assertIn("Now: ", screen)
+            self.assertIn(f" NOW     Step {number} of 7", screen)
             self.assertIn("Alt+F2", screen)
-            self.assertIn("erased" if number >= 5 else "Nothing has been erased. Windows is still on the disk.", screen)
+            flat = " ".join(screen.split())
+            if number >= 5:
+                self.assertNotIn("Not erased", flat)
+                self.assertIn("ERASING NOW" if ident == "erase" else "Erased.", flat)
+            else:
+                self.assertIn("DISK Not erased. Windows is still on this computer. Nothing is erased until steps 1 to 4", flat)
+                self.assertIn("<- the first step that changes the disk", screen)
 
     def test_a_wait_explains_the_reason_and_when_it_gives_up(self):
         self.live("step", "checks")
@@ -70,10 +78,13 @@ class LiveConsoleTests(unittest.TestCase):
         self.console.write_text("")
         self.live("wait", "--attempt", "2", "--remaining", "330", "--retry", "30")
         screen = self.console.read_text()
-        self.assertIn("Waiting (attempt 2)", screen)
-        self.assertIn("update cache", screen)
-        self.assertIn("5 min 30 s", screen)
-        self.assertIn("returns to Windows", screen)
+        flat = " ".join(screen.split())
+        self.assertIn("[~] 3.", screen)
+        self.assertIn("Attempt 2 is not ready", flat)
+        self.assertIn("update cache", flat)
+        self.assertIn("5 min 30 s", flat)
+        self.assertIn("restarts into Windows", flat)
+        self.assertIn("Nothing is erased either way", flat)
 
     def test_a_stop_shows_recovery_a_return_countdown_and_a_scannable_redacted_report(self):
         self.live("step", "checks")
@@ -87,12 +98,13 @@ class LiveConsoleTests(unittest.TestCase):
         self.assertIn("Restarts into Windows in 2 min 0 s. Press Enter", screen)
         self.assertIn("QR-CODE", screen)
         url = self.urls.read_text().strip()
-        self.assertLessEqual(len(url), live_console.QR_URL_MAX)
+        self.assertLessEqual(len(url), live_console.QR_CAPACITY[14])
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
         self.assertEqual(query["template"], ["fleet-installer.yml"])
         self.assertEqual(query["title"], ["Fleet installer screen: FLEET_APPROVAL_REQUIRED"])
         self.assertIn("step 3 of 7", query["step"][0])
-        self.assertIn("ci c839ee07 from windows: stopped before erasing (exit 2)", query["diagnostic"][0])
+        self.assertIn("ci c839ee07 windows stopped-before-erase exit=2 step=3/7", query["diagnostic"][0])
+        self.assertNotIn("%20", url)
         for text in (screen, url, (self.root / "state/state.json").read_text()):
             self.assertNotIn(SECRET, text)
 
@@ -101,7 +113,7 @@ class LiveConsoleTests(unittest.TestCase):
         Path(str(self.log) + ".erasing").touch()
         self.console.write_text("")
         self.live("stopped", "--status", "1", "--returning", "0")
-        screen = self.console.read_text()
+        screen = " ".join(self.console.read_text().split())
         self.assertIn("after the internal disk was erased", screen)
         self.assertIn("make an install USB", screen)
         self.assertNotIn("Restarts into", screen)
@@ -149,11 +161,92 @@ class LiveConsoleTests(unittest.TestCase):
             screen = self.console.read_text()
             self.assertIn("[>] 6. Install the ci system", screen)
             self.assertIn("Still working", screen)
-            self.assertIn("nixos-install of nixos-system-ci", screen)
+            self.assertIn("nixos-install of nixos-system-ci", " ".join(screen.split()))
         self.live("stopped", "--status", "1")
         self.console.write_text("")
         self.live("tick")
         self.assertEqual(self.console.read_text(), "")
+
+    def network(self, **changes):
+        facts = {"run": 4, "sent": "sent", "arrived": True, "code": "refused",
+                 "verdict": "The Wi-Fi network refused the saved password.",
+                 "adapters": [{"name": "wlp1s0", "type": "wifi", "driver": "iwlwifi", "id": "pci 8086:2723", "link": "down", "carrier": False}],
+                 "radios": [{"soft": False, "hard": False}], "clock": "2026-10-26T16:00:00Z", "via": [],
+                 "profile": {"ssid": "Vouga Home", "auth": "sae", "hidden": False},
+                 "scan": {"nearby": 9, "visible": True, "signal": 62, "security": "WPA2 WPA3", "band": "5 GHz"},
+                 "checks": {"adapter": {"state": "ok", "detail": "wlp1s0 (iwlwifi)"}, "settings": {"state": "ok", "detail": "WPA3 Personal"},
+                            "visible": {"state": "ok", "detail": "signal 62%, 5 GHz, WPA2 WPA3"},
+                            "connect": {"state": "fail", "detail": "The Wi-Fi network refused the saved password."}},
+                 "attempts": [{"auth": "sae", "hidden": False, "result": "refused", "detail": "Secrets were required, but not provided"},
+                              {"auth": "wpa-psk", "hidden": False, "result": "refused", "detail": "Secrets were required, but not provided"}],
+                 "kernel": ["iwlwifi 0000:01:00.0: Direct firmware load for iwlwifi-so-a0.ucode failed with error -2"], **changes}
+        (self.root / "state").mkdir(exist_ok=True)
+        (self.root / "state/network.json").write_text(json.dumps(facts))
+
+    def test_the_network_step_shows_each_check_and_what_to_do_with_the_name_only_on_screen(self):
+        self.cmdline.write_text("copytoram fleet.from=windows fleet.attempt=0123456789abcdef fleet.wizard=1a2b3c4 fleet.wifi=sent fleet.role=ci\n")
+        self.live("step", "network")
+        self.network()
+        self.console.write_text("")
+        self.live("tick")
+        screen = " ".join(self.console.read_text().split())
+        self.assertIn('[x] Saved Wi-Fi "Vouga Home", WPA3 Personal, from Windows', screen)
+        self.assertIn("[!] Connect The Wi-Fi network refused the saved password.", screen)
+        self.assertIn("type fleet-wifi", screen)
+        self.assertIn("USB tethering", screen)
+        self.assertIn("Not erased. Windows is still on this computer.", screen)
+        (self.root / "state/attempt.log").write_text("FLEET_NETWORK_WAIT_EXPIRED: the checks before erasing were still not ready after 10 minutes.\n")
+        self.live("stopped", "--status", "2", "--returning", "120")
+        url = self.urls.read_text().splitlines()[-1]
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+        self.assertEqual(query["title"], ["Fleet installer screen: FLEET_NETWORK_WAIT_EXPIRED (refused)"])
+        self.assertIn("net refused wifi=sent,arrived auth=sae seen=62%,5GHz,WPA2 WPA3", query["diagnostic"][0])
+        self.assertIn("Started from: windows wizard=1a2b3c4 attempt=0123456789abcdef", self.live("report", "--full").stdout)
+        report = self.live("report", "--full").stdout
+        for text in (url, report):
+            self.assertNotIn("Vouga", text)
+        self.assertIn("try sae:refused wpa-psk:refused (Secrets were required, but not provided)", report)
+        self.assertIn("klog iwlwifi 0000:01:00.0: Direct firmware load", report)
+
+    def test_the_report_code_is_as_big_as_the_console_allows(self):
+        # A stand-in that draws a square the size of a real code for the link it is given.
+        fake = self.root / "qrencode-sized"
+        fake.write_text("#!/usr/bin/env python3\nimport sys, math\n"
+                        f"url = sys.argv[-1]\nopen({str(self.urls)!r}, 'a').write(url + '\\n')\n"
+                        f"caps = {live_console.QR_CAPACITY!r}\n"
+                        "version = min(v for v, c in caps.items() if c >= len(url))\n"
+                        "side = 21 + 4 * version\n"
+                        "print('\\n'.join(['\\033[47m' + '#' * side + '\\033[0m'] * math.ceil(side / 2)))\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        self.env["FLEET_QRENCODE"] = str(fake)
+        self.network()
+        self.live("step", "network")
+        Path(str(self.log) + ".diagnostic").write_text("FLEET_NETWORK_UNAVAILABLE: The Wi-Fi network refused the saved password.\n")
+        for size, beside in (("240x67", True), ("128x48", True), ("100x37", False)):
+            self.env["FLEET_CONSOLE_SIZE"] = size
+            self.console.write_text("")
+            self.live("stopped", "--status", "2")
+            columns, rows = map(int, size.split("x"))
+            lines = self.console.read_text().splitlines()
+            self.assertLessEqual(len(lines), rows, size)
+            self.assertLessEqual(max(live_console.visible(line) for line in lines), columns, size)
+            drawn = [line for line in lines if "\033[" in line]
+            if beside:
+                self.assertTrue(drawn and "STOPPED" in drawn[1], size)
+            else:
+                self.assertEqual(drawn, [], size)
+                self.assertIn("fleet-report", " ".join(" ".join(lines).split()))
+        urls = self.urls.read_text().splitlines()
+        self.assertNotIn("cut+to+fit", urls[0], "a 1920x1080 console carries the whole compact report")
+        self.assertIn("cut+to+fit", urls[1])
+        self.assertLessEqual(len(urls[1]), live_console.QR_CAPACITY[14])
+
+    def test_the_install_unit_never_describes_the_wait_as_wiping(self):
+        nix = (FLEET / "modules/installer.nix").read_text()
+        unit = nix.split("systemd.services.fleet-auto-install = {", 1)[1].split("};", 1)[0]
+        description = re.search(r'description = "([^"]+)"', unit).group(1)
+        self.assertNotRegex(description.lower(), r"wipe|erases? the")
+        self.assertIn('systemd.settings.Manager.ShowStatus = "error"', nix)
 
     def test_a_broken_screen_never_stops_the_installation(self):
         blocker = self.root / "not-a-directory"

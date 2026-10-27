@@ -65,7 +65,7 @@ def windows_xml(text):
         raise WifiError("The saved Windows Wi-Fi profile could not be decoded.") from None
 
 
-def windows():
+def windows(name_only=False):
     import ctypes as c
     from ctypes import wintypes as w
 
@@ -104,6 +104,8 @@ def windows():
                 name = c.wstring_at(current.value + 8, 256).split("\0", 1)[0]
             finally:
                 api.WlanFreeMemory(current)
+            if name_only:
+                return name
             profile, flags, access = c.c_void_p(), w.DWORD(4), w.DWORD()
             require(api.WlanGetProfile(handle, c.byref(interface.guid), name, None, c.byref(profile), c.byref(flags), c.byref(access)) == 0,
                     "Windows did not release the Wi-Fi key. Enter the network settings in the wizard before installing.")
@@ -132,6 +134,27 @@ def darwin():
     password = output(["security", "find-generic-password", "-D", "AirPort network password", "-a", ssid,
                        "-w", "/Library/Keychains/System.keychain"])
     return {"ssid": ssid, "password": password, "auth": "wpa-psk", "hidden": True}
+
+
+def connected_name(os_name):
+    """The Wi-Fi network this computer is on, by name only, or None. Reading the
+    name needs no administrator rights; the password is read later, by the
+    elevated step. Any failure is None: this only informs the review page."""
+    try:
+        if os_name == "Windows":
+            return windows(name_only=True) or None
+        if os_name == "Linux" and shutil.which("nmcli"):
+            for line in output(["nmcli", "--terse", "--escape", "no", "--fields", "ACTIVE,SSID", "device", "wifi"]).splitlines():
+                if line.startswith("yes:") and line[4:]:
+                    return line[4:]
+        if os_name == "Darwin" and shutil.which("networksetup"):
+            ports = output(["networksetup", "-listallhardwareports"])
+            match = re.search(r"Hardware Port: (?:Wi-Fi|AirPort)\nDevice: ([A-Za-z0-9]+)", ports)
+            network = output(["networksetup", "-getairportnetwork", match[1]]) if match else ""
+            return network.split(": ", 1)[1] if ": " in network else None
+    except (WifiError, OSError, AttributeError, ValueError):
+        return None
+    return None
 
 
 def capture(os_name):

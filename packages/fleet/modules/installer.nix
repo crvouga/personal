@@ -6,6 +6,7 @@
     cp ${../scripts/runner_control.py} "$out/runner_control.py"
     cp ${../scripts/bootstrap_report.py} "$out/bootstrap_report.py"
     cp ${../scripts/agent.py} "$out/agent.py"
+    cp ${../scripts/recovery.py} "$out/recovery.py"
     cp ${../scripts/node_readiness.py} "$out/node_readiness.py"
     cp ${../scripts/telemetry.py} "$out/telemetry.py"
     cp ${../scripts/runner_job.py} "$out/runner_job.py"
@@ -23,13 +24,14 @@
   # The installer's screens and the commands a person types at its prompt
   # (scripts/live_console.py). sudo must be the setuid wrapper, not the package.
   liveCommand = name: command: pkgs.writeShellScriptBin name ''
-    export PATH=${config.security.wrapperDir}:${lib.makeBinPath [ pkgs.qrencode pkgs.systemd pkgs.coreutils ]}:$PATH
+    export PATH=${config.security.wrapperDir}:${lib.makeBinPath [ pkgs.qrencode pkgs.systemd pkgs.coreutils config.networking.networkmanager.package ]}:$PATH
     exec ${python}/bin/python3 ${readiness}/live_console.py ${command} "$@"
   '';
   livePackages = [
     (liveCommand "fleet-live" "")
     (liveCommand "fleet-status" "status")
     (liveCommand "fleet-report" "report")
+    (liveCommand "fleet-wifi" "wifi")
     (liveCommand "fleet-retry" "retry")
     (liveCommand "fleet-return" "return")
   ];
@@ -74,7 +76,11 @@ in {
   ];
   # A prompt here appears only when the installer stopped, the person chose to
   # stay, or they pressed Alt+F2. Say what happened and what to type, every time.
-  services.getty.helpLine = lib.mkForce "Fleet installer. Type fleet-status to see what is happening and what to do.";
+  services.getty.helpLine = lib.mkForce "Fleet installer. Type fleet-status to see what is happening and what to do, or fleet-wifi to choose a Wi-Fi network.";
+  # systemd's own status line ("A start job is running for ...") printed the
+  # install unit's description under the installer screen for the whole network
+  # wait. The screens say what is happening; systemd only reports failures.
+  systemd.settings.Manager.ShowStatus = "error";
   programs.bash.loginShellInit = ''
     if [ -t 1 ] && command -v fleet-status >/dev/null 2>&1; then
       fleet-status || true
@@ -96,7 +102,9 @@ in {
     };
   };
   systemd.services.fleet-auto-install = {
-    description = "Wipe the internal disk and install the role from the boot menu";
+    # Shown by systemd and journalctl. Nothing is erased until every check passes,
+    # so the description must not say that the disk is being wiped.
+    description = "Fleet installer (checks first; the disk is erased only after they pass)";
     wantedBy = [ "multi-user.target" ];
     before = [ "getty@tty1.service" ];
     after = [ "systemd-udev-settle.service" "local-fs.target" "NetworkManager.service" "network-online.target" ];

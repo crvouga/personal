@@ -31,7 +31,15 @@ filesystem. **Keep a prepared USB private: it contains a reusable network
 password.** Creating a new USB without Wi-Fi settings clears an old handoff.
 
 The live installer connects and checks DNS/TLS before consuming an enrollment
-token or erasing the internal disk. A temporary outage makes it wait and retry
+token or erasing the internal disk. Internet that already works is used as it
+is: a network cable, a phone's USB tethering, or a network chosen at the console
+with `fleet-wifi` (the installed node then keeps that network). Otherwise it
+waits for the Wi-Fi adapter, turns its radio on, scans, and connects the carried
+profile. If the network in range suggests it, it also tries WPA2 for a profile Windows
+recorded as WPA3 (or the other way round), or a hidden network. Every
+check, the adapter and its driver, the scan and NetworkManager's reason for each
+failed attempt go to `/run/fleet-live/network.json`, which the screen and the
+problem report read. The report leaves out the network name. A temporary outage makes it wait and retry
 automatically. Disk/install failures are not retried automatically. The profile
 is stored root-only under `/nix/fleet-state/network`, restored before
 NetworkManager starts on every boot, and reconnects automatically when the
@@ -189,11 +197,11 @@ signature is invalid, stop rather than using the reputation-warning instructions
 
 ## 4. After the USB is made
 
-Plug the stick into the new computer and start it from the stick (usually F12, F11, Esc, or Option at power-on; turn Secure Boot off once in the firmware settings). Choose **ci**, **web**, **cache**, **netboot**, or **devbox** in the installer menu, then press Enter. The UEFI menu waits for your choice; every entry erases the internal disk. The installer erases the computer's internal disk, installs, and restarts. Remove the stick when it says so.
+Plug the stick into the new computer and start it from the stick (usually F12, F11, Esc, or Option at power-on; turn Secure Boot off once in the firmware settings). Choose **ci** or **devbox** in the installer menu, then press Enter. The UEFI menu waits for your choice; every entry erases the internal disk. The installer erases the computer's internal disk, installs, and restarts. Remove the stick when it says so.
 
 ## Changing a node's kind
 
-- On an existing fleet node, run `sudo fleet-node web` (or `ci`, `cache`, `netboot`, `devbox`). It checks first, names the disk, and reinstalls. A same-role invocation keeps a healthy existing installation; use `--reinstall` to deliberately replace it.
+- On an existing fleet node, run `sudo fleet-node devbox` (or `ci`). It checks first, names the disk, and reinstalls. A same-role invocation keeps a healthy existing installation; use `--reinstall` to deliberately replace it.
 - On any other Linux computer, the wizard's **Turn THIS computer into a node** does the same thing.
 
 ## NixOS
@@ -242,7 +250,7 @@ the program refuses to convert an ARM64 machine in place.
 
 ## Connecting to a remote devbox
 
-Connect as `dev`: `ssh dev@<address>`. The node console prints its hostname, network addresses and host-key fingerprint. Check that fingerprint before accepting the SSH connection. The home directory is `/nix/devbox`; it survives reboot and system updates. Git, Bun, Node, Python, a C/C++ toolchain, Just and tmux are installed. Use `nix develop` for project dependencies. The dev account has no sudo; fleet system configuration comes from Git. Reinstalling into another role erases project work: back it up before converting.
+Connect as `dev`: `ssh dev@<address>`. The node console shows its hostname, status, network address and host-key fingerprint. Check that fingerprint before accepting the SSH connection. The home directory is `/nix/devbox`; it survives reboot and system updates. Git, Bun, Node, Python, a C/C++ toolchain, Just and tmux are installed. Use `nix develop` for project dependencies. The dev account has no sudo; fleet system configuration comes from Git. Reinstalling into another role erases project work: back it up before converting.
 
 For a USB devbox install, choose **devbox** in the boot menu. The console asks you to paste the public key before touching the disk. Alternatively place the public key in `devbox.pub` on a separate filesystem labeled `FLEET-KEY` and plug it in before booting. The private SSH key never belongs on the installer.
 
@@ -281,7 +289,7 @@ what happens after the restart. The installer screen then shows seven numbered
 steps with what to do at each, waits with a reason when something is not ready,
 and on a stop shows what to do and a QR code for the issue. Before anything is
 erased it returns to the original system after two minutes (Enter stays). At
-any time Alt+F2 gives a prompt with `fleet-status`, `fleet-report`,
+any time Alt+F2 gives a prompt with `fleet-status`, `fleet-wifi`, `fleet-report`,
 `fleet-retry` and `fleet-return`. [windows.md](windows.md) describes each screen.
 
 Every failure says what happened and what to do next, and names a log file. The wizard keeps its log in the `.fleet/logs` folder in your home directory, and the installed node keeps `/nix/fleet-state/logs/install.log`. Nothing is erased before the review page's confirmation, and a USB stick is only reported as ready after the wizard reads it back and proves it holds the verified installer.

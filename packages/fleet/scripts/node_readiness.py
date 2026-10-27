@@ -46,6 +46,37 @@ def collect_issues(paths, identity, run, credential, settings):
     return result[:12]
 
 
+RESTART_LOOP = 3  # restarts before a slot that keeps failing is a problem, not a start
+
+
+def slot_problem(paths, run, slots, active):
+    """Why runner services are not all active, from each slot's last registration
+    (runner_control.py writes /run/fleet/register/slot-N.json) and its restarts.
+    Says when the cause is not recorded instead of guessing one."""
+    units = [f'github-runner-slot-{n}.service' for n in range(1, slots + 1)]
+    _, shown = run([paths.systemctl, 'show', '--property', 'Id,ActiveState,NRestarts', *units], 5)
+    restarts = {}
+    for block in shown.split('\n\n'):
+        fields = dict(line.split('=', 1) for line in block.splitlines() if '=' in line)
+        if fields.get('Id', '').startswith('github-runner-slot-'):
+            slot = fields['Id'][len('github-runner-'):-len('.service')]
+            restarts[slot] = (fields.get('ActiveState', '?'), int(fields['NRestarts']) if fields.get('NRestarts', '').isdigit() else 0)
+    worst = None
+    for n in range(1, slots + 1):
+        slot = f'slot-{n}'
+        last = document(paths.run / 'register' / f'{slot}.json')
+        state, count = restarts.get(slot, ('?', 0))
+        if isinstance(last, dict) and last.get('exit') == 78 and str(last.get('code', '')).startswith('FLEET_'):
+            return f"{last['code']}: runner {slot} cannot register with GitHub: {str(last.get('message', ''))[:300]}."
+        if isinstance(last, dict) and last.get('exit') not in (None, 0) and worst is None:
+            worst = (f"{last.get('code') or 'FLEET_GITHUB_UNAVAILABLE'}: runner {slot} could not register with GitHub "
+                     f"({str(last.get('message', ''))[:200]}); retrying automatically.")
+        if worst is None and state != 'active' and count >= RESTART_LOOP:
+            worst = (f'FLEET_RUNNER_RESTARTING: runner {slot} has restarted {count} times without staying up; its cause '
+                     f'is not recorded here (journalctl -u github-runner-{slot}).')
+    return worst or f'FLEET_RUNNERS_STARTING: {active} of {slots} runner services are active.'
+
+
 def github_issues(paths, identity, run, github, settings):
     if settings.get('runners.enabled') is False or settings.get('runners.cordoned') is True:
         return ['FLEET_RUNNERS_DISABLED: runners are disabled or cordoned in Fleet settings.']
@@ -72,7 +103,7 @@ def github_issues(paths, identity, run, github, settings):
         targets.setdefault((target_scope, target), set()).add(f'{prefix}-slot-{slot}')
     code, states = run([paths.systemctl, 'is-active', *[f'github-runner-slot-{n}.service' for n in range(1, slots + 1)]], 5)
     if code or states.splitlines().count('active') != slots:
-        return ['FLEET_RUNNERS_STARTING: expected runner services are not all active.']
+        return [slot_problem(paths, run, slots, states.splitlines().count('active'))]
     cache_file = paths.state / 'github-readiness.json'
     cached = document(cache_file)
     evidence = cached.get('targets', {}) if isinstance(cached, dict) and cached.get('prefix') == prefix else {}
@@ -101,6 +132,9 @@ def github_issues(paths, identity, run, github, settings):
             str(github['installationId']), str(paths.run.parent / 'secrets/github-app-key'), prefix], remaining)
         try:
             report = json.loads(out)
+            if code == 78 and isinstance(report, dict) and str(report.get('code', '')).startswith('FLEET_'):
+                problem = f"{report['code']}: {str(report.get('message', ''))[:300]} ({target_scope} {target})."
+                break
             names = report['onlineNames']
             if code or not valid_names(names, {f'{prefix}-slot-{slot}' for slot in range(1, 65)}):
                 raise ValueError()

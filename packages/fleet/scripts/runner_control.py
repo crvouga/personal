@@ -16,6 +16,31 @@ class GitHubUnavailable(RuntimeError):
     """Temporary transport, throttling, or server failure; no private body."""
 
 
+class Refused(RuntimeError):
+    """A permanent answer: a person has to change a key, an App installation or a
+    setting. The code and message are public; they never quote a response body."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def refusal(status, path):
+    """What a GitHub refusal means, from its status and the kind of request."""
+    if path.startswith("/app/installations/"):
+        if status == 401:
+            return Refused("FLEET_GITHUB_KEY", "GitHub refused the App credential (HTTP 401): the App ID or private key is wrong, or the key was revoked")
+        if status == 404:
+            return Refused("FLEET_GITHUB_SCOPE", "GitHub does not know this App installation (HTTP 404): the installation ID is wrong or the App was uninstalled")
+    if status == 404:
+        return Refused("FLEET_GITHUB_SCOPE", "GitHub answered HTTP 404 for the runner target: the App installation cannot reach this repository or organization")
+    if status == 403:
+        return Refused("FLEET_GITHUB_SCOPE", "GitHub refused with HTTP 403: the App lacks the runner permission (repository Administration, or organization Self-hosted runners)")
+    if status == 401:
+        return Refused("FLEET_GITHUB_KEY", "GitHub refused the installation token (HTTP 401)")
+    return Refused("FLEET_GITHUB_REGISTRATION", "GitHub refused the request with HTTP " + str(status))
+
+
 def request(method, path, token, payload=None):
     body = None if payload is None else json.dumps(payload).encode()
     req = urllib.request.Request("https://api.github.com" + path, data=body, method=method,
@@ -28,15 +53,25 @@ def request(method, path, token, payload=None):
         throttled = error.code == 403 and (error.headers.get('Retry-After') or error.headers.get('X-RateLimit-Remaining') == '0')
         if error.code in (408, 429) or error.code >= 500 or throttled:
             raise GitHubUnavailable('GitHub is temporarily unavailable') from None
-        raise RuntimeError("GitHub API returned HTTP " + str(error.code)) from None
+        raise refusal(error.code, path) from None
     except (urllib.error.URLError, OSError):
         raise GitHubUnavailable('GitHub could not be reached') from None
 
 
 def app_token(app, installation, key_path):
-    with open(key_path, encoding="utf-8") as key:
-        now = int(time.time())
-        signed = jwt.encode({"iat": now - 60, "exp": now + 540, "iss": str(app)}, key.read(), algorithm="RS256")
+    try:
+        with open(key_path, encoding="utf-8") as key:
+            material = key.read()
+    except FileNotFoundError:
+        raise Refused("FLEET_SECRET_MISSING", "the GitHub App key file is missing: this node's role secrets were not "
+                      "decrypted (sops-install-secrets), usually because its age key cannot decrypt them") from None
+    now = int(time.time())
+    try:
+        signed = jwt.encode({"iat": now - 60, "exp": now + 540, "iss": str(app)}, material, algorithm="RS256")
+    except Exception:
+        raise Refused("FLEET_GITHUB_KEY", "the GitHub App key is not a usable RSA private key") from None
+    finally:
+        material = None
     return request("POST", "/app/installations/" + str(installation) + "/access_tokens", signed)["token"]
 
 
@@ -71,7 +106,7 @@ def main():
     if scope not in ("organization", "repository"):
         raise ValueError("invalid GitHub runner scope")
     if not app.isdigit() or not installation.isdigit() or "TODO" in target:
-        raise ValueError("Configure App identifiers and registration scope")
+        raise Refused("FLEET_GITHUB_UNCONFIGURED", "the GitHub App ID, installation ID or runner target is not configured (settings/github.json)")
     access = app_token(app, installation, key_path)
     prefix = ("/orgs/" if scope == "organization" else "/repos/") + target + "/actions/runners"
     if mode == "status":
@@ -136,12 +171,46 @@ def main():
         time.sleep(5)
 
 
-if __name__ == "__main__":
+def record(code, message, status):
+    """The last registration outcome for this slot, for the node's console and
+    readiness (FLEET_REGISTER_STATUS). Public text only."""
+    path = os.environ.get("FLEET_REGISTER_STATUS")
+    if not path:
+        return
+    try:
+        os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
+        with open(path + ".new", "w", encoding="utf-8") as stream:
+            json.dump({"code": code, "message": message, "exit": status, "at": int(time.time())}, stream)
+        os.chmod(path + ".new", 0o644)
+        os.replace(path + ".new", path)
+    except OSError:
+        pass
+
+
+def run():
+    """Exit 0 done, 75 temporary (retry), 78 refused (a person must change something), 1 unexpected."""
     try:
         main()
-    except GitHubUnavailable:
-        print('FLEET_GITHUB_UNAVAILABLE: retry the bounded GitHub operation after connectivity or throttling recovers.', file=sys.stderr)
-        sys.exit(75)
+    except GitHubUnavailable as error:
+        message = str(error) + "; retrying after connectivity or throttling recovers"
+        print("FLEET_GITHUB_UNAVAILABLE: " + message, file=sys.stderr)
+        record("FLEET_GITHUB_UNAVAILABLE", message, 75)
+        return 75
+    except Refused as error:
+        print(error.code + ": " + str(error), file=sys.stderr)
+        if sys.argv[1:2] == ["status"]:
+            # Readiness reads stdout only: say what was refused there too.
+            print(json.dumps({"code": error.code, "message": str(error)}))
+        record(error.code, str(error), 78)
+        return 78
     except Exception as error:
-        print("Fleet GitHub operation failed: " + type(error).__name__, file=sys.stderr)
-        sys.exit(1)
+        message = "unexpected " + type(error).__name__ + "; the cause is not known from this program"
+        print("FLEET_GITHUB_OPERATION_FAILED: " + message, file=sys.stderr)
+        record("FLEET_GITHUB_OPERATION_FAILED", message, 1)
+        return 1
+    record("ok", "registered", 0)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(run())

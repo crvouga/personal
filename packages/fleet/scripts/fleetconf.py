@@ -37,6 +37,7 @@ def _int(low, high):
 SPEC = {
     "heartbeat.intervalSeconds": _int(15, 3600),
     "sync.paused": ("bool",),
+    "sync.retryBootAfter": _int(0, 4102444800),
     "reboot.enabled": ("bool",),
     "reboot.delayMaxSeconds": _int(0, 86400),
     "disk.alertPercent": _int(50, 99),
@@ -47,6 +48,7 @@ SPEC = {
     "capacity.highMemGiB": _int(1, 4096),
     "runners.enabled": ("bool",),
     "runners.cordoned": ("bool",),
+    "runners.reopenAfter": _int(0, 4102444800),
     "runners.repositories": ("list", 64, REPO_PATTERN, ()),
     "runners.extraLabels": ("list", 16, LABEL_PATTERN, RESERVED_LABELS),
 }
@@ -116,8 +118,24 @@ def write_atomic(path, text, mode=0o600):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write(text)
+            # Durable before the rename: after a power cut a reader sees the old
+            # file or the whole new one, never an empty or torn file. A lost
+            # config.json once let a cordoned node start runners again.
+            stream.flush()
+            os.fsync(stream.fileno())
         os.chmod(temp, mode)
         os.replace(temp, path)
+        try:
+            handle = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        except OSError:
+            handle = None
+        if handle is not None:
+            try:
+                os.fsync(handle)
+            except OSError:
+                pass
+            finally:
+                os.close(handle)
     except BaseException:
         try:
             os.unlink(temp)

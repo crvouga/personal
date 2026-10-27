@@ -228,7 +228,8 @@ def install_here(request, progress):
     reinstall = request.get("reinstall", False)
     decide.invariant(isinstance(reinstall, bool), "reinstall must be a boolean")
     if not reinstall and decide.installed_for(role, directory):
-        return f"This computer is already installed as {role}. Nothing was changed."
+        # No restart: the page must not say one is coming.
+        return {"message": f"This computer is already installed as {role}. Nothing was changed.", "restart": False}
     with leases.DeviceLease(chosen["path"]):
         again = decide.choose_disk(os_name, "install")
         decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before preparation", "Review the disk again.")
@@ -253,14 +254,37 @@ def install_here(request, progress):
             decide.invariant(imaging.sha256_of(staged) == sha, "the staged installer is not the verified image", file=str(staged))
         again = decide.choose_disk(os_name, "install")
         decide.invariant(again.get("disk_id") == chosen["disk_id"], "the internal disk changed before reboot", "Review the disk again.")
-        progress.emit("reboot", "Restarting into the installer. This computer will erase its disk and install " + role + ".")
-        code = decide.perform_install(
-            os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen,
-            lambda done, total: progress.emit("write", "Writing the installer into a new partition and checking it", int(done * 100 / total) if total else None),
-            **({"wifi": request["wifi"]} if request.get("wifi") is not None else {}),
-        )
-    decide.invariant(code == 0, "the reboot into the installer did not start", "Make an install USB instead.", code=code)
-    return f"Installing {role}."
+        if os_name == "Windows":
+            progress.emit("prepare", "Preparing Windows to start the installer: making room on C:, writing the installer "
+                                     "partition and setting a one-time boot. Nothing is erased yet, and any failure here is undone.")
+        else:
+            # kexec starts the installer at once; this is the last message this page can get.
+            progress.emit("reboot", "Restarting into the installer. Nothing is erased until its checks pass after the restart.")
+        decide.LOG.pop("next", None)
+        # Not secrets: they let the installer screen's report name this attempt and wizard build.
+        decide.HANDOFF.update(attempt=request.get("attempt") or "", wizard=version())
+        try:
+            code = decide.perform_install(
+                os_name, role, str(staged), token, os.environ.get("FLEET_VAULT_ADDR") or None, directory, chosen,
+                lambda done, total: progress.emit("write", "Writing the installer into a new partition and checking it", int(done * 100 / total) if total else None),
+                **({"wifi": request["wifi"]} if request.get("wifi") is not None else {}),
+            )
+        finally:
+            decide.HANDOFF.clear()
+    # stage_windows says exactly why it stopped ("Next: ..."); keep that, not a generic fix.
+    decide.invariant(code == 0, "the restart into the installer was not set up",
+                     decide.LOG.get("next") or "Make an install USB instead.", code=code)
+    if os_name == "Windows":
+        progress.emit("reboot", "Windows restarts into the installer in about 15 seconds.")
+    return {"message": f"Restarting into the installer to set up this computer as {role}.", "restart": True}
+
+
+def version():
+    try:
+        from _version import VERSION
+        return VERSION
+    except ImportError:
+        return "dev"
 
 
 def run(directory):
@@ -276,7 +300,8 @@ def run(directory):
         if isinstance(attempt, str) and re.fullmatch(r"[0-9a-f]{16}", attempt):
             decide.log(f"attempt={attempt} helper started pid={os.getpid()}")
         action = {"write-usb": write_usb, "install-here": install_here}[request["action"]]
-        result["message"] = action(request, progress)
+        outcome = action(request, progress)
+        result.update(outcome if isinstance(outcome, dict) else {"message": outcome})
         result["ok"] = True
     except decide.Invariant as broken:
         decide.log(traceback.format_exc(), "ERROR")

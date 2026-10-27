@@ -7,12 +7,17 @@ import gzip
 import hashlib
 import json
 import os
+import re
+import shutil
+import socket
+import ssl
 import stat
 import struct
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
@@ -237,54 +242,451 @@ def prepare(live=LIVE, persistent=PERSISTENT, target=PROFILE, devices=None):
     return profile
 
 
+# ---- the live installer: connect, say what was seen, never guess ---------------------
+#
+# fleet-install runs `ready` before it reads the approval or touches a disk. Any
+# working internet is accepted first: a cable, a phone's USB tethering, or a
+# network the person chose with fleet-wifi. Otherwise the carried profile is
+# connected, with the variants a network in range suggests. What was seen goes to
+# network.json beside the installer's screen state (scripts/live_console.py): the
+# screen shows it, and the problem report carries it without the network name.
+
+MAC = re.compile(r"\b[0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5}\b")
+KERNEL_WIFI = re.compile(r"firmware|wlan|wifi|wlp|wlo|80211|iwlwifi|rtw|rtl8|ath\d|mt7|brcm|mwifiex|\bwl\b", re.I)
+KERNEL_TROUBLE = re.compile(r"fail|error|unable|timed? ?out|missing|not found|deauth|disassoc|reason|-\d+\b", re.I)
+AUTH_NAMES = {"open": "open", "wpa-psk": "WPA2 Personal", "sae": "WPA3 Personal"}
+CONNECT_BUDGET = 150  # seconds per readiness run; fleet-auto.sh repeats it until its own deadline
+# (pattern in NetworkManager's error, code, sentence for the screen). First match wins.
+NM_REASONS = (
+    (r"Secrets were required|psk|password|4-way|handshake", "refused", "The Wi-Fi network refused the saved password."),
+    (r"could not be found|No network with SSID", "not-visible", "The saved Wi-Fi network was not found in range."),
+    (r"IP configuration|DHCP", "no-address", "Wi-Fi connected, but the network gave this computer no address (DHCP)."),
+    (r"no device|not available|unavailable", "adapter-unavailable", "The Wi-Fi adapter is not ready."),
+    (r"[Tt]imeout|took too long", "timeout", "Wi-Fi did not finish connecting in time."),
+)
+
+
+def live_state():
+    return Path(os.environ.get("FLEET_LIVE_STATE") or "/run/fleet-live")
+
+
+def sys_root():
+    return Path(os.environ.get("FLEET_SYS") or "/sys")
+
+
+def sysread(path, limit=256):
+    try:
+        return Path(path).read_text(errors="replace")[:limit].strip()
+    except OSError:
+        return ""
+
+
+def cmdline_value(name):
+    words = sysread(os.environ.get("FLEET_CMDLINE") or "/proc/cmdline", 8192).split()
+    values = [word.split("=", 1)[1] for word in words if word.startswith(name + "=")]
+    return values[-1] if values else ""
+
+
+def hardware_id(device):
+    """'pci 8086:2723' or 'usb 0bda:8179': enough to look up the driver an adapter needs."""
+    vendor, product = sysread(device / "vendor"), sysread(device / "device")
+    if vendor and product:
+        return "pci " + re.sub(r"^0x", "", vendor) + ":" + re.sub(r"^0x", "", product)
+    for parent in (device, device.parent):
+        vendor, product = sysread(parent / "idVendor"), sysread(parent / "idProduct")
+        if vendor and product:
+            return f"usb {vendor}:{product}"
+    return "unknown"
+
+
+def adapters(root=None):
+    """Network interfaces backed by hardware, as the kernel sees them."""
+    root = root or sys_root()
+    try:
+        entries = sorted((root / "class/net").iterdir())
+    except OSError:
+        return []
+    found = []
+    for entry in entries:
+        device = entry / "device"
+        if not device.exists():
+            continue  # lo, bridges and other virtual interfaces
+        driver = device / "driver"
+        found.append({
+            "name": entry.name,
+            "type": "wifi" if (entry / "wireless").exists() or (entry / "phy80211").exists() else "wired",
+            "driver": Path(os.path.realpath(driver)).name if driver.exists() else "none",
+            "id": hardware_id(Path(os.path.realpath(device))),
+            "link": sysread(entry / "operstate") or "unknown",
+            "carrier": sysread(entry / "carrier") == "1",
+        })
+    return found
+
+
+def driverless(root=None):
+    """Network controllers no driver claimed: Linux cannot use them at all."""
+    root = root or sys_root()
+    try:
+        devices = sorted((root / "bus/pci/devices").iterdir())
+    except OSError:
+        return []
+    return [hardware_id(device) for device in devices
+            if sysread(device / "class").startswith("0x02") and not (device / "driver").exists()]
+
+
+def radios(root=None):
+    root = root or sys_root()
+    try:
+        entries = sorted((root / "class/rfkill").iterdir())
+    except OSError:
+        return []
+    return [{"soft": sysread(entry / "soft") == "1", "hard": sysread(entry / "hard") == "1"}
+            for entry in entries if sysread(entry / "type") == "wlan"]
+
+
+def command(run, args, timeout=20):
+    """(status, stdout, stderr) as text. A missing or hung tool is a status, not an exception."""
+    try:
+        done = run(args, capture_output=True, timeout=timeout, check=False, env={**os.environ, "LC_ALL": "C"})
+    except (OSError, subprocess.TimeoutExpired):
+        return 127, "", "did not finish"
+
+    def text(value):
+        return value.decode("utf-8", "replace") if isinstance(value, bytes) else value or ""
+    return done.returncode, text(getattr(done, "stdout", "")), text(getattr(done, "stderr", ""))
+
+
+def terse(line):
+    """Split one `nmcli --terse` line; a network name may contain an escaped colon."""
+    fields, current, escaped = [], "", False
+    for char in line:
+        if escaped:
+            current, escaped = current + char, False
+        elif char == "\\":
+            escaped = True
+        elif char == ":":
+            fields.append(current)
+            current = ""
+        else:
+            current += char
+    return fields + [current]
+
+
+def wifi_devices(run):
+    status, out, _ = command(run, ["nmcli", "--terse", "--fields", "DEVICE,TYPE,STATE", "device"])
+    rows = [terse(line) for line in out.splitlines()] if status == 0 else []
+    return [{"name": row[0], "state": row[2]} for row in rows if len(row) == 3 and row[1] == "wifi"]
+
+
+def band(frequency):
+    digits = re.match(r"\d+", frequency or "")
+    mhz = int(digits.group(0)) if digits else 0
+    return "6 GHz" if mhz >= 5925 else "5 GHz" if mhz >= 4900 else "2.4 GHz" if mhz else "unknown"
+
+
+def scan(run, ssid):
+    """How many networks are in range, and how the carried one looks if it is one of them."""
+    status, out, _ = command(run, ["nmcli", "--terse", "--fields", "SSID,SIGNAL,SECURITY,FREQ",
+                                   "device", "wifi", "list", "--rescan", "yes"], timeout=40)
+    if status != 0:
+        return None
+    rows = [row for row in (terse(line) for line in out.splitlines()) if len(row) == 4]
+    matches = sorted((row for row in rows if row[0] == ssid), key=lambda row: -int(row[1]) if row[1].isdigit() else 0)
+    seen = {"nearby": len({row[0] for row in rows if row[0]}), "visible": bool(matches)}
+    if matches:
+        best = matches[0]
+        seen.update(signal=int(best[1]) if best[1].isdigit() else None,
+                    security=best[2].strip() if best[2].strip() not in ("", "--") else "open", band=band(best[3]))
+    return seen
+
+
+def variants(profile, seen):
+    """The carried profile, then the one alternative the network in range suggests.
+    Windows records WPA3 for a network that also offers WPA2, which some Linux
+    drivers cannot do, and a hidden network never appears in a scan."""
+    security = (seen or {}).get("security", "")
+    older = "WPA2" in security or "WPA1" in security
+    reusable = 8 <= utf8_length(profile["password"]) <= 63
+    if profile["auth"] == "sae" and reusable and (seen is None or older):
+        return [profile, {**profile, "auth": "wpa-psk"}]
+    if profile["auth"] == "wpa-psk" and reusable and "WPA3" in security and not older:
+        return [{**profile, "auth": "sae"}, profile]
+    if seen is not None and not seen["visible"] and not profile["hidden"]:
+        return [profile, {**profile, "hidden": True}]
+    return [profile]
+
+
+def clean(text, ssid=""):
+    """Command output fit for a public report: no network name, no hardware address."""
+    text = " ".join(str(text).split())
+    if ssid:
+        text = text.replace(ssid, "<network>")
+    return MAC.sub("<mac>", text)[:120]
+
+
+def explain(stderr, ssid):
+    text = re.sub(r"^Error:\s*(Connection activation failed:\s*)?", "", " ".join(stderr.split()))
+    for pattern, code, sentence in NM_REASONS:
+        if re.search(pattern, text, re.I):
+            return code, sentence, clean(text, ssid)
+    return "no-connect", "Wi-Fi did not connect.", clean(text, ssid)
+
+
+def kernel_notes(run, limit=4):
+    """The kernel's last complaints about wireless hardware or firmware."""
+    status, out, _ = command(run, ["journalctl", "--dmesg", "--boot", "--output", "cat", "--no-pager",
+                                   "--lines", "600", "--quiet"], timeout=15)
+    if status != 0:
+        return []
+    notes = [line for line in out.splitlines() if KERNEL_WIFI.search(line) and KERNEL_TROUBLE.search(line)]
+    return [clean(line)[:140] for line in notes[-limit:]]
+
+
+def routes(run):
+    """Interfaces with a default route. None means no network at all."""
+    names = []
+    for args in (["ip", "route", "show", "default"], ["ip", "-6", "route", "show", "default"]):
+        status, out, _ = command(run, args, timeout=10)
+        names += re.findall(r"\bdev\s+(\S+)", out) if status == 0 else []
+    return sorted(set(names))
+
+
 def internet_ready():
-    # Verify DNS and TLS, so a captive portal cannot masquerade as readiness.
-    with urllib.request.urlopen("https://github.com/robots.txt", timeout=15) as response:
-        require(response.status == 200, "Wi-Fi has not reached the internet.")
+    """DNS, then HTTPS with certificate checks, so a captive portal cannot pass.
+    The message says which of the two failed."""
+    try:
+        socket.getaddrinfo("github.com", 443, type=socket.SOCK_STREAM)
+    except OSError:
+        raise WifiError("internet names do not resolve (DNS).") from None
+    try:
+        with urllib.request.urlopen("https://github.com/robots.txt", timeout=15) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        raise WifiError(f"github.com answered HTTP {exc.code}; a sign-in page (captive portal) may be in the way.") from None
+    except OSError as exc:
+        reason = getattr(exc, "reason", exc)
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            raise WifiError(f"the HTTPS certificate was refused ({reason.verify_message}); "
+                            "a sign-in page (captive portal) or a wrong clock.") from None
+        if isinstance(reason, (socket.timeout, TimeoutError)):
+            raise WifiError("HTTPS to github.com timed out.") from None
+        raise WifiError(f"HTTPS to github.com failed ({type(reason).__name__}).") from None
+    require(status == 200, f"github.com answered HTTP {status}; a sign-in page (captive portal) may be in the way.")
 
 
-def ready(profile, run=subprocess.run, sleep=time.sleep, probe=internet_ready):
-    for attempt in range(3):
+def redraw():
+    """Show progress on the installer screen now, not at its next 30-second tick."""
+    tool = os.environ.get("FLEET_LIVE") or "fleet-live"
+    if os.environ.get("FLEET_AUTO") != "1" or not shutil.which(tool):
+        return
+    try:
+        subprocess.run([tool, "tick"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=10, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+class Facts:
+    """network.json: what readiness checked and saw. The console user reads it
+    (fleet-status), so it never holds a password. The network name is shown on
+    this machine's screen; scripts/live_console.py keeps it out of reports."""
+
+    def __init__(self, path=None):
+        self.path = path
+        self.data = {"checks": {}, "attempts": []}
+
+    def update(self, **changes):
+        self.data.update(changes)
+        self.save()
+
+    def check(self, name, state, detail=""):
+        self.data["checks"][name] = {"state": state, "detail": detail}
+        self.save()
+
+    def attempt(self, profile, result, detail=""):
+        entry = {"auth": profile["auth"], "hidden": profile["hidden"], "result": result, "detail": detail}
+        self.data["attempts"] = (self.data["attempts"] + [entry])[-6:]
+        self.save()
+
+    def fail(self, code, sentence):
+        self.update(code=code, verdict=sentence)
+        return NetworkUnavailable(sentence)
+
+    def save(self):
+        if self.path is None:
+            return
+        self.data["updated"] = int(time.time())
         try:
-            run(["nmcli", "radio", "wifi", "on"], capture_output=True, timeout=10, check=False)
-            result = run(["nmcli", "--wait", "45", "connection", "up", "uuid", connection_id(profile)],
-                         capture_output=True, timeout=55, check=False)
-            if result.returncode == 0:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_name(self.path.name + ".new")
+            temporary.write_text(json.dumps(self.data))
+            temporary.chmod(0o644)
+            temporary.replace(self.path)
+        except OSError:
+            return
+        redraw()
+
+
+def adapter_name(name):
+    driver = next((item["driver"] for item in adapters() if item["name"] == name), "")
+    return f"{name} ({driver})" if driver and driver != "none" else name
+
+
+def no_adapter(facts, run):
+    wireless = [item for item in adapters() if item["type"] == "wifi"]
+    missing = driverless()
+    if any(radio["hard"] for radio in radios()):
+        code, sentence = "radio-off", "Wi-Fi is switched off by a hardware switch or key on this computer."
+    elif wireless:
+        code, sentence = "adapter-unavailable", (f"The Wi-Fi adapter ({wireless[0]['driver']}) is present but never became "
+                                                 "ready; its firmware may be missing.")
+    elif missing:
+        code, sentence = "no-driver", f"This computer's network adapter ({missing[0]}) has no Linux driver in this installer."
+    else:
+        code, sentence = "no-adapter", "Linux found no Wi-Fi adapter on this computer."
+    facts.check("adapter", "fail", sentence)
+    facts.update(kernel=kernel_notes(run))
+    return facts.fail(code, sentence)
+
+
+def load(run, profile):
+    write_private(PROFILE, keyfile(profile).encode())
+    status, _, _ = command(run, ["nmcli", "connection", "load", str(PROFILE)])
+    if status != 0:
+        raise NetworkUnavailable("The Wi-Fi service could not load the private profile. Nothing was erased.")
+
+
+def ready(profile, run=None, sleep=None, probe=None, facts=None, clock=None):
+    """Connect the carried profile and prove the internet works. Returns the
+    profile that worked: its security or hidden setting may differ from the carried one."""
+    run, sleep, probe = run or subprocess.run, sleep or time.sleep, probe or internet_ready
+    clock = clock or time.monotonic
+    facts = facts or Facts()
+    loaded = profile
+    deadline = clock() + CONNECT_BUDGET
+    command(run, ["rfkill", "unblock", "wlan"], timeout=10)
+    command(run, ["nmcli", "radio", "wifi", "on"], timeout=10)
+    facts.check("adapter", "active", "waiting for the Wi-Fi adapter")
+    until = clock() + 20
+    while True:
+        usable = [device for device in wifi_devices(run) if device["state"] not in ("unavailable", "unmanaged")]
+        if usable or clock() >= until:
+            break
+        sleep(2)
+    if not usable:
+        raise no_adapter(facts, run)
+    facts.check("adapter", "ok", adapter_name(usable[0]["name"]))
+    for round_number in range(1, 4):
+        facts.check("visible", "active", "looking for the network")
+        seen = scan(run, profile["ssid"])
+        if seen is None:
+            facts.check("visible", "unknown", "the scan did not finish")
+        elif seen["visible"]:
+            facts.check("visible", "ok", f"signal {seen['signal']}%, {seen['band']}, {seen['security']}")
+        else:
+            facts.check("visible", "fail", f"not among {seen['nearby']} networks in range")
+        facts.update(scan=seen)
+        for candidate in variants(profile, seen):
+            label = AUTH_NAMES[candidate["auth"]] + (", hidden" if candidate["hidden"] else "")
+            facts.check("connect", "active", f"try {round_number} of 3, {label}")
+            if candidate != loaded:
+                load(run, candidate)
+                loaded = candidate
+            status, _, error = command(run, ["nmcli", "--wait", "40", "connection", "up", "uuid", connection_id(candidate)], timeout=55)
+            if status != 0:
+                code, sentence, detail = explain(error, profile["ssid"])
+                facts.attempt(candidate, code, detail)
+                facts.check("connect", "fail", sentence)
+                facts.update(code=code, verdict=sentence)
+                continue
+            facts.attempt(candidate, "connected")
+            facts.check("connect", "ok", label)
+            facts.check("internet", "active", "checking DNS and HTTPS to github.com")
+            try:
                 probe()
-                return
-        except (OSError, subprocess.TimeoutExpired, WifiError):
-            pass
-        if attempt < 2:
-            sleep(3 * (attempt + 1))
-    raise NetworkUnavailable("Wi-Fi did not connect with working DNS and TLS. Nothing was erased. Check the network/password or use a network without a captive portal.")
+            except (OSError, WifiError) as exc:
+                problem = str(exc) if isinstance(exc, WifiError) else "the internet check failed."
+                facts.check("internet", "fail", problem)
+                facts.update(code="internet", verdict="Wi-Fi connected, but " + problem)
+                break  # the radio works; other security settings cannot fix the internet
+            facts.check("internet", "ok", "DNS and HTTPS to github.com work")
+            facts.update(code="ready", verdict="Connected to the internet over Wi-Fi.")
+            return candidate
+        if round_number < 3 and clock() < deadline:
+            sleep(3 * round_number)
+        else:
+            break
+    facts.update(kernel=kernel_notes(run))
+    raise NetworkUnavailable(facts.data.get("verdict") or "Wi-Fi did not connect.")
+
+
+def online(run, probe, facts):
+    """Internet that already works, through anything. None when there is no route at all."""
+    links = routes(run)
+    if not links:
+        return None
+    facts.check("internet", "active", "checking DNS and HTTPS to github.com through " + ", ".join(links))
+    try:
+        probe()
+    except (OSError, WifiError) as exc:
+        problem = str(exc) if isinstance(exc, WifiError) else "the internet check failed."
+        facts.check("internet", "fail", problem)
+        facts.update(code="internet", verdict="Connected, but " + problem)
+        return False
+    facts.check("internet", "ok", "DNS and HTTPS to github.com work through " + ", ".join(links))
+    facts.update(code="ready", verdict="Connected to the internet.", via=links)
+    return True
+
+
+def keep_working_wifi(facts):
+    """A network the person chose (fleet-wifi) replaces the carried one, so the
+    installed node joins the network that worked here."""
+    try:
+        active = discover("Linux")
+    except WifiError:
+        return
+    if active is not None:
+        write_private(LIVE, encode(active))
+        facts.update(profile={"ssid": active["ssid"], "auth": active["auth"], "hidden": active["hidden"]})
+
+
+def check(run=None, probe=None):
+    run, probe = run or subprocess.run, probe or internet_ready
+    facts = Facts(live_state() / "network.json")
+    try:
+        previous = json.loads((live_state() / "network.json").read_text()).get("run", 0)
+    except (OSError, ValueError, AttributeError):
+        previous = 0
+    facts.update(run=int(previous) + 1 if str(previous).isdigit() else 1, sent=cmdline_value("fleet.wifi") or "unknown", arrived=LIVE.exists(), adapters=adapters(),
+                 driverless=driverless(), radios=radios(), clock=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                 code="checking", verdict="", via=[])
+    if online(run, probe, facts):
+        keep_working_wifi(facts)
+        return
+    profile = read_private(LIVE) if LIVE.exists() else discover("Linux")
+    if profile is None:
+        wired = [item for item in adapters() if item["type"] == "wired"]
+        facts.check("settings", "fail", "none arrived")
+        if any(item["carrier"] for item in wired):
+            raise facts.fail("no-address", "A network cable is connected, but the network gave this computer no address (DHCP).")
+        sent = facts.data["sent"] == "sent"
+        raise facts.fail("settings-lost" if sent else "no-settings",
+                         "Wi-Fi settings were sent with this restart but did not reach the installer, and no network cable is connected."
+                         if sent else "No Wi-Fi settings reached the installer, and no network cable is connected.")
+    facts.update(profile={"ssid": profile["ssid"], "auth": profile["auth"], "hidden": profile["hidden"]})
+    facts.check("settings", "ok", AUTH_NAMES[profile["auth"]])
+    write_private(LIVE, encode(profile))
+    load(run, profile)
+    working = ready(profile, run, facts=facts, probe=probe)
+    if working != profile:
+        write_private(LIVE, encode(working))
 
 
 def main(args):
     if args == ["prepare"]:
         prepare()
     elif args == ["ready"]:
-        profile = read_private(LIVE) if LIVE.exists() else discover("Linux")
-        if profile is not None:
-            write_private(LIVE, encode(profile))
-            write_private(PROFILE, keyfile(profile).encode())
-            try:
-                loaded = subprocess.run(["nmcli", "connection", "load", str(PROFILE)], capture_output=True, timeout=20, check=False)
-            except (OSError, subprocess.TimeoutExpired):
-                raise NetworkUnavailable("The Wi-Fi service is not ready. Nothing was erased.") from None
-            if loaded.returncode != 0:
-                raise NetworkUnavailable("The Wi-Fi service could not load the private profile. Nothing was erased.")
-            ready(profile)
-        else:
-            # Missing firmware can hide the wireless adapter entirely. Never
-            # interpret its absence as permission to erase an offline machine.
-            try:
-                result = subprocess.run(["ip", "route", "show", "default"], capture_output=True, timeout=10, check=False)
-                ipv6 = subprocess.run(["ip", "-6", "route", "show", "default"], capture_output=True, timeout=10, check=False)
-                if not result.stdout.strip() and not ipv6.stdout.strip():
-                    raise NetworkUnavailable("No network connection is available. Nothing was erased.")
-                internet_ready()
-            except (OSError, subprocess.TimeoutExpired, WifiError):
-                raise NetworkUnavailable("Waiting for a working network connection. Nothing was erased.") from None
+        check()
     elif len(args) == 2 and args[0] == "persist":
         if LIVE.exists():
             profile = read_private(LIVE)
@@ -298,8 +700,8 @@ def main(args):
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
-    except NetworkUnavailable:
-        print("Waiting for Wi-Fi with working DNS and TLS. Nothing was erased; the installer will retry automatically.", file=sys.stderr)
+    except NetworkUnavailable as exc:
+        print(f"FLEET_NETWORK_UNAVAILABLE: {exc} Nothing was erased; the installer tries again automatically.", file=sys.stderr)
         sys.exit(75)
     except WifiError as exc:
         print(str(exc), file=sys.stderr)

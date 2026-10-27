@@ -174,6 +174,103 @@ bounded() {
   shift
   timeout --kill-after="${FLEET_TIMEOUT_KILL_AFTER:-30}" "$duration" "$@"
 }
+
+# ---- kernel quarantine (docs/resilience.md) ----------------------------------
+# A kernel update reboots into a counted boot entry. If that system does not
+# come up healthy, systemd-boot falls back to the previous one after its tries.
+# Without this, the next run saw the old kernel, installed the same failing
+# kernel again and rebooted into it: a drain-and-reboot loop that never ended.
+# pending-boot records which boot asked for which system. A later boot that is
+# running something else fell back: quarantine that kernel, keep the system
+# that works, and never reboot into the same kernel again until a new kernel
+# arrives or a person asks to retry (sync.retryBootAfter in Fleet).
+pending_boot=$state_dir/pending-boot
+quarantine_file=$state_dir/quarantine.json
+boot_id=$(cat "${FLEET_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}" 2>/dev/null || true)
+
+boot_identity() {
+  local system=$1
+  printf '%s %s %s' "$(readlink -f "$system/kernel" 2>/dev/null || true)" \
+    "$(readlink -f "$system/initrd" 2>/dev/null || true)" \
+    "$(readlink -f "$system/kernel-modules" 2>/dev/null || true)"
+}
+
+recovery_event() {
+  # Best effort: a full disk must not turn a recovery into a failed sync.
+  if [ -n "${RECOVERY_PY:-}" ]; then
+    "${PYTHON:?}" "$RECOVERY_PY" event "$@" || echo 'sync: could not queue the recovery event' >&2
+  fi
+}
+
+quarantine_kernel() {
+  local system=$1 from_revision=$2 reason=$3
+  "${PYTHON:?}" - "$quarantine_file" "$system" "$from_revision" "$(boot_identity "$system")" "$reason" <<'QUARANTINE'
+import json, os, sys, tempfile, time
+path, system, revision, identity, reason = sys.argv[1:]
+record = {"toplevel": system, "revision": revision or None, "boot": identity, "reason": reason,
+          "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "atEpoch": int(time.time())}
+folder = os.path.dirname(path)
+fd, temporary = tempfile.mkstemp(dir=folder, prefix=".quarantine-")
+with os.fdopen(fd, "w") as stream:
+    json.dump(record, stream)
+    stream.flush()
+    os.fsync(stream.fileno())
+os.replace(temporary, path)
+handle = os.open(folder, os.O_RDONLY)
+os.fsync(handle)
+os.close(handle)
+QUARANTINE
+  local fingerprint
+  fingerprint=$(printf '%s' "$(boot_identity "$system")" | cksum | awk '{print $1}')
+  recovery_event update-quarantined error "quarantine:${fingerprint}:${boot_id:-unknown}" \
+    "The update to revision ${from_revision:-unknown} did not boot healthily, so the node fell back to the system it was running before. Its kernel is quarantined: the node keeps working on the previous kernel and will not reboot into this one again until a newer kernel is published or Retry the update is pressed in Fleet. ${reason}"
+}
+
+# The quarantined boot identity, RETRY when Fleet asked to retry it after it
+# was quarantined, or nothing.
+quarantined_identity() {
+  [ -f "$quarantine_file" ] || return 0
+  "${PYTHON:?}" - "$quarantine_file" "$(conf sync.retryBootAfter 0)" <<'QUARANTINE'
+import json, sys
+try:
+    record = json.load(open(sys.argv[1]))
+    retry = int(sys.argv[2]) if sys.argv[2].isdigit() else 0
+except (OSError, ValueError):
+    sys.exit(0)
+print("RETRY" if retry > int(record.get("atEpoch") or 0) else record.get("boot") or "")
+QUARANTINE
+}
+
+detect_fallback() {
+  [ -f "$pending_boot" ] || return 0
+  local asked_boot="" asked_system="" asked_revision="" now_system
+  while IFS='=' read -r name value; do
+    case "$name" in
+      boot_id) asked_boot=$value ;;
+      toplevel) asked_system=$value ;;
+      revision) asked_revision=$value ;;
+    esac
+  done < "$pending_boot"
+  # Still the boot that asked for the reboot: nothing has happened yet.
+  if [ -z "$asked_boot" ] || [ "$asked_boot" = "$boot_id" ]; then
+    return 0
+  fi
+  now_system=$(readlink -f "$booted" || true)
+  if [ "$now_system" = "$asked_system" ]; then
+    return 0  # it came up; boot-health removes pending-boot once the boot is blessed
+  fi
+  echo 'sync: this boot is not running the system the update asked for; quarantining that kernel' >&2
+  quarantine_kernel "$asked_system" "$asked_revision" \
+    "The cause is not certain: a kernel that cannot start, a system that cannot reach GitHub or the cache in its first boots, and a network outage during those boots all end in the same fallback."
+  # Make the system that works the default again, so the next reboot does not
+  # select the failing entry either.
+  if [ -n "$now_system" ] && [ -x "$now_system/bin/switch-to-configuration" ]; then
+    bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$nix_env" -p "$profile" --set "$now_system" || true
+    bounded "${FLEET_ACTIVATION_TIMEOUT:-300}" "$now_system/bin/switch-to-configuration" boot || true
+  fi
+  rm -f "$pending_boot"
+}
+detect_fallback
 bounded "${FLEET_FETCH_TIMEOUT:-120}" "$git" -c "safe.directory=$repo" -C "$repo" fetch --depth=1 origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
 g -C "$repo" checkout --detach --force "refs/remotes/origin/${branch}"
 
@@ -186,6 +283,19 @@ if [ -z "${CACHE_URL:-}" ] || [[ "$CACHE_URL" == *TODO* ]]; then
 fi
 
 revision=$(g -C "$repo" rev-parse HEAD)
+# roles.json at this revision decides what this machine may be. A retired role
+# or a removed closure is never published again: report exactly that instead
+# of a cache miss on every run. A revision without the registry predates it.
+registry="$repo/$FLAKE_DIR/roles.json"
+if [ -f "$registry" ]; then
+  if ! placement=$("$PYTHON" -I "${FLEET_ROLES_PY:?}" placement "$registry" "$ROLE" "$FLAKE_ATTR" 2>&1); then
+    failure_reason=${placement:-roles.json at this revision could not be read}
+    echo "sync: $failure_reason" >&2
+    exit 1
+  fi
+else
+  echo "sync: revision $revision has no roles.json; the build decides whether $FLAKE_ATTR exists" >&2
+fi
 # A path flake loses self.rev and cannot match the system published by CI.
 # Pin the Git source and revision exactly, including the monorepo directory.
 flake="git+file://${repo}?shallow=1&rev=${revision}&dir=${FLAKE_DIR}#nixosConfigurations.${FLAKE_ATTR}.config.system.build.toplevel"
@@ -348,7 +458,31 @@ if [ "$need_reboot" -eq 0 ] && [ "$previous" = "$toplevel" ] \
   exit 0
 fi
 
-if [ "$need_reboot" -eq 1 ] && [ "$reboot_disabled" -eq 1 ]; then
+quarantined=""
+if [ "$need_reboot" -eq 1 ]; then
+  quarantined=$(quarantined_identity)
+  if [ "$quarantined" = RETRY ]; then
+    echo 'sync: retrying the quarantined kernel because Fleet asked to (sync.retryBootAfter)' >&2
+    rm -f "$quarantine_file"
+    recovery_event update-retry info "retry:${boot_id:-unknown}:$(conf sync.retryBootAfter 0)" \
+      "Retrying the quarantined kernel because Retry the update was pressed in Fleet."
+    quarantined=""
+  elif [ -n "$quarantined" ] && [ "$quarantined" != "$(boot_identity "$toplevel")" ]; then
+    # A different kernel arrived: the quarantine no longer applies.
+    rm -f "$quarantine_file"
+    quarantined=""
+  fi
+fi
+
+if [ "$need_reboot" -eq 1 ] && [ -n "$quarantined" ]; then
+  # The new userspace still applies; only the reboot into the quarantined
+  # kernel is withheld. The node keeps serving jobs on the kernel that works.
+  apply switch
+  guard switch
+  install -d -m 0755 "$(dirname "$pending_path")"
+  printf 'toplevel=%s\nreason=quarantined\n' "$toplevel" > "$pending_path"
+  echo 'sync: switched without rebooting; the new kernel is quarantined after an earlier failed boot' >&2
+elif [ "$need_reboot" -eq 1 ] && [ "$reboot_disabled" -eq 1 ]; then
   # reboot.enabled is false. The new system is switched to and nothing is
   # drained or rebooted. The kernel change waits, and the agent reports it.
   apply switch
@@ -381,8 +515,13 @@ elif [ "$need_reboot" -eq 1 ]; then
     touch "$(dirname "$report_path")/update-draining"
     printf 'recover interrupted update\n' > "$(dirname "$report_path")/agent-drained"
     export PATH="/run/current-system/sw/bin:${PATH:-}"
-    bounded "$((${DRAIN_TIMEOUT:-7200} + 30))" "$DRAIN_COMMAND" "${DRAIN_TIMEOUT:-7200}"
+    FLEET_DRAIN_REASON=update bounded "$((${DRAIN_TIMEOUT:-7200} + 30))" "$DRAIN_COMMAND" "${DRAIN_TIMEOUT:-7200}"
   fi
+  # Which boot asked for which system: a later boot running something else
+  # fell back (detect_fallback). Durable before the boot entry changes.
+  printf 'boot_id=%s\ntoplevel=%s\nrevision=%s\n' "$boot_id" "$toplevel" "$revision" > "$pending_boot.next"
+  sync "$pending_boot.next" 2>/dev/null || true
+  mv -f "$pending_boot.next" "$pending_boot"
   apply boot
   guard boot
   reboot_requested=1

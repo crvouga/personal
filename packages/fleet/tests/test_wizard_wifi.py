@@ -219,16 +219,22 @@ class WifiTransferTests(unittest.TestCase):
 
     def test_reconnect_is_bounded_and_checks_internet_without_password_arguments(self):
         attempts = iter([10, 0])
-        run = mock.Mock(side_effect=lambda args, **kw: SimpleNamespace(returncode=next(attempts) if "--wait" in args else 0))
+        def run(args, **kw):
+            if args[:2] == ["nmcli", "--terse"] and args[-1] == "device":
+                return SimpleNamespace(returncode=0, stdout=b"wlan0:wifi:disconnected\n", stderr=b"")
+            return SimpleNamespace(returncode=next(attempts) if "--wait" in args else 0, stdout=b"", stderr=b"")
+        run = mock.Mock(side_effect=run)
         sleep, probe = mock.Mock(), mock.Mock()
-        wifi.ready(NETWORK, run, sleep, probe)
+        self.assertEqual(wifi.ready(NETWORK, run, sleep, probe), NETWORK)
         self.assertEqual(sum("--wait" in call.args[0] for call in run.call_args_list), 2)
         probe.assert_called_once()
         self.assertNotIn(NETWORK["password"], repr(run.call_args_list))
-        run = mock.Mock(return_value=SimpleNamespace(returncode=0))
+        run = mock.Mock(side_effect=lambda args, **kw: SimpleNamespace(
+            returncode=0, stdout=b"wlan0:wifi:disconnected\n" if args[-1] == "device" else b"", stderr=b""))
         with self.assertRaises(wifi.WifiError):
             wifi.ready(NETWORK, run, sleep, mock.Mock(side_effect=OSError("captive portal")))
         self.assertEqual(sum("--wait" in call.args[0] for call in run.call_args_list), 3)
+
 
     def test_simulated_installs_never_read_the_host_wifi_password(self):
         for seam in ("FLEET_DISKS_FILE", "FLEET_WINDOWS_TARGET", "FLEET_WRITE_TARGET", "FLEET_ALLOW_UNPRIVILEGED", "FLEET_DD", "FLEET_LSBLK", "FLEET_DISKUTIL", "FLEET_POWERSHELL"):
@@ -312,11 +318,178 @@ class WifiCaptureTests(unittest.TestCase):
                 wifi_capture.windows_xml(bad)
             self.assertNotIn("fixture-password", str(caught.exception))
 
+    def test_the_review_reads_the_network_name_without_secrets_and_tolerates_failure(self):
+        def output(args):
+            self.assertNotIn("--show-secrets", args)
+            return "no:Neighbour\nyes:Home ; Wi-Fi=1\n"
+        with mock.patch.object(wifi_capture.shutil, "which", return_value="/bin/nmcli"), mock.patch.object(wifi_capture, "output", side_effect=output):
+            self.assertEqual(wifi_capture.connected_name("Linux"), "Home ; Wi-Fi=1")
+        with mock.patch.object(wifi_capture.shutil, "which", return_value="/bin/nmcli"), \
+                mock.patch.object(wifi_capture, "output", side_effect=wifi.WifiError("unreadable")):
+            self.assertIsNone(wifi_capture.connected_name("Linux"))
+
     def test_capture_failures_never_return_command_output_or_credentials(self):
         with mock.patch.object(wifi_capture.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, NETWORK["password"], NETWORK["password"])):
             with self.assertRaises(wifi.WifiError) as caught:
                 wifi_capture.output(["network-tool"])
             self.assertNotIn(NETWORK["password"], str(caught.exception))
+
+
+class LiveReadinessTests(unittest.TestCase):
+    """The live installer connects what it can and says exactly why it could not."""
+
+    SSID = "Vouga Home"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.sys = self.root / "sys"
+        self.env = mock.patch.dict(os.environ, {"FLEET_LIVE_STATE": str(self.root / "live"), "FLEET_SYS": str(self.sys),
+                                                "FLEET_CMDLINE": str(self.root / "cmdline")})
+        self.env.start()
+        (self.root / "cmdline").write_text("copytoram fleet.from=windows fleet.wifi=sent fleet.role=ci\n")
+        patches = [mock.patch.object(wifi, "LIVE", self.root / "run/wifi.json"),
+                   mock.patch.object(wifi, "PROFILE", self.root / "nm/fleet-wifi.nmconnection")]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def nic(self, name, driver=None, wireless=False, pci=("0x8086", "0x2723"), carrier="0"):
+        device = self.sys / "devices/pci0000:00" / name
+        device.mkdir(parents=True)
+        (device / "vendor").write_text(pci[0] + "\n")
+        (device / "device").write_text(pci[1] + "\n")
+        if driver:
+            (self.sys / "drivers" / driver).mkdir(parents=True, exist_ok=True)
+            (device / "driver").symlink_to(self.sys / "drivers" / driver)
+        entry = self.sys / "class/net" / name
+        entry.mkdir(parents=True)
+        (entry / "device").symlink_to(device)
+        (entry / "operstate").write_text("down\n")
+        (entry / "carrier").write_text(carrier + "\n")
+        if wireless:
+            (entry / "wireless").mkdir()
+
+    def nmcli(self, devices="wlp1s0:wifi:disconnected", scan="", up=None, routes=""):
+        """A stand-in for the network tools; `up` maps an auth to NetworkManager's error."""
+        calls = []
+        def run(args, **kw):
+            calls.append(args)
+            out, err, code = "", "", 0
+            if args[:2] == ["ip", "route"] or args[:2] == ["ip", "-6"]:
+                out = routes
+            elif args[-1] == "device" and "DEVICE,TYPE,STATE" in args:
+                out = devices
+            elif "list" in args:
+                out = scan
+            elif "up" in args:
+                keyfile = wifi.PROFILE.read_text() if wifi.PROFILE.exists() else ""
+                auth = "sae" if "key-mgmt=sae" in keyfile else "wpa-psk"
+                if up and auth in up:
+                    code, err = 4, up[auth]
+            elif args[0] == "journalctl":
+                out = ("wlp1s0: deauthenticated from 12:34:56:78:9a:bc (Reason: 15=4WAY_HANDSHAKE_TIMEOUT)\n"
+                       "iwlwifi 0000:01:00.0: Direct firmware load for iwlwifi-so-a0.ucode failed with error -2\n")
+            return SimpleNamespace(returncode=code, stdout=out.encode(), stderr=err.encode())
+        return run, calls
+
+    def network(self):
+        return json.loads((self.root / "live/network.json").read_text())
+
+    def test_terse_fields_keep_escaped_colons_in_network_names(self):
+        self.assertEqual(wifi.terse(r"Cafe\: 2nd floor:72:WPA2 WPA3:5180 MHz"), ["Cafe: 2nd floor", "72", "WPA2 WPA3", "5180 MHz"])
+
+    def test_variants_follow_what_the_network_in_range_offers(self):
+        sae = {**NETWORK, "auth": "sae", "hidden": False}
+        psk = {**NETWORK, "hidden": False}
+        self.assertEqual([v["auth"] for v in wifi.variants(sae, {"visible": True, "security": "WPA2 WPA3"})], ["sae", "wpa-psk"])
+        self.assertEqual([v["auth"] for v in wifi.variants(psk, {"visible": True, "security": "WPA3"})], ["sae", "wpa-psk"])
+        self.assertEqual(wifi.variants(psk, {"visible": True, "security": "WPA2"}), [psk])
+        self.assertEqual([v["hidden"] for v in wifi.variants(psk, {"visible": False, "nearby": 4})], [False, True])
+
+    def test_wpa3_from_windows_falls_back_to_wpa2_and_the_working_profile_is_kept(self):
+        self.nic("wlp1s0", "iwlwifi", wireless=True)
+        profile = {"ssid": self.SSID, "password": "test-only-password", "auth": "sae", "hidden": False}
+        wifi.write_private(wifi.LIVE, wifi.encode(profile))
+        run, calls = self.nmcli(scan="Vouga Home:62:WPA2 WPA3:5180 MHz\nOther:40:WPA2:2412 MHz\n",
+                                up={"sae": f"Error: Connection activation failed: Secrets were required, but not provided for '{self.SSID}'"})
+        probe = mock.Mock()
+        wifi.check(run, probe)
+        self.assertEqual(wifi.read_private(wifi.LIVE)["auth"], "wpa-psk")
+        self.assertIn("key-mgmt=wpa-psk", wifi.PROFILE.read_text())
+        facts = self.network()
+        self.assertEqual(facts["code"], "ready")
+        self.assertEqual([a["result"] for a in facts["attempts"]], ["refused", "connected"])
+        self.assertEqual(facts["scan"], {"nearby": 2, "visible": True, "signal": 62, "security": "WPA2 WPA3", "band": "5 GHz"})
+        self.assertEqual(facts["sent"], "sent")
+        text = (self.root / "live/network.json").read_text()
+        self.assertNotIn(profile["password"], text)
+        self.assertNotIn(self.SSID, json.dumps(facts["attempts"]))
+        self.assertNotIn(profile["password"], repr(calls))
+        self.assertEqual(oct((self.root / "live/network.json").stat().st_mode & 0o777), "0o644")
+
+    def test_a_refused_password_is_named_and_retryable(self):
+        self.nic("wlp1s0", "iwlwifi", wireless=True)
+        wifi.write_private(wifi.LIVE, wifi.encode({**NETWORK, "ssid": self.SSID, "hidden": False}))
+        run, _ = self.nmcli(scan="Vouga Home:62:WPA2:2437 MHz\n",
+                            up={"wpa-psk": "Error: Connection activation failed: (7) Secrets were required, but not provided"})
+        with mock.patch.object(wifi.time, "sleep") as sleep, self.assertRaises(wifi.NetworkUnavailable) as caught:
+            wifi.check(run, mock.Mock())
+        self.assertEqual(str(caught.exception), "The Wi-Fi network refused the saved password.")
+        facts = self.network()
+        self.assertEqual(facts["code"], "refused")
+        self.assertEqual(facts["checks"]["visible"]["state"], "ok")
+        self.assertEqual(len([a for a in facts["attempts"] if a["result"] == "refused"]), 3)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertIn("deauthenticated from <mac>", " ".join(facts["kernel"]))
+        self.assertNotIn("12:34:56", json.dumps(facts))
+
+    def test_no_adapter_names_the_hardware_without_a_driver(self):
+        self.nic("enp2s0", "r8169", pci=("0x10ec", "0x8168"))
+        unclaimed = self.sys / "bus/pci/devices/0000:02:00.0"
+        unclaimed.mkdir(parents=True)
+        (unclaimed / "class").write_text("0x028000\n")
+        (unclaimed / "vendor").write_text("0x14e4\n")
+        (unclaimed / "device").write_text("0x43b1\n")
+        wifi.write_private(wifi.LIVE, wifi.encode(NETWORK))
+        run, _ = self.nmcli(devices="enp2s0:ethernet:unmanaged")
+        clock = iter(range(0, 1000, 5))
+        with self.assertRaises(wifi.NetworkUnavailable) as caught:
+            wifi.ready(NETWORK, run, mock.Mock(), mock.Mock(), wifi.Facts(self.root / "live/network.json"),
+                       clock=lambda: next(clock))
+        self.assertIn("pci 14e4:43b1", str(caught.exception))
+        facts = self.network()
+        self.assertEqual(facts["code"], "no-driver")
+        self.assertTrue(facts["kernel"])
+
+    def test_working_internet_is_used_as_is_and_a_chosen_network_replaces_the_carried_one(self):
+        wifi.write_private(wifi.LIVE, wifi.encode(NETWORK))
+        chosen = {"ssid": "Phone hotspot", "password": "another-test-password", "auth": "wpa-psk", "hidden": False}
+        run, calls = self.nmcli(routes="default via 192.0.2.1 dev wlp1s0 proto dhcp\n")
+        with mock.patch.object(wifi, "discover", return_value=chosen):
+            wifi.check(run, mock.Mock())
+        self.assertFalse(any("up" in args for args in calls), "a working connection is never replaced")
+        self.assertEqual(wifi.read_private(wifi.LIVE), chosen)
+        self.assertEqual(self.network()["via"], ["wlp1s0"])
+
+    def test_settings_lost_on_the_way_are_told_apart_from_none_sent(self):
+        run, _ = self.nmcli()
+        for marker, expected in (("sent", "settings-lost"), ("none", "no-settings")):
+            (self.root / "cmdline").write_text(f"fleet.from=windows fleet.wifi={marker} fleet.role=ci\n")
+            with mock.patch.object(wifi, "discover", return_value=None), self.assertRaises(wifi.NetworkUnavailable):
+                wifi.check(run, mock.Mock())
+            self.assertEqual(self.network()["code"], expected)
+        self.assertEqual(self.network()["run"], 2)
+
+    def test_internet_check_says_which_part_failed(self):
+        with mock.patch.object(wifi.socket, "getaddrinfo", side_effect=OSError("no name")):
+            with self.assertRaises(wifi.WifiError) as caught:
+                wifi.internet_ready()
+        self.assertIn("DNS", str(caught.exception))
 
 
 if __name__ == "__main__":
