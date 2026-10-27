@@ -14,8 +14,7 @@
     "tc": "tsc --noEmit",
     "build": "bun run tc",
     "lint": "eslint src --max-warnings 0",
-    "test": "bun test src",
-    "sync": "bun sync.ts"
+    "test": "bun test src"
   },
   "dependencies": {
     "@mantine/core": "^9.7.3",

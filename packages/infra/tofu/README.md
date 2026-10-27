@@ -20,7 +20,7 @@ signer role and derived `FLEET_WINDOWS_SIGNING` GitHub Actions variable. It uses
 `signing.tfstate` in the same encrypted R2 backend and remains separate from
 platform deployment so personal identity enrollment cannot block provisioning.
 Run `bun run infra:signing <OpenTofu command>`; see the
-[staged setup guide](../../fleet/docs/windows-signing.md). Azure CLI is used only
+[staged setup guide](../docs/fleet-windows-signing.md). Azure CLI is used only
 for authentication and read-only discovery, never resource provisioning.
 
 All state and saved plans are encrypted with OpenTofu's PBKDF2/AES-GCM support. `foundation`, `bootstrap`, `vault` and `fleet` use locked R2 S3 backends. The legacy Fly API returned no apps, so there are no surviving Fly resources to adopt.

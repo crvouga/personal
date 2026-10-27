@@ -24,7 +24,7 @@ resource "azurerm_resource_group" "signing" {
       condition = alltrue([for id in [local.config.subscription_id, local.config.tenant_id, local.config.operator_object_id] :
         can(regex("^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$", id))
       ])
-      error_message = "Signing requires the authenticated Azure subscription, tenant and operator object IDs in the canonical inventory. See packages/fleet/docs/windows-signing.md."
+      error_message = "Signing requires the authenticated Azure subscription, tenant and operator object IDs in the canonical inventory. See packages/infra/docs/fleet-windows-signing.md."
     }
   }
 }

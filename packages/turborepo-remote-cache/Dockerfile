@@ -20,8 +20,6 @@ COPY packages/password-manager/package.json ./packages/password-manager/
 COPY packages/9router/package.json ./packages/9router/
 COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
-COPY packages/fleet/package.json ./packages/fleet/
-COPY packages/fleet-api/package.json ./packages/fleet-api/
 
 RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --production --filter @pkgs/turborepo-remote-cache
 

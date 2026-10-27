@@ -1,0 +1,3 @@
+[submodule "vendor/fleet"]
+	path = vendor/fleet
+	url = https://github.com/crvouga/fleet.git

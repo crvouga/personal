@@ -34,7 +34,7 @@
       "name": "cache",
       "state": "retired",
       "title": "Attic binary cache",
-      "summary": "Retired 2026-10-26: nodes use the cloud cache at turborepo.chrisvouga.dev/nix. Its Vault role token and age key stay until a reviewed vault plan removes them."
+      "summary": "Retired 2026-10-26: nodes use the cloud cache at cache.example.com/nix. Its Vault role token and age key stay until a reviewed vault plan removes them."
     },
     {
       "name": "netboot",

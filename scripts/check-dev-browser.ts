@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(
-  new URL('../packages/fleet/package.json', import.meta.url)
+  new URL('../packages/auth-relay/package.json', import.meta.url)
 );
 const { chromium } = require('@playwright/test');
 

@@ -60,7 +60,7 @@ export const ADVICE: Advice[] = [
   when(
     'windows-signing',
     /./,
-    'Use packages/fleet/docs/windows-signing.md: authenticate Azure, complete the personal identity check if pending, then review and apply a saved plan through bun run infra:signing. Do not create signing resources in the dashboard.'
+    'Use packages/infra/docs/fleet-windows-signing.md: authenticate Azure, complete the personal identity check if pending, then review and apply a saved plan through bun run infra:signing. Do not create signing resources in the dashboard.'
   ),
   when(
     'vault',

@@ -13,11 +13,6 @@ falls back to System. Applications provide the CSP nonce in `meta[name=csp-nonce
 `prepareAdminUi` passes it to the scroll-lock helper and the provider passes it
 to Mantine's generated styles.
 
-The portable installer cannot require Node, a network connection, or a CDN.
-Its standalone HTML components use `standalone.css` and `standalone-theme.js`.
-Run `bun run --cwd packages/admin-ui sync` after changing them to refresh the
-small first-party snapshots shipped in `packages/fleet/wizard`. Package tests
-reject snapshot drift. Both PyInstaller and the native Nix launcher include
-them. The setup tool embeds those same assets for its one-time browser flow.
+Fleet maintains its own UI library and installer snapshots in its standalone repository.
 
 Checks: `bun run --cwd packages/admin-ui tc`, `lint`, and `test`.

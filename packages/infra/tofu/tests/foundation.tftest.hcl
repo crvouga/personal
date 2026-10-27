@@ -86,8 +86,8 @@ run "fleet_database_is_isolated_in_its_own_schema" {
     error_message = "The fleet Atlas resource must be scoped to the fleet schema; without search_path Atlas diffs and drops every schema in the shared database."
   }
   assert {
-    condition     = atlas_schema.fleet.hcl == file("${path.module}/../../../fleet-api/schema.hcl")
-    error_message = "The fleet schema must be read from packages/fleet-api/schema.hcl."
+    condition     = atlas_schema.fleet.hcl == file("${path.module}/../../../../vendor/fleet/packages/fleet-api/schema.hcl")
+    error_message = "The fleet schema must be read from vendor/fleet/packages/fleet-api/schema.hcl."
   }
   assert {
     condition     = length(regexall("(?m)^schema \"", atlas_schema.fleet.hcl)) == 1 && strcontains(atlas_schema.fleet.hcl, "schema \"fleet\" {}")

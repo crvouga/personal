@@ -5,7 +5,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.github/**",
-        "$TURBO_ROOT$/packages/fleet/**"
+        "$TURBO_ROOT$/vendor/fleet/packages/fleet-api/schema.hcl"
       ]
     }
   }

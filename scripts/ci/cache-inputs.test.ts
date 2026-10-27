@@ -17,7 +17,6 @@ const root = join(import.meta.dirname, '../..');
 const inventory = 'packages/infra/tofu/modules/inventory/';
 const readers = new Set([
   'infra',
-  'fleet',
   'auth-relay',
   'password-manager',
   'portfolio',

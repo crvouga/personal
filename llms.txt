@@ -630,7 +630,7 @@ Working examples to copy from — each links to its source repo:
 | `simon-says` | https://simonsays.chrisvouga.dev | [crvouga/simon-says](https://github.com/crvouga/simon-says) | `./Dockerfile` (`.`) | 80 | `/` |
 | `violets-garden` | https://violetsgarden.chrisvouga.dev | [crvouga/violets-garden](https://github.com/crvouga/violets-garden) | `./Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-docs` | https://mockingbird.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/docs) | `sites/docs/Dockerfile` (`.`) | 80 | `/` |
-| `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/fleet-api) | `packages/fleet-api/Dockerfile` (`.`) | 8080 | `/health` |
+| `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/fleet) | `vendor/fleet/packages/fleet-api/Dockerfile` (`vendor/fleet`) | 8080 | `/health` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
 | `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |

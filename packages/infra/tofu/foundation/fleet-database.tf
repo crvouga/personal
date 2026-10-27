@@ -25,7 +25,7 @@ resource "postgresql_schema" "fleet" {
 resource "atlas_schema" "fleet" {
   url        = "${local.database_url}&search_path=fleet"
   dev_url    = var.schema_dev_url
-  hcl        = file("${path.module}/../../../fleet-api/schema.hcl")
+  hcl        = file("${path.module}/../../../../vendor/fleet/packages/fleet-api/schema.hcl")
   depends_on = [postgresql_schema.fleet]
   lifecycle { prevent_destroy = true }
 }

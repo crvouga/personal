@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix="workspace-tofu-foundation-") as directo
     root = mirror / "infra/tofu/foundation"
     root.mkdir(parents=True)
     (root.parent / "modules").symlink_to(tofu_root / "modules", target_is_directory=True)
-    (mirror / "fleet-api").symlink_to(packages / "fleet-api", target_is_directory=True)
+    (mirror.parent / "vendor").symlink_to(packages.parent / "vendor", target_is_directory=True)
     (mirror / "auth-relay").symlink_to(packages / "auth-relay", target_is_directory=True)
     for source in (tofu_root / "foundation").glob("*.tf"):
         # OpenTofu 1.13's mock providers panic on ImportResourceState. Only the
