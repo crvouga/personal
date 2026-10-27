@@ -81,7 +81,7 @@ test('a complete release preserves the normal path filter', () => {
 
 test('all scheduler groups run concurrently before publishing the ISO', () => {
   const job = workflow.jobs.nix;
-  expect(job.needs).toBe('changes');
+  expect(job.needs).toEqual(['changes', 'coding_tools']);
   expect(job.strategy.matrix.group).toEqual([
     'roles',
     'runtime',

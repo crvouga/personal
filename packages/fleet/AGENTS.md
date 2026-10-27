@@ -177,6 +177,16 @@ The root `.github/workflows/ci.yml` is the single pipeline definition. It runs o
 
 A rollback is a revert pull request through the same checks and the same queue. The previous commit's systems are already in the cache. systemd-boot keeps `bootGenerationLimit` generations (8), selectable from the console. There is no force-push rollback.
 
+Before the four Nix check groups, `Build Fleet coding tools` builds the shared
+`coding-tools` runtime and verifies `coding-launcher`, with a bounded 45-minute
+cold-build budget. Its rooted runtime is cached by the pinned inputs and coding
+sources. The complete closure is exported as a compressed Nix archive for this
+workflow only; every check group imports it and requires the evaluated runtime
+with `--max-jobs 0` before its existing 12-minute check budget begins. A cache
+miss still builds the toolchain, and an artifact or import failure stops the
+checks. This transport is CI build data; production cache publication still
+requires its independent pinned signatures and exact-revision proof.
+
 Automatic catch-up is a required release contract. Keep `fleet-sync` enabled at
 boot, schedule retries after attempts finish, and let an updater finish when its
 own unit changes. `checks.update-units` covers every role; `checks.follow-up`

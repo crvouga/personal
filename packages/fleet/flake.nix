@@ -123,6 +123,8 @@
       installer = installerIso.config.system.build.isoImage;
       fleet-installer = import ./modules/installer-package.nix { inherit pkgs lib revision; };
       fleet-node = self.packages.${system}.fleet-installer;
+      # A revision-independent runtime closure shared by all CI check lanes.
+      coding-tools = (import ./modules/coding-package.nix { inherit pkgs lib; }).session;
       default = self.packages.${system}.${roles.installerDefault};
       disko = installDisk;
       nixos-anywhere = pkgs.nixos-anywhere;

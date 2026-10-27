@@ -508,10 +508,50 @@ jobs:
               exit 1
             fi
           done
+  coding_tools:
+    name: Build Fleet coding tools
+    if: needs.changes.outputs.nix == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    # Compile the shared upstream toolchain once, outside the bounded VM lanes.
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+      - name: Cache the coding runtime closure
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-coding-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-${{ hashFiles('packages/fleet/flake.lock', 'packages/fleet/flake.nix', 'packages/fleet/modules/coding*.nix', 'packages/fleet/docs/coding-agent.md', 'packages/fleet/tests/coding*') }}
+          restore-prefixes-first-match: nix-coding-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-
+          gc-max-store-size-linux: 4G
+      - name: Build the coding runtime and test its launcher
+        working-directory: packages/fleet
+        run: |
+          set -euo pipefail
+          nix build --no-write-lock-file --max-jobs 1 --cores 4 -L --out-link result-coding .#coding-tools
+          nix build --no-write-lock-file --max-jobs 1 --cores 4 -L --no-link .#checks.x86_64-linux.coding-launcher
+      - name: Export the complete coding runtime closure
+        working-directory: packages/fleet
+        run: |
+          set -euo pipefail
+          nix-store --query --requisites ./result-coding > "$RUNNER_TEMP/fleet-coding-paths"
+          mapfile -t closure < "$RUNNER_TEMP/fleet-coding-paths"
+          [ "${#closure[@]}" -gt 0 ]
+          nix-store --export "${closure[@]}" | zstd -T0 -3 > "$RUNNER_TEMP/fleet-coding-tools.nar.zst"
+      - name: Upload the coding runtime for this workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-coding-tools
+          path: ${{ runner.temp }}/fleet-coding-tools.nar.zst
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
   nix:
     name: Test Nix (${{ matrix.group }})
     if: needs.changes.outputs.nix == 'true'
-    needs: changes
+    needs: [changes, coding_tools]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -530,6 +570,19 @@ jobs:
           primary-key: nix-store-v1-${{ runner.os }}-${{ runner.arch }}-13d8dd58-${{ hashFiles('packages/fleet/flake.lock') }}
           save: ${{ matrix.group == 'roles' }}
           gc-max-store-size-linux: 4G
+      - name: Download this workflow's coding runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: fleet-coding-tools
+          path: ${{ runner.temp }}/fleet-coding-tools
+      - name: Import and verify the exact coding runtime
+        working-directory: packages/fleet
+        run: |
+          set -euo pipefail
+          zstd --decompress --stdout "$RUNNER_TEMP/fleet-coding-tools/fleet-coding-tools.nar.zst" | nix-store --import > "$RUNNER_TEMP/fleet-coding-imported-paths"
+          # Import only from this workflow, then require the evaluated runtime
+          # to exist before the check budget starts. This cannot compile OMP.
+          nix build --no-write-lock-file --max-jobs 0 --out-link result-coding .#coding-tools
       - name: Lint workflows and shell scripts
         if: matrix.group == 'roles'
         run: nix develop ./packages/fleet --command bash packages/fleet/scripts/lint.sh

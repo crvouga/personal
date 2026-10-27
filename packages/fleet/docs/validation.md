@@ -1,5 +1,19 @@
 # Validation record
 
+## 2026-10-27 native CI toolchain timeouts
+
+PR #158's four native Nix lanes reached the 12-minute check limit while compiling
+the shared upstream OMP Rust component, before launcher and VM acceptance could
+complete. The pipeline now builds that runtime once in a separate bounded job,
+tests its real launcher, and transfers its complete closure to the four lanes
+through a same-workflow artifact. Those lanes retain their existing timeouts,
+resource limits, exact derivation checks and release gates.
+
+Local workflow and transfer fault tests cover full closure export, compressed
+round-trip, failed queries/exports/imports, damaged archives and a missing
+evaluated runtime. Native build and VM results must still be collected from CI;
+the host has no Nix installation and its Docker daemon is unavailable.
+
 ## 2026-10-27 Oh My Pi configuration review
 
 The shared coding launcher uses OMP's native `modelRoles.default` and
