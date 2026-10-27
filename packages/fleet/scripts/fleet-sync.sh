@@ -373,7 +373,7 @@ import json,sys
 from urllib.parse import urlparse
 document=json.load(open(sys.argv[1]))
 if document.get('updateMode') == 'local':
-    print('https://cache.nixos.org'); print('')
+    print('https://cache.nixos.org'); print('-')
     sys.exit(0)
 url,key=document['cacheUrl'],document['cachePublicKey']
 parsed=urlparse(url)
@@ -384,7 +384,7 @@ PY
     ) || return 1
     target_cache=${cache_config%%$'\n'*}
     target_key=${cache_config#*$'\n'}
-    if [ -n "$target_key" ]; then
+    if [ "$target_key" != "-" ]; then
       bounded 45 "$nix" store verify --store "$target_cache" --no-contents --sigs-needed 1 \
         --option trusted-public-keys "$target_key" --option narinfo-cache-negative-ttl 0 "$toplevel" || return 1
     fi
