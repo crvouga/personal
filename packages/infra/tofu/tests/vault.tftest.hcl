@@ -313,7 +313,9 @@ run "retired_cache_credentials_are_filtered_from_stale_inputs" {
   assert {
     condition = alltrue([for config in ["dev", "prd"] :
       jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_CACHE == "local:rw" &&
-      length(setintersection(toset(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json))), toset(["TURBO_TOKEN", "TURBO_API", "TURBO_TEAM", "TURBO_LOG_ORDER", "TURBO_TELEMETRY_DISABLED"]))) == 0
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_TELEMETRY_DISABLED == "1" &&
+      jsondecode(vault_kv_secret_v2.personal[config].data_json).TURBO_LOG_ORDER == "auto" &&
+      length(setintersection(toset(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json))), toset(["TURBO_TOKEN", "TURBO_API", "TURBO_TEAM"]))) == 0
     ])
     error_message = "Stale secrets exports cannot restore retired credentials or remote caching."
   }

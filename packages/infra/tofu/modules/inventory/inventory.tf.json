@@ -1352,6 +1352,16 @@
             "used_by": ["ci"]
           },
           {
+            "name": "TURBO_LOG_ORDER",
+            "configs": ["dev", "prd"],
+            "used_by": ["ci"]
+          },
+          {
+            "name": "TURBO_TELEMETRY_DISABLED",
+            "configs": ["dev", "prd"],
+            "used_by": ["ci"]
+          },
+          {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
             "used_by": ["ci", "9router"],
