@@ -1,5 +1,6 @@
 { pkgs, lib, sopsModule, diskoModule, ... }: let
   settings = import ../devbox.nix;
+  coding = import ../modules/coding-package.nix { inherit pkgs lib; };
   key = pkgs.runCommand "devbox-test-key" { nativeBuildInputs = [ pkgs.openssh ]; } ''
     mkdir -p "$out"
     ssh-keygen -q -t ed25519 -N "" -f "$out/id"
@@ -26,6 +27,8 @@ in pkgs.testers.runNixOSTest {
     };
   };
   testScript = ''
+    import unittest
+
     machine.start(allow_reboot=True)
     machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("sshd.service")
@@ -35,10 +38,13 @@ in pkgs.testers.runNixOSTest {
     machine.succeed("getent passwd agent | grep -F /nix/fleet-code")
     machine.succeed("fleet-code --version && omp --version && chromium --version && claude --version && codex --version", timeout=60)
     # Inspect the file passed by the NixOS service, not the package defaults.
-    machine.succeed("sshd -T -f /etc/ssh/sshd_config -C user=agent,host=localhost,addr=127.0.0.1 > /run/fleet-agent-sshd-config")
-    machine.succeed("grep -E '^forcecommand .*/bin/fleet-code-ssh$' /run/fleet-agent-sshd-config")
-    machine.succeed("grep -qx 'allowstreamlocalforwarding local' /run/fleet-agent-sshd-config")
-    machine.succeed("grep -qx 'allowtcpforwarding no' /run/fleet-agent-sshd-config")
+    effective_ssh = machine.succeed("sshd -T -f /etc/ssh/sshd_config -C user=agent,host=localhost,addr=127.0.0.1")
+    # OpenSSH 10.5 prints canonical keyword casing; earlier versions use lowercase.
+    ssh_policy = {key.lower(): value for key, value in (line.split(" ", 1) for line in effective_ssh.splitlines())}
+    policy_checks = unittest.TestCase()
+    policy_checks.assertEqual(ssh_policy.get("forcecommand"), "${coding.ssh}/bin/fleet-code-ssh")
+    policy_checks.assertEqual(ssh_policy.get("allowstreamlocalforwarding"), "local")
+    policy_checks.assertEqual(ssh_policy.get("allowtcpforwarding"), "no")
     machine.succeed("su - agent -c 'test $(stat -c %a /nix/fleet-code) = 700; echo persistent > ~/coding-test'")
     machine.fail("su - agent -c 'sudo -n true'")
     machine.fail("su - dev -c 'cat /nix/fleet-code/coding-test'")
