@@ -97,7 +97,24 @@ Body: `HeartbeatBody` (`src/types.ts`). Send every `heartbeat.intervalSeconds` (
   "readiness": { "issues": [] },
   "runners": { "slots": 4, "busy": 1 },
   "agent": { "version": "1", "configRevision": "0123456789abcdef" },
-  "events": [{ "kind": "boot", "severity": "info", "message": "node started" }]
+  "events": [
+    {
+      "kind": "boot",
+      "severity": "info",
+      "message": "node started",
+      "key": "boot:5b0f..."
+    }
+  ],
+  "recovery": {
+    "boot": {
+      "previousClean": null,
+      "previousEndedAt": null,
+      "uncleanOfLast": [0, 0]
+    },
+    "quarantine": null,
+    "gate": { "closed": false, "reasons": [] },
+    "outbox": 0
+  }
 }
 ```
 
@@ -120,6 +137,8 @@ Response `200`:
 - `401 unauthorized` for an unknown id or wrong secret (the agent re-registers). `403 rejected`/`retired` for those states (the agent backs off to hourly).
 - The body's `nodeId` must equal the credential's id. `events` is at most 20 entries, `message` at most 500 chars. Anything else over limits is `400`.
 - The server derives `hostname`, `role`, `revision` from the body. It never trusts the body for approval or labels.
+- An event may carry `key` (`[A-Za-z0-9:._-]{1,120}`), `at` (the node's UTC time, `YYYY-MM-DDTHH:MM:SSZ`) and `data` (up to 16 flat scalar fields, strings cut at 300 characters). An event whose `key` this node already reported is not stored again, so a retried heartbeat cannot record it twice; `key` and `at` are stored as `data.key` and `data.occurredAt`. Recovery events (`unclean-shutdown`, `job-interrupted`, `update-quarantined`, `gate-reopened`) come from the node's durable outbox (`packages/fleet/scripts/recovery.py`) and are resent until a heartbeat carrying them is accepted.
+- `recovery` (optional) is what the node remembers across power loss (the example is a first boot: `previousClean` and `previousEndedAt` are null until a boot has ended): whether the previous boot shut down cleanly, a quarantined kernel, why runner admission is closed, and how many recovery events still wait to be delivered. See `packages/fleet/docs/resilience.md`.
 
 ### `POST /v1/retire` (`Authorization: Bearer <id>.<secret>`)
 

@@ -4,6 +4,7 @@ import type { AppDeps } from '../../deps';
 import type { Approval, NodeRow } from '../../types';
 import { parseEdit } from '../lib/node-edit';
 import { action, back, safeNext, type Handler } from './guard';
+import { registerRecoveryActions } from './recovery-actions';
 
 interface Transition {
   readonly to: Approval;
@@ -106,4 +107,5 @@ export function registerActions(app: Hono, deps: AppDeps): void {
   app.post('/nodes/:id/retire', transition(deps, 'retire'));
   app.post('/nodes/:id/delete', remove(deps));
   app.post('/nodes/:id/edit', edit(deps));
+  registerRecoveryActions(app, deps);
 }

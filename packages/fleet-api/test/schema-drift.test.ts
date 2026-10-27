@@ -225,6 +225,7 @@ describe('what PgStore writes', () => {
   test('every snake_case identifier in the SQL is a column, a table or a known function', () => {
     const known = new Set<string>([
       'jsonb_array_elements',
+      'jsonb_array_elements_text',
       'pg_advisory_xact_lock',
       'row_number',
       ...Object.keys(SCHEMA),

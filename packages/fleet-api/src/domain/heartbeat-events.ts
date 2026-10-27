@@ -68,7 +68,8 @@ function revisionEvents(prev: NodeRow, body: HeartbeatBody): DerivedEvent[] {
 
 function rollbackEvents(prev: NodeRow, body: HeartbeatBody): DerivedEvent[] {
   const was = asRecord(prev.facts['sync'])['rolledBack'] === true;
-  if (!was && body.sync.rolledBack) {
+  // The agent reports its own rollback event, with the reason; one is enough.
+  if (!was && body.sync.rolledBack && !reportedKind(body, 'rollback')) {
     const why =
       body.sync.healthFailure === null ? '' : `: ${body.sync.healthFailure}`;
     return [
