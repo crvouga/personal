@@ -27,6 +27,7 @@ COPY packages/vault/package.json ./packages/vault/
 COPY packages/workstation/package.json ./packages/workstation/
 COPY packages/password-manager/package.json ./packages/password-manager/
 COPY packages/9router/package.json ./packages/9router/
+COPY packages/zoomies/package.json ./packages/zoomies/
 
 RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --frozen-lockfile --filter @pkgs/portfolio
 

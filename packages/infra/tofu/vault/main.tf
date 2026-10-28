@@ -109,6 +109,13 @@ resource "random_password" "application" {
   length   = 48
   special  = false
 }
+# Zoomies seals the GitHub App key and webhook secrets with exactly 32 random
+# bytes. Losing or rotating this value makes the stored App credentials
+# unreadable, so it is created once and never replaced.
+resource "random_id" "zoomies_encryption_key" {
+  byte_length = 32
+  lifecycle { prevent_destroy = true }
+}
 resource "random_password" "router" {
   for_each = toset([for key in local.config.vault.kv_keys : key.name if startswith(key.name, "9ROUTER_") && key.name != "9ROUTER_TUNNEL_TOKEN"])
   length   = 48
@@ -121,6 +128,7 @@ locals {
   managed_values = {
     for config in local.vault.kv.configs : config => merge(
       config == "prd" ? local.router_values : {},
+      config == "prd" ? { ZOOMIES_ENCRYPTION_KEY = random_id.zoomies_encryption_key.hex } : {},
       local.config.auth_relay.live ? merge(
         data.terraform_remote_state.auth_relay[config == "prd" ? "production" : "nonproduction"].outputs.console_credentials,
         { AUTH_RELAY_DATABASE_URL = data.terraform_remote_state.foundation.outputs.auth_console_database[config == "prd" ? "production" : "nonproduction"] }

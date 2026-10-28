@@ -9,6 +9,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
 - `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
+- `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
 
 ## Shared authentication relay

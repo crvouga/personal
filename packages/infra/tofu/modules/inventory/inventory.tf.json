@@ -1338,6 +1338,46 @@
             "generated": true
           },
           {
+            "name": "ZOOMIES_ENCRYPTION_KEY",
+            "configs": ["prd"],
+            "used_by": ["zoomies"],
+            "required": true
+          },
+          {
+            "name": "ZOOMIES_BOOTSTRAP_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["zoomies", "zoomies-setup"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "ZOOMIES_BACKUP_PASSPHRASE",
+            "configs": ["prd"],
+            "used_by": ["zoomies"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "ZOOMIES_GITHUB_APP_ID",
+            "configs": ["prd"],
+            "used_by": ["zoomies-setup"]
+          },
+          {
+            "name": "ZOOMIES_GITHUB_APP_INSTALLATION_ID",
+            "configs": ["prd"],
+            "used_by": ["zoomies-setup"]
+          },
+          {
+            "name": "ZOOMIES_GITHUB_APP_PRIVATE_KEY",
+            "configs": ["prd"],
+            "used_by": ["zoomies-setup"]
+          },
+          {
+            "name": "ZOOMIES_GITHUB_APP_WEBHOOK_SECRET",
+            "configs": ["prd"],
+            "used_by": ["zoomies-setup"]
+          },
+          {
             "name": "GOOGLE_OAUTH_CLIENT_ID",
             "configs": ["dev", "prd"],
             "used_by": ["auth-relay", "auth-relay-dev"],
@@ -1367,31 +1407,31 @@
           {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api"],
+            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
             "required": true
           },
           {
             "name": "S3_REGION",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api"],
+            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api"],
+            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api"],
+            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
             "required": true
           },
           {
             "name": "S3_BUCKET",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api"],
+            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
             "required": true
           },
           {
@@ -2291,6 +2331,82 @@
             },
             {
               "name": "AWS_SECRET_ACCESS_KEY",
+              "source": "vault",
+              "vault_key": "S3_SECRET_ACCESS_KEY"
+            }
+          ]
+        },
+        {
+          "id": "zoomies",
+          "kind": "railway",
+          "hostname": "zoomies.chrisvouga.dev",
+          "github_repo": "crvouga/workspace",
+          "source_code_url": "https://github.com/crvouga/workspace/tree/main/packages/zoomies",
+          "dockerfile": "packages/zoomies/Dockerfile",
+          "build_context": "packages/zoomies",
+          "port": 8080,
+          "health_check": true,
+          "health_path": "/healthz",
+          "railway": {
+            "replicas": 1,
+            "sleep": false,
+            "draining_seconds": 60,
+            "health_timeout_seconds": 180,
+            "volume": {
+              "name": "zoomies-data",
+              "mount_path": "/data"
+            }
+          },
+          "env": {
+            "PORT": "8080",
+            "RAILWAY_RUN_UID": "0",
+            "ZOOMIES_BIND": "0.0.0.0:8080",
+            "ZOOMIES_TLS_MODE": "off",
+            "ZOOMIES_AGENT_EMBEDDED": "false",
+            "ZOOMIES_LOG_FORMAT": "json",
+            "ZOOMIES_EXTERNAL_URL": "https://zoomies.chrisvouga.dev",
+            "ZOOMIES_TRUSTED_PROXIES": "100.64.0.0/10",
+            "ZOOMIES_BACKUP_REMOTE_NAME": "r2",
+            "ZOOMIES_BACKUP_REMOTE_PREFIX": "zoomies/production",
+            "ZOOMIES_BACKUP_REMOTE_PATH_STYLE": "true",
+            "ZOOMIES_BACKUP_REMOTE_KEEP": "14"
+          },
+          "secrets": [
+            {
+              "name": "ZOOMIES_ENCRYPTION_KEY",
+              "source": "vault"
+            },
+            {
+              "name": "ZOOMIES_BOOTSTRAP_TOKEN",
+              "source": "vault"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_PASSPHRASE",
+              "source": "vault",
+              "vault_key": "ZOOMIES_BACKUP_PASSPHRASE"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_BUCKET",
+              "source": "vault",
+              "vault_key": "S3_BUCKET"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_ENDPOINT",
+              "source": "vault",
+              "vault_key": "S3_ENDPOINT"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_REGION",
+              "source": "vault",
+              "vault_key": "S3_REGION"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_ACCESS_KEY_ID",
+              "source": "vault",
+              "vault_key": "S3_ACCESS_KEY_ID"
+            },
+            {
+              "name": "ZOOMIES_BACKUP_REMOTE_SECRET_ACCESS_KEY",
               "source": "vault",
               "vault_key": "S3_SECRET_ACCESS_KEY"
             }

@@ -190,6 +190,18 @@ run "generated_application_credentials" {
   }
 }
 
+run "zoomies_encryption_key_is_exactly_32_bytes_and_production_only" {
+  command = plan
+  assert {
+    condition     = random_id.zoomies_encryption_key.byte_length == 32
+    error_message = "Zoomies seals credentials with exactly 32 random bytes."
+  }
+  assert {
+    condition     = contains(keys(jsondecode(vault_kv_secret_v2.personal["prd"].data_json)), "ZOOMIES_ENCRYPTION_KEY") && !contains(keys(jsondecode(vault_kv_secret_v2.personal["dev"].data_json)), "ZOOMIES_ENCRYPTION_KEY")
+    error_message = "The Zoomies encryption key must be managed in production only."
+  }
+}
+
 run "reject_missing_youtube_key" {
   command = plan
   variables {

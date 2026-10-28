@@ -61,6 +61,8 @@
     "infra:auth": "tofu -chdir=packages/infra/tofu/auth",
     "infra:auth-hosting": "tofu -chdir=packages/infra/tofu/auth-hosting",
     "auth:setup": "bun scripts/auth-setup.ts",
+    "zoomies:configure": "vault run --config prd -- bun run --cwd packages/zoomies configure",
+    "zoomies:join-token": "vault run --config prd -- bun run --cwd packages/zoomies join-token",
     "auth:test": "bun run --cwd packages/auth-relay test",
     "auth:test:e2e": "python3 -B packages/auth-relay/tests/run.py",
     "gh:deploy:status": "gh run list --workflow deploy.yml --limit 3",

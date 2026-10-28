@@ -254,6 +254,14 @@
         "yaml": "catalog:",
       },
     },
+    "packages/zoomies": {
+      "name": "@pkgs/zoomies",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
   },
   "catalog": {
     "@commitlint/cli": "^21.2.2",
@@ -883,6 +891,8 @@
     "@pkgs/vault": ["@pkgs/vault@workspace:packages/vault"],
 
     "@pkgs/workstation": ["@pkgs/workstation@workspace:packages/workstation"],
+
+    "@pkgs/zoomies": ["@pkgs/zoomies@workspace:packages/zoomies"],
 
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
 

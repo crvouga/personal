@@ -21,12 +21,12 @@
     "state",
     "vault"
   ],
-  "preventDestroyGuards": 38,
+  "preventDestroyGuards": 39,
   "healthChecks": 13,
-  "inventoryServices": 21,
-  "packages": 15,
-  "workspaceTestFiles": 154,
-  "workspaceTestCallSites": 787,
+  "inventoryServices": 22,
+  "packages": 16,
+  "workspaceTestFiles": 155,
+  "workspaceTestCallSites": 796,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",
@@ -36,9 +36,9 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "4984d33041a6bc7fe6493c55275fb8c321c55364",
-    "asOfDate": "2026-10-28T10:34:22-07:00",
-    "commits": 1732,
+    "asOfCommit": "d9eb22d7c97ecef0077107e34c88c37fcfce8eef",
+    "asOfDate": "2026-10-28T11:37:29-07:00",
+    "commits": 1734,
     "byTool": [
       { "tool": "Claude Code", "trailers": 108 },
       { "tool": "Cursor", "trailers": 78 }

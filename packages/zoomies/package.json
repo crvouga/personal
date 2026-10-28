@@ -1,0 +1,16 @@
+{
+  "name": "@pkgs/zoomies",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "configure": "bun src/configure.ts",
+    "join-token": "bun src/join-token.ts",
+    "lint": "eslint src --max-warnings 0",
+    "tc": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
