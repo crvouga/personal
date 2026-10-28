@@ -148,6 +148,34 @@ runs:
         else
           echo "Auth relay schemas are disabled or already managed."
         fi
+    # One-time recovery of the domain Railway already cascade-deleted. The
+    # provider errors on refresh of the absent object; never disable refresh
+    # on the ordinary deployment plan below.
+    - name: Recover absent retired domain state
+      if: inputs.mode == 'apply' && inputs.root == 'services'
+      shell: bash
+      run: |
+        set -euo pipefail
+        ROOT=packages/infra/tofu/services
+        STATE="$(tofu -chdir="${ROOT}" state list)"
+        if ! grep -Eq '^(module\.service\["fleet-api"\]\.railway_custom_domain\.this|module\.retired_fleet_api\.railway_custom_domain\.this|railway_custom_domain\.retired_fleet_api)$' <<< "${STATE}"; then
+          echo "Retired domain recovery is already complete."
+          exit 0
+        fi
+        tofu -chdir="${ROOT}" plan -input=false -refresh=false -lock-timeout=15m -parallelism=1 \
+          '-target=module.service["fleet-api"].railway_custom_domain.this' \
+          -target=module.retired_fleet_api.railway_custom_domain.this \
+          -target=railway_custom_domain.retired_fleet_api -out=domain-recovery.tfplan
+        tofu -chdir="${ROOT}" show -json domain-recovery.tfplan | jq -e '
+          all((.resource_changes // [])[];
+            .mode == "data" or .change.actions == ["no-op"] or
+            (.address == "railway_custom_domain.retired_fleet_api" and
+             .change.actions == ["forget"] and
+             .change.before.id == "22efd584-cecb-4da6-a362-e7a8898edfb7"))
+        ' > /dev/null
+        tofu -chdir="${ROOT}" show -no-color domain-recovery.tfplan
+        tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 domain-recovery.tfplan
+        rm -f "${ROOT}/domain-recovery.tfplan"
     - name: Plan
       id: plan
       if: inputs.mode == 'apply'

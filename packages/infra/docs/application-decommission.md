@@ -24,3 +24,22 @@ All unrelated service module addresses, variables, image revisions and generic h
 The desired GitHub ruleset now requires only `Check`. The existing live ruleset may still require `Fleet` or `Required`. CI keeps both legacy aliases reporting the actual platform validation result, so this PR remains mergeable without weakening validation or referencing external code. Apply the reviewed foundation ruleset change, read back the live rules, and verify a successful PR run before removing those two aliases and their tests/documentation in a follow-up. Their names and the old shared backend key are compatibility artifacts, not runtime dependencies on the standalone project.
 
 Retirement resource addresses and stale-key exclusion lists must remain until live state and deployment inputs are confirmed clean. Removing those records earlier would hide the migration intent; renaming state keys or deleting shared documents would affect unrelated behavior.
+
+## Fleet domain retirement recovery
+
+Deploy run `40605539666` deleted the Fleet service and dedicated DNS records on
+its first attempt, then failed deleting custom domain
+`22efd584-cecb-4da6-a362-e7a8898edfb7` because Railway reported an operation in
+progress. The second attempt confirmed that Railway had removed the domain:
+the pinned provider failed its refresh with `Unable to find custom domain`.
+
+`services/retired-application.tf` moves only that stale domain address outside
+the retired module and removes it with `destroy = false`. The shared CI OpenTofu
+action first applies a targeted, refresh-disabled recovery plan, guarded to allow
+only forgetting that exact domain ID. This is necessary because OpenTofu still
+refreshes removed resources by default. Once the address leaves state, recovery
+is skipped. The ordinary full deployment plan retains refresh. The module-wide retirement still
+destroys any other remaining Fleet resources. This recovery does not forget
+the service module or any active application's resources. Apply it through the
+normal reviewed saved-plan deployment; its presence alone does not establish
+that the recovery has been applied.
