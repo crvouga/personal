@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { loadServicesConfig } from '../../packages/infra/lib/services';
 import {
   readDeployment,
   deploymentQuery,
@@ -10,10 +11,53 @@ import {
   rolloutState,
   rolloutTargets,
   waitForService,
+  requireWriterHealth,
 } from './service-readiness';
 
 const image = 'ghcr.io/example/movie:new';
 const target = { name: 'movie', serviceId: 'service-id', image };
+
+test('a separate state generation keeps public rollout ids and image names', () => {
+  const config = {
+    ...loadServicesConfig(),
+    services: [{ id: 'application', state_key: 'generation-two' }],
+  };
+  const targets = rolloutTargets(
+    {
+      selected: ['application'],
+      ids: { application: 'service' },
+      tags: { application: 'commit' },
+      changes: [
+        'module.service["generation-two"].railway_variable_collection.this',
+      ],
+      startedAt: 123,
+    },
+    config
+  );
+  expect(targets).toHaveLength(1);
+  expect(targets[0]).toMatchObject({
+    name: 'application',
+    serviceId: 'service',
+    after: 123,
+  });
+  expect(targets[0]!.image).toEndWith('-application:commit');
+});
+
+test('deployment cannot accept missing credentials or failed writer verification', () => {
+  for (const status of ['fail', 'skip', 'warn'] as const) {
+    expect(() =>
+      requireWriterHealth([
+        { name: 'volume writer app', status, detail: 'not verified' },
+      ])
+    ).toThrow('Volume writer verification failed');
+  }
+  expect(() => requireWriterHealth([])).not.toThrow();
+  expect(() =>
+    requireWriterHealth([
+      { name: 'volume writer app', status: 'pass', detail: 'verified' },
+    ])
+  ).not.toThrow();
+});
 function observation(status = 'SUCCESS', overrides = {}): Rollout {
   return {
     latest: {

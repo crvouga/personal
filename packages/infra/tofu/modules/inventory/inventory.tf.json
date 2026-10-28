@@ -1331,6 +1331,13 @@
         ],
         "kv_keys": [
           {
+            "name": "FLEET_CONTROLLER_ADMIN_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["fleet-api"],
+            "required": true,
+            "generated": true
+          },
+          {
             "name": "GOOGLE_OAUTH_CLIENT_ID",
             "configs": ["dev", "prd"],
             "used_by": ["auth-relay", "auth-relay-dev"],
@@ -1360,31 +1367,31 @@
           {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router"],
+            "used_by": ["ci", "9router", "fleet-api"],
             "required": true
           },
           {
             "name": "S3_REGION",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router"],
+            "used_by": ["ci", "9router", "fleet-api"],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router"],
+            "used_by": ["ci", "9router", "fleet-api"],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router"],
+            "used_by": ["ci", "9router", "fleet-api"],
             "required": true
           },
           {
             "name": "S3_BUCKET",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router"],
+            "used_by": ["ci", "9router", "fleet-api"],
             "required": true
           },
           {
@@ -2218,6 +2225,74 @@
             {
               "name": "MOVIEFINDER_AUTH_SECRET",
               "source": "vault"
+            }
+          ]
+        },
+        {
+          "id": "fleet-api",
+          "state_key": "fleet-controller",
+          "kind": "railway",
+          "hostname": "fleet.chrisvouga.dev",
+          "github_repo": "crvouga/fleet",
+          "source_code_url": "https://github.com/crvouga/fleet",
+          "dockerfile": "./Dockerfile",
+          "build_context": ".",
+          "initial_image_tag": "871a0f3a532d941c82ce0f126d73e560e9943a2d",
+          "port": 8080,
+          "health_check": true,
+          "health_path": "/health",
+          "railway": {
+            "replicas": 1,
+            "sleep": false,
+            "draining_seconds": 60,
+            "health_timeout_seconds": 180,
+            "volume": {
+              "name": "fleet-api-working",
+              "mount_path": "/var/lib/fleet"
+            }
+          },
+          "env": {
+            "NODE_ENV": "production",
+            "PORT": "8080",
+            "RAILWAY_RUN_UID": "0",
+            "FLEET_DATABASE_PATH": "/var/lib/fleet/fleet.db",
+            "FLEET_S3_PREFIX": "fleet-api/production",
+            "FLEET_STARTUP_TIMEOUT_SECONDS": "60",
+            "FLEET_LITESTREAM_BIN": "/usr/local/bin/litestream",
+            "FLEET_PUBLIC_ORIGIN": "https://fleet.chrisvouga.dev",
+            "FLEET_OIDC_ISSUER": "https://auth.chrisvouga.dev/realms/projects",
+            "FLEET_OIDC_CLIENT_ID": "app-f00cf29d-b5ee-44cd-857e-777b3ff5d354"
+          },
+          "secrets": [
+            {
+              "name": "FLEET_ADMIN_TOKEN",
+              "source": "vault",
+              "vault_key": "FLEET_CONTROLLER_ADMIN_TOKEN"
+            },
+            {
+              "name": "FLEET_S3_BUCKET",
+              "source": "vault",
+              "vault_key": "S3_BUCKET"
+            },
+            {
+              "name": "FLEET_S3_ENDPOINT",
+              "source": "vault",
+              "vault_key": "S3_ENDPOINT"
+            },
+            {
+              "name": "AWS_REGION",
+              "source": "vault",
+              "vault_key": "S3_REGION"
+            },
+            {
+              "name": "AWS_ACCESS_KEY_ID",
+              "source": "vault",
+              "vault_key": "S3_ACCESS_KEY_ID"
+            },
+            {
+              "name": "AWS_SECRET_ACCESS_KEY",
+              "source": "vault",
+              "vault_key": "S3_SECRET_ACCESS_KEY"
             }
           ]
         }

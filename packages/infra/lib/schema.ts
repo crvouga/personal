@@ -88,6 +88,8 @@ export type ServiceAliasSpec = {
 
 export type ServiceSpec = {
   readonly id: string;
+  /** Optional resource generation key; preserve public ids across retirement. */
+  readonly state_key?: string;
   readonly kind?: ServiceKind;
   readonly hostname?: string;
   readonly internal?: boolean;
@@ -98,6 +100,8 @@ export type ServiceSpec = {
   readonly dockerfile?: string;
   readonly build_context?: string;
   readonly image?: string;
+  /** Immutable first release; subsequent revisions come from deployment inputs. */
+  readonly initial_image_tag?: string;
   readonly port?: number;
   readonly health_check?: boolean;
   readonly health_path?: string;

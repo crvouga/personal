@@ -1,6 +1,10 @@
 /** Verify the selected image is active; an older healthy deployment cannot pass. */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
+import { checkVolumes } from '../../packages/infra/lib/health/check-volumes';
+import { createHealthContext } from '../../packages/infra/lib/health/ports';
+import { DEFAULT_HEALTH_OPTIONS } from '../../packages/infra/lib/health/context';
+import type { CheckResult } from '../../packages/infra/lib/health/report';
 import {
   readDeployment,
   type Rollout,
@@ -16,6 +20,14 @@ export type Target = {
   image: string;
   after?: number;
 };
+
+export function requireWriterHealth(results: readonly CheckResult[]): void {
+  const unverified = results.filter((result) => result.status !== 'pass');
+  if (unverified.length)
+    throw new Error(
+      `Volume writer verification failed: ${unverified.map((result) => `${result.name}: ${result.detail}`).join('; ')}`
+    );
+}
 
 export function rolloutState(
   target: Target,
@@ -85,16 +97,18 @@ function output<T>(root: string, name: string): T {
   );
 }
 
-export function rolloutTargets(input: {
-  selected: string[];
-  ids: Record<string, string>;
-  tags: Record<string, string>;
-  changes: string[];
-  startedAt: number;
-  explicitSelection?: boolean;
-  revision?: string;
-}): Target[] {
-  const config = loadServicesConfig();
+export function rolloutTargets(
+  input: {
+    selected: string[];
+    ids: Record<string, string>;
+    tags: Record<string, string>;
+    changes: string[];
+    startedAt: number;
+    explicitSelection?: boolean;
+    revision?: string;
+  },
+  config = loadServicesConfig()
+): Target[] {
   if (!input.selected.length || !Number.isFinite(input.startedAt))
     throw new Error('Missing rollout selection or start time');
   const services = deployableServices(config);
@@ -103,7 +117,7 @@ export function rolloutTargets(input: {
       const service = services.find((service) => service.id === name);
       if (!service || !input.ids[name] || !input.tags[name])
         throw new Error(`Missing rollout state for ${name}`);
-      const prefix = `module.service[${JSON.stringify(name)}].`;
+      const prefix = `module.service[${JSON.stringify(service.state_key ?? name)}].`;
       const changed = input.changes.some(
         (address) =>
           address.startsWith(prefix) &&
@@ -154,6 +168,15 @@ async function main() {
       failures.map((result) => result.reason),
       'Service rollout verification failed'
     );
+  const writers = await checkVolumes(
+    createHealthContext({
+      config: loadServicesConfig(),
+      repoRoot: process.cwd(),
+      options: DEFAULT_HEALTH_OPTIONS,
+    })
+  );
+  requireWriterHealth(writers);
+  for (const result of writers) console.log(`${result.name}: ${result.detail}`);
 }
 
 if (import.meta.main) {

@@ -17,6 +17,15 @@ run "proxied_additional_domain" {
   }
 }
 mock_provider "cloudflare" {}
+
+run "alternate_service_state_key" {
+  command = plan
+  variables { state_key = "app-generation-two" }
+  assert {
+    condition     = railway_custom_domain.alias["www.application.app"].service_id == module.service["app-generation-two"].id
+    error_message = "Aliases must follow the service's resource key while retaining its public id."
+  }
+}
 override_data {
   target = data.terraform_remote_state.foundation
   values = { outputs = { environment_id = "12345678-1234-4234-8234-123456789013" } }

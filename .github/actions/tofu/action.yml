@@ -104,12 +104,12 @@ runs:
         elif [ "${TOFU_ROOT}" = services ]; then
           tofu -chdir="${ROOT}" output -json image_tags > /tmp/tofu-image-tags.json
           # A service added to the inventory has no output yet (nothing is deployed
-          # to preserve): give it the default tag so the complete-map check passes.
+          # to preserve): use its reviewed initial revision, or the legacy default.
           jq -c --argjson ids "${SERVICE_IDS}" --arg tag "${IMAGE_TAG}" \
             --slurpfile inventory packages/infra/tofu/modules/inventory/inventory.tf.json \
             '$inventory[0].locals.inventory as $inv
-             | reduce ($inv.services[] | select((.kind // "railway") == "railway" and ((.standalone // false) | not)) | .id) as $id
-                 (. ; if has($id) then . else .[$id] = $inv.default_image_tag end)
+             | reduce ($inv.services[] | select((.kind // "railway") == "railway" and ((.standalone // false) | not))) as $service
+                 (. ; $service.id as $id | if has($id) then . else .[$id] = ($service.initial_image_tag // $inv.default_image_tag) end)
              | if $tag == "" then . else reduce $ids[] as $id (. ; .[$id] = $tag) end' \
             /tmp/tofu-image-tags.json > /tmp/tofu-next-tags.json
           echo "TF_VAR_image_tags=$(cat /tmp/tofu-next-tags.json)" >> "$GITHUB_ENV"

@@ -8,7 +8,7 @@ resource "railway_custom_domain" "alias" {
   for_each       = local.aliases
   domain         = each.key
   environment_id = data.terraform_remote_state.foundation.outputs.environment_id
-  service_id     = module.service[each.value.service].id
+  service_id     = module.service[try(local.services[each.value.service].state_key, each.value.service)].id
   target_port    = local.services[each.value.service].port
 }
 
