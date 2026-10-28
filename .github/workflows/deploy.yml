@@ -206,3 +206,22 @@ jobs:
       - name: Check public services
         if: steps.plan.outputs.apply == 'true' || inputs.action == 'smoke'
         run: bun run health-check --all-public --retries 24 --retry-delay-ms 5000
+      - name: Read Zoomies configuration
+        id: zoomies_secrets
+        if: steps.plan.outputs.services == 'true' &&
+          contains(steps.plan.outputs.service_ids, '"zoomies"')
+        uses: hashicorp/vault-action@v4
+        with:
+          url: https://vault.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://vault.chrisvouga.dev
+          exportToken: true
+          secrets: secret/data/personal/prd ZOOMIES_BOOTSTRAP_TOKEN |
+            ZOOMIES_BOOTSTRAP_TOKEN
+      - name: Configure Zoomies
+        if: steps.zoomies_secrets.outcome == 'success'
+        env:
+          VAULT_ADDR: https://vault.chrisvouga.dev
+        run: bun run --cwd packages/zoomies configure

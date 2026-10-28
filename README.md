@@ -22,6 +22,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `infra`                                                                                    | OpenTofu infrastructure and read-only build/health adapters               |
 | `vault-service`                                                                            | OpenBao runtime image and local Vault auth/read CLI                       |
 | `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
+| `zoomies`                                                                                  | Self-hosted GitHub Actions runner controller on Railway                   |
 | `workstation`                                                                              | Portable local machine configuration; `ws` dashboard                      |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 

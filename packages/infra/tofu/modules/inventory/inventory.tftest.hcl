@@ -2,8 +2,8 @@
 run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 21
-    error_message = "Standalone controller hosting must retain all 20 existing service entries."
+    condition     = length(output.config.services) == 22
+    error_message = "Zoomies hosting must retain all 21 existing service entries."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
