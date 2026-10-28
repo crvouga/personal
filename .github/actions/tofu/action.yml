@@ -148,6 +148,25 @@ runs:
         else
           echo "Auth relay schemas are disabled or already managed."
         fi
+    # The provider created the Fleet service and volume, then returned a null
+    # volume read-back, so OpenTofu saved the live service as tainted and every
+    # plan since wants to replace it (blocked by prevent_destroy). Untaint only
+    # that address; the ordinary plan below still reviews any real difference.
+    - name: Untaint Fleet service created with an inconsistent provider result
+      if: inputs.mode == 'apply' && inputs.root == 'services'
+      shell: bash
+      run: |
+        set -euo pipefail
+        ROOT=packages/infra/tofu/services
+        ADDRESS='module.service["fleet-controller"].railway_service.this'
+        if tofu -chdir="${ROOT}" show -json | jq -e --arg address "${ADDRESS}" '
+          def resources: .resources[]?, (.child_modules[]? | resources);
+          [.values.root_module | resources | select(.address == $address and .tainted == true)] | length == 1
+        ' > /dev/null; then
+          tofu -chdir="${ROOT}" untaint -lock-timeout=15m "${ADDRESS}"
+        else
+          echo "Fleet service is not tainted."
+        fi
     # One-time recovery of the domain Railway already cascade-deleted. The
     # provider errors on refresh of the absent object; never disable refresh
     # on the ordinary deployment plan below.
@@ -187,25 +206,6 @@ runs:
         tofu -chdir="${ROOT}" show -no-color domain-recovery.tfplan
         TF_VAR_image_tags="${DEPLOYED_IMAGE_TAGS}" tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 domain-recovery.tfplan
         rm -f "${ROOT}/domain-recovery.tfplan"
-    # The provider created the Fleet service and volume, then returned a null
-    # volume read-back, so OpenTofu saved the live service as tainted and every
-    # plan since wants to replace it (blocked by prevent_destroy). Untaint only
-    # that address; the ordinary plan below still reviews any real difference.
-    - name: Untaint Fleet service created with an inconsistent provider result
-      if: inputs.mode == 'apply' && inputs.root == 'services'
-      shell: bash
-      run: |
-        set -euo pipefail
-        ROOT=packages/infra/tofu/services
-        ADDRESS='module.service["fleet-controller"].railway_service.this'
-        if tofu -chdir="${ROOT}" show -json | jq -e --arg address "${ADDRESS}" '
-          def resources: .resources[]?, (.child_modules[]? | resources);
-          [.values.root_module | resources | select(.address == $address and .tainted == true)] | length == 1
-        ' > /dev/null; then
-          tofu -chdir="${ROOT}" untaint -lock-timeout=15m "${ADDRESS}"
-        else
-          echo "Fleet service is not tainted."
-        fi
     - name: Plan
       id: plan
       if: inputs.mode == 'apply'
