@@ -429,6 +429,11 @@ Portfolio topics (use these exact keys; a new topic needs an icon, so ask for it
 
 Application repositories own publisher workflows and validation. Set `managed_publisher = false` and list `required_status_checks` in the repository inventory entry to retain that ownership while using the shared image build/deploy workflow.
 
+Set repository `publish_dispatch = true` when the publisher needs its
+OpenTofu-managed `DEPLOY_DISPATCH_TOKEN` before hosting is activated. This supports
+publishing and verifying an image before adding the live service; repository
+settings are adopted through the foundation root's import blocks.
+
 The infra agent turns your issue into an entry like this in `packages/infra/tofu/modules/inventory/inventory.tf.json` (when you are working inside `{{infraRepo}}` yourself, add it and run `{{script:infra:services}} plan` to review the plan). Use it to check that your issue answers every field:
 
 ```json
@@ -449,6 +454,19 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | `env`             | Plain, non-secret env vars                                                                      |
 | `secrets`         | `name` + `source: vault` → value copied from Vault `{{kvProject}}/prd` into the service's env   |
 | `image`           | Optional external image, used verbatim (skips GHCR publishing entirely)                         |
+
+A Vault secret binding may specify `vault_key` when the source key differs from
+the runtime `name`, for example `{ "name": "AWS_ACCESS_KEY_ID", "source": "vault",
+"vault_key": "S3_ACCESS_KEY_ID" }`. Do not create duplicate Vault values for aliases.
+
+For single-writer SQLite services, `railway.volume` declares a provider-managed
+`{ "name": "working", "mount_path": "/var/lib/app" }` volume. Railway prevents
+concurrent deployments mounting that volume; use exactly one replica. Set
+`railway.draining_seconds` for graceful shutdown and
+`railway.health_timeout_seconds` to cover restore plus initial sync. A Railway
+volume is mounted with root ownership; supply a compatible runtime UID or an
+application-owned privilege-dropping entrypoint. R2 replication and recovery
+checks remain necessary; HTTP readiness alone does not prove replica freshness.
 
 ### Step 3 — add the publish workflow (in your repo)
 

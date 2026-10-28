@@ -42,7 +42,7 @@ run "services_contract" {
     error_message = "Cloudflare TLS and DNS policy must remain explicit desired state."
   }
   assert {
-    condition     = length(output.config.github.repositories) == 16 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
+    condition     = length(output.config.github.repositories) == 17 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
     error_message = "Every application repository and its default branch must be declared."
   }
   assert {

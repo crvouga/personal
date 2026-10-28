@@ -27,6 +27,16 @@ const vaultRoutes: Routes = {
 };
 
 describe("vault", () => {
+  test("Vault requirements use alias source keys rather than runtime names", () => {
+    const config = loadServicesConfig();
+    const keys = requiredKvKeys({ ...config, services: [{
+      id: "aliased-service",
+      secrets: [{ name: "RUNTIME_TOKEN", source: "vault", vault_key: "APPROVED_TOKEN" }],
+    }] }, "prd");
+    expect(keys).toContain("APPROVED_TOKEN");
+    expect(keys).not.toContain("RUNTIME_TOKEN");
+  });
+
   test("a correctly configured Vault passes every check", async () => {
     const results = await checkVault(fakeContext({ fetch: fakeFetch(vaultRoutes) }));
     expect(statuses(results)).toEqual(["pass"]);

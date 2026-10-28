@@ -58,7 +58,7 @@ async function databaseChecks(ctx: HealthContext): Promise<CheckResult[]> {
   const secrets = new Set<string>();
   for (const service of ctx.config.services) {
     for (const secret of service.secrets ?? []) {
-      if (secret.source === "vault" && DATABASE_SECRET.test(secret.name)) secrets.add(secret.name);
+      if (secret.source === "vault" && DATABASE_SECRET.test(secret.name)) secrets.add(secret.vault_key ?? secret.name);
     }
   }
   if (secrets.size === 0) return [];

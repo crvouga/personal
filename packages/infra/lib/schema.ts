@@ -3,7 +3,7 @@
  * Every infrastructure resource is declared here; OpenTofu manages its resources.
  */
 export type SecretSource =
-  | { readonly source: "vault" }
+  | { readonly source: "vault"; readonly vault_key?: string }
   | { readonly source: "env" }
   | { readonly source: "github" }
   | { readonly source: "literal"; readonly value: string };
@@ -61,6 +61,9 @@ export type RailwayServiceConfig = {
   readonly health_check?: boolean;
   readonly start_command?: string;
   readonly replicas?: number;
+  readonly volume?: { readonly name: string; readonly mount_path: string };
+  readonly draining_seconds?: number;
+  readonly health_timeout_seconds?: number;
   readonly registry?: { readonly username: string; readonly vault_key: string };
 };
 
@@ -182,6 +185,7 @@ export type VaultConfig = {
 
 export type GithubRepositorySpec = {
   readonly publisher_file?: string;
+  readonly publish_dispatch?: boolean;
   readonly default_branch: string;
   readonly actions_secrets?: readonly string[];
 };

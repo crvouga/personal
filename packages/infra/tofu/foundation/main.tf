@@ -260,7 +260,10 @@ resource "github_actions_variable" "migration_ready" {
 # crvouga is a personal account, so distribute the dispatch credential to the
 # actual repositories instead of attempting to create organization secrets.
 resource "github_actions_secret" "dispatch" {
-  for_each    = toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null])
+  for_each = setunion(
+    toset([for service in local.config.services : split("/", service.github_repo)[1] if try(service.github_repo, null) != null]),
+    toset([for repository, settings in local.application_repositories : repository if try(settings.publish_dispatch, false)])
+  )
   repository  = each.key
   secret_name = "DEPLOY_DISPATCH_TOKEN"
   value       = var.github_token

@@ -69,7 +69,8 @@ provider "graphql" { url = "http://127.0.0.1:PORT/graphql" }
             "service_id": service_id,
             "environment_id": environment_id,
             "service": {"railway": {
-                "health_path": "/health", "sleep": False, "start_command": "bun start"
+                "health_path": "/health", "sleep": False, "start_command": "bun start",
+                "draining_seconds": 60, "health_timeout_seconds": 180
             }},
         }))
 
@@ -86,19 +87,25 @@ provider "graphql" { url = "http://127.0.0.1:PORT/graphql" }
         assert len(writes) == 1
         run("plan", "-detailed-exitcode", "-input=false")
         state.update({"healthcheckPath": "/wrong", "sleepApplication": True,
-                      "startCommand": "wrong command"})
+                      "startCommand": "wrong command", "drainingSeconds": 0, "healthcheckTimeout": 1})
         run("plan", "-detailed-exitcode", "-input=false", expected=2)
         run("apply", "-auto-approve", "-input=false")
         assert state["healthcheckPath"] == "/health"
         assert state["sleepApplication"] is False
         assert state["startCommand"] == "bun start"
+        assert state["drainingSeconds"] == 60
+        assert state["healthcheckTimeout"] == 180
         assert len(writes) == 2
         run("plan", "-detailed-exitcode", "-input=false")
         inputs = json.loads((root / "inputs.auto.tfvars.json").read_text())
         inputs["service"]["railway"].pop("start_command")
+        inputs["service"]["railway"].pop("draining_seconds")
+        inputs["service"]["railway"].pop("health_timeout_seconds")
         (root / "inputs.auto.tfvars.json").write_text(json.dumps(inputs))
         run("apply", "-auto-approve", "-input=false")
         assert state["startCommand"] is None
+        assert state["drainingSeconds"] is None
+        assert state["healthcheckTimeout"] is None
         run("plan", "-detailed-exitcode", "-input=false")
         print("PASS: Railway settings apply, stable plan, detect drift, repair, clear command, stable plan")
 finally:

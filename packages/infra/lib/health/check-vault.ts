@@ -138,7 +138,7 @@ export function requiredKvKeys(config: InfraConfig, kvConfig: string): readonly 
   // The services root copies service secrets, and tunnels read theirs, from production only.
   if (kvConfig === "prd") {
     for (const service of config.services) {
-      for (const secret of service.secrets ?? []) if (secret.source === "vault") keys.push(secret.name);
+      for (const secret of service.secrets ?? []) if (secret.source === "vault") keys.push(secret.vault_key ?? secret.name);
       if (service.railway?.registry) keys.push(service.railway.registry.vault_key);
     }
     for (const tunnel of config.tunnels ?? []) keys.push(...(tunnel.secrets ?? []));
