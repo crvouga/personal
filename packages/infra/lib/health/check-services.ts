@@ -5,6 +5,7 @@ import { isAlwaysOn, isRailwayService } from "../services.js";
 import { errorMessage, mapLimit, type HealthContext } from "./context.js";
 import { fail, pass, skip, warn, type CheckResult } from "./report.js";
 import { tunnelHostnames } from "./targets.js";
+import { checkVolumes } from './check-volumes.js';
 
 const CONCURRENCY = 6;
 /** Cloudflare's answer when a tunnel has no connected connector. */
@@ -72,7 +73,8 @@ export async function checkServices(ctx: HealthContext): Promise<readonly CheckR
     }),
     ...(ctx.config.cloudflare?.redirects ?? []).map((redirect) => () => checkRedirect(ctx, redirect)),
   ];
-  return mapLimit(probes, CONCURRENCY, (probe) => probe());
+  const results = await mapLimit(probes, CONCURRENCY, (probe) => probe());
+  return [...results, ...await checkVolumes(ctx)];
 }
 
 /**

@@ -58,6 +58,11 @@ const when = (group: string, pattern: RegExp, text: string): Advice => ({
 
 export const ADVICE: Advice[] = [
   when(
+    'services',
+    /volume writer/,
+    'Review the volume, replica count and readiness/shutdown budgets in OpenTofu inventory and a saved services plan. Apply through CI; never start a second writer or detach/recreate the live volume to repair this check.'
+  ),
+  when(
     'vault',
     /operator credentials/,
     'Publish the admin-only operator document through a reviewed Vault OpenTofu apply in CI. Existing CI supplies the state and deployment credentials; do not enter them into the secret editor or personal runtime secrets.'
