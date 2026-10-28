@@ -60,6 +60,7 @@ test('distributed OpenTofu groups cover exactly the full local suite', () => {
     'github-secrets',
     'domains',
     'aliases',
+    'domain-retirement',
   ]);
   expect(
     groups.filter((command) => command.endsWith(' validate'))
