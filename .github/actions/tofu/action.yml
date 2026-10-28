@@ -162,7 +162,11 @@ runs:
           echo "Retired domain recovery is already complete."
           exit 0
         fi
-        tofu -chdir="${ROOT}" plan -input=false -refresh=false -lock-timeout=15m -parallelism=1 \
+        # Module moves can expand targeting to active services. Recovery must use
+        # their deployed revisions, not the pending release's image tags. Keep
+        # the caller's desired tags for the ordinary full plan below.
+        DEPLOYED_IMAGE_TAGS="$(tofu -chdir="${ROOT}" output -json image_tags)"
+        TF_VAR_image_tags="${DEPLOYED_IMAGE_TAGS}" tofu -chdir="${ROOT}" plan -input=false -refresh=false -lock-timeout=15m -parallelism=1 \
           '-target=module.service["fleet-api"].railway_custom_domain.this' \
           -target=module.retired_fleet_api.railway_custom_domain.this \
           -target=railway_custom_domain.retired_fleet_api -out=domain-recovery.tfplan
@@ -174,7 +178,7 @@ runs:
              .change.before.id == "22efd584-cecb-4da6-a362-e7a8898edfb7"))
         ' > /dev/null
         tofu -chdir="${ROOT}" show -no-color domain-recovery.tfplan
-        tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 domain-recovery.tfplan
+        TF_VAR_image_tags="${DEPLOYED_IMAGE_TAGS}" tofu -chdir="${ROOT}" apply -input=false -lock-timeout=15m -parallelism=1 domain-recovery.tfplan
         rm -f "${ROOT}/domain-recovery.tfplan"
     - name: Plan
       id: plan

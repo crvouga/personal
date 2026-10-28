@@ -43,3 +43,10 @@ destroys any other remaining Fleet resources. This recovery does not forget
 the service module or any active application's resources. Apply it through the
 normal reviewed saved-plan deployment; its presence alone does not establish
 that the recovery has been applied.
+
+Module moves can expand recovery's targeted plan to active service instances.
+Recovery plans and applies therefore use the deployed `image_tags` output,
+preserving those instances' current image revisions. The caller's pending image
+tags remain unchanged for the subsequent ordinary full plan. The strict recovery
+guard still rejects every unrelated resource change; it is not relaxed to permit
+an image rollout during stale-state repair.
