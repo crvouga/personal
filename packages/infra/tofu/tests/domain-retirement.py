@@ -58,8 +58,18 @@ output "image_tags" { value = var.image_tags }
     active = root / "active-service"
     active.mkdir()
     (active / "main.tf").write_text('''
+terraform {
+  required_providers {
+    railway = { source = "terraform-community-providers/railway", version = "= 0.6.2" }
+  }
+}
 variable "revision" { type = string }
-resource "terraform_data" "image" { input = var.revision }
+resource "railway_service" "this" {
+  name = "active"
+  project_id = "00000000-0000-4000-8000-000000000001"
+  source_image = "ghcr.io/example/active:${var.revision}"
+  regions = [{region = "us-east4", num_replicas = 1}]
+}
 ''')
     run(["tofu", f"-chdir={root}", "init", "-backend=false", "-input=false", "-lockfile=readonly"], work)
     # Initialization can download providers. All recovery operations must work
@@ -71,7 +81,8 @@ resource "terraform_data" "image" { input = var.revision }
         state = {
             "version": 4, "terraform_version": "1.13.0", "serial": 1,
             "lineage": "domain-recovery-fixture", "outputs": {
-                "image_tags": {"value": {"active": "deployed"}, "type": ["map", "string"]}
+                # A partial failed apply can advance outputs before resources.
+                "image_tags": {"value": {"active": "pending-release"}, "type": ["map", "string"]}
             }, "resources": [
                 resource(module, "railway_custom_domain", "this", {
                     "id": DOMAIN_ID, "domain": "retired.example.com",
@@ -81,10 +92,12 @@ resource "terraform_data" "image" { input = var.revision }
                 resource("", "terraform_data", "unrelated", {
                     "id": "keep-me", "input": None, "output": None, "triggers_replace": None,
                 }, 'provider["terraform.io/builtin/terraform"]'),
-                resource('module.service["active"]', "terraform_data", "image", {
-                    "id": "keep-active", "input": {"value": "deployed", "type": "string"},
-                    "output": {"value": "deployed", "type": "string"}, "triggers_replace": None,
-                }, 'provider["terraform.io/builtin/terraform"]'),
+                resource('module.service["active"]', "railway_service", "this", {
+                    "id": "00000000-0000-4000-8000-000000000002", "name": "active",
+                    "project_id": "00000000-0000-4000-8000-000000000001",
+                    "source_image": "ghcr.io/example/active:deployed",
+                    "regions": [{"region": "us-east4", "num_replicas": 1}],
+                }, 'provider["registry.opentofu.org/terraform-community-providers/railway"]'),
                 *([resource(module, "terraform_data", "remaining", {
                     "id": "still-retire", "input": None, "output": None, "triggers_replace": None,
                 }, 'provider["terraform.io/builtin/terraform"]')] if include_remaining else []),
@@ -105,13 +118,13 @@ resource "terraform_data" "image" { input = var.revision }
         assert not any(item["type"] == "railway_custom_domain" for item in remaining)
         assert len(remaining) == (3 if include_remaining else 2), "Recovery must preserve all other state entries"
         active_state = next(item for item in remaining if item.get("module") == 'module.service["active"]')
-        assert active_state["instances"][0]["attributes"]["input"]["value"] == "deployed"
+        assert active_state["instances"][0]["attributes"]["source_image"] == "ghcr.io/example/active:deployed"
         assert "already complete" in run(["bash", "-c", script], work, env)
         plan = root / "verify.tfplan"
-        run(["tofu", f"-chdir={root}", "plan", "-input=false", f"-out={plan}"], work, env)
+        run(["tofu", f"-chdir={root}", "plan", "-refresh=false", "-input=false", f"-out={plan}"], work, env)
         changes = json.loads(run(["tofu", f"-chdir={root}", "show", "-json", str(plan)], work, env))["resource_changes"]
         actions = {item["address"]: item["change"]["actions"] for item in changes}
-        expected = {"terraform_data.unrelated": ["no-op"], 'module.service["active"].terraform_data.image': ["update"]}
+        expected = {"terraform_data.unrelated": ["no-op"], 'module.service["active"].railway_service.this': ["update"]}
         if include_remaining:
             expected["module.retired_fleet_api.terraform_data.remaining"] = ["delete"]
         assert actions == expected, actions

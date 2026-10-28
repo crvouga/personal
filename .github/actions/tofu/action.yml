@@ -163,9 +163,16 @@ runs:
           exit 0
         fi
         # Module moves can expand targeting to active services. Recovery must use
-        # their deployed revisions, not the pending release's image tags. Keep
-        # the caller's desired tags for the ordinary full plan below.
-        DEPLOYED_IMAGE_TAGS="$(tofu -chdir="${ROOT}" output -json image_tags)"
+        # their actual state revisions. Outputs can already contain a pending
+        # release after a partial apply, so do not use output image_tags here.
+        # Keep the caller's desired tags for the ordinary full plan below.
+        DEPLOYED_IMAGE_TAGS="$(tofu -chdir="${ROOT}" show -json | jq -ce '
+          def resources: .resources[]?, (.child_modules[]? | resources);
+          [.values.root_module | resources
+           | select(.type == "railway_service" and (.address | startswith("module.service[")))
+           | {key: .values.name, value: (.values.source_image | capture(":(?<tag>[^/:]+)$").tag)}]
+          | from_entries
+        ')"
         TF_VAR_image_tags="${DEPLOYED_IMAGE_TAGS}" tofu -chdir="${ROOT}" plan -input=false -refresh=false -lock-timeout=15m -parallelism=1 \
           '-target=module.service["fleet-api"].railway_custom_domain.this' \
           -target=module.retired_fleet_api.railway_custom_domain.this \
