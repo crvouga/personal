@@ -16,14 +16,37 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
   ```
 
 - Re-fetch it instead of trusting a cached copy — ports, hostnames and the services list change.
-- Pick the sections that apply (checklist below); each one is self-contained.
+- Pick the sections that apply (checklist below); each one is self-contained. Anything that needs a change in `crvouga/workspace` is requested with a GitHub issue.
 - If anything here disagrees with `OpenTofu inventory` in `crvouga/workspace`, the OpenTofu definition wins — tell the human the file is stale.
+
+## Communicating with `crvouga/workspace`: GitHub issues
+
+**GitHub issues are the only channel between other projects and this one.** If your project wants `crvouga/workspace` to manage infrastructure for it — hosting, a secret key, a database or schema, an object-store prefix, an auth-relay grant, a policy or access change, or a fix to something here — open an issue on `crvouga/workspace`. Do not message the owner out of band, edit another repo's files, or work around the platform with a dashboard, an admin API or your own provisioning. The agent working in `crvouga/workspace` reads the issue, makes the OpenTofu change in a PR that closes it, and reports back **in the same issue**.
+
+| Need | Issue title prefix | Guide |
+| --- | --- | --- |
+| Host a service and/or list it on the portfolio | `[hosting] <id> — <summary>` | §5 Step 1 (full body template) |
+| New Vault key or CI read access for a new namespace | `[secrets] <id> — <summary>` | §1 |
+| Database / schema allocation, extension, `dev`+`prd` scope | `[database] <id> — <summary>` | §2 |
+| Object-store bucket, prefix or credential change | `[storage] <id> — <summary>` | §4 |
+| Auth-relay agent grant or operator onboarding | `[auth] <id> — <summary>` | §6 |
+| Anything else, or a bug / stale statement in this guide | `[infra] <id> — <summary>` | below |
+
+Rules for every issue:
+
+1. **Search first**: `gh issue list -R crvouga/workspace --state all --search "[<prefix>] <id> in:title"`. Comment on or update the existing issue instead of opening a duplicate.
+2. **One issue per request**, titled with the prefix above. State the requesting repo (`owner/name`), the app id, which of `dev` / `prd` you need, and the exact end state you expect. Write `none` / `n/a` rather than leaving a field out. For a request without its own template, include: Context, Request, Why, Acceptance (how you will verify it), and Links.
+3. **Never put secret values in an issue** — it is public. List secret _names_ and where the human will write the values (Vault), and ask the human to rotate anything that leaks.
+4. **Open it with `gh`**: `gh issue create -R crvouga/workspace --label enhancement --title "[<prefix>] <id> — <summary>" --body-file /tmp/request.md` (use `--label bug` for something broken). If `gh` is unauthenticated or the human lacks access, hand the human the filled-in body and the command.
+5. **Give the human the issue URL**, then keep going with unrelated work. The infra agent answers in issue comments (questions, the live URL, the Vault path to fill in, the PR number). Re-read the issue (`gh issue view <n> -R crvouga/workspace --comments`) before you continue the dependent work, and only treat the request as done when the issue is closed or the infra agent says so.
+6. **Answer questions in the issue**, not elsewhere, so the history stays attached to the request.
+7. **In the other direction**, when `crvouga/workspace` needs something from your project (a failing publish workflow, a bad health path, a deprecated contract), it opens an issue on _your_ repo. Watch for those and answer them in the same issue.
 
 ## Ground rules
 
 - **Never invent, print, log, or commit secret values.** If an optional secret is missing or invalid, report its key and source, skip only its dependent integration or skill check, and continue unrelated work. Required credentials for an active deployment fail that deployment; never claim a skipped check passed.
 - **Never install global tooling yourself** (`vault`, `bao`, `jq`, `gh`). Tell the human the install command.
-- **Shared infrastructure changes belong in `crvouga/workspace` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
+- **Shared infrastructure changes belong in `crvouga/workspace` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). **To get one, raise a GitHub issue on `crvouga/workspace`** (see the section above) — never apply it yourself. A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
 - `@pkgs/*` packages in `crvouga/workspace` are **private workspace packages** — they cannot be installed elsewhere. Use the plain HTTP / S3 / env-var contracts below.
 - Keep the app **twelve-factor**: configuration and secrets come from env vars at runtime, never from files baked into the image or the repo.
 
@@ -33,7 +56,7 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
 3. Uses Turborepo (`turbo.json` exists)? → [3. Local Turborepo caching](#3-local-turborepo-caching).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
-5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a GitHub issue on `crvouga/workspace` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
+5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a `[hosting]` GitHub issue on `crvouga/workspace` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
 
 ## Resources at a glance
@@ -66,7 +89,7 @@ All 14 domain registrations remain at Squarespace; registrar/DNS consolidation i
 | Project | `personal` — shared by all personal apps; use it unless told otherwise              |
 | Configs | `dev`, `prd` — `dev` for local work, `prd` for CI / production (same key names in both) |
 
-Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` and `auth/token/lookup-self` — a new project namespace needs a policy change in `crvouga/workspace`, so add your app's keys under `personal`.
+Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` and `auth/token/lookup-self` — a new project namespace needs a policy change in `crvouga/workspace`, so add your app's keys under `personal`. To get a new key or access, open a `[secrets]` issue on `crvouga/workspace` listing the key names, which configs need them and which app uses them (names only, never values).
 
 ### Keys that already exist
 
@@ -206,7 +229,7 @@ The application database contract is the secret env var `DATABASE_URL` in Vault 
 
 - `DATABASE_URL` is the only application-facing PostgreSQL credential. `DB_CONNECTION_URI`, `PLANETSCALE_SERVICE_TOKEN_ID`, `PLANETSCALE_SERVICE_TOKEN`, and the `secret_store` schema belong to the OpenBao control plane. Never read, request, inject, migrate, inspect, or reuse them from an application.
 - Do not create a database, branch, role, extension, replica, or provider project from another repo. Those are infrastructure resources and must be declared in `crvouga/workspace` with OpenTofu. Application repositories own their allocated schemas and table migrations; the platform does not reconcile their application DDL.
-- A new app needs an explicitly allocated database/schema before it runs DDL or writes data. Include the requested app id, schema name, extensions, migration command, and whether both `dev` and `prd` are required in the hosting request (§5). Record an allocated schema in the service inventory as `database_schema`; its application migrations may create and evolve only that schema. If no allocation is recorded in the approved infrastructure change, stop; possession of the shared credential is not authorization to use another app's tables.
+- A new app needs an explicitly allocated database/schema before it runs DDL or writes data. Include the requested app id, schema name, extensions, migration command, and whether both `dev` and `prd` are required in the hosting request (§5), or in a `[database]` issue on `crvouga/workspace` if the app is already hosted. Record an allocated schema in the service inventory as `database_schema`; its application migrations may create and evolve only that schema. If no allocation is recorded in the approved infrastructure change, stop; possession of the shared credential is not authorization to use another app's tables.
 - Keep dev and production separate by loading the matching Vault config. Never copy production data into dev or point a local process at `prd` unless the human explicitly requests it.
 - Use parameterized queries. Put schema changes in deterministic, committed migrations and make the deploy strategy explicit. Never perform destructive or irreversible migrations automatically; use expand/migrate/contract changes and a reviewed backup/rollback plan.
 - Configure a small bounded connection pool, release clients in `finally`, set query/statement timeouts, retry only transient connection failures with bounded backoff, and make write retries idempotent. Do not retry constraint errors or arbitrary transactions.
@@ -811,12 +834,16 @@ Before reporting success, verify discovery, registration readback, fresh login a
 | R2: `NoSuchBucket`                             | `S3_BUCKET` does not match the config's bucket                                                                                 |
 | Publish: `id-token` / permissions error        | The caller workflow must grant `contents: read`, `packages: write`, `id-token: write` (Step 3 does)                            |
 | Publish: `DEPLOY_DISPATCH_TOKEN is not set`    | Org secret missing — see Step 3                                                                                                |
-| Deploy: service id not found                   | No `OpenTofu inventory` entry for that `service_id` yet — open the Step 1 issue                                                     |
+| Deploy: service id not found                   | No `OpenTofu inventory` entry for that `service_id` yet — open the Step 1 `[hosting]` issue                                          |
 | Deploy: health check fails                     | Container not listening on `port`, or `health_path` is not 2xx — reproduce with `docker run` locally                           |
 
 ---
 
-## Handling a hosting request (agents working inside `crvouga/workspace`)
+## Handling requests (agents working inside `crvouga/workspace`)
+
+Every request from another project arrives as a GitHub issue (see _Communicating with `crvouga/workspace`_). List them with `gh issue list -R crvouga/workspace --state open` and triage by title prefix (`[hosting]`, `[secrets]`, `[database]`, `[storage]`, `[auth]`, `[infra]`). For each: validate it, ask for anything missing **in an issue comment** and stop (never guess), make the change through OpenTofu in one branch and PR with `Closes #<issue>`, then comment the outcome (live URL, Vault path to populate, PR link) on the issue. Never close a request that was not delivered; if you decline it, say why in a comment first. When this repo needs something from another project, open an issue on that project's repo rather than editing it. The steps below cover `[hosting]` requests in detail.
+
+### Hosting requests
 
 Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R crvouga/workspace --search "[hosting] in:title" --state open`). Work one issue per branch and PR:
 
