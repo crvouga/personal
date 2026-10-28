@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { sourceFiles as repositorySources } from './ci/source-files';
 import { deploymentQuery } from '../packages/infra/lib/railway-deployments';
+import { volumeQuery } from '../packages/infra/lib/health/check-volumes';
 
 const repo = join(import.meta.dirname, '..');
 const tofu = 'packages/infra/tofu/';
@@ -11,8 +12,13 @@ const tofu = 'packages/infra/tofu/';
 // fetch options structurally rather than exempting a directory or provider.
 const readOnlyCloudflare = 'packages/infra/lib/domains/cloudflare.ts';
 const readOnlyRailway = 'packages/infra/lib/railway-deployments.ts';
+const readOnlyVolume = 'packages/infra/lib/health/check-volumes.ts';
 
-function deploymentReads(text: string): void {
+function deploymentReads(
+  text: string,
+  queryName = 'deploymentQuery',
+  expectedQuery = deploymentQuery
+): void {
   const source = ts.createSourceFile(
     'reader.ts',
     text,
@@ -24,7 +30,7 @@ function deploymentReads(text: string): void {
   function visit(node: ts.Node): void {
     if (
       ts.isVariableDeclaration(node) &&
-      node.name.getText(source) === 'deploymentQuery'
+      node.name.getText(source) === queryName
     )
       queries.push(node);
     if (
@@ -41,9 +47,9 @@ function deploymentReads(text: string): void {
   );
   expect(
     (queries[0]!.initializer as ts.NoSubstitutionTemplateLiteral).text
-  ).toBe(deploymentQuery);
-  expect(deploymentQuery).toMatch(/^query Rollout\(/);
-  expect(deploymentQuery).not.toMatch(/\b(mutation|subscription)\b/);
+  ).toBe(expectedQuery);
+  expect(expectedQuery).toMatch(/^query (Rollout|VolumeWriter)\(/);
+  expect(expectedQuery).not.toMatch(/\b(mutation|subscription)\b/);
   expect(requests).toHaveLength(1);
   const options = requests[0]!.arguments[1]!;
   if (!ts.isObjectLiteralExpression(options))
@@ -79,7 +85,7 @@ function deploymentReads(text: string): void {
   const query = payload.properties.find(
     (field) => field.name!.getText(source) === 'query'
   ) as ts.PropertyAssignment;
-  expect(query.initializer.getText(source)).toBe('deploymentQuery');
+  expect(query.initializer.getText(source)).toBe(queryName);
   expect(text).not.toMatch(
     /child_process|Bun\.spawn|node:https|node:http|XMLHttpRequest|\bfetch\s*\(/
   );
@@ -169,6 +175,10 @@ describe('OpenTofu infrastructure ownership', () => {
         deploymentReads(text);
         return false;
       }
+      if (file === readOnlyVolume) {
+        deploymentReads(text, 'volumeQuery', volumeQuery);
+        return false;
+      }
       return /backboard\.railway\.(?:app|com)|api\.cloudflare\.com|api\.planetscale\.com/.test(
         text
       );
@@ -189,6 +199,18 @@ describe('OpenTofu infrastructure ownership', () => {
     expect(
       getOnlyFetches("ctx.fetch(url, { method: 'GET', headers: {} })")
     ).toBe(1);
+  });
+
+  test('the volume probe exception requires its fixed read query and explicit POST options', () => {
+    const text = readFileSync(join(repo, readOnlyVolume), 'utf8');
+    for (const changed of [
+      text.replace('query VolumeWriter(', 'mutation VolumeWriter('),
+      text.replace("method: 'POST'", "method: 'PATCH'"),
+      text.replace('query: volumeQuery', 'query: dynamicQuery'),
+    ])
+      expect(() =>
+        deploymentReads(changed, 'volumeQuery', volumeQuery)
+      ).toThrow();
   });
 
   test('resource definitions cannot invoke shell provisioning or another IaC engine', () => {

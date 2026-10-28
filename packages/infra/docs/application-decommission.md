@@ -45,8 +45,10 @@ normal reviewed saved-plan deployment; its presence alone does not establish
 that the recovery has been applied.
 
 Module moves can expand recovery's targeted plan to active service instances.
-Recovery plans and applies therefore use the deployed `image_tags` output,
-preserving those instances' current image revisions. The caller's pending image
+Recovery plans and applies therefore derive image tags from each active service
+resource's recorded `source_image`, preserving its current image revision. The
+`image_tags` output can already contain pending values after a partial apply and
+must not be used as proof of deployment. The caller's pending image
 tags remain unchanged for the subsequent ordinary full plan. The strict recovery
 guard still rejects every unrelated resource change; it is not relaxed to permit
 an image rollout during stale-state repair.
