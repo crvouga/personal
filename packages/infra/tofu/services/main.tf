@@ -5,7 +5,8 @@ locals {
     for service in local.config.services : service.id => service
     if try(service.kind, "railway") == "railway" && !try(service.standalone, false)
   }
-  vault_addr = "https://${local.config.vault.hostname}"
+  service_instances = { for id, service in local.services : try(service.state_key, id) => service }
+  vault_addr        = "https://${local.config.vault.hostname}"
 }
 
 data "terraform_remote_state" "foundation" {
@@ -24,14 +25,14 @@ data "vault_kv_secret_v2" "production" {
 }
 
 module "service" {
-  for_each          = local.services
+  for_each          = local.service_instances
   source            = "../modules/railway-service"
   project_id        = data.terraform_remote_state.foundation.outputs.project_id
   environment_id    = data.terraform_remote_state.foundation.outputs.environment_id
   zone_id           = data.terraform_remote_state.foundation.outputs.zone_id
   region            = local.config.railway.region
   service           = each.value
-  image             = try(each.value.image, "ghcr.io/${local.config.image_owner}/${local.config.image_prefix}-${each.key}:${lookup(var.image_tags, each.key, local.config.default_image_tag)}")
+  image             = try(each.value.image, "ghcr.io/${local.config.image_owner}/${local.config.image_prefix}-${each.value.id}:${lookup(var.image_tags, each.value.id, local.config.default_image_tag)}")
   registry_password = try(data.vault_kv_secret_v2.production.data[each.value.railway.registry.vault_key], null)
   variables = merge(
     { for name, value in try(each.value.env, {}) : name => lookup({
@@ -42,5 +43,5 @@ module "service" {
   )
 }
 
-output "service_ids" { value = { for id, service in module.service : id => service.id } }
+output "service_ids" { value = { for key, service in module.service : local.service_instances[key].id => service.id } }
 output "image_tags" { value = { for id, service in local.services : id => lookup(var.image_tags, id, local.config.default_image_tag) } }

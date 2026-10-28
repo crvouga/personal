@@ -36,8 +36,11 @@ resource "railway_service" "this" {
 # GraphQL provider owns their create/read/update lifecycle and detects drift.
 # There are no shell provisioners or API controllers outside OpenTofu.
 locals {
+  # The Railway provider can reset unmodeled deployment settings when updating
+  # the image. Include its revision in the GraphQL operation name so this
+  # resource reapplies the declared settings after every image update.
   update_settings = <<-GRAPHQL
-    mutation Settings($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String, $drainingSeconds: Int, $healthcheckTimeout: Int) {
+    mutation Settings_${substr(sha256(var.image), 0, 12)}($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String, $drainingSeconds: Int, $healthcheckTimeout: Int) {
       serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: {
         autoInstrumentationEnabled: false
         buildCommand: null
@@ -79,9 +82,11 @@ resource "graphql_mutation" "settings" {
     environmentId = var.environment_id
   }
   compute_mutation_keys = {}
-  create_mutation       = local.update_settings
-  update_mutation       = local.update_settings
-  read_query            = <<-GRAPHQL
+  # create_mutation is ForceNew in this provider; keep it stable so an image
+  # revision updates settings in place without running the delete/reset mutation.
+  create_mutation = replace(local.update_settings, "Settings_${substr(sha256(var.image), 0, 12)}", "Settings")
+  update_mutation = local.update_settings
+  read_query      = <<-GRAPHQL
     query Settings($serviceId: String!, $environmentId: String!) {
       serviceInstance(serviceId: $serviceId, environmentId: $environmentId) {
         serviceId
@@ -109,7 +114,7 @@ resource "graphql_mutation" "settings" {
       }
     }
   GRAPHQL
-  delete_mutation       = <<-GRAPHQL
+  delete_mutation = <<-GRAPHQL
     mutation Reset($serviceId: String!, $environmentId: String!) {
       serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: {
         autoInstrumentationEnabled: false

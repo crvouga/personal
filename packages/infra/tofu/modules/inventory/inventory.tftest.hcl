@@ -2,12 +2,16 @@
 run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 20
-    error_message = "Application retirement must retain all 20 unrelated service entries."
+    condition     = length(output.config.services) == 21
+    error_message = "Standalone controller hosting must retain all 20 existing service entries."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
     error_message = "Service addresses must be unique."
+  }
+  assert {
+    condition     = length(distinct([for service in output.config.services : try(service.state_key, service.id)])) == length(output.config.services)
+    error_message = "Service resource generation keys must be unique."
   }
   assert {
     condition     = alltrue([for service in output.config.services : endswith(service.hostname, output.config.zone)])

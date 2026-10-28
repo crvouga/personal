@@ -74,16 +74,17 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 
 | Key | Configs | Used by | Required |
 | --- | --- | --- | --- |
+| `FLEET_CONTROLLER_ADMIN_TOKEN` | prd | fleet-api | yes |
 | `GOOGLE_OAUTH_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev | yes |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev | yes |
 | `TURBO_CACHE` | dev, prd | ci |  |
 | `TURBO_LOG_ORDER` | dev, prd | ci |  |
 | `TURBO_TELEMETRY_DISABLED` | dev, prd | ci |  |
-| `S3_ENDPOINT` | dev, prd | ci, 9router | yes |
-| `S3_REGION` | dev, prd | ci, 9router | yes |
-| `S3_ACCESS_KEY_ID` | dev, prd | ci, 9router | yes |
-| `S3_SECRET_ACCESS_KEY` | dev, prd | ci, 9router | yes |
-| `S3_BUCKET` | dev, prd | ci, 9router | yes |
+| `S3_ENDPOINT` | dev, prd | ci, 9router, fleet-api | yes |
+| `S3_REGION` | dev, prd | ci, 9router, fleet-api | yes |
+| `S3_ACCESS_KEY_ID` | dev, prd | ci, 9router, fleet-api | yes |
+| `S3_SECRET_ACCESS_KEY` | dev, prd | ci, 9router, fleet-api | yes |
+| `S3_BUCKET` | dev, prd | ci, 9router, fleet-api | yes |
 | `S3_ACCESS_KEY` | dev, prd | ci |  |
 | `S3_SECRET_KEY` | dev, prd | ci |  |
 | `VAULT_TOKEN` | dev, prd | railway | yes |
@@ -544,6 +545,7 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | Field             | Meaning                                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
 | `id`              | Service id: Railway service name, GHCR package `chrisvouga-<id>`, and publish `service_id` |
+| `state_key`       | Optional Terraform resource generation key; defaults to `id`. Public service ids and image names do not change. |
 | `hostname`        | Public hostname on `chrisvouga.dev`; DNS and TLS are provisioned automatically                        |
 | `github_repo`     | `owner/name` of the repo that publishes the image                                               |
 | `source_code_url` | Link shown on the portfolio                                                                     |
@@ -555,10 +557,16 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | `env`             | Plain, non-secret env vars                                                                      |
 | `secrets`         | `name` + `source: vault` → value copied from Vault `personal/prd` into the service's env   |
 | `image`           | Optional external image, used verbatim (skips GHCR publishing entirely)                         |
+| `initial_image_tag` | Reviewed commit tag for a service's first activation; later dispatches select new revisions |
 
 A Vault secret binding may specify `vault_key` when the source key differs from
 the runtime `name`, for example `{ "name": "AWS_ACCESS_KEY_ID", "source": "vault",
 "vault_key": "S3_ACCESS_KEY_ID" }`. Do not create duplicate Vault values for aliases.
+
+A new deployment generation can use a distinct `state_key` when reusing a retired
+public service id, preserving the old retirement records. Do not rekey an existing
+live service without a reviewed state migration/import plan; that would propose
+replacement resources.
 
 For single-writer SQLite services, `railway.volume` declares a provider-managed
 `{ "name": "working", "mount_path": "/var/lib/app" }` volume. Railway prevents
@@ -649,6 +657,7 @@ Working examples to copy from — each links to its source repo:
 | `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |
 | `moviefinder` | https://moviefinder.chrisvouga.dev | [crvouga/moviefinder](https://github.com/crvouga/moviefinder) | `./Dockerfile` (`.`) | 8080 | `/health` |
+| `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/fleet](https://github.com/crvouga/fleet) | `./Dockerfile` (`.`) | 8080 | `/health` |
 
 ---
 

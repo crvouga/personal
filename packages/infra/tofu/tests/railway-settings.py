@@ -59,6 +59,10 @@ terraform {
 variable "service_id" { type = string }
 variable "environment_id" { type = string }
 variable "service" { type = any }
+variable "image" {
+  type = string
+  default = "ghcr.io/example/app:deployed"
+}
 provider "graphql" { url = "http://127.0.0.1:PORT/graphql" }
 """.replace("PORT", str(server.server_port)))
         lock = (tofu_root / "services/.terraform.lock.hcl").read_text()
@@ -98,6 +102,21 @@ provider "graphql" { url = "http://127.0.0.1:PORT/graphql" }
         assert len(writes) == 2
         run("plan", "-detailed-exitcode", "-input=false")
         inputs = json.loads((root / "inputs.auto.tfvars.json").read_text())
+        inputs["image"] = "ghcr.io/example/app:next"
+        (root / "inputs.auto.tfvars.json").write_text(json.dumps(inputs))
+        run("plan", "-input=false", "-out=image-update.tfplan")
+        image_plan = subprocess.run([shutil.which("tofu"), "-chdir=" + str(root), "show", "-json", "image-update.tfplan"],
+                                    capture_output=True, text=True, check=True)
+        settings_change = next(change for change in json.loads(image_plan.stdout)["resource_changes"]
+                               if change["address"] == "graphql_mutation.settings")
+        assert settings_change["change"]["actions"] == ["update"], "Image changes must not delete/reset live settings"
+        # Model the service provider resetting an unmodeled setting between
+        # plan and apply. The image-only change must still reapply settings.
+        state["drainingSeconds"] = 0
+        run("apply", "-input=false", "image-update.tfplan")
+        assert state["drainingSeconds"] == 60
+        assert len(writes) == 3
+        run("plan", "-detailed-exitcode", "-input=false")
         inputs["service"]["railway"].pop("start_command")
         inputs["service"]["railway"].pop("draining_seconds")
         inputs["service"]["railway"].pop("health_timeout_seconds")

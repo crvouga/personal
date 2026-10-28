@@ -47,17 +47,19 @@ function judge(service: ServiceSpec, serviceId: string, observed: Observation): 
     return fail(name, 'attached volume differs from inventory; single-writer deployment is not established');
   if (instance.numReplicas !== 1 || instance.activeDeployments.length !== 1)
     return fail(name, 'expected exactly one replica and one active deployment');
-  if (wanted.draining_seconds !== undefined && instance.drainingSeconds !== wanted.draining_seconds)
-    return fail(name, 'graceful shutdown budget differs from inventory');
-  if (wanted.health_timeout_seconds !== undefined && instance.healthcheckTimeout !== wanted.health_timeout_seconds)
-    return fail(name, 'startup readiness budget differs from inventory');
+  const mismatch = [
+    { label: 'graceful shutdown', expected: wanted.draining_seconds, actual: instance.drainingSeconds },
+    { label: 'startup readiness', expected: wanted.health_timeout_seconds, actual: instance.healthcheckTimeout },
+  ].find((budget) => budget.expected !== undefined && budget.actual !== budget.expected);
+  if (mismatch) return fail(name, `${mismatch.label} budget differs from inventory`);
   return pass(name, 'declared volume attached; one replica/deployment; configured startup and shutdown budgets');
 }
 
 async function check(
-  ctx: HealthContext, service: ServiceSpec, serviceId: string, environmentId: string, token: string,
+  ctx: HealthContext, service: ServiceSpec, target: { serviceId: string; environmentId: string; token: string },
 ): Promise<CheckResult> {
   const name = `volume writer ${service.id}`;
+  const { serviceId, environmentId, token } = target;
   try {
     const request = ctx.fetch;
     const response = await request('https://backboard.railway.app/graphql/v2', {
@@ -89,7 +91,7 @@ export async function checkVolumes(ctx: HealthContext): Promise<readonly CheckRe
     return Promise.all(services.map((service) => {
       const id = (ids as Record<string, unknown>)[service.id];
       return typeof id === 'string'
-        ? check(ctx, service, id, environmentId, token)
+        ? check(ctx, service, { serviceId: id, environmentId, token })
         : fail(`volume writer ${service.id}`, 'service is absent from deployed OpenTofu outputs');
     }));
   } catch {

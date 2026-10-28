@@ -443,6 +443,7 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | Field             | Meaning                                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
 | `id`              | Service id: Railway service name, GHCR package `{{imagePrefix}}-<id>`, and publish `service_id` |
+| `state_key`       | Optional Terraform resource generation key; defaults to `id`. Public service ids and image names do not change. |
 | `hostname`        | Public hostname on `{{zone}}`; DNS and TLS are provisioned automatically                        |
 | `github_repo`     | `owner/name` of the repo that publishes the image                                               |
 | `source_code_url` | Link shown on the portfolio                                                                     |
@@ -454,10 +455,16 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | `env`             | Plain, non-secret env vars                                                                      |
 | `secrets`         | `name` + `source: vault` → value copied from Vault `{{kvProject}}/prd` into the service's env   |
 | `image`           | Optional external image, used verbatim (skips GHCR publishing entirely)                         |
+| `initial_image_tag` | Reviewed commit tag for a service's first activation; later dispatches select new revisions |
 
 A Vault secret binding may specify `vault_key` when the source key differs from
 the runtime `name`, for example `{ "name": "AWS_ACCESS_KEY_ID", "source": "vault",
 "vault_key": "S3_ACCESS_KEY_ID" }`. Do not create duplicate Vault values for aliases.
+
+A new deployment generation can use a distinct `state_key` when reusing a retired
+public service id, preserving the old retirement records. Do not rekey an existing
+live service without a reviewed state migration/import plan; that would propose
+replacement resources.
 
 For single-writer SQLite services, `railway.volume` declares a provider-managed
 `{ "name": "working", "mount_path": "/var/lib/app" }` volume. Railway prevents

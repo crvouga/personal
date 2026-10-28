@@ -21,15 +21,16 @@ terraform {
   }
 }
 variable "proxy_alias" { default = false }
+variable "state_key" { default = "app" }
 locals {
   config = {
     aliases = [{ hostname = "www.application.app", service = "app", zone = "application.app", proxied = var.proxy_alias }]
     domains = { "application.app" = { existing_zone_id = "83db052d18159889dd290724ac7d52d9" } }
   }
-  services = { app = { port = 8080 } }
+  services = { app = { port = 8080, state_key = var.state_key } }
 }
 module "service" {
-  for_each = local.services
+  for_each = { (var.state_key) = local.services.app }
   source = "./service"
 }
 data "terraform_remote_state" "foundation" {
