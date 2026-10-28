@@ -22,7 +22,14 @@ resource "railway_service" "this" {
   project_id   = var.project_id
   source_image = var.image
   regions      = [{ region = var.region, num_replicas = try(var.service.railway.replicas, 1) }]
-  lifecycle { prevent_destroy = true }
+  volume       = try(var.service.railway.volume, null)
+  lifecycle {
+    prevent_destroy = true
+    precondition {
+      condition     = try(var.service.railway.volume, null) == null || try(var.service.railway.replicas, 1) == 1
+      error_message = "A volume-backed service must run exactly one replica."
+    }
+  }
 }
 
 # The Railway provider does not expose these per-environment settings. The
@@ -30,16 +37,16 @@ resource "railway_service" "this" {
 # There are no shell provisioners or API controllers outside OpenTofu.
 locals {
   update_settings = <<-GRAPHQL
-    mutation Settings($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String) {
+    mutation Settings($serviceId: String!, $environmentId: String!, $healthcheckPath: String, $sleepApplication: Boolean!, $startCommand: String, $drainingSeconds: Int, $healthcheckTimeout: Int) {
       serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: {
         autoInstrumentationEnabled: false
         buildCommand: null
         builder: RAILPACK
         cronSchedule: null
         dockerfilePath: null
-        drainingSeconds: null
+        drainingSeconds: $drainingSeconds
         healthcheckPath: $healthcheckPath
-        healthcheckTimeout: null
+        healthcheckTimeout: $healthcheckTimeout
         ipv6EgressEnabled: false
         overlapSeconds: null
         preDeployCommand: null
@@ -59,11 +66,13 @@ locals {
 
 resource "graphql_mutation" "settings" {
   mutation_variables = {
-    serviceId        = railway_service.this.id
-    environmentId    = var.environment_id
-    healthcheckPath  = try(var.service.railway.health_check, true) ? try(var.service.railway.health_path, var.service.health_path, "/") : "null"
-    sleepApplication = jsonencode(try(var.service.railway.sleep, true))
-    startCommand     = try(var.service.railway.start_command, "null")
+    serviceId          = railway_service.this.id
+    environmentId      = var.environment_id
+    healthcheckPath    = try(var.service.railway.health_check, true) ? try(var.service.railway.health_path, var.service.health_path, "/") : "null"
+    sleepApplication   = jsonencode(try(var.service.railway.sleep, true))
+    startCommand       = try(var.service.railway.start_command, "null")
+    drainingSeconds    = jsonencode(try(var.service.railway.draining_seconds, null))
+    healthcheckTimeout = jsonencode(try(var.service.railway.health_timeout_seconds, null))
   }
   read_query_variables = {
     serviceId     = railway_service.this.id

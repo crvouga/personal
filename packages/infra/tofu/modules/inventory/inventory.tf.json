@@ -1079,6 +1079,22 @@
             "publisher_file": ".github/workflows/publish-image.yml",
             "required_status_checks": ["Required"]
           },
+          "fleet": {
+            "description": null,
+            "homepage": null,
+            "default_branch": "main",
+            "topics": [],
+            "vulnerability_alerts": false,
+            "dependabot_security_updates": false,
+            "secret_scanning": "enabled",
+            "secret_scanning_push_protection": "enabled",
+            "environments": [],
+            "actions_secrets": [],
+            "managed_publisher": false,
+            "publisher_file": ".github/workflows/publish.yml",
+            "publish_dispatch": true,
+            "required_status_checks": ["Fleet", "Container"]
+          },
           "moviefinder": {
             "description": "Movie and TV discovery with shared lists and reactive social features.",
             "homepage": "https://moviefinder.chrisvouga.dev",

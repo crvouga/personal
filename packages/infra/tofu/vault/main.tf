@@ -151,7 +151,7 @@ locals {
   required_input_keys = {
     for config in local.vault.kv.configs : config => setsubtract(toset(concat(
       [for key in local.vault.kv_keys : key.name if try(key.required, false) && contains(key.configs, config)],
-      config == "prd" ? flatten([for service in local.config.services : [for secret in try(service.secrets, []) : secret.name]
+      config == "prd" ? flatten([for service in local.config.services : [for secret in try(service.secrets, []) : try(secret.vault_key, secret.name)]
       if try(service.kind, "railway") == "railway" && !try(service.standalone, false)]) : []
     )), toset(keys(local.managed_values[config])))
   }

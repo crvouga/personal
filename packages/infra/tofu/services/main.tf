@@ -38,7 +38,7 @@ module "service" {
       from_vault_addr         = local.vault_addr
       "from_vault.kv.project" = local.config.vault.kv.project
     }, value, value) },
-    { for secret in try(each.value.secrets, []) : secret.name => data.vault_kv_secret_v2.production.data[secret.name] }
+    { for secret in try(each.value.secrets, []) : secret.name => data.vault_kv_secret_v2.production.data[try(secret.vault_key, secret.name)] }
   )
 }
 

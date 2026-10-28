@@ -80,6 +80,48 @@ run "locked_writer_handoff" {
   }
 }
 
+run "volume_backed_writer" {
+  command = plan
+  variables {
+    service = {
+      id          = "stateful-app"
+      hostname    = "stateful.example.com"
+      port        = 8080
+      health_path = "/health"
+      railway = {
+        replicas               = 1
+        volume                 = { name = "working", mount_path = "/var/lib/app" }
+        draining_seconds       = 60
+        health_timeout_seconds = 180
+      }
+    }
+  }
+  assert {
+    condition     = railway_service.this.volume.mount_path == "/var/lib/app" && railway_service.this.regions[0].num_replicas == 1
+    error_message = "A volume-backed single writer must retain its working directory and one replica."
+  }
+  assert {
+    condition     = graphql_mutation.settings.mutation_variables.drainingSeconds == "60" && graphql_mutation.settings.mutation_variables.healthcheckTimeout == "180"
+    error_message = "Restore and graceful shutdown require explicit platform time budgets."
+  }
+}
+
+run "volume_rejects_multiple_writers" {
+  command = plan
+  variables {
+    service = {
+      id       = "stateful-app"
+      hostname = "stateful.example.com"
+      port     = 8080
+      railway = {
+        replicas = 2
+        volume   = { name = "working", mount_path = "/var/lib/app" }
+      }
+    }
+  }
+  expect_failures = [railway_service.this]
+}
+
 run "private_registry" {
   command = plan
   variables {
