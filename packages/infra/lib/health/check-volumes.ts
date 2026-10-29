@@ -5,9 +5,10 @@ import { fail, pass, skip, type CheckResult } from './report.js';
 
 export const volumeQuery = `query VolumeWriter($serviceId: String!, $environmentId: String!) {
   serviceInstance(serviceId: $serviceId, environmentId: $environmentId) {
-    numReplicas drainingSeconds healthcheckTimeout activeDeployments { id }
+    drainingSeconds healthcheckTimeout activeDeployments { id }
   }
   environment(id: $environmentId) {
+    config
     volumeInstances(first: 100) {
       edges { node { serviceId mountPath volume { name } } }
       pageInfo { hasNextPage }
@@ -17,12 +18,13 @@ export const volumeQuery = `query VolumeWriter($serviceId: String!, $environment
 
 type Observation = {
   serviceInstance: {
-    numReplicas: number | null;
     drainingSeconds: number | null;
     healthcheckTimeout: number | null;
     activeDeployments: { id: string }[];
   };
-  environment: { volumeInstances: {
+  environment: { config?: { services?: Record<string, { deploy?: {
+    multiRegionConfig?: Record<string, { numReplicas?: number }>;
+  } }> }; volumeInstances: {
     edges: { node: { serviceId: string; mountPath: string; volume: { name: string } } }[];
     pageInfo: { hasNextPage: boolean };
   } };
@@ -45,8 +47,15 @@ function judge(service: ServiceSpec, serviceId: string, observed: Observation): 
   const attached = volumes.edges.map(({ node }) => node).filter((volume) => volume.serviceId === serviceId);
   if (attached.length !== 1 || attached[0]?.mountPath !== wanted.volume!.mount_path || attached[0]?.volume.name !== wanted.volume!.name)
     return fail(name, 'attached volume differs from inventory; single-writer deployment is not established');
-  if (instance.numReplicas !== 1 || instance.activeDeployments.length !== 1)
-    return fail(name, 'expected exactly one replica and one active deployment');
+  // Railway's legacy serviceInstance.numReplicas is null for regional configs.
+  // Read the current configuration, not a possibly stale deployment manifest.
+  const regions = observed.environment.config?.services?.[serviceId]?.deploy?.multiRegionConfig;
+  const counts = Object.values(regions ?? {}).map((region) => region.numReplicas);
+  if (!counts.length || counts.some((count) => !Number.isInteger(count) || count! < 0))
+    return fail(name, 'regional replica configuration is missing or invalid');
+  const replicas = counts.reduce<number>((total, count) => total + count!, 0);
+  if (replicas !== 1 || instance.activeDeployments.length !== 1)
+    return fail(name, `expected exactly one replica and one active deployment; observed ${replicas} replicas and ${instance.activeDeployments.length} active deployments`);
   const mismatch = [
     { label: 'graceful shutdown', expected: wanted.draining_seconds, actual: instance.drainingSeconds },
     { label: 'startup readiness', expected: wanted.health_timeout_seconds, actual: instance.healthcheckTimeout },
