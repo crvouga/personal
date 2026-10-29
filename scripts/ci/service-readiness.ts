@@ -5,9 +5,9 @@ import { checkVolumes } from '../../packages/infra/lib/health/check-volumes';
 import { createHealthContext } from '../../packages/infra/lib/health/ports';
 import { DEFAULT_HEALTH_OPTIONS } from '../../packages/infra/lib/health/context';
 import type { CheckResult } from '../../packages/infra/lib/health/report';
+import { readDeploymentLogTail } from '../../packages/infra/lib/railway-logs';
 import {
   readDeployment,
-  readDeploymentLogTail,
   type Rollout,
 } from '../../packages/infra/lib/railway-deployments';
 import {
