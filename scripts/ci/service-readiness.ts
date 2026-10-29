@@ -5,6 +5,7 @@ import { checkVolumes } from '../../packages/infra/lib/health/check-volumes';
 import { createHealthContext } from '../../packages/infra/lib/health/ports';
 import { DEFAULT_HEALTH_OPTIONS } from '../../packages/infra/lib/health/context';
 import type { CheckResult } from '../../packages/infra/lib/health/report';
+import { readDeploymentLogTail } from '../../packages/infra/lib/railway-logs';
 import {
   readDeployment,
   type Rollout,
@@ -62,6 +63,7 @@ export async function waitForService(
     sleep?: (ms: number) => Promise<unknown>;
     report?: (message: string) => void;
     timeoutMs?: number;
+    logTail?: (deploymentId: string) => Promise<string[]>;
   } = {}
 ): Promise<void> {
   const now = options.now ?? Date.now;
@@ -76,10 +78,15 @@ export async function waitForService(
       `${target.name}: deployment ${rollout.latest?.id ?? 'none'} ${status}; expected image ${target.image}`
     );
     if (state === 'ready') return;
-    if (state === 'failed')
+    if (state === 'failed') {
+      const tail = (await options.logTail?.(rollout.latest!.id)) ?? [];
       throw new Error(
-        `${target.name}: selected image deployment ${rollout.latest!.id} ${status}; an older healthy instance cannot satisfy rollout verification`
+        `${target.name}: selected image deployment ${rollout.latest!.id} ${status}; an older healthy instance cannot satisfy rollout verification` +
+          (tail.length
+            ? `\nLast ${tail.length} runtime log lines:\n${tail.join('\n')}`
+            : '')
       );
+    }
     await sleep(5000);
   }
   throw new Error(
@@ -157,8 +164,14 @@ async function main() {
   });
   const results = await Promise.allSettled(
     targets.map((target) =>
-      waitForService(target, () =>
-        readDeployment({ serviceId: target.serviceId, environmentId, token })
+      waitForService(
+        target,
+        () =>
+          readDeployment({ serviceId: target.serviceId, environmentId, token }),
+        {
+          logTail: (deploymentId) =>
+            readDeploymentLogTail({ deploymentId, token }),
+        }
       )
     )
   );

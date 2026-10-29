@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { sourceFiles as repositorySources } from './ci/source-files';
 import { deploymentQuery } from '../packages/infra/lib/railway-deployments';
+import { logsQuery } from '../packages/infra/lib/railway-logs';
 import { volumeQuery } from '../packages/infra/lib/health/check-volumes';
 
 const repo = join(import.meta.dirname, '..');
@@ -12,6 +13,7 @@ const tofu = 'packages/infra/tofu/';
 // fetch options structurally rather than exempting a directory or provider.
 const readOnlyCloudflare = 'packages/infra/lib/domains/cloudflare.ts';
 const readOnlyRailway = 'packages/infra/lib/railway-deployments.ts';
+const readOnlyLogs = 'packages/infra/lib/railway-logs.ts';
 const readOnlyVolume = 'packages/infra/lib/health/check-volumes.ts';
 
 function deploymentReads(
@@ -48,7 +50,7 @@ function deploymentReads(
   expect(
     (queries[0]!.initializer as ts.NoSubstitutionTemplateLiteral).text
   ).toBe(expectedQuery);
-  expect(expectedQuery).toMatch(/^query (Rollout|VolumeWriter)\(/);
+  expect(expectedQuery).toMatch(/^query (Rollout|VolumeWriter|Logs)\(/);
   expect(expectedQuery).not.toMatch(/\b(mutation|subscription)\b/);
   expect(requests).toHaveLength(1);
   const options = requests[0]!.arguments[1]!;
@@ -173,6 +175,10 @@ describe('OpenTofu infrastructure ownership', () => {
       }
       if (file === readOnlyRailway) {
         deploymentReads(text);
+        return false;
+      }
+      if (file === readOnlyLogs) {
+        deploymentReads(text, 'logsQuery', logsQuery);
         return false;
       }
       if (file === readOnlyVolume) {

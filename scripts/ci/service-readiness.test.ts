@@ -235,3 +235,22 @@ test('the deployment workflow verifies the selected rollout before public health
     '${{ steps.services.outputs.changed_resources }}'
   );
 });
+
+test('failed rollout includes the deployment runtime log tail', async () => {
+  const target = { name: 'app', serviceId: 's', image: 'img' };
+  const failed: Rollout = {
+    latest: {
+      id: 'dep',
+      status: 'FAILED',
+      createdAt: new Date().toISOString(),
+      meta: { image: 'img' },
+    },
+    active: [{ id: 'old', status: 'SUCCESS' }],
+  };
+  await expect(
+    waitForService(target, async () => failed, {
+      report: () => {},
+      logTail: async (id) => [`${id} listen EADDRINUSE`],
+    })
+  ).rejects.toThrow('dep listen EADDRINUSE');
+});
