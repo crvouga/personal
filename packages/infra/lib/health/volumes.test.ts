@@ -36,7 +36,9 @@ function observation() {
       numReplicas: 1, drainingSeconds: 60, healthcheckTimeout: 180,
       activeDeployments: [{ id: 'one-writer' }],
     },
-    environment: { volumeInstances: {
+    environment: { config: { services: { "service-id": { deploy: {
+      multiRegionConfig: { "us-west2": { numReplicas: 1 } },
+    } } } }, volumeInstances: {
       edges: [{ node: { serviceId: 'service-id', mountPath: '/var/lib/app', volume: { name: 'working' } } }],
       pageInfo: { hasNextPage: false },
     } },
@@ -72,4 +74,37 @@ test('volume writer health withholds response errors and credentials', async () 
   const results = await checkVolumes({ ...ctx, fetch: request });
   expect(results[0]?.status).toBe('fail');
   expect(JSON.stringify(results)).not.toContain('private-test-token');
+});
+
+// Match live Railway responses: the legacy scalar is null, while regional
+// replica counts live on the environment's current service configuration.
+test('volume writer health accepts a null legacy replica field with one regional replica', async () => {
+  const data = { ...observation(), serviceInstance: { ...observation().serviceInstance, numReplicas: null } };
+  expect((await checkVolumes(context(data)))[0]?.status).toBe('pass');
+});
+
+test('volume writer health sums all regions and refuses missing replica proof', async () => {
+  const data = observation();
+  const deploy = data.environment.config.services['service-id'].deploy;
+  for (const multiRegionConfig of [
+    { 'us-west2': { numReplicas: 2 } },
+    { 'us-west2': { numReplicas: 1 }, 'us-east4': { numReplicas: 1 } },
+    { 'us-west2': { numReplicas: 0 } },
+    {},
+    { 'us-west2': { numReplicas: -1 } },
+    { 'us-west2': { numReplicas: null } },
+  ]) {
+    const config = { services: { 'service-id': { deploy: { ...deploy, multiRegionConfig } } } };
+    expect((await checkVolumes(context({ ...data, environment: { ...data.environment, config } })))[0]?.status).toBe('fail');
+  }
+  const { config: _config, ...environment } = data.environment;
+  expect((await checkVolumes(context({ ...data, environment })))[0]?.status).toBe('fail');
+});
+
+test('volume writer health reports an unavailable writer even with a valid replica configuration', async () => {
+  const data = observation();
+  data.serviceInstance.activeDeployments = [];
+  expect((await checkVolumes(context(data)))[0]).toMatchObject({
+    status: 'fail', detail: expect.stringContaining('1 replicas and 0 active deployments'),
+  });
 });
