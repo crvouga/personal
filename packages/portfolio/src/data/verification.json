@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "fetchedAt": "2026-10-29T18:43:15.890Z",
-  "window": { "from": "2026-09-17", "to": "2026-10-29" },
+  "fetchedAt": "2026-10-30T18:19:31.518Z",
+  "window": { "from": "2026-09-17", "to": "2026-10-30" },
   "workspace": {
     "repo": "crvouga/workspace",
-    "mergedPrs": 119,
-    "automatedPrsExcluded": 35,
+    "mergedPrs": 120,
+    "automatedPrsExcluded": 36,
     "automationPatterns": ["chore/github-insights-refresh"],
     "prsFailedCiBeforeMerge": 27,
     "prsFailedCiBeforeMergeNumbers": [
@@ -18,7 +18,7 @@
       92, 93, 96, 97, 98, 99, 100, 101, 103, 104, 106, 107, 108, 109, 110, 111,
       113, 114, 141, 152, 153, 156, 168, 170, 171, 173, 174
     ],
-    "pullRequestRunsExamined": 504,
+    "pullRequestRunsExamined": 506,
     "earlierAttemptsExamined": 4
   },
   "repos": [
@@ -27,14 +27,14 @@
       "url": "https://github.com/crvouga/mockingbird",
       "defaultBranch": "main",
       "stars": 4,
-      "commits": 1060,
+      "commits": 1064,
       "openIssues": 1,
       "openPrs": 1,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
       "defaultBranchCiConclusion": "success",
-      "defaultBranchCiRunUrl": "https://github.com/crvouga/mockingbird/actions/runs/40827325085",
-      "defaultBranchCiCompletedAt": "2026-10-29T06:09:24Z"
+      "defaultBranchCiRunUrl": "https://github.com/crvouga/mockingbird/actions/runs/40966198999",
+      "defaultBranchCiCompletedAt": "2026-10-29T22:34:07Z"
     },
     {
       "repo": "crvouga/headless-combobox",
@@ -55,20 +55,20 @@
       "url": "https://github.com/crvouga/workspace",
       "defaultBranch": "main",
       "stars": 1,
-      "commits": 1748,
+      "commits": 1752,
       "openIssues": 0,
       "openPrs": 0,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
       "defaultBranchCiConclusion": "failure",
-      "defaultBranchCiRunUrl": "https://github.com/crvouga/workspace/actions/runs/40827621830",
-      "defaultBranchCiCompletedAt": "2026-10-29T06:26:31Z"
+      "defaultBranchCiRunUrl": "https://github.com/crvouga/workspace/actions/runs/40951869530",
+      "defaultBranchCiCompletedAt": "2026-10-29T20:52:24Z"
     }
   ],
   "mockingbird": {
-    "commit": "149605bfba96a7a77627aa4887281d13509336e7",
+    "commit": "18998369b6523d0f330b4cd674a06418265d04fb",
     "testFiles": 1107,
-    "testCallSites": 4098,
+    "testCallSites": 4102,
     "publishedPackages": 126,
     "emulators": 125,
     "wipEmulators": 15,
