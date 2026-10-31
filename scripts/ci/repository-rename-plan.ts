@@ -38,6 +38,18 @@ export function checkRepositoryRename(plan: Plan): {
       actions === 'no-op' ||
       (actions === 'update' && item.type.startsWith('github_')) ||
       (actions === 'forget' && FORGET.has(item.address));
+    if (
+      actions === 'update' &&
+      [
+        'github_issue_labels',
+        'github_repository_vulnerability_alerts',
+        'github_repository_dependabot_security_updates',
+      ].includes(item.type)
+    ) {
+      throw new Error(
+        `Repository rename refuses label/security changes at ${item.address}; imported objects must be unchanged.`
+      );
+    }
     if (!allowed)
       throw new Error(
         `Repository rename refuses ${actions} at ${item.address}; review the saved plan before any apply.`

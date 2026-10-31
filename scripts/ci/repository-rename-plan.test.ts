@@ -92,3 +92,22 @@ test('once adopted, the one-time gate does not constrain ordinary plans', () => 
     })
   ).toEqual({ migration: false, checked: 0 });
 });
+
+test('an update cannot delete labels or toggle security while importing the renamed repository', () => {
+  expect(() =>
+    checkRepositoryRename({
+      resource_changes: [
+        repository,
+        {
+          address: 'github_issue_labels.personal',
+          type: 'github_issue_labels',
+          change: {
+            actions: ['update'],
+            before: { repository: 'personal' },
+            after: { repository: 'personal' },
+          },
+        },
+      ],
+    })
+  ).toThrow('label/security changes');
+});
