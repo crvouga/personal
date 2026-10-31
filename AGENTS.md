@@ -18,7 +18,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 
 ## Hard infrastructure rule
 
-**Infrastructure resources are managed exclusively by OpenTofu**. Physical-machine configuration is outside this repository. Never add provisioning, reconciliation, API mutation, secret seeding, shell provisioners, `local-exec`, `remote-exec`, or alternative IaC controllers elsewhere. Runtime application operations, image builds, secret reads and HTTP probes are not infrastructure provisioning.
+**Infrastructure resources are managed exclusively by OpenTofu**. Local developer tools and user configuration are managed by the shared mise toolchain (`mise.toml`, `mise.lock`, `scripts/dev/README.md`) and `packages/workstation`; this does not authorize cloud provisioning. Never add provisioning, reconciliation, API mutation, secret seeding, shell provisioners, `local-exec`, `remote-exec`, or alternative IaC controllers elsewhere. Runtime application operations, image builds, secret reads and HTTP probes are not infrastructure provisioning.
 
 Canonical inventory: `packages/infra/tofu/modules/inventory/inventory.tf.json` (`locals.inventory`). Resource definitions: `packages/infra/tofu/{state,foundation,bootstrap,vault,services}`. See `packages/infra/tofu/README.md` for ownership, migration and state requirements. Do not introduce a YAML or TypeScript desired-state inventory.
 

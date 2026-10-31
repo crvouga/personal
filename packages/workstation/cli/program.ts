@@ -37,6 +37,7 @@ import {
 import { cmdStatus } from './commands/status-cmd';
 import { cmdSync } from './commands/sync-cmd';
 import { cmdUpdate } from './commands/update-cmds';
+import { cmdToolsSync, cmdToolsCheck } from './commands/tools-cmds';
 import { resolveVaultConfig } from './lib/vault-config';
 import type { GlobalOpts } from './lib/cli-opts';
 import { readVersion } from './lib/cli-opts';
@@ -57,6 +58,20 @@ import { printJson, resolveOutputMode, section } from './lib/output-and-theme';
  */
 
 function registerCore(program: Command, globals: () => GlobalOpts): void {
+  const tools = program
+    .command('tools')
+    .description('[ws] Shared developer toolchain');
+  tools
+    .command('sync')
+    .description('Install locked tools and refresh global mise configuration')
+    .action(() => cmdToolsSync(globals()));
+  tools
+    .command('check')
+    .description('Check tool versions, GitHub auth and Docker')
+    .option('--docker', 'Require a working Docker engine, Compose and Buildx')
+    .action((opts: { docker?: boolean }) =>
+      cmdToolsCheck({ ...globals(), ...opts })
+    );
   program
     .command('status')
     .description('[ws] Show ws + OpenCode + Vault state')

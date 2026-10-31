@@ -69,7 +69,7 @@ The old flat names (`ws providers`, `ws notifications`, `ws sounds`, `ws backup|
 
 After the one-time install, never open the repo again — `ws update` pulls the
 workspace checkout to the latest upstream (`git pull --ff-only`), refreshes
-dependencies (`bun install` at the repo root), then reinstalls the global
+the locked mise toolchain/global configuration and dependencies (`bun install --frozen-lockfile` at the repo root), then reinstalls the global
 launcher and converges, exactly like `ws install`. It refuses to pull with
 uncommitted changes (commit or stash first) and refuses a diverged branch
 (reconcile manually, e.g. `git pull --rebase`). `ws update --json` reports
@@ -452,3 +452,26 @@ This README is the canonical high-level architectural context for `packages/work
 - `packages/workstation/AGENTS.md` is the short agent directive for this area.
 - Root-level conventions and the other subsystems are documented in the repository root `AGENTS.md` and `README.md` — read those before inventing new mechanisms.
 - Every `ws` subcommand supports `--json` (secrets redacted, stable shapes) plus `--yes` / `--non-interactive` and documented exit codes, so agents can drive the workstation without a TTY.
+
+## Shared machine toolchain
+
+The cross-platform developer toolchain is now implemented in root `mise.toml`
+and `mise.lock` (including `.mise/locks/` dependency graphs). Read
+[`scripts/dev/README.md`](../../scripts/dev/README.md) for the full macOS, native
+Windows and Linux bootstrap, Docker/runtime prerequisites, authentication and
+upgrade runbook. Both OS bootstraps share `scripts/dev/setup.ts`, publish the same
+managed global mise configuration, preserve unrelated user configuration, and
+install frozen workspace dependencies. Mise replaces nvm for Node management.
+
+`ws tools sync` installs the locked tools and refreshes the global configuration
+and shell PATH; `ws tools check [--docker] [--json]` checks actual executable
+versions and container readiness. `ws update` now refreshes the toolchain and
+frozen dependencies before the existing launcher/config convergence. The initial
+toolchain bootstrap does not install the `ws` launcher or change OpenCode settings;
+run `bun run ws:install` to opt into those existing features. CLI-only setup works
+without symlink privileges on Windows.
+
+The generated root `llms.txt` and portfolio `/llms-infra.txt` embed the machine
+runbook and an exact version table from the manifest. The site's `/llms.txt`
+provides the entry link. Run `bun run llms:sync` when changing setup instructions
+or tool pins, then `bun run check:llms` to verify all published copies.

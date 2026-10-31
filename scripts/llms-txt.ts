@@ -281,6 +281,26 @@ function blocks(ctx: Context): Record<string, string> {
   );
 
   return {
+    workstation: read('scripts/dev/README.md').trimEnd(),
+    workstationTools: table(
+      ['Tool', 'Version', 'Installation'],
+      Object.entries(
+        (
+          Bun.TOML.parse(read('mise.toml')) as {
+            tools: Record<
+              string,
+              string | { version: string; lazy?: boolean; os?: string[] }
+            >;
+          }
+        ).tools
+      ).map(([name, spec]) => [
+        code(name),
+        typeof spec === 'string' ? spec : spec.version,
+        typeof spec === 'string'
+          ? 'Base toolchain'
+          : `${spec.lazy ? 'On demand' : 'Base toolchain'}${spec.os ? ` (${spec.os.join(', ')})` : ''}`,
+      ])
+    ),
     resources: table(
       ['Resource', 'Endpoint', 'Auth'],
       [

@@ -1,0 +1,63 @@
+name: Developer toolchain
+on:
+  pull_request:
+    paths:
+      - mise.toml
+      - mise.lock
+      - .mise/locks/**
+      - scripts/dev/**
+      - packages/workstation/**
+      - .github/workflows/toolchain.yml
+  push:
+    branches: [main]
+    paths:
+      - mise.toml
+      - mise.lock
+      - .mise/locks/**
+      - scripts/dev/**
+      - packages/workstation/**
+      - .github/workflows/toolchain.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  smoke:
+    name: Locked tools (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      MISE_GITHUB_TOKEN: ${{ github.token }}
+      CI: 'true'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v4
+        with:
+          version: '2026.10.24'
+          install: false
+      - name: Install shared tools from lockfile
+        run: mise install --locked
+      - name: Test bootstrap safety and doctor behavior
+        run: mise exec --locked -- bun test ./scripts/dev
+      - name: Apply managed global configuration
+        run: mise exec --locked -- bun scripts/dev/setup.ts --tools-only
+      - name: Verify actual tool versions
+        run: mise exec --locked -- bun scripts/dev/doctor.ts --json
+      - name: Verify tools outside the checkout
+        working-directory: ${{ runner.temp }}
+        run: mise exec --locked -- bun "${{ github.workspace }}/scripts/dev/doctor.ts" --json
+      - name: Check Bash entry point
+        if: runner.os != 'Windows'
+        run: mise exec --locked -- shellcheck scripts/dev/bootstrap.sh
+      - name: Check PowerShell entry point parses
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/dev/bootstrap.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
