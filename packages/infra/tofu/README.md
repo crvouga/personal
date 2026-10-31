@@ -328,8 +328,11 @@ rename. Keep the historical removed/moved blocks so older state can still conver
 During this one-time adoption, the normal saved-plan step runs
 `scripts/ci/repository-rename-plan.ts` before any apply. It permits only in-place
 GitHub updates, imported no-ops and the three explicit forget operations; it
-rejects creations, deletions, replacements, changed numeric repository identities
-and unrelated cloud changes. If it refuses a plan, review the encrypted state and
+rejects real-resource creations, deletions, replacements, changed numeric repository
+identities and unrelated cloud changes. The one local-only exception is replacing
+`time_sleep.vault_start`: its 90-second wait may repeat when the renamed source
+metadata changes its trigger, provided the Vault image and database trigger stay
+identical. This does not recreate or redeploy the Vault service. If it refuses a plan, review the encrypted state and
 saved plan instead of bypassing the gate. Once no old repository bindings remain,
 ordinary deployment planning continues normally. Production remains reachable only
 through the main-branch CI/deployment path; never apply from a feature branch.

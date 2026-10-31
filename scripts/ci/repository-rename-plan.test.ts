@@ -111,3 +111,58 @@ test('an update cannot delete labels or toggle security while importing the rena
     })
   ).toThrow('label/security changes');
 });
+
+test('source-only metadata can repeat the local readiness wait without replacing a cloud resource', () => {
+  const before = {
+    create_duration: '90s',
+    destroy_duration: null,
+    triggers: {
+      image: 'existing-image',
+      database: 'existing-database',
+      service: 'old-metadata-hash',
+    },
+  };
+  const after = {
+    ...before,
+    triggers: { ...before.triggers, service: 'renamed-metadata-hash' },
+  };
+  const wait = {
+    address: 'time_sleep.vault_start',
+    type: 'time_sleep',
+    change: { actions: ['delete', 'create'], before, after },
+  };
+  expect(
+    checkRepositoryRename({ resource_changes: [repository, wait] })
+  ).toEqual({ migration: true, checked: 2 });
+  for (const unsafe of [
+    { ...wait, address: 'time_sleep.other' },
+    { ...wait, type: 'railway_service' },
+    {
+      ...wait,
+      change: { ...wait.change, after: { ...after, create_duration: '1h' } },
+    },
+    {
+      ...wait,
+      change: {
+        ...wait.change,
+        after: {
+          ...after,
+          triggers: { ...after.triggers, image: 'different-image' },
+        },
+      },
+    },
+    {
+      ...wait,
+      change: {
+        ...wait.change,
+        after: {
+          ...after,
+          triggers: { ...after.triggers, database: 'different-database' },
+        },
+      },
+    },
+  ])
+    expect(() =>
+      checkRepositoryRename({ resource_changes: [repository, unsafe] })
+    ).toThrow('refuses');
+});
