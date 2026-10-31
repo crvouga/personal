@@ -395,15 +395,15 @@ resource "github_workflow_repository_permissions" "workspace" {
 # GitHub represents disabled vulnerability alerts as a 404, so there is no
 # provider resource to import. The first reviewed apply creates the resource by
 # enabling alerts; subsequent plans detect drift normally.
-resource "github_repository_vulnerability_alerts" "workspace" {
+resource "github_repository_vulnerability_alerts" "personal" {
   repository = github_repository.workspace.name
   enabled    = local.merge_gate.security.vulnerability_alerts
 }
 
-resource "github_repository_dependabot_security_updates" "workspace" {
+resource "github_repository_dependabot_security_updates" "personal" {
   repository = github_repository.workspace.name
   enabled    = local.merge_gate.security.dependabot_security_updates
-  depends_on = [github_repository_vulnerability_alerts.workspace]
+  depends_on = [github_repository_vulnerability_alerts.personal]
 }
 
 resource "github_repository_collaborators" "workspace" {
@@ -417,7 +417,7 @@ resource "github_repository_collaborators" "workspace" {
   }
 }
 
-resource "github_issue_labels" "workspace" {
+resource "github_issue_labels" "personal" {
   repository = github_repository.workspace.name
   dynamic "label" {
     for_each = { for label in local.merge_gate.labels : label.name => label }
@@ -483,33 +483,38 @@ resource "github_repository_ruleset" "main" {
 
 import {
   to = github_repository.workspace
-  id = "workspace"
+  id = "personal"
 }
 import {
   to = github_branch_default.main
-  id = "workspace"
+  id = "personal"
 }
 import {
   to = github_repository_ruleset.main
-  id = "workspace:23686210"
+  id = "personal:23686210"
 }
 import {
   to = github_actions_repository_permissions.workspace
-  id = "workspace"
+  id = "personal"
 }
 import {
   to = github_workflow_repository_permissions.workspace
-  id = "workspace"
+  id = "personal"
 }
 import {
   to = github_repository_collaborators.workspace
-  id = "workspace"
+  id = "personal"
 }
 import {
-  to = github_issue_labels.workspace
-  id = "workspace"
+  to = github_issue_labels.personal
+  id = "personal"
 }
 import {
-  to = github_repository_dependabot_security_updates.workspace
-  id = "workspace"
+  to = github_repository_dependabot_security_updates.personal
+  id = "personal"
+}
+
+import {
+  to = github_repository_vulnerability_alerts.personal
+  id = "personal"
 }

@@ -29,7 +29,7 @@ runs:
         pull: true
         cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay:buildcache
         cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay:buildcache,mode=max,ignore-error=true
-        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        labels: org.opencontainers.image.source=https://github.com/crvouga/personal
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay:latest
           ghcr.io/crvouga/chrisvouga-auth-relay:${{ github.sha }}
@@ -45,7 +45,7 @@ runs:
         pull: true
         cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-identity:buildcache
         cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-identity:buildcache,mode=max,ignore-error=true
-        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        labels: org.opencontainers.image.source=https://github.com/crvouga/personal
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay-identity:latest
           ghcr.io/crvouga/chrisvouga-auth-relay-identity:${{ github.sha }}
@@ -61,7 +61,7 @@ runs:
         pull: true
         cache-from: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:buildcache
         cache-to: type=registry,ref=ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:buildcache,mode=max,ignore-error=true
-        labels: org.opencontainers.image.source=https://github.com/crvouga/workspace
+        labels: org.opencontainers.image.source=https://github.com/crvouga/personal
         tags: |
           ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:latest
           ghcr.io/crvouga/chrisvouga-auth-relay-tunnel:${{ github.sha }}

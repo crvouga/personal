@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { publishGlobalConfig } from './global-config';
 import { appendOnce, miseDataDir } from './shell-path';
 import { dockerChecks, toolChecks } from './doctor';
+import { awsWindowsArtifact } from './native-aws';
 
 test('global config publishes lock sidecars, is repeatable and refuses foreign configs', () => {
   const temp = mkdtempSync(join(tmpdir(), 'toolchain-'));
@@ -88,6 +89,14 @@ test('mise data location follows native Windows and XDG overrides', () => {
   );
 });
 
+test('version checks accept sentence punctuation but reject a longer version', () => {
+  const result = (output: string) =>
+    toolChecks({ copilot: '1.0.105' }, () => ({ ok: true, output }))[0]?.status;
+  expect(result('GitHub Copilot CLI 1.0.105.')).toBe('pass');
+  expect(result('GitHub Copilot CLI 1.0.1050')).toBe('fail');
+  expect(result('GitHub Copilot CLI 1.0.105.1')).toBe('fail');
+});
+
 test('every base tool has locked artifacts for every supported OS/architecture', () => {
   const root = join(import.meta.dirname, '../..');
   const config = Bun.TOML.parse(
@@ -114,8 +123,23 @@ test('every base tool has locked artifacts for every supported OS/architecture',
       expect(
         readFileSync(join(root, graph.path, 'aube-lock.yaml'), 'utf8')
       ).toContain('integrity:');
+    } else if (name === 'rust') {
+      expect(row?.['backend']).toBe('core:rust');
+      expect(row?.['version']).toMatch(/^\d+\.\d+\.\d+$/);
     } else
       for (const platform of config.settings.lockfile_platforms) {
+        if (name === 'aws' && platform === 'windows-x64') {
+          const artifact = awsWindowsArtifact(
+            Bun.TOML.parse(
+              readFileSync(join(root, 'mise.toml'), 'utf8')
+            ) as Parameters<typeof awsWindowsArtifact>[0]
+          );
+          expect(artifact.version).toBe(
+            typeof spec === 'string' ? spec : spec.version
+          );
+          expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
+          continue;
+        }
         const artifact = row?.[`platforms.${platform}`] as
           { checksum?: string } | undefined;
         expect(artifact?.checksum, `${name} ${platform}`).toStartWith(

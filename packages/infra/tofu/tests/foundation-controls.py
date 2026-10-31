@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 tofu_root = Path(__file__).resolve().parents[1]
 inventory = json.loads((tofu_root / "modules/inventory/inventory.tf.json").read_text())["locals"]["inventory"]
+repository = inventory["github"]["infra_repo"]
+repository_name = repository.split("/")[1]
 project_id = "00000000-0000-4000-8000-000000000001"
 environment_id = "00000000-0000-4000-8000-000000000002"
 clearance = {"enabled": True}
@@ -41,9 +43,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        if path.endswith("/repos/crvouga/workspace"):
+        if path.endswith("/repos/" + repository):
             settings = inventory["github"]["pr_ready"]["repo_settings"]
-            return self.reply({**settings, "id": 123, "name": "workspace", "full_name": "crvouga/workspace",
+            return self.reply({**settings, "id": 123, "name": repository_name, "full_name": repository,
                                "owner": {"login": "crvouga", "id": 1, "type": "User"},
                                "private": False, "permissions": {"admin": True}, "has_pages": False,
                                "squash_merge_commit_message": "COMMIT_MESSAGES",
@@ -74,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(403, "GitHub writes forbidden in this convergence test")
 
     def do_PATCH(self):
-        assert self.path.endswith("/repos/crvouga/workspace")
+        assert self.path.endswith("/repos/" + repository)
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         security = payload.get("security_and_analysis")
         if security:
@@ -156,7 +158,7 @@ locals {{
 }}
 import {{
   to = github_repository.workspace
-  id = "workspace"
+  id = "{repository_name}"
 }}
 ''' + resource)
         provider_lock(github_root, "integrations/github")

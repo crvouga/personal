@@ -1,10 +1,10 @@
-# crvouga/workspace — shared machine setup and infrastructure integration guide
+# crvouga/personal — shared machine setup and infrastructure integration guide
 
-> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/workspace`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway services — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
+> The one file an agent needs to integrate another codebase with the shared infrastructure owned by `crvouga/personal`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway services — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
 Canonical deployed URL: https://www.chrisvouga.dev/llms-infra.txt (the site's own `/llms.txt` is the candidate summary for recruiters and links here for machine setup and infrastructure). The machine setup section is generated from `scripts/dev/README.md` and `mise.toml`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
-Source snapshot (always current `main`): https://raw.githubusercontent.com/crvouga/workspace/main/llms.txt
+Source snapshot (always current `main`): https://raw.githubusercontent.com/crvouga/personal/main/llms.txt
 
 ## Use this file
 
@@ -16,12 +16,12 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
   ```
 
 - Re-fetch it instead of trusting a cached copy — ports, hostnames and the services list change.
-- Pick the sections that apply (checklist below); each one is self-contained. Anything that needs a change in `crvouga/workspace` is requested with a GitHub issue.
-- If anything here disagrees with `OpenTofu inventory` in `crvouga/workspace`, the OpenTofu definition wins — tell the human the file is stale.
+- Pick the sections that apply (checklist below); each one is self-contained. Anything that needs a change in `crvouga/personal` is requested with a GitHub issue.
+- If anything here disagrees with `OpenTofu inventory` in `crvouga/personal`, the OpenTofu definition wins — tell the human the file is stale.
 
-## Communicating with `crvouga/workspace`: GitHub issues
+## Communicating with `crvouga/personal`: GitHub issues
 
-**GitHub issues are the only channel between other projects and this one.** If your project wants `crvouga/workspace` to manage infrastructure for it — hosting, a secret key, a database or schema, an object-store prefix, an auth-relay grant, a policy or access change, or a fix to something here — open an issue on `crvouga/workspace`. Do not message the owner out of band, edit another repo's files, or work around the platform with a dashboard, an admin API or your own provisioning. The agent working in `crvouga/workspace` reads the issue, makes the OpenTofu change in a PR that closes it, and reports back **in the same issue**.
+**GitHub issues are the only channel between other projects and this one.** If your project wants `crvouga/personal` to manage infrastructure for it — hosting, a secret key, a database or schema, an object-store prefix, an auth-relay grant, a policy or access change, or a fix to something here — open an issue on `crvouga/personal`. Do not message the owner out of band, edit another repo's files, or work around the platform with a dashboard, an admin API or your own provisioning. The agent working in `crvouga/personal` reads the issue, makes the OpenTofu change in a PR that closes it, and reports back **in the same issue**.
 
 | Need | Issue title prefix | Guide |
 | --- | --- | --- |
@@ -34,20 +34,20 @@ Source snapshot (always current `main`): https://raw.githubusercontent.com/crvou
 
 Rules for every issue:
 
-1. **Search first**: `gh issue list -R crvouga/workspace --state all --search "[<prefix>] <id> in:title"`. Comment on or update the existing issue instead of opening a duplicate.
+1. **Search first**: `gh issue list -R crvouga/personal --state all --search "[<prefix>] <id> in:title"`. Comment on or update the existing issue instead of opening a duplicate.
 2. **One issue per request**, titled with the prefix above. State the requesting repo (`owner/name`), the app id, which of `dev` / `prd` you need, and the exact end state you expect. Write `none` / `n/a` rather than leaving a field out. For a request without its own template, include: Context, Request, Why, Acceptance (how you will verify it), and Links.
 3. **Never put secret values in an issue** — it is public. List secret _names_ and where the human will write the values (Vault), and ask the human to rotate anything that leaks.
-4. **Open it with `gh`**: `gh issue create -R crvouga/workspace --label enhancement --title "[<prefix>] <id> — <summary>" --body-file /tmp/request.md` (use `--label bug` for something broken). If `gh` is unauthenticated or the human lacks access, hand the human the filled-in body and the command.
-5. **Give the human the issue URL**, then keep going with unrelated work. The infra agent answers in issue comments (questions, the live URL, the Vault path to fill in, the PR number). Re-read the issue (`gh issue view <n> -R crvouga/workspace --comments`) before you continue the dependent work, and only treat the request as done when the issue is closed or the infra agent says so.
+4. **Open it with `gh`**: `gh issue create -R crvouga/personal --label enhancement --title "[<prefix>] <id> — <summary>" --body-file /tmp/request.md` (use `--label bug` for something broken). If `gh` is unauthenticated or the human lacks access, hand the human the filled-in body and the command.
+5. **Give the human the issue URL**, then keep going with unrelated work. The infra agent answers in issue comments (questions, the live URL, the Vault path to fill in, the PR number). Re-read the issue (`gh issue view <n> -R crvouga/personal --comments`) before you continue the dependent work, and only treat the request as done when the issue is closed or the infra agent says so.
 6. **Answer questions in the issue**, not elsewhere, so the history stays attached to the request.
-7. **In the other direction**, when `crvouga/workspace` needs something from your project (a failing publish workflow, a bad health path, a deprecated contract), it opens an issue on _your_ repo. Watch for those and answer them in the same issue.
+7. **In the other direction**, when `crvouga/personal` needs something from your project (a failing publish workflow, a bad health path, a deprecated contract), it opens an issue on _your_ repo. Watch for those and answer them in the same issue.
 
 ## Ground rules
 
 - **Never invent, print, log, or commit secret values.** If an optional secret is missing or invalid, report its key and source, skip only its dependent integration or skill check, and continue unrelated work. Required credentials for an active deployment fail that deployment; never claim a skipped check passed.
 - **Global tooling follows the shared machine setup below.** When the user requests machine setup, run the checked-in bootstrap and locked mise toolchain. Otherwise report missing tools with the documented command; do not make unrelated global changes.
-- **Shared infrastructure changes belong in `crvouga/workspace` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). **To get one, raise a GitHub issue on `crvouga/workspace`** (see the section above) — never apply it yourself. A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
-- `@pkgs/*` packages in `crvouga/workspace` are **private workspace packages** — they cannot be installed elsewhere. Use the plain HTTP / S3 / env-var contracts below.
+- **Shared infrastructure changes belong in `crvouga/personal` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). **To get one, raise a GitHub issue on `crvouga/personal`** (see the section above) — never apply it yourself. A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
+- `@pkgs/*` packages in `crvouga/personal` are **private workspace packages** — they cannot be installed elsewhere. Use the plain HTTP / S3 / env-var contracts below.
 - Keep the app **twelve-factor**: configuration and secrets come from env vars at runtime, never from files baked into the image or the repo.
 
 ## Integration checklist
@@ -58,7 +58,7 @@ Rules for every issue:
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
 3. Uses Turborepo (`turbo.json` exists)? → [3. Local Turborepo caching](#3-local-turborepo-caching).
 4. Stores files / blobs? → [4. Object store](#4-object-store-cloudflare-r2-s3-compatible).
-5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a `[hosting]` GitHub issue on `crvouga/workspace` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
+5. Should be publicly hosted at `*.chrisvouga.dev` (and listed on the portfolio)? → [5. Hosting](#5-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a `[hosting]` GitHub issue on `crvouga/personal` (§5 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 6. Needs Google sign-in? → [6. Auth relay](#6-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
 
 ## Resources at a glance
@@ -75,13 +75,13 @@ All consumer credentials live in Vault. Auth agent credentials use isolated `sec
 
 This is a consumer guide, not an inventory dump. State backends, provider credentials, the OpenBao storage database, administrative tunnels, and control-plane tokens are intentionally excluded from consumer instructions. They remain OpenTofu-owned and must never be reused by an application.
 
-All 14 domain registrations remain at Squarespace; registrar/DNS consolidation is cancelled. Existing Cloudflare DNS for `chrisvouga.dev`, `gamezilla.app`, `moviefinder.app` and `normalizer.app` is preserved. `bun domains inventory` and `bun domains discover` are read-only. Consumers must not transfer registrations or change shared nameservers. Cancellation evidence and the accepted disabled DNSSEC setting for unused `emulates.dev` are documented in [`packages/infra/docs/domain-migration.md`](https://github.com/crvouga/workspace/blob/main/packages/infra/docs/domain-migration.md).
+All 14 domain registrations remain at Squarespace; registrar/DNS consolidation is cancelled. Existing Cloudflare DNS for `chrisvouga.dev`, `gamezilla.app`, `moviefinder.app` and `normalizer.app` is preserved. `bun domains inventory` and `bun domains discover` are read-only. Consumers must not transfer registrations or change shared nameservers. Cancellation evidence and the accepted disabled DNSSEC setting for unused `emulates.dev` are documented in [`packages/infra/docs/domain-migration.md`](https://github.com/crvouga/personal/blob/main/packages/infra/docs/domain-migration.md).
 
 ---
 
 ## Machine setup: macOS, Windows and Linux
 
-This is the shared development setup for **crvouga/workspace**. One versioned
+This is the shared development setup for **crvouga/personal**. One versioned
 manifest, `mise.toml`, owns the developer tools; `mise.lock` and `.mise/locks/`
 own resolved artifacts and dependency graphs. Both bootstraps apply that same
 manifest to the current user globally. Other projects can override versions with
@@ -93,14 +93,14 @@ install the toolchain.
 macOS / Linux, in Bash (download first so the script is reviewable):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/crvouga/workspace/main/scripts/dev/bootstrap.sh -o /tmp/workspace-bootstrap.sh
+curl -fsSL https://raw.githubusercontent.com/crvouga/personal/main/scripts/dev/bootstrap.sh -o /tmp/workspace-bootstrap.sh
 bash /tmp/workspace-bootstrap.sh
 ```
 
 Native Windows, in x64 PowerShell (5.1 or newer):
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/crvouga/workspace/main/scripts/dev/bootstrap.ps1 -OutFile "$env:TEMP\workspace-bootstrap.ps1"
+Invoke-WebRequest https://raw.githubusercontent.com/crvouga/personal/main/scripts/dev/bootstrap.ps1 -OutFile "$env:TEMP\workspace-bootstrap.ps1"
 & "$env:TEMP\workspace-bootstrap.ps1"
 ```
 
@@ -120,7 +120,12 @@ configuration, install pinned Bun, install the shared tools with `--locked`, cop
 the managed global config/lock/sidecars, set up persistent shims on PATH, and run
 `bun install --frozen-lockfile`. Reopen your terminal/editor afterward. Unix PATH
 blocks are appended once to `.profile`, `.bashrc`, `.zshrc` and fish's config;
-Windows updates only the user's PATH. Existing unrelated mise config/lockfiles
+Windows updates only the user's PATH; AWS CLI v2 additionally uses the official
+versioned MSI (a UAC prompt may appear) because mise's AWS recipe supports only
+macOS/Linux. Its version comes from the same manifest and its Windows SHA-256 is
+pinned in `vars.aws_windows_msi_sha256`; no unversioned installer is executed.
+CI/non-interactive setup never opens an elevation prompt and requires an
+administrator context if that MSI needs installation. Existing unrelated mise config/lockfiles
 are refused: back them up and move them first, then merge intentional overrides
 using project configs. `MISE_CONFIG_DIR` and `XDG_CONFIG_HOME` are respected for
 configuration; the PATH step also respects `MISE_DATA_DIR`, `XDG_DATA_HOME` and
@@ -161,18 +166,39 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
 - **JavaScript/TypeScript:** Node **with npm**, Bun, pnpm, Yarn and Deno.
   TypeScript, ESLint, Prettier, Turbo and test frameworks remain project
   dependencies installed from `bun.lock`; do not install duplicate global copies.
-- **Languages:** Python (precompiled), uv and Go. `uv tool`/project environments
-  isolate Python dependencies. Java, Rust, .NET, mobile SDKs and databases belong
-  in the projects that need them rather than the default machine setup.
+- **Languages/builds:** Python (precompiled), uv/uvx, Go, Rust/Cargo/rustfmt/Clippy,
+  CMake, Ninja and Just. OS compilers/linkers remain prerequisites: Apple Command
+  Line Tools, Linux build-essential/GCC, or Windows MSVC Build Tools + SDK.
+  Java (Temurin 25 LTS) and .NET 10 SDK are locked on-demand tools.
+  Project manifests still select project-specific language/library versions.
 - **CLI utilities:** ripgrep (`rg`), fd, fzf, bat, delta, jq and Mike Farah yq.
 - **Delivery/infra:** Vercel, Wrangler, Railway, OpenTofu, Vault CLI (for the OpenBao-compatible secret service), Docker CLI,
-  ShellCheck and actionlint. Installing provider CLIs does not authorize agents
+  ShellCheck, shfmt, actionlint, AWS CLI v2, kubectl and Helm. Installing provider CLIs does not authorize agents
   to provision resources; shared infrastructure is still OpenTofu-owned.
-- **Agent tooling:** OpenCode; its optional credentials/settings continue to be
-  managed by the existing `ws` CLI and Vault, not by the bootstrap.
-- **On demand:** Atlas (macOS/Linux) and Azure CLI are retained as lazy tools;
-  install with `mise install --locked atlas` / `mise install --locked azure-cli`.
-  Lazy tools are not part of the base doctor's required checks.
+- **Agent harnesses:** Claude Code (`claude`), Codex (`codex`), Gemini CLI
+  (`gemini`), GitHub Copilot CLI (`copilot`) and OpenCode (`opencode`).
+  Installed versions are checked by doctor on all three OSes. Start the CLI you
+  want to use and complete its interactive sign-in; installation does not copy
+  tokens, choose paid plans or grant agent permissions. OpenCode's optional
+  settings remain managed by `ws` and Vault. Codex sign-in follows the
+  [official CLI guide](https://learn.chatgpt.com/docs/codex/cli).
+  Claude/Copilot background self-updaters are disabled through mise environment
+  settings so they cannot silently replace locked versions; update through this
+  repository instead.
+- **Security/data/HTTP:** Gitleaks for secret scanning, SOPS + age for encrypted
+  files, xh for HTTP requests, and usql for SQL database connections. Installing
+  these tools does not create encryption keys or copy credentials.
+- **Agent/container development:** Dev Containers CLI (`devcontainer`) is included.
+  MCP Inspector is pinned on demand; use it only for the MCP server you intend
+  to inspect, and follow the tool's local access instructions.
+- **On demand:** Atlas (macOS/Linux), Azure CLI, Google Cloud CLI, AWS CDK/SAM,
+  Java/.NET SDKs and MCP Inspector are locked lazy tools. Install one with
+  `mise install --locked <tool>`, for example `mise install --locked gcloud`, or
+  install the whole catalog with `mise install --locked --include-lazy`.
+  AWS SAM is currently macOS/Linux only in mise; native Windows users can use
+  AWS's supported SAM installer when their project needs it.
+  Lazy tools are excluded from the base doctor's required checks; large SDKs
+  may require their documented OS prerequisites and project-specific versions.
 
 **nvm is intentionally replaced by mise's Node version management.** Unix nvm
 and nvm-windows are different implementations. Use `mise use node@<version>` in
@@ -231,6 +257,30 @@ installs the existing workstation launcher and converges OpenCode configuration;
 it may need platform permissions and a Vault login for credential-backed
 features. `bun run setup` remains dependency installation only.
 
+### Working with modern repositories
+
+After bootstrap, clone with `gh repo clone owner/repo`, read that repository's
+`AGENTS.md`/README and language manifests, and trust its mise config only after
+review. Use its lockfile and declared package manager: `bun install --frozen-lockfile`,
+`npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`,
+`uv sync --locked`, `cargo build --locked` or `go mod download` as appropriate.
+Do not install global copies of project-owned TypeScript, ESLint, Prettier, test
+frameworks or SDK libraries. For a `.devcontainer` project, use
+`devcontainer up --workspace-folder .` after Docker readiness succeeds.
+
+Database servers (PostgreSQL, MySQL, Redis, etc.) and local services belong in
+the project's versioned Compose/devcontainer configuration. The shared setup
+provides the Docker and SQL clients; it does not start unrequested background
+servers or occupy their ports. Python and Bun provide SQLite support without
+requiring a separate global database daemon. Mobile/iOS/Android toolchains and
+platform-specific native dependencies remain project/OS prerequisites.
+
+Cloud sign-in is per machine: `aws configure sso` / `aws sso login`,
+`gcloud auth login` and `az login` only when the task needs that provider.
+Use named profiles and existing credentials; never put access keys in this repo.
+Kubernetes contexts, cloud resource creation and production deployment still
+follow each repository's authorization and IaC rules.
+
 ### Containers: CLI versus engine
 
 The manifest installs the **Docker client**. Containers also require a local or
@@ -256,6 +306,22 @@ for that installation. Verify with `docker version`, `docker compose version`,
 `docker buildx version`, and optionally `docker run --rm hello-world` (downloads
 an image). CLI pinning does not pin or upgrade your engine/plugins.
 
+### Lockfile coverage and reviewed package metadata
+
+Most binary tools have platform URLs/checksums in `mise.lock`; npm/Python tools
+also have dependency graphs in `.mise/locks/`. Rust is managed by the native
+Rustup backend: mise pins the exact release, and Rustup verifies its versioned
+component distribution manifests rather than recording component hashes in mise's
+lock. AWS Windows uses the reviewed MSI checksum in the same manifest.
+
+MCP Inspector's dependency graph currently selects the manually published Pino
+9.14.0 backport, whose npm publisher metadata differs from the newer 10.x trusted
+publisher stream. The manifest's single-version trust-policy exception was added
+after verifying npm's SHA-512 integrity and all 139 published JavaScript files
+against `pinojs/pino`'s `v9.14.0` tag, plus matching package scripts/dependencies.
+The frozen graph still verifies its artifact integrity; no global trust checks
+are disabled. Remove that narrow exception when the upstream metadata is fixed.
+
 ### Keep machines synchronized
 
 From the checkout, on any platform:
@@ -277,6 +343,14 @@ To change versions: edit pins with `mise use --pin <tool>@<version>` (or edit
 changes, and test. Keep Bun's pin in `package.json` and the setup action aligned;
 keep Node's `.nvmrc` aligned. Run `bun run llms:sync` to regenerate the served
 agent guide, then commit. Do not use `mise upgrade` independently on each machine.
+Version policy: use the newest stable compatible releases, with the newest Node
+LTS rather than an untested Current release. The current compatibility exceptions
+are delta 0.18.2 (newer releases omit Intel macOS), OpenTofu 1.13.0 (all infrastructure
+roots and deployment gates require that exact version), and OpenCode 1.19.5
+(the workspace's notification/provider plugins still target the 1.x API). Their
+major/platform migrations must be validated before moving those pins. Python
+and other standalone tools use their latest stable releases at the last update.
+
 Locked downloads still need network access; GitHub limits may require an
 authenticated `gh` session. Never disable verification to bypass a failing lock.
 
@@ -287,25 +361,27 @@ https://www.chrisvouga.dev/llms-infra.txt#machine-setup-macos-windows-and-linux.
 The root `llms.txt` and served `/llms-infra.txt` are generated by
 `bun run llms:sync` from `scripts/llms-txt.template.md`, this file, `mise.toml` and
 infrastructure sources. Never edit generated copies. Read root `AGENTS.md` before
-working in the repo. Bootstrap is authorized only when the user requests machine
+working in the repo. Claude Code, Gemini CLI and Copilot have thin checked-in
+instruction files pointing to that same canonical document; Codex/OpenCode use
+`AGENTS.md` directly. Harness credentials and personal settings remain per machine. Bootstrap is authorized only when the user requests machine
 setup; fetching a public guide alone does not authorize installs or logins.
 
 ### Exact shared tool versions (generated from mise.toml)
 
 | Tool | Version | Installation |
 | --- | --- | --- |
-| `gh` | 2.102.0 | Base toolchain |
+| `gh` | 2.103.3 | Base toolchain |
 | `shellcheck` | 0.11.0 | Base toolchain |
 | `actionlint` | 1.7.12 | Base toolchain |
 | `opentofu` | 1.13.0 | Base toolchain |
 | `bun` | 1.4.4 | Base toolchain |
-| `node` | 22.22.3 | Base toolchain |
+| `node` | 26.13.0 | Base toolchain |
 | `atlas` | 1.3.0 | On demand (linux, macos) |
 | `azure-cli` | 2.91.0 | On demand |
 | `pnpm` | 12.16.1 | Base toolchain |
 | `npm:@yarnpkg/cli-dist` | 4.18.1 | Base toolchain |
 | `deno` | 2.9.8 | Base toolchain |
-| `python` | 3.13.13 | Base toolchain |
+| `python` | 3.15.2 | Base toolchain |
 | `uv` | 0.13.6 | Base toolchain |
 | `go` | 1.27.3 | Base toolchain |
 | `jq` | 1.8.2 | Base toolchain |
@@ -322,6 +398,30 @@ setup; fetching a public guide alone does not authorize installs or logins.
 | `railway` | 5.71.0 | Base toolchain |
 | `aqua:anomalyco/opencode` | 1.19.5 | Base toolchain |
 | `vault` | 2.2.1 | Base toolchain |
+| `claude` | 2.1.314 | Base toolchain |
+| `codex` | 0.166.0 | Base toolchain |
+| `gemini` | 0.66.0 | Base toolchain |
+| `copilot` | 1.0.105 | Base toolchain |
+| `aws` | 2.39.2 | Base toolchain (linux, macos) |
+| `rust` | 1.99.1 | Base toolchain |
+| `cmake` | 4.4.5 | Base toolchain |
+| `ninja` | 1.13.2 | Base toolchain |
+| `just` | 1.59.0 | Base toolchain |
+| `gitleaks` | 8.30.1 | Base toolchain |
+| `shfmt` | 3.14.1 | Base toolchain |
+| `sops` | 3.13.3 | Base toolchain |
+| `age` | 1.3.2 | Base toolchain |
+| `kubectl` | 1.37.2 | Base toolchain |
+| `helm` | 4.3.1 | Base toolchain |
+| `xh` | 0.26.3 | Base toolchain |
+| `usql` | 0.21.6 | Base toolchain |
+| `java` | temurin-25.0.5+8.0.LTS | On demand |
+| `dotnet` | 10.0.403 | On demand |
+| `gcloud` | 591.0.0 | On demand |
+| `npm:@devcontainers/cli` | 0.90.0 | Base toolchain |
+| `npm:@modelcontextprotocol/inspector` | 2.13.0 | On demand |
+| `aws-cdk` | 2.1146.1 | On demand |
+| `aws-sam` | 1.171.0 | On demand (linux, macos) |
 
 ---
 
@@ -337,7 +437,7 @@ setup; fetching a public guide alone does not authorize installs or logins.
 | Project | `personal` — shared by all personal apps; use it unless told otherwise              |
 | Configs | `dev`, `prd` — `dev` for local work, `prd` for CI / production (same key names in both) |
 
-Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` and `auth/token/lookup-self` — a new project namespace needs a policy change in `crvouga/workspace`, so add your app's keys under `personal`. To get a new key or access, open a `[secrets]` issue on `crvouga/workspace` listing the key names, which configs need them and which app uses them (names only, never values).
+Each KV field becomes one env var. Every config must carry the **same key names** (values may differ). CI read access covers only `secret/data/personal/*` and `secret/metadata/personal/*` and `auth/token/lookup-self` — a new project namespace needs a policy change in `crvouga/personal`, so add your app's keys under `personal`. To get a new key or access, open a `[secrets]` issue on `crvouga/personal` listing the key names, which configs need them and which app uses them (names only, never values).
 
 ### Keys that already exist
 
@@ -404,7 +504,7 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 
 ### Local dev — `vault run`
 
-The human installs the wrapper once per machine (from a `crvouga/workspace` checkout; needs the `vault` or `bao` CLI and `jq`):
+The human installs the wrapper once per machine (from a `crvouga/personal` checkout; needs the `vault` or `bao` CLI and `jq`):
 
 ```bash
 packages/vault-service/scripts/install-cli.sh   # → ~/.local/bin/vault wrapper
@@ -456,8 +556,8 @@ steps:
 
 - JWT auth at `jwt/`, role `github-actions` → policy `ci-read`, TTL 15m.
 - Repository claims restrict access to `crvouga/*`. The existing role permits branch and pull-request jobs in these repositories. Never substitute a stored `VAULT_TOKEN` for OIDC.
-- Vault restarts **sealed** and auto-unseals on deploy. If calls return 503, poll `GET https://vault.chrisvouga.dev/v1/sys/health?standbyok=true` until 200 before failing — [`.github/actions/vault-secrets/action.yml`](https://github.com/crvouga/workspace/blob/main/.github/actions/vault-secrets/action.yml) is a wait + retry pattern to copy.
-- A repo outside `crvouga/*` or a project outside `personal` needs [`packages/infra/tofu/vault/main.tf`](https://github.com/crvouga/workspace/blob/main/packages/infra/tofu/vault/main.tf) / a policy change — tell the human.
+- Vault restarts **sealed** and auto-unseals on deploy. If calls return 503, poll `GET https://vault.chrisvouga.dev/v1/sys/health?standbyok=true` until 200 before failing — [`.github/actions/vault-secrets/action.yml`](https://github.com/crvouga/personal/blob/main/.github/actions/vault-secrets/action.yml) is a wait + retry pattern to copy.
+- A repo outside `crvouga/*` or a project outside `personal` needs [`packages/infra/tofu/vault/main.tf`](https://github.com/crvouga/personal/blob/main/packages/infra/tofu/vault/main.tf) / a policy change — tell the human.
 
 ### App runtime — read token + HTTP
 
@@ -483,8 +583,8 @@ The application database contract is the secret env var `DATABASE_URL` in Vault 
 ### Boundaries
 
 - `DATABASE_URL` is the only application-facing PostgreSQL credential. `DB_CONNECTION_URI`, `PLANETSCALE_SERVICE_TOKEN_ID`, `PLANETSCALE_SERVICE_TOKEN`, and the `secret_store` schema belong to the OpenBao control plane. Never read, request, inject, migrate, inspect, or reuse them from an application.
-- Do not create a database, branch, role, extension, replica, or provider project from another repo. Those are infrastructure resources and must be declared in `crvouga/workspace` with OpenTofu. Application repositories own their allocated schemas and table migrations; the platform does not reconcile their application DDL.
-- A new app needs an explicitly allocated database/schema before it runs DDL or writes data. Include the requested app id, schema name, extensions, migration command, and whether both `dev` and `prd` are required in the hosting request (§5), or in a `[database]` issue on `crvouga/workspace` if the app is already hosted. Record an allocated schema in the service inventory as `database_schema`; its application migrations may create and evolve only that schema. If no allocation is recorded in the approved infrastructure change, stop; possession of the shared credential is not authorization to use another app's tables.
+- Do not create a database, branch, role, extension, replica, or provider project from another repo. Those are infrastructure resources and must be declared in `crvouga/personal` with OpenTofu. Application repositories own their allocated schemas and table migrations; the platform does not reconcile their application DDL.
+- A new app needs an explicitly allocated database/schema before it runs DDL or writes data. Include the requested app id, schema name, extensions, migration command, and whether both `dev` and `prd` are required in the hosting request (§5), or in a `[database]` issue on `crvouga/personal` if the app is already hosted. Record an allocated schema in the service inventory as `database_schema`; its application migrations may create and evolve only that schema. If no allocation is recorded in the approved infrastructure change, stop; possession of the shared credential is not authorization to use another app's tables.
 - Keep dev and production separate by loading the matching Vault config. Never copy production data into dev or point a local process at `prd` unless the human explicitly requests it.
 - Use parameterized queries. Put schema changes in deterministic, committed migrations and make the deploy strategy explicit. Never perform destructive or irreversible migrations automatically; use expand/migrate/contract changes and a reviewed backup/rollback plan.
 - Configure a small bounded connection pool, release clients in `finally`, set query/statement timeouts, retry only transient connection failures with bounded backoff, and make write retries idempotent. Do not retry constraint errors or arbitrary transactions.
@@ -536,7 +636,7 @@ vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | g
 
 ## 3. Local Turborepo caching
 
-Turborepo remote caching is retired. The server source remains dormant at [`packages/turborepo-remote-cache`](https://github.com/crvouga/workspace/blob/main/packages/turborepo-remote-cache). Do not configure clients, copy cache credentials or probe the former Turbo endpoint.
+Turborepo remote caching is retired. The server source remains dormant at [`packages/turborepo-remote-cache`](https://github.com/crvouga/personal/blob/main/packages/turborepo-remote-cache). Do not configure clients, copy cache credentials or probe the former Turbo endpoint.
 
 Use local caching; remove `TURBO_API`, `TURBO_TOKEN` and `TURBO_TEAM` from client environments. Replace any `TURBO_CACHE=remote:rw` setting with `TURBO_CACHE=local:rw`. In `turbo.json`, set:
 
@@ -576,12 +676,12 @@ Shared buckets, one per Vault config; apps partition them by key prefix.
 - Buckets are private. Serve objects through your app (or presigned URLs), never public bucket URLs.
 - Store the authoritative MIME type and size as object metadata; do not trust a download filename or user-provided `Content-Type`. Stream large bodies instead of buffering them, place explicit size limits on uploads, and use multipart upload only when the chosen SDK can abort failed uploads.
 - Treat `PUT` of the same key as replacement. Generate immutable/versioned keys when overwrites would break caches, and delete only keys that your app recorded as owned. R2 listing is paginated; follow continuation tokens until complete.
-- Do not create buckets or R2 tokens; provisioning lives in `crvouga/workspace` (`bun run infra apply`).
+- Do not create buckets or R2 tokens; provisioning lives in `crvouga/personal` (`bun run infra apply`).
 
 **Clients**
 
 ```ts
-// Workers / Bun / Node — tiny, fetch-based (what crvouga/workspace uses)
+// Workers / Bun / Node — tiny, fetch-based (what crvouga/personal uses)
 import { AwsClient } from 'aws4fetch';
 const s3 = new AwsClient({
   accessKeyId: env.S3_ACCESS_KEY_ID,
@@ -621,7 +721,7 @@ Recommended shape: hide the SDK behind a small interface — `get(key) → {body
 
 ## 5. Hosting on the managed services
 
-`crvouga/workspace` hosts apps on Railway (project `Workspace`, region `us-west2`) behind `*.chrisvouga.dev` hostnames with TLS and DNS managed by OpenTofu. **Railway never builds your code.** Every hosted project is Dockerized, CI publishes a **prebuilt image** to GHCR, and the services deploys that exact image.
+`crvouga/personal` hosts apps on Railway (project `Workspace`, region `us-west2`) behind `*.chrisvouga.dev` hostnames with TLS and DNS managed by OpenTofu. **Railway never builds your code.** Every hosted project is Dockerized, CI publishes a **prebuilt image** to GHCR, and the services deploys that exact image.
 
 ### Contract your project must meet
 
@@ -668,22 +768,22 @@ CMD ["bun", "run", "src/server.ts"]
 
 Verify locally before wiring CI: `docker build -t app . && docker run --rm -p 8080:8080 -e PORT=8080 app`, then `curl -fsS localhost:8080<health_path>`.
 
-### Step 1 — open a hosting request issue (on `crvouga/workspace`)
+### Step 1 — open a hosting request issue (on `crvouga/personal`)
 
-You cannot add a service from another repo — the services only runs what `packages/infra/tofu/modules/inventory/inventory.tf.json` in `crvouga/workspace` declares, and an agent working there adds it. Your job is to hand that agent **everything** it needs in one GitHub issue, so it never has to open your repo to guess: where the image lives, how to run it, which secrets it needs, and how the project should appear on the portfolio at `https://www.chrisvouga.dev`.
+You cannot add a service from another repo — the services only runs what `packages/infra/tofu/modules/inventory/inventory.tf.json` in `crvouga/personal` declares, and an agent working there adds it. Your job is to hand that agent **everything** it needs in one GitHub issue, so it never has to open your repo to guess: where the image lives, how to run it, which secrets it needs, and how the project should appear on the portfolio at `https://www.chrisvouga.dev`.
 
 1. Meet the contract above and verify the image locally (`docker build` + `docker run` + `curl` the health path). Do not open the issue until that works.
-2. Commit the publish workflow (Step 3) in the same change, so the image already exists on GHCR when the infra agent deploys it. Until the service entry lands, the deploy step in `crvouga/workspace` fails with "service id not found" — that is expected.
-3. Check for an existing request first: `gh issue list -R crvouga/workspace --state all --search "[hosting] <id> in:title"`. Update that issue instead of opening a duplicate.
+2. Commit the publish workflow (Step 3) in the same change, so the image already exists on GHCR when the infra agent deploys it. Until the service entry lands, the deploy step in `crvouga/personal` fails with "service id not found" — that is expected.
+3. Check for an existing request first: `gh issue list -R crvouga/personal --state all --search "[hosting] <id> in:title"`. Update that issue instead of opening a duplicate.
 4. Fill in **every** field of the body below (write `none` / `n/a` rather than deleting a field), save it to a scratch file outside the repo, and open the issue:
 
    ```bash
-   gh issue create -R crvouga/workspace --label enhancement \
+   gh issue create -R crvouga/personal --label enhancement \
      --title "[hosting] <id> — <one-line summary>" \
      --body-file /tmp/hosting-request.md
    ```
 
-   If `gh` is not authenticated or the human lacks access to `crvouga/workspace`, give the human the filled-in body and the command instead.
+   If `gh` is not authenticated or the human lacks access to `crvouga/personal`, give the human the filled-in body and the command instead.
 
 5. Tell the human the issue URL. When the infra agent comments with the live URL, confirm `curl -fsS https://<hostname><health_path>` succeeds.
 
@@ -785,7 +885,7 @@ Names only — never values.
 
 Portfolio topics (use these exact keys; a new topic needs an icon, so ask for it in the issue instead of inventing one): `neo4j`, `graphene`, `flask`, `salesforce`, `dynamodb`, `php`, `drupal`, `typescript`, `heroku`, `jest`, `redux-saga`, `ramda`, `react`, `firebase`, `docker`, `supabase`, `postgres`, `material-ui`, `nextjs`, `socket-io`, `express`, `css`, `shopify`, `sanity`, `nodejs`, `puppeteer`, `redux`, `rxjs`, `elm`, `react-query`, `greensock`, `javascript`, `vue`, `tailwind`, `mongodb`, `bootstrap`, `graphql`, `gridsome`, `mysql`, `nuxt`, `python`, `aws`, `bun`, `websocket`, `alphinejs`, `roc`, `htmx`, `sqlite`, `rust`, `datastar`, `go`, `trpc`, `vercel`, `html`, `s3`, `zod`, `clojure`, `clojurescript`, `react-native`, `phaser`, `tone-js`, `astro`, `opentofu`, `nixos`, `github-actions`, `cloudflare`, `railway`, `openbao`, `playwright`.
 
-### Step 2 — the service entry (added in `crvouga/workspace` from your issue)
+### Step 2 — the service entry (added in `crvouga/personal` from your issue)
 
 Application repositories own publisher workflows and validation. Set `managed_publisher = false` and list `required_status_checks` in the repository inventory entry to retain that ownership while using the shared image build/deploy workflow.
 
@@ -794,7 +894,7 @@ OpenTofu-managed `DEPLOY_DISPATCH_TOKEN` before hosting is activated. This suppo
 publishing and verifying an image before adding the live service; repository
 settings are adopted through the foundation root's import blocks.
 
-The infra agent turns your issue into an entry like this in `packages/infra/tofu/modules/inventory/inventory.tf.json` (when you are working inside `crvouga/workspace` yourself, add it and run `bun run infra:services plan` to review the plan). Use it to check that your issue answers every field:
+The infra agent turns your issue into an entry like this in `packages/infra/tofu/modules/inventory/inventory.tf.json` (when you are working inside `crvouga/personal` yourself, add it and run `bun run infra:services plan` to review the plan). Use it to check that your issue answers every field:
 
 ```json
 {
@@ -857,7 +957,7 @@ checks remain necessary; HTTP readiness alone does not prove replica freshness.
 
 ### Step 3 — add the publish workflow (in your repo)
 
-Commit exactly this as `.github/workflows/publish.yml` (from `crvouga/workspace`, `bun run infra apply` generates and pushes it for every service of that repo). If the repo's default branch is not `main`, change the trigger branch:
+Commit exactly this as `.github/workflows/publish.yml` (from `crvouga/personal`, `bun run infra apply` generates and pushes it for every service of that repo). If the repo's default branch is not `main`, change the trigger branch:
 
 ```yaml
 # Managed by OpenTofu github_repository_file.
@@ -875,7 +975,7 @@ permissions:
 jobs:
 
   my_app:
-    uses: crvouga/workspace/.github/workflows/publish.yml@main
+    uses: crvouga/personal/.github/workflows/publish.yml@main
     secrets:
       DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
       CALLER_GITHUB_TOKEN: ${{ github.token }}
@@ -885,10 +985,10 @@ jobs:
       context: .
       image_owner: crvouga
       image_prefix: chrisvouga
-      infra_github_repo: crvouga/workspace
+      infra_github_repo: crvouga/personal
 ```
 
-It calls `crvouga/workspace`'s `ci.yml` as a reusable workflow. Inputs:
+It calls `crvouga/personal`'s `ci.yml` as a reusable workflow. Inputs:
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
@@ -897,7 +997,7 @@ It calls `crvouga/workspace`'s `ci.yml` as a reusable workflow. Inputs:
 | `context` |  | `.` | Docker build context. |
 | `image_owner` |  | `crvouga` | ghcr.io owner. |
 | `image_prefix` |  | `chrisvouga` | GHCR package prefix (from OpenTofu inventory image_prefix). |
-| `infra_github_repo` |  | `crvouga/workspace` | Infra repo owner/name for deploy dispatch. |
+| `infra_github_repo` |  | `crvouga/personal` | Infra repo owner/name for deploy dispatch. |
 | `notify_deploy` |  | `true` | POST repository_dispatch to infra after push. Set false when chaining deploy. |
 
 Caller secrets: `DEPLOY_DISPATCH_TOKEN` (the OpenTofu-managed platform PAT, used to publish existing GHCR packages and dispatch deployment; requires repository/workflow access and `write:packages`) and `CALLER_GITHUB_TOKEN` (pass `github.token`; publishing fallback when the platform token is absent). Update missing or rotated credentials through the OpenTofu foundation root.
@@ -905,10 +1005,10 @@ Caller secrets: `DEPLOY_DISPATCH_TOKEN` (the OpenTofu-managed platform PAT, used
 ### What happens on every push to `main`
 
 1. Your repo's publish job builds the Dockerfile and pushes `ghcr.io/crvouga/chrisvouga-<id>:<sha>` + `:latest`.
-2. It sends `repository_dispatch` `deploy-service` with `{"id": "<id>", "image_tag": "<sha>"}` to `crvouga/workspace`.
-3. `crvouga/workspace` CI applies OpenTofu DNS / Railway resources from `OpenTofu inventory`, syncs the declared Vault secrets into the service, deploys the image at that SHA, and health-checks `https://<hostname><health_path>`.
+2. It sends `repository_dispatch` `deploy-service` with `{"id": "<id>", "image_tag": "<sha>"}` to `crvouga/personal`.
+3. `crvouga/personal` CI applies OpenTofu DNS / Railway resources from `OpenTofu inventory`, syncs the declared Vault secrets into the service, deploys the image at that SHA, and health-checks `https://<hostname><health_path>`.
 
-Check it: `gh run list -R crvouga/workspace --workflow ci.yml --limit 3`, then `curl -fsS https://<hostname><health_path>`. Never redeploy from the Railway dashboard; a human can redeploy with `gh workflow run deploy.yml -R crvouga/workspace -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
+Check it: `gh run list -R crvouga/personal --workflow ci.yml --limit 3`, then `curl -fsS https://<hostname><health_path>`. Never redeploy from the Railway dashboard; a human can redeploy with `gh workflow run deploy.yml -R crvouga/personal -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
 ### Current services
 
@@ -916,7 +1016,7 @@ Working examples to copy from — each links to its source repo:
 
 | Service id | Public URL | Repo | Dockerfile (context) | Port | Health |
 | --- | --- | --- | --- | --- | --- |
-| `portfolio` | https://www.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/portfolio) | `packages/portfolio/Dockerfile` (`.`) | 80 | `/` |
+| `portfolio` | https://www.chrisvouga.dev | [crvouga/personal](https://github.com/crvouga/personal/tree/main/packages/portfolio) | `packages/portfolio/Dockerfile` (`.`) | 80 | `/` |
 | `moviefinder-app-rust` | https://moviefinder-app-rust.chrisvouga.dev | [crvouga/moviefinder.app-rust](https://github.com/crvouga/moviefinder.app-rust) | `./Dockerfile` (`.`) | 3000 | `/` |
 | `moviefinder-app-react` | https://moviefinder-app-react.chrisvouga.dev | [crvouga/moviefinder.app-react](https://github.com/crvouga/moviefinder.app-react) | `./Dockerfile` (`.`) | 3000 | `/` |
 | `moviefinder-app-clojurescript` | https://moviefinder-app-clojurescript.chrisvouga.dev | [crvouga/moviefinder.app-clojurescript](https://github.com/crvouga/moviefinder.app-clojurescript) | `./Dockerfile` (`.`) | 9630 | `/` |
@@ -932,17 +1032,17 @@ Working examples to copy from — each links to its source repo:
 | `violets-garden` | https://violetsgarden.chrisvouga.dev | [crvouga/violets-garden](https://github.com/crvouga/violets-garden) | `./Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-docs` | https://mockingbird.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/docs) | `sites/docs/Dockerfile` (`.`) | 80 | `/` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
-| `9router` | https://9router.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
+| `9router` | https://9router.chrisvouga.dev | [crvouga/personal](https://github.com/crvouga/personal/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |
 | `moviefinder` | https://moviefinder.chrisvouga.dev | [crvouga/moviefinder](https://github.com/crvouga/moviefinder) | `./Dockerfile` (`.`) | 8080 | `/health` |
 | `fleet-api` | https://fleet.chrisvouga.dev | [crvouga/fleet](https://github.com/crvouga/fleet) | `./Dockerfile` (`.`) | 8080 | `/health` |
-| `zoomies` | https://zoomies.chrisvouga.dev | [crvouga/workspace](https://github.com/crvouga/workspace/tree/main/packages/zoomies) | `packages/zoomies/Dockerfile` (`packages/zoomies`) | 8080 | `/healthz` |
+| `zoomies` | https://zoomies.chrisvouga.dev | [crvouga/personal](https://github.com/crvouga/personal/tree/main/packages/zoomies) | `packages/zoomies/Dockerfile` (`packages/zoomies`) | 8080 | `/healthz` |
 
 ---
 
 ## 6. Auth relay (Google sign-in)
 
-**Status: `preproduction`; live Google, reliability and browser acceptance remain incomplete.** Configured endpoints below do not establish readiness. Check discovery and the [acceptance record](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/acceptance.md) before relying on the relay. Missing deployment, credentials or approval are blockers; never substitute mock authentication or disable verification.
+**Status: `preproduction`; live Google, reliability and browser acceptance remain incomplete.** Configured endpoints below do not establish readiness. Check discovery and the [acceptance record](https://github.com/crvouga/personal/blob/main/packages/auth-relay/acceptance.md) before relying on the relay. Missing deployment, credentials or approval are blockers; never substitute mock authentication or disable verification.
 
 | Use | Console / agent API origin | OIDC issuer |
 | --- | --- | --- |
@@ -965,7 +1065,7 @@ Applications are **public PKCE clients**: there is no consuming OIDC client secr
 ### One-time onboarding (platform operator)
 
 1. Request a credential id, repo and exact GitHub OIDC subject, relay environment, project, approved HTTPS origins, whether changing loopback ports are needed, and expiry. Include this in the hosting request when applicable. Verify repository/deployment/domain ownership; a hostname or Google email alone is not evidence. No wildcard or shared hosting suffix approvals.
-2. In `crvouga/workspace`, add an entry to the **complete** `auth_agent_credentials` input map of the Vault OpenTofu root. Persist it in the existing OpenTofu-owned `TOFU_VAULT_INPUTS` input, preserving all other fields. Example metadata (no credential values):
+2. In `crvouga/personal`, add an entry to the **complete** `auth_agent_credentials` input map of the Vault OpenTofu root. Persist it in the existing OpenTofu-owned `TOFU_VAULT_INPUTS` input, preserving all other fields. Example metadata (no credential values):
 
    ```json
    {
@@ -987,11 +1087,11 @@ Grant leases last at most seven days outside production and 366 days in producti
 
 ### Register from another project
 
-The dependency-free [Bun agent client](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/agent.ts) can be copied into your project, inspected and pinned to a reviewed commit. No private `@pkgs/*` imports or platform checkout is needed:
+The dependency-free [Bun agent client](https://github.com/crvouga/personal/blob/main/packages/auth-relay/agent.ts) can be copied into your project, inspected and pinned to a reviewed commit. No private `@pkgs/*` imports or platform checkout is needed:
 
 ```bash
 # Download source for review; replace main with a reviewed commit for reproducibility.
-curl -fsS https://raw.githubusercontent.com/crvouga/workspace/main/packages/auth-relay/agent.ts -o auth-relay-agent.ts
+curl -fsS https://raw.githubusercontent.com/crvouga/personal/main/packages/auth-relay/agent.ts -o auth-relay-agent.ts
 
 # List only the fields that would be injected; no values.
 vault run --path secret/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
@@ -1073,7 +1173,7 @@ Bind each ten-minute, single-use transaction to the exact client/callback, brows
 
 Each app owns its authorization and sessions. SSR sessions use host-only HttpOnly/Secure/SameSite=Lax cookies over HTTPS. Namespace local session/transaction cookies per project **and instance**: localhost ports do not isolate cookies. Browser-only clients keep transactions per tab and avoid persistent token storage. Use top-level redirects. Existing app sessions follow local policy during a relay outage; new authentication fails closed.
 
-Before reporting success, verify discovery, registration readback, fresh login and callback/token validation, denied state/replay, concurrent tabs, and a second local instance. Confirm no registration credential enters the app bundle or runtime env. A missing deployment, Vault permission or operator approval is a precise blocker, not a passed check. Framework integration details and rollout evidence: [`packages/auth-relay/README.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/README.md), [`packages/auth-relay/operations.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/operations.md), [`packages/auth-relay/acceptance.md`](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/acceptance.md).
+Before reporting success, verify discovery, registration readback, fresh login and callback/token validation, denied state/replay, concurrent tabs, and a second local instance. Confirm no registration credential enters the app bundle or runtime env. A missing deployment, Vault permission or operator approval is a precise blocker, not a passed check. Framework integration details and rollout evidence: [`packages/auth-relay/README.md`](https://github.com/crvouga/personal/blob/main/packages/auth-relay/README.md), [`packages/auth-relay/operations.md`](https://github.com/crvouga/personal/blob/main/packages/auth-relay/operations.md), [`packages/auth-relay/acceptance.md`](https://github.com/crvouga/personal/blob/main/packages/auth-relay/acceptance.md).
 
 ---
 
@@ -1083,7 +1183,7 @@ Before reporting success, verify discovery, registration readback, fresh login a
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `vault run`: `No value found at secret/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
 | `vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
-| Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R crvouga/workspace -f action=unseal` |
+| Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R crvouga/personal -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: https://vault.chrisvouga.dev`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |
 | R2: `SignatureDoesNotMatch`                    | Wrong secret key, region ≠ `auto`, or virtual-host addressing — use path-style                                                 |
@@ -1095,24 +1195,24 @@ Before reporting success, verify discovery, registration readback, fresh login a
 
 ---
 
-## Handling requests (agents working inside `crvouga/workspace`)
+## Handling requests (agents working inside `crvouga/personal`)
 
-Every request from another project arrives as a GitHub issue (see _Communicating with `crvouga/workspace`_). List them with `gh issue list -R crvouga/workspace --state open` and triage by title prefix (`[hosting]`, `[secrets]`, `[database]`, `[storage]`, `[auth]`, `[infra]`). For each: validate it, ask for anything missing **in an issue comment** and stop (never guess), make the change through OpenTofu in one branch and PR with `Closes #<issue>`, then comment the outcome (live URL, Vault path to populate, PR link) on the issue. Never close a request that was not delivered; if you decline it, say why in a comment first. When this repo needs something from another project, open an issue on that project's repo rather than editing it. The steps below cover `[hosting]` requests in detail.
+Every request from another project arrives as a GitHub issue (see _Communicating with `crvouga/personal`_). List them with `gh issue list -R crvouga/personal --state open` and triage by title prefix (`[hosting]`, `[secrets]`, `[database]`, `[storage]`, `[auth]`, `[infra]`). For each: validate it, ask for anything missing **in an issue comment** and stop (never guess), make the change through OpenTofu in one branch and PR with `Closes #<issue>`, then comment the outcome (live URL, Vault path to populate, PR link) on the issue. Never close a request that was not delivered; if you decline it, say why in a comment first. When this repo needs something from another project, open an issue on that project's repo rather than editing it. The steps below cover `[hosting]` requests in detail.
 
 ### Hosting requests
 
-Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R crvouga/workspace --search "[hosting] in:title" --state open`). Work one issue per branch and PR:
+Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R crvouga/personal --search "[hosting] in:title" --state open`). Work one issue per branch and PR:
 
-1. **Validate the request.** Every field is filled; the id and hostname are unused in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](https://github.com/crvouga/workspace/blob/main/packages/infra/tofu/modules/inventory/inventory.tf.json); the image reference exists (`docker manifest inspect <ref>` or the GHCR package page); no secret values appear anywhere in the issue (if one does, tell the human to rotate it and edit the issue). Ask for anything missing in an issue comment and stop — never guess a port, health path or secret.
+1. **Validate the request.** Every field is filled; the id and hostname are unused in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](https://github.com/crvouga/personal/blob/main/packages/infra/tofu/modules/inventory/inventory.tf.json); the image reference exists (`docker manifest inspect <ref>` or the GHCR package page); no secret values appear anywhere in the issue (if one does, tell the human to rotate it and edit the issue). Ask for anything missing in an issue comment and stop — never guess a port, health path or secret.
 2. **Declare the service.** Add the entry to `locals.inventory.services` in the OpenTofu JSON definition (fields as in Step 2; `image:` only for an external image). For each new secret, add it to `vault.kv_keys` with `configs` and `used_by: [<id>]`, then tell the human the required OpenTofu vault secrets input changes — never write values yourself.
 3. **Plan.** `bun run infra:services plan` (dry run) and check the plan only adds this service, its DNS record and its variable bindings.
 4. **Publish workflow.** If the issue says it is not committed yet, `bun run infra apply` generates it (ask the human before pushing to another repo).
-5. **Portfolio.** When the issue asks for a listing, add a `Project` to [`packages/portfolio/src/content/projects/entries-part-2.ts`](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/content/projects/entries-part-2.ts) (main list; append at the end) or [`packages/portfolio/src/content/projects/entries-archive.ts`](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/content/projects/entries-archive.ts) (archive), following [`packages/portfolio/src/content/projects/types.ts`](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/content/projects/types.ts): `deployment: { t: 'public', url: 'https://<hostname>' }`, `code`, `description`, `topics` from [`packages/portfolio/src/content/topic.ts`](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/content/topic.ts), and `imageSrc` / `galleryImageSrc` set to `/<id>-screenshot.optimized.webp`. Once the service is live, the human runs `bun run --filter @pkgs/portfolio gen` locally to capture the screenshot into `assets/` and its optimized derivative into `public/` (Playwright; never in CI) — commit both.
+5. **Portfolio.** When the issue asks for a listing, add a `Project` to [`packages/portfolio/src/content/projects/entries-part-2.ts`](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/content/projects/entries-part-2.ts) (main list; append at the end) or [`packages/portfolio/src/content/projects/entries-archive.ts`](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/content/projects/entries-archive.ts) (archive), following [`packages/portfolio/src/content/projects/types.ts`](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/content/projects/types.ts): `deployment: { t: 'public', url: 'https://<hostname>' }`, `code`, `description`, `topics` from [`packages/portfolio/src/content/topic.ts`](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/content/topic.ts), and `imageSrc` / `galleryImageSrc` set to `/<id>-screenshot.optimized.webp`. Once the service is live, the human runs `bun run --filter @pkgs/portfolio gen` locally to capture the screenshot into `assets/` and its optimized derivative into `public/` (Playwright; never in CI) — commit both.
 6. **Regenerate and check.** `bun run llms:sync` (the services table changes), then `bun run check`.
-7. **Ship.** Open the PR with `Closes #<issue>` in the body. After merge, watch CI (`gh run list -R crvouga/workspace --workflow ci.yml --limit 3`), confirm `curl -fsS https://<hostname><health_path>`, and comment the live URL on the issue. If the deploy failed only because the entry was missing, redeploy with `gh workflow run deploy.yml -R crvouga/workspace -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
+7. **Ship.** Open the PR with `Closes #<issue>` in the body. After merge, watch CI (`gh run list -R crvouga/personal --workflow ci.yml --limit 3`), confirm `curl -fsS https://<hostname><health_path>`, and comment the live URL on the issue. If the deploy failed only because the entry was missing, redeploy with `gh workflow run deploy.yml -R crvouga/personal -f action=deploy -f service_id=<id> -f image_tag=<sha>`.
 
 ---
 
-## Maintaining this file (agents working inside `crvouga/workspace`)
+## Maintaining this file (agents working inside `crvouga/personal`)
 
-`llms.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-txt.template.md`](https://github.com/crvouga/workspace/blob/main/scripts/llms-txt.template.md); values, tables and the publish workflow come from [`packages/infra/tofu/modules/inventory/inventory.tf.json`](https://github.com/crvouga/workspace/blob/main/packages/infra/tofu/modules/inventory/inventory.tf.json), [`.github/workflows/publish.yml`](https://github.com/crvouga/workspace/blob/main/.github/workflows/publish.yml) and [`.github/workflows/deploy.yml`](https://github.com/crvouga/workspace/blob/main/.github/workflows/deploy.yml), [`packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts`](https://github.com/crvouga/workspace/blob/main/packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts) and [`packages/infra/lib/publish-workflow.ts`](https://github.com/crvouga/workspace/blob/main/packages/infra/lib/publish-workflow.ts) via [`scripts/llms-txt.ts`](https://github.com/crvouga/workspace/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
+`llms.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-txt.template.md`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.template.md); values, tables and the publish workflow come from [`packages/infra/tofu/modules/inventory/inventory.tf.json`](https://github.com/crvouga/personal/blob/main/packages/infra/tofu/modules/inventory/inventory.tf.json), [`.github/workflows/publish.yml`](https://github.com/crvouga/personal/blob/main/.github/workflows/publish.yml) and [`.github/workflows/deploy.yml`](https://github.com/crvouga/personal/blob/main/.github/workflows/deploy.yml), [`packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts`](https://github.com/crvouga/personal/blob/main/packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts) and [`packages/infra/lib/publish-workflow.ts`](https://github.com/crvouga/personal/blob/main/packages/infra/lib/publish-workflow.ts) via [`scripts/llms-txt.ts`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.

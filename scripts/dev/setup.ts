@@ -7,6 +7,7 @@ import {
   workspaceRoot,
 } from './global-config';
 import { configureShellPath } from './shell-path';
+import { installNativeAws } from './native-aws';
 
 function run(args: string[]): void {
   const result = spawnSync(args[0]!, args.slice(1), {
@@ -18,17 +19,18 @@ function run(args: string[]): void {
     throw new Error(`${args.join(' ')} failed (${result.status})`);
 }
 
-export function syncTools(): void {
+export async function syncTools(): Promise<void> {
   const dir = globalConfigDir();
   assertManagedConfig(dir);
   run(['mise', 'install', '--locked']);
+  await installNativeAws();
   publishGlobalConfig(dir);
   run(['mise', 'reshim']);
   configureShellPath();
 }
 
 if (import.meta.main) {
-  syncTools();
+  await syncTools();
   if (!process.argv.includes('--tools-only')) {
     run([
       'mise',

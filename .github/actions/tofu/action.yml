@@ -218,6 +218,9 @@ runs:
       # Only planning can be replayed; Apply below consumes that saved plan once.
       run: |
         bun scripts/tofu-plan.ts
+        if [ "${TOFU_ROOT}" = foundation ]; then
+          tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -json apply.tfplan | bun scripts/ci/repository-rename-plan.ts
+        fi
         tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -no-color apply.tfplan
         # Export addresses only; plan values can contain credentials.
         changed=$(tofu -chdir="packages/infra/tofu/${TOFU_ROOT}" show -json apply.tfplan | jq -c \

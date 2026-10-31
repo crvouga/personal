@@ -306,3 +306,30 @@ and their contents remain unchanged.
 ## Application retirement
 
 See [application decommissioning](../docs/application-decommission.md) before applying the retirement records. The renamed `services` root continues to use the existing `fleet.tfstate` object; changing that key would detach all unrelated Railway services from their state.
+
+## Repository rename: workspace → personal
+
+`crvouga/personal` is the canonical GitHub repository. The inventory's
+`github.infra_repo`, locally built service source repositories, reusable workflow
+defaults, deployment guard, OCI source labels and machine bootstrap URLs use it.
+The R2 state keys, Railway service IDs, image prefix, resource addresses named
+`workspace`, ruleset ID and application namespaces remain stable; a source
+repository rename does not require recreating infrastructure.
+
+Three GitHub provider resources (`github_issue_labels`, vulnerability alerts and
+Dependabot security updates) force replacement when their repository slug changes.
+`foundation/repository-rename.tf` forgets their old `.workspace` state bindings with
+`destroy = false`, while `repository.tf` imports those same live objects at
+`.personal` addresses. The dispatch secret binding moves from `["workspace"]` to
+`["personal"]`. Other GitHub resources update their repository reference in place.
+No label, security setting, secret, repository or ruleset is deleted to adopt the
+rename. Keep the historical removed/moved blocks so older state can still converge.
+
+During this one-time adoption, the normal saved-plan step runs
+`scripts/ci/repository-rename-plan.ts` before any apply. It permits only in-place
+GitHub updates, imported no-ops and the three explicit forget operations; it
+rejects creations, deletions, replacements, changed numeric repository identities
+and unrelated cloud changes. If it refuses a plan, review the encrypted state and
+saved plan instead of bypassing the gate. Once no old repository bindings remain,
+ordinary deployment planning continues normally. Production remains reachable only
+through the main-branch CI/deployment path; never apply from a feature branch.
