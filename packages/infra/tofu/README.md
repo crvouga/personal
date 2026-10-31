@@ -373,3 +373,13 @@ before runtime logs exist. Missing logs are not proof of a successful start.
 The selected-image and volume-writer checks must still pass before declaring
 a release healthy. Preserve the volume and replication data while diagnosing
 an application startup failure.
+
+Read-only object metadata and retention-rule diagnostics are also available:
+
+```sh
+gh workflow run maintenance.yml --ref <diagnostic-branch> -f task=storage-metadata -f storage_key=fleet-api/production/fleet-owner.json
+```
+
+This reads production object headers and bucket lock rules without printing
+object contents, credentials or signed URLs. It never changes the ownership
+record, retention rules or stored data.

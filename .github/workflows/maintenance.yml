@@ -12,12 +12,17 @@ on:
         options:
           - health
           - deployment-logs
+          - storage-metadata
           - domains
           - snapshot
           - dependencies
           - vault-inputs
           - links
         default: health
+      storage_key:
+        description: Production object key for read-only headers and bucket lock diagnostics
+        type: string
+        default: ''
       package_name:
         description: Optional container package name for read-only visibility inspection
         type: string
@@ -51,6 +56,33 @@ defaults:
   run:
     shell: bash
 jobs:
+  storage-metadata:
+    name: Storage metadata
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'storage-metadata'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      STORAGE_KEY: ${{ inputs.storage_key }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Log in to Vault (OIDC, read-only)
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
+      - name: Read object headers and bucket lock rules
+        run: bun scripts/ci/storage-metadata.ts
   deployment-logs:
     name: Deployment logs
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'deployment-logs'
