@@ -2,7 +2,7 @@
 # Download to a file and run with bash; also works directly from a checkout.
 set -euo pipefail
 MISE_VERSION=2026.10.24
-repo=https://github.com/crvouga/workspace.git
+repo=https://github.com/crvouga/personal.git
 os=$(uname -s)
 case "$os" in
   Darwin) platform=macos ;;

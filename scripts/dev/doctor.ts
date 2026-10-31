@@ -49,7 +49,7 @@ export function toolChecks(
       command === 'go' ? 'version' : '--version',
     ]);
     const exact = new RegExp(
-      `(?:^|[^0-9])${version.replaceAll('.', '\\.')}($|[^0-9.])`
+      `(?:^|[^0-9])${version.replaceAll('.', '\\.')}($|(?![0-9]|\\.[0-9]))`
     );
     const matches = result.ok && exact.test(result.output);
     checks.push({

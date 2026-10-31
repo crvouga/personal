@@ -36,7 +36,7 @@ on:
         description: Infra repo owner/name for deploy dispatch.
         required: false
         type: string
-        default: crvouga/workspace
+        default: crvouga/personal
       notify_deploy:
         description: POST repository_dispatch to infra after push. Set false when
           chaining deploy.

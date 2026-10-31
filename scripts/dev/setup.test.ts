@@ -88,6 +88,14 @@ test('mise data location follows native Windows and XDG overrides', () => {
   );
 });
 
+test('version checks accept sentence punctuation but reject a longer version', () => {
+  const result = (output: string) =>
+    toolChecks({ copilot: '1.0.105' }, () => ({ ok: true, output }))[0]?.status;
+  expect(result('GitHub Copilot CLI 1.0.105.')).toBe('pass');
+  expect(result('GitHub Copilot CLI 1.0.1050')).toBe('fail');
+  expect(result('GitHub Copilot CLI 1.0.105.1')).toBe('fail');
+});
+
 test('every base tool has locked artifacts for every supported OS/architecture', () => {
   const root = join(import.meta.dirname, '../..');
   const config = Bun.TOML.parse(

@@ -25,7 +25,7 @@ export function miseDataDir(
 
 function persistWindowsPath(bin: string, shims: string): void {
   const script =
-    "$paths = @($env:WORKSPACE_TOOL_BIN, $env:WORKSPACE_TOOL_SHIMS); $old = [Environment]::GetEnvironmentVariable('Path', 'User'); $new = (($paths + ($old -split ';') | Where-Object { $_ } | Select-Object -Unique) -join ';'); [Environment]::SetEnvironmentVariable('Path', $new, 'User')";
+    "$paths = @($env:WORKSPACE_TOOL_SHIMS, $env:WORKSPACE_TOOL_BIN); $old = [Environment]::GetEnvironmentVariable('Path', 'User'); $new = (($paths + ($old -split ';') | Where-Object { $_ } | Select-Object -Unique) -join ';'); [Environment]::SetEnvironmentVariable('Path', $new, 'User')";
   const result = spawnSync(
     'powershell.exe',
     ['-NoProfile', '-Command', script],
@@ -52,13 +52,13 @@ export function configureShellPath(): void {
     return;
   }
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  const block = `# crvouga/workspace toolchain\nexport PATH=${quote(`${bin}:${shims}`)}:"$PATH"`;
+  const block = `# crvouga/workspace toolchain\nexport PATH=${quote(`${shims}:${bin}`)}:"$PATH"`;
   for (const name of ['.profile', '.bashrc', '.zshrc'])
     appendOnce(join(homedir(), name), block);
   const fishQuote = (value: string) =>
     `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
   appendOnce(
     join(homedir(), '.config/fish/config.fish'),
-    `# crvouga/workspace toolchain\nfish_add_path --prepend ${fishQuote(bin)} ${fishQuote(shims)}`
+    `# crvouga/workspace toolchain\nfish_add_path --prepend ${fishQuote(shims)} ${fishQuote(bin)}`
   );
 }

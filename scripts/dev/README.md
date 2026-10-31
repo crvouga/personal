@@ -1,6 +1,6 @@
 ## Machine setup: macOS, Windows and Linux
 
-This is the shared development setup for **crvouga/workspace**. One versioned
+This is the shared development setup for **crvouga/personal**. One versioned
 manifest, `mise.toml`, owns the developer tools; `mise.lock` and `.mise/locks/`
 own resolved artifacts and dependency graphs. Both bootstraps apply that same
 manifest to the current user globally. Other projects can override versions with
@@ -12,14 +12,14 @@ install the toolchain.
 macOS / Linux, in Bash (download first so the script is reviewable):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/crvouga/workspace/main/scripts/dev/bootstrap.sh -o /tmp/workspace-bootstrap.sh
+curl -fsSL https://raw.githubusercontent.com/crvouga/personal/main/scripts/dev/bootstrap.sh -o /tmp/workspace-bootstrap.sh
 bash /tmp/workspace-bootstrap.sh
 ```
 
 Native Windows, in x64 PowerShell (5.1 or newer):
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/crvouga/workspace/main/scripts/dev/bootstrap.ps1 -OutFile "$env:TEMP\workspace-bootstrap.ps1"
+Invoke-WebRequest https://raw.githubusercontent.com/crvouga/personal/main/scripts/dev/bootstrap.ps1 -OutFile "$env:TEMP\workspace-bootstrap.ps1"
 & "$env:TEMP\workspace-bootstrap.ps1"
 ```
 
@@ -87,8 +87,16 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
 - **Delivery/infra:** Vercel, Wrangler, Railway, OpenTofu, Vault CLI (for the OpenBao-compatible secret service), Docker CLI,
   ShellCheck and actionlint. Installing provider CLIs does not authorize agents
   to provision resources; shared infrastructure is still OpenTofu-owned.
-- **Agent tooling:** OpenCode; its optional credentials/settings continue to be
-  managed by the existing `ws` CLI and Vault, not by the bootstrap.
+- **Agent harnesses:** Claude Code (`claude`), Codex (`codex`), Gemini CLI
+  (`gemini`), GitHub Copilot CLI (`copilot`) and OpenCode (`opencode`).
+  Installed versions are checked by doctor on all three OSes. Start the CLI you
+  want to use and complete its interactive sign-in; installation does not copy
+  tokens, choose paid plans or grant agent permissions. OpenCode's optional
+  settings remain managed by `ws` and Vault. Codex sign-in follows the
+  [official CLI guide](https://learn.chatgpt.com/docs/codex/cli).
+  Claude/Copilot background self-updaters are disabled through mise environment
+  settings so they cannot silently replace locked versions; update through this
+  repository instead.
 - **On demand:** Atlas (macOS/Linux) and Azure CLI are retained as lazy tools;
   install with `mise install --locked atlas` / `mise install --locked azure-cli`.
   Lazy tools are not part of the base doctor's required checks.
@@ -196,6 +204,14 @@ To change versions: edit pins with `mise use --pin <tool>@<version>` (or edit
 changes, and test. Keep Bun's pin in `package.json` and the setup action aligned;
 keep Node's `.nvmrc` aligned. Run `bun run llms:sync` to regenerate the served
 agent guide, then commit. Do not use `mise upgrade` independently on each machine.
+Version policy: use the newest stable compatible releases, with the newest Node
+LTS rather than an untested Current release. The current compatibility exceptions
+are delta 0.18.2 (newer releases omit Intel macOS), OpenTofu 1.13.0 (all infrastructure
+roots and deployment gates require that exact version), and OpenCode 1.19.5
+(the workspace's notification/provider plugins still target the 1.x API). Their
+major/platform migrations must be validated before moving those pins. Python
+and other standalone tools use their latest stable releases at the last update.
+
 Locked downloads still need network access; GitHub limits may require an
 authenticated `gh` session. Never disable verification to bypass a failing lock.
 
