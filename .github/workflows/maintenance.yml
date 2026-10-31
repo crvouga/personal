@@ -53,9 +53,6 @@ defaults:
 jobs:
   deployment-logs:
     name: Deployment logs
-    permissions:
-      contents: read
-      packages: read
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'deployment-logs'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -70,7 +67,7 @@ jobs:
       - name: Read container package visibility
         if: inputs.package_name != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
           GH_OWNER: ${{ github.repository_owner }}
           GHCR_PACKAGE: ${{ inputs.package_name }}
         run: |
