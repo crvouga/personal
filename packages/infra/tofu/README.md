@@ -336,3 +336,50 @@ identical. This does not recreate or redeploy the Vault service. If it refuses a
 saved plan instead of bypassing the gate. Once no old repository bindings remain,
 ordinary deployment planning continues normally. Production remains reachable only
 through the main-branch CI/deployment path; never apply from a feature branch.
+
+### Volume-backed deployment recovery and diagnostics
+
+The conditional untaint step in `.github/actions/tofu/action.yml` is retained
+for Railway provider 0.6.2. That provider can create a service and volume, then
+return a null volume read-back and leave the existing service tainted. The
+step inspects state and only untaints `fleet-controller` and `zoomies` when
+marked tainted; the ordinary refreshed saved plan and `prevent_destroy`
+remain authoritative. Remove this compatibility step only after a provider
+upgrade proves volume creation/read-back and subsequent plans are stable.
+A successful untaint does not establish application readiness.
+
+For [issue #172](https://github.com/crvouga/personal/issues/172), the services
+plans in runs `41172245925`, `41173195633` and `41173237414` completed without
+replacing Fleet. The Fleet diagnostic run still rejected deployment
+`9e1007de-1495-4f0f-86ed-c1cf67c140b2`: its runtime reported a missing Litestream
+`.ltx` file under `/var/lib/fleet/.fleet.db-litestream`, self-fenced, and failed
+startup. This is evidence for the owning application's
+[issue #9](https://github.com/crvouga/fleet/issues/9), not evidence that a larger
+platform readiness timeout will repair its replication state.
+
+The Maintenance workflow's `deployment-logs` task reads build and runtime
+logs for explicit deployment UUIDs without planning, applying, restarting or
+changing any service:
+
+```sh
+gh workflow run maintenance.yml --repo crvouga/personal --ref main \
+  -f task=deployment-logs \
+  -f deployment_ids=9e1007de-1495-4f0f-86ed-c1cf67c140b2
+```
+
+Use a comma-separated list for multiple deployments. The normal rollout
+verifier includes both log types on terminal failure: an image pull can fail
+before runtime logs exist. Missing logs are not proof of a successful start.
+The selected-image and volume-writer checks must still pass before declaring
+a release healthy. Preserve the volume and replication data while diagnosing
+an application startup failure.
+
+Read-only object metadata and retention-rule diagnostics are also available:
+
+```sh
+gh workflow run maintenance.yml --ref <diagnostic-branch> -f task=storage-metadata -f storage_key=fleet-api/production/fleet-owner.json
+```
+
+This reads production object headers and bucket lock rules without printing
+object contents, credentials or signed URLs. It never changes the ownership
+record, retention rules or stored data.

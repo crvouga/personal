@@ -11,12 +11,26 @@ on:
         type: choice
         options:
           - health
+          - deployment-logs
+          - storage-metadata
           - domains
           - snapshot
           - dependencies
           - vault-inputs
           - links
         default: health
+      storage_key:
+        description: Production object key for read-only headers and bucket lock diagnostics
+        type: string
+        default: ''
+      package_name:
+        description: Optional container package name for read-only visibility inspection
+        type: string
+        default: ''
+      deployment_ids:
+        description: Comma-separated deployment UUIDs for read-only log diagnostics
+        type: string
+        default: ''
       drift:
         description: Include infrastructure drift
         type: boolean
@@ -42,6 +56,56 @@ defaults:
   run:
     shell: bash
 jobs:
+  storage-metadata:
+    name: Storage metadata
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'storage-metadata'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      STORAGE_KEY: ${{ inputs.storage_key }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Log in to Vault (OIDC, read-only)
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: ${{ env.VAULT_ADDR }}
+          exportToken: true
+      - name: Read object headers and bucket lock rules
+        run: bun scripts/ci/storage-metadata.ts
+  deployment-logs:
+    name: Deployment logs
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'deployment-logs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Read build and runtime logs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          DEPLOYMENT_IDS: ${{ inputs.deployment_ids }}
+        run: bun scripts/ci/deployment-logs.ts
+      - name: Read container package visibility
+        if: inputs.package_name != ''
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          GH_OWNER: ${{ github.repository_owner }}
+          GHCR_PACKAGE: ${{ inputs.package_name }}
+        run: |
+          [[ "$GHCR_PACKAGE" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 1
+          gh api "users/${GH_OWNER}/packages/container/${GHCR_PACKAGE}" \
+            --jq '{name, visibility, repository: .repository.full_name}'
   health:
     name: Health
     if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *')
@@ -65,6 +129,7 @@ jobs:
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
       TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
       TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
       TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
