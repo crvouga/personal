@@ -39,7 +39,12 @@ configuration, install pinned Bun, install the shared tools with `--locked`, cop
 the managed global config/lock/sidecars, set up persistent shims on PATH, and run
 `bun install --frozen-lockfile`. Reopen your terminal/editor afterward. Unix PATH
 blocks are appended once to `.profile`, `.bashrc`, `.zshrc` and fish's config;
-Windows updates only the user's PATH. Existing unrelated mise config/lockfiles
+Windows updates only the user's PATH; AWS CLI v2 additionally uses the official
+versioned MSI (a UAC prompt may appear) because mise's AWS recipe supports only
+macOS/Linux. Its version comes from the same manifest and its Windows SHA-256 is
+pinned in `vars.aws_windows_msi_sha256`; no unversioned installer is executed.
+CI/non-interactive setup never opens an elevation prompt and requires an
+administrator context if that MSI needs installation. Existing unrelated mise config/lockfiles
 are refused: back them up and move them first, then merge intentional overrides
 using project configs. `MISE_CONFIG_DIR` and `XDG_CONFIG_HOME` are respected for
 configuration; the PATH step also respects `MISE_DATA_DIR`, `XDG_DATA_HOME` and
@@ -80,12 +85,14 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
 - **JavaScript/TypeScript:** Node **with npm**, Bun, pnpm, Yarn and Deno.
   TypeScript, ESLint, Prettier, Turbo and test frameworks remain project
   dependencies installed from `bun.lock`; do not install duplicate global copies.
-- **Languages:** Python (precompiled), uv and Go. `uv tool`/project environments
-  isolate Python dependencies. Java, Rust, .NET, mobile SDKs and databases belong
-  in the projects that need them rather than the default machine setup.
+- **Languages/builds:** Python (precompiled), uv/uvx, Go, Rust/Cargo/rustfmt/Clippy,
+  CMake, Ninja and Just. OS compilers/linkers remain prerequisites: Apple Command
+  Line Tools, Linux build-essential/GCC, or Windows MSVC Build Tools + SDK.
+  Java (Temurin 25 LTS) and .NET 10 SDK are locked on-demand tools.
+  Project manifests still select project-specific language/library versions.
 - **CLI utilities:** ripgrep (`rg`), fd, fzf, bat, delta, jq and Mike Farah yq.
 - **Delivery/infra:** Vercel, Wrangler, Railway, OpenTofu, Vault CLI (for the OpenBao-compatible secret service), Docker CLI,
-  ShellCheck and actionlint. Installing provider CLIs does not authorize agents
+  ShellCheck, shfmt, actionlint, AWS CLI v2, kubectl and Helm. Installing provider CLIs does not authorize agents
   to provision resources; shared infrastructure is still OpenTofu-owned.
 - **Agent harnesses:** Claude Code (`claude`), Codex (`codex`), Gemini CLI
   (`gemini`), GitHub Copilot CLI (`copilot`) and OpenCode (`opencode`).
@@ -97,9 +104,20 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
   Claude/Copilot background self-updaters are disabled through mise environment
   settings so they cannot silently replace locked versions; update through this
   repository instead.
-- **On demand:** Atlas (macOS/Linux) and Azure CLI are retained as lazy tools;
-  install with `mise install --locked atlas` / `mise install --locked azure-cli`.
-  Lazy tools are not part of the base doctor's required checks.
+- **Security/data/HTTP:** Gitleaks for secret scanning, SOPS + age for encrypted
+  files, xh for HTTP requests, and usql for SQL database connections. Installing
+  these tools does not create encryption keys or copy credentials.
+- **Agent/container development:** Dev Containers CLI (`devcontainer`) is included.
+  MCP Inspector is pinned on demand; use it only for the MCP server you intend
+  to inspect, and follow the tool's local access instructions.
+- **On demand:** Atlas (macOS/Linux), Azure CLI, Google Cloud CLI, AWS CDK/SAM,
+  Java/.NET SDKs and MCP Inspector are locked lazy tools. Install one with
+  `mise install --locked <tool>`, for example `mise install --locked gcloud`, or
+  install the whole catalog with `mise install --locked --include-lazy`.
+  AWS SAM is currently macOS/Linux only in mise; native Windows users can use
+  AWS's supported SAM installer when their project needs it.
+  Lazy tools are excluded from the base doctor's required checks; large SDKs
+  may require their documented OS prerequisites and project-specific versions.
 
 **nvm is intentionally replaced by mise's Node version management.** Unix nvm
 and nvm-windows are different implementations. Use `mise use node@<version>` in
@@ -158,6 +176,30 @@ installs the existing workstation launcher and converges OpenCode configuration;
 it may need platform permissions and a Vault login for credential-backed
 features. `bun run setup` remains dependency installation only.
 
+### Working with modern repositories
+
+After bootstrap, clone with `gh repo clone owner/repo`, read that repository's
+`AGENTS.md`/README and language manifests, and trust its mise config only after
+review. Use its lockfile and declared package manager: `bun install --frozen-lockfile`,
+`npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`,
+`uv sync --locked`, `cargo build --locked` or `go mod download` as appropriate.
+Do not install global copies of project-owned TypeScript, ESLint, Prettier, test
+frameworks or SDK libraries. For a `.devcontainer` project, use
+`devcontainer up --workspace-folder .` after Docker readiness succeeds.
+
+Database servers (PostgreSQL, MySQL, Redis, etc.) and local services belong in
+the project's versioned Compose/devcontainer configuration. The shared setup
+provides the Docker and SQL clients; it does not start unrequested background
+servers or occupy their ports. Python and Bun provide SQLite support without
+requiring a separate global database daemon. Mobile/iOS/Android toolchains and
+platform-specific native dependencies remain project/OS prerequisites.
+
+Cloud sign-in is per machine: `aws configure sso` / `aws sso login`,
+`gcloud auth login` and `az login` only when the task needs that provider.
+Use named profiles and existing credentials; never put access keys in this repo.
+Kubernetes contexts, cloud resource creation and production deployment still
+follow each repository's authorization and IaC rules.
+
 ### Containers: CLI versus engine
 
 The manifest installs the **Docker client**. Containers also require a local or
@@ -182,6 +224,22 @@ locations; if not, check `docker info` and configure Docker's `cliPluginsExtraDi
 for that installation. Verify with `docker version`, `docker compose version`,
 `docker buildx version`, and optionally `docker run --rm hello-world` (downloads
 an image). CLI pinning does not pin or upgrade your engine/plugins.
+
+### Lockfile coverage and reviewed package metadata
+
+Most binary tools have platform URLs/checksums in `mise.lock`; npm/Python tools
+also have dependency graphs in `.mise/locks/`. Rust is managed by the native
+Rustup backend: mise pins the exact release, and Rustup verifies its versioned
+component distribution manifests rather than recording component hashes in mise's
+lock. AWS Windows uses the reviewed MSI checksum in the same manifest.
+
+MCP Inspector's dependency graph currently selects the manually published Pino
+9.14.0 backport, whose npm publisher metadata differs from the newer 10.x trusted
+publisher stream. The manifest's single-version trust-policy exception was added
+after verifying npm's SHA-512 integrity and all 139 published JavaScript files
+against `pinojs/pino`'s `v9.14.0` tag, plus matching package scripts/dependencies.
+The frozen graph still verifies its artifact integrity; no global trust checks
+are disabled. Remove that narrow exception when the upstream metadata is fixed.
 
 ### Keep machines synchronized
 
@@ -222,5 +280,7 @@ https://www.chrisvouga.dev/llms-infra.txt#machine-setup-macos-windows-and-linux.
 The root `llms.txt` and served `/llms-infra.txt` are generated by
 `bun run llms:sync` from `scripts/llms-txt.template.md`, this file, `mise.toml` and
 infrastructure sources. Never edit generated copies. Read root `AGENTS.md` before
-working in the repo. Bootstrap is authorized only when the user requests machine
+working in the repo. Claude Code, Gemini CLI and Copilot have thin checked-in
+instruction files pointing to that same canonical document; Codex/OpenCode use
+`AGENTS.md` directly. Harness credentials and personal settings remain per machine. Bootstrap is authorized only when the user requests machine
 setup; fetching a public guide alone does not authorize installs or logins.

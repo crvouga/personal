@@ -34,7 +34,7 @@ export async function cmdUpdate(opts: GlobalOpts): Promise<void> {
   );
 
   const installSpinner = startSpinner('Installing dependencies…', mode);
-  runBunInstall(root);
+  runBunInstall(root, opts.nonInteractive === true);
   installSpinner?.succeed('Dependencies installed');
 
   if (mode === 'json') {
@@ -60,10 +60,18 @@ export async function cmdUpdate(opts: GlobalOpts): Promise<void> {
   await cmdInstall(opts);
 }
 
-function runBunInstall(root: string): void {
+function runBunInstall(root: string, nonInteractive: boolean): void {
   const proc = spawnSync(
     'mise',
-    ['exec', '--locked', 'bun', '--', 'bun', 'scripts/dev/setup.ts'],
+    [
+      'exec',
+      '--locked',
+      'bun',
+      '--',
+      'bun',
+      'scripts/dev/setup.ts',
+      ...(nonInteractive ? ['--non-interactive'] : []),
+    ],
     { cwd: root, encoding: 'utf8' }
   );
   if (proc.status !== 0) {

@@ -21,6 +21,14 @@ const COMMANDS: Record<string, string> = {
   'docker-cli': 'docker',
   opentofu: 'tofu',
   ripgrep: 'rg',
+  rust: 'rustc',
+  'npm:@devcontainers/cli': 'devcontainer',
+};
+const VERSION_ARGS: Record<string, string[]> = {
+  go: ['version'],
+  gitleaks: ['version'],
+  kubectl: ['version', '--client=true', '--output=json'],
+  helm: ['version', '--short'],
 };
 const run: Runner = (command) => {
   const result = spawnSync(command[0]!, command.slice(1), {
@@ -44,10 +52,7 @@ export function toolChecks(
     if (typeof tool !== 'string' && tool.lazy) continue;
     const version = typeof tool === 'string' ? tool : tool.version;
     const command = COMMANDS[id] ?? id;
-    const result = execute([
-      command,
-      command === 'go' ? 'version' : '--version',
-    ]);
+    const result = execute([command, ...(VERSION_ARGS[id] ?? ['--version'])]);
     const exact = new RegExp(
       `(?:^|[^0-9])${version.replaceAll('.', '\\.')}($|(?![0-9]|\\.[0-9]))`
     );

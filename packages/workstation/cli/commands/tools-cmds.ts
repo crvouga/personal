@@ -15,6 +15,7 @@ export function cmdToolsSync(opts: GlobalOpts): void {
       'bun',
       'scripts/dev/setup.ts',
       '--tools-only',
+      ...(opts.nonInteractive ? ['--non-interactive'] : []),
     ],
     {
       cwd: workspaceRoot(),
