@@ -16,6 +16,29 @@ const FORGET = new Set([
   'github_repository_dependabot_security_updates.workspace',
 ]);
 
+/** This provider only waits locally; source metadata participates in its trigger. */
+function isUnchangedVaultReadinessWait(item: Change): boolean {
+  const before = item.change.before;
+  const after = item.change.after;
+  const oldTriggers = before?.['triggers'] as
+    Record<string, unknown> | undefined;
+  const newTriggers = after?.['triggers'] as
+    Record<string, unknown> | undefined;
+  const destroyWait = after?.['destroy_duration'];
+  return (
+    item.address === 'time_sleep.vault_start' &&
+    item.type === 'time_sleep' &&
+    item.change.actions.join(',') === 'delete,create' &&
+    before?.['create_duration'] === '90s' &&
+    after?.['create_duration'] === '90s' &&
+    (destroyWait == null || destroyWait === '' || destroyWait === '0s') &&
+    typeof oldTriggers?.['image'] === 'string' &&
+    typeof oldTriggers?.['database'] === 'string' &&
+    oldTriggers['image'] === newTriggers?.['image'] &&
+    oldTriggers['database'] === newTriggers?.['database']
+  );
+}
+
 export function checkRepositoryRename(plan: Plan): {
   migration: boolean;
   checked: number;
@@ -37,7 +60,8 @@ export function checkRepositoryRename(plan: Plan): {
     const allowed =
       actions === 'no-op' ||
       (actions === 'update' && item.type.startsWith('github_')) ||
-      (actions === 'forget' && FORGET.has(item.address));
+      (actions === 'forget' && FORGET.has(item.address)) ||
+      isUnchangedVaultReadinessWait(item);
     if (
       actions === 'update' &&
       [
@@ -90,6 +114,6 @@ if (import.meta.main) {
     JSON.parse(await Bun.stdin.text()) as Plan
   );
   console.log(
-    `Repository rename plan: ${result.migration ? `${result.checked} resource actions checked; no deletes or creations` : 'already adopted / no rename changes'}.`
+    `Repository rename plan: ${result.migration ? `${result.checked} resource actions checked; no destructive cloud actions` : 'already adopted / no rename changes'}.`
   );
 }
