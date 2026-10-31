@@ -18,6 +18,10 @@ on:
           - vault-inputs
           - links
         default: health
+      package_name:
+        description: Optional container package name for read-only visibility inspection
+        type: string
+        default: ''
       deployment_ids:
         description: Comma-separated deployment UUIDs for read-only log diagnostics
         type: string
@@ -49,6 +53,9 @@ defaults:
 jobs:
   deployment-logs:
     name: Deployment logs
+    permissions:
+      contents: read
+      packages: read
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'deployment-logs'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -60,6 +67,16 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           DEPLOYMENT_IDS: ${{ inputs.deployment_ids }}
         run: bun scripts/ci/deployment-logs.ts
+      - name: Read container package visibility
+        if: inputs.package_name != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_OWNER: ${{ github.repository_owner }}
+          GHCR_PACKAGE: ${{ inputs.package_name }}
+        run: |
+          [[ "$GHCR_PACKAGE" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 1
+          gh api "users/${GH_OWNER}/packages/container/${GHCR_PACKAGE}" \
+            --jq '{name, visibility, repository: .repository.full_name}'
   health:
     name: Health
     if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *')
