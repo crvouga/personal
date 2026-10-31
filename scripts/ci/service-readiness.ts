@@ -83,7 +83,7 @@ export async function waitForService(
       throw new Error(
         `${target.name}: selected image deployment ${rollout.latest!.id} ${status}; an older healthy instance cannot satisfy rollout verification` +
           (tail.length
-            ? `\nLast ${tail.length} runtime log lines:\n${tail.join('\n')}`
+            ? `\nBuild/runtime log tail (${tail.length} entries):\n${tail.join('\n')}`
             : '')
       );
     }

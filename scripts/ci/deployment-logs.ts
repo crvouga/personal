@@ -14,6 +14,10 @@ const token = process.env.RAILWAY_TOKEN;
 if (!token) throw new Error('Missing RAILWAY_TOKEN');
 for (const deploymentId of ids) {
   console.log(`Deployment ${deploymentId}`);
-  const lines = await readDeploymentLogTail({ deploymentId, token });
+  const lines = await readDeploymentLogTail({
+    deploymentId,
+    token,
+    limit: 200,
+  });
   console.log(lines.length ? lines.join('\n') : 'No logs returned');
 }
