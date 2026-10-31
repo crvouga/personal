@@ -1,5 +1,6 @@
 /** Read-only deployment log observations. OpenTofu owns every Railway mutation. */
 export const logsQuery = `query Logs($deploymentId: String!, $limit: Int!) {
+  deployment(id: $deploymentId) { status meta }
   buildLogs(deploymentId: $deploymentId, limit: $limit) { timestamp severity message }
   deploymentLogs(deploymentId: $deploymentId, limit: $limit) { timestamp severity message }
 }`;
@@ -21,12 +22,15 @@ export async function readDeploymentLogTail(
     });
     if (!response.ok) return [];
     const result = await response.json() as {
-      data?: Partial<Record<'deploymentLogs' | 'buildLogs', { timestamp: string; severity?: string; message: string }[]>>;
+      data?: Partial<Record<'deploymentLogs' | 'buildLogs', { timestamp: string; severity?: string; message: string }[]>> & { deployment?: { status: string; meta?: Record<string, unknown> } };
     };
-    return (['buildLogs', 'deploymentLogs'] as const).flatMap((kind) => (result.data?.[kind] ?? []).map(
+    const deployment = result.data?.deployment;
+    const metadata = deployment?.meta ?? {};
+    const summary = deployment ? [`deployment: ${deployment.status}; metadata fields: ${Object.keys(metadata).join(', ')}`, ...['failedReason', 'failureReason', 'error', 'message', 'reason'].flatMap((key) => typeof metadata[key] === 'string' ? [`${key}: ${metadata[key]}`] : [])].map((line) => line.replaceAll('::', ': :')) : [];
+    return [...summary, ...(['buildLogs', 'deploymentLogs'] as const).flatMap((kind) => (result.data?.[kind] ?? []).map(
       // Neutralize workflow commands embedded in application output.
       (line) => `${kind}: ${line.timestamp} ${line.severity ?? ''} ${line.message}`.replaceAll('::', ': :'),
-    ));
+    ))];
   } catch {
     return [];
   }

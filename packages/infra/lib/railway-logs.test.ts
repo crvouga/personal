@@ -23,3 +23,9 @@ test('unavailable logs never mask the original rollout failure', async () => {
     expect(await readDeploymentLogTail({ deploymentId: 'deployment', token: 'credential' }, async () => response)).toEqual([]);
   }
 });
+
+test('pre-start failure metadata is useful without dumping deployment configuration', async () => {
+  const lines = await readDeploymentLogTail({ deploymentId: 'deployment', token: 'credential' }, async () => Response.json({ data: { deployment: { status: 'FAILED', meta: { failedReason: 'image pull denied', serviceManifest: { secret: 'must-not-appear' } } }, buildLogs: [], deploymentLogs: [] } }));
+  expect(lines.join('\n')).toContain('failedReason: image pull denied');
+  expect(lines.join('\n')).not.toContain('must-not-appear');
+});
