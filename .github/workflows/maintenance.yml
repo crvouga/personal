@@ -11,12 +11,17 @@ on:
         type: choice
         options:
           - health
+          - deployment-logs
           - domains
           - snapshot
           - dependencies
           - vault-inputs
           - links
         default: health
+      deployment_ids:
+        description: Comma-separated deployment UUIDs for read-only log diagnostics
+        type: string
+        default: ''
       drift:
         description: Include infrastructure drift
         type: boolean
@@ -42,6 +47,19 @@ defaults:
   run:
     shell: bash
 jobs:
+  deployment-logs:
+    name: Deployment logs
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'deployment-logs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Read build and runtime logs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          DEPLOYMENT_IDS: ${{ inputs.deployment_ids }}
+        run: bun scripts/ci/deployment-logs.ts
   health:
     name: Health
     if: (github.event_name == 'schedule' && github.event.schedule == '30 15 * * *')

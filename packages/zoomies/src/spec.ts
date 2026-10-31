@@ -31,6 +31,6 @@ export const POOLS: readonly PoolSpec[] = [
 
 /** Where runners register. A personal account has no organization: name a repository. */
 export const DEFAULT_TARGET = {
-  target: 'crvouga/workspace',
+  target: 'crvouga/personal',
   target_type: 'repo',
 } as const;

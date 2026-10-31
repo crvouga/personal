@@ -42,7 +42,7 @@ Check the result with `bun run health --only services` and `curl -s https://zoom
 GitHub does not allow an App to be created through an API or OpenTofu, so this is the one step that needs your hands. It is codified here so it is repeatable:
 
 1. Create a GitHub App owned by `crvouga` with webhook URL `https://zoomies.chrisvouga.dev/webhooks/github`, a webhook secret you generate, events `workflow_job` and `issue_comment`, and repository permissions Administration (write), Actions (write), Checks (read), Statuses (read), Metadata (read). (**Installations → Connect GitHub** in the UI does the same through GitHub's manifest flow, but then the credentials live only in the Zoomies database.)
-2. Install it on `crvouga/workspace` (or other repositories). The installation id is the number in `https://github.com/settings/installations/<id>`.
+2. Install it on `crvouga/personal` (or other repositories). The installation id is the number in `https://github.com/settings/installations/<id>`.
 3. Store the values in Vault:
 
    ```bash
@@ -57,7 +57,7 @@ GitHub does not allow an App to be created through an API or OpenTofu, so this i
    bun run zoomies:configure
    ```
 
-`configure` is idempotent: it waits until the controller is up and claimed, connects the installation only if absent (target defaults to `crvouga/workspace`; override with `ZOOMIES_GITHUB_TARGET` / `ZOOMIES_GITHUB_TARGET_TYPE`), and creates the pools declared in [`src/spec.ts`](src/spec.ts) only if missing. It never edits an existing pool, so capacity, labels and sizes tuned in the UI persist. Without the App values it exits cleanly and says what is missing.
+`configure` is idempotent: it waits until the controller is up and claimed, connects the installation only if absent (target defaults to `crvouga/personal`; override with `ZOOMIES_GITHUB_TARGET` / `ZOOMIES_GITHUB_TARGET_TYPE`), and creates the pools declared in [`src/spec.ts`](src/spec.ts) only if missing. It never edits an existing pool, so capacity, labels and sizes tuned in the UI persist. Without the App values it exits cleanly and says what is missing.
 
 ## Add a host
 

@@ -1,9 +1,10 @@
 /** Read-only deployment log observations. OpenTofu owns every Railway mutation. */
 export const logsQuery = `query Logs($deploymentId: String!, $limit: Int!) {
+  buildLogs(deploymentId: $deploymentId, limit: $limit) { timestamp severity message }
   deploymentLogs(deploymentId: $deploymentId, limit: $limit) { timestamp severity message }
 }`;
 
-/** Best-effort runtime log tail for a failed deployment; never throws. */
+/** Best-effort build and runtime log tails for a failed deployment; never throws. */
 export async function readDeploymentLogTail(
   input: { deploymentId: string; token: string; limit?: number },
   request: (url: string, options: RequestInit) => Promise<Response> = fetch,
@@ -20,12 +21,12 @@ export async function readDeploymentLogTail(
     });
     if (!response.ok) return [];
     const result = await response.json() as {
-      data?: { deploymentLogs?: { timestamp: string; severity?: string; message: string }[] };
+      data?: Partial<Record<'deploymentLogs' | 'buildLogs', { timestamp: string; severity?: string; message: string }[]>>;
     };
-    return (result.data?.deploymentLogs ?? []).map(
+    return (['buildLogs', 'deploymentLogs'] as const).flatMap((kind) => (result.data?.[kind] ?? []).map(
       // Neutralize workflow commands embedded in application output.
-      (line) => `${line.timestamp} ${line.severity ?? ''} ${line.message}`.replaceAll('::', ': :'),
-    );
+      (line) => `${kind}: ${line.timestamp} ${line.severity ?? ''} ${line.message}`.replaceAll('::', ': :'),
+    ));
   } catch {
     return [];
   }
