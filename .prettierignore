@@ -1,6 +1,8 @@
 node_modules
 dist
 *.lock
+# Generated dependency graphs are content-addressed by mise.lock; never reformat.
+.mise/locks/
 *.tsbuildinfo
 .turbo
 .wrangler

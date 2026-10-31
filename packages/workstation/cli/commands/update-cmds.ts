@@ -61,11 +61,15 @@ export async function cmdUpdate(opts: GlobalOpts): Promise<void> {
 }
 
 function runBunInstall(root: string): void {
-  const proc = spawnSync('bun', ['install'], { cwd: root, encoding: 'utf8' });
+  const proc = spawnSync(
+    'mise',
+    ['exec', '--locked', 'bun', '--', 'bun', 'scripts/dev/setup.ts'],
+    { cwd: root, encoding: 'utf8' }
+  );
   if (proc.status !== 0) {
     const detail = `${proc.stderr ?? ''}${proc.stdout ?? ''}`.trim();
     throw new Error(
-      `bun install failed after pull${detail.length > 0 ? `:\n${detail}` : ''}\nResolve it manually, then run \`ws install\`.`
+      `Toolchain/dependency setup failed after pull${detail.length > 0 ? `:\n${detail}` : ''}\nResolve it manually using scripts/dev/README.md, then run \`ws install\`.`
     );
   }
 }

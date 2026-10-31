@@ -30,7 +30,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 
 The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and application hosting. The portfolio publishes it at [www.chrisvouga.dev/llms-infra.txt](https://www.chrisvouga.dev/llms-infra.txt); the site's own `/llms.txt` is a candidate summary for recruiters' screening agents and links to it. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
 
-Local setup: install [mise](https://mise.jdx.dev/), then `mise install` from the repo root. Tool versions live in `mise.toml`, including `gh`, ShellCheck, actionlint, OpenTofu 1.13.0, Bun 1.3.11, Node 22.22.3, and Atlas. Add `eval "$(mise activate zsh)"` to the shell so those tools are on `PATH`. Then `bun run setup` installs dependencies and `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
+Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for macOS, native Windows or Linux. It installs the pinned mise toolchain globally and frozen workspace dependencies. `bun run setup` installs dependencies only; `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
@@ -114,3 +114,18 @@ See the package's operator guide and acceptance ledger for the supported automat
 and the distinction between fixture-tested and live-verified behavior.
 
 The former machine-management application has been removed. [Application decommissioning](packages/infra/docs/application-decommission.md) documents pending destructive OpenTofu review and temporary state/status compatibility. No live resource changes have been applied by this extraction.
+
+## One shared developer setup
+
+For a new macOS, native Windows or Linux machine, follow
+[`scripts/dev/README.md`](scripts/dev/README.md). The two OS bootstraps install
+one shared mise manifest/lockfile globally, configure tool shims, and install
+frozen workspace dependencies. It covers Node/npm (mise replaces nvm), Bun,
+pnpm/Yarn, Python/uv, Go, GitHub CLI/Git LFS, shell utilities, provider CLIs,
+OpenTofu and Docker CLI. Git/native build tools and the Docker engine remain
+explicit OS prerequisites. After setup, `ws tools sync` reapplies tools,
+`ws tools check --json` verifies them, and `ws update` pulls and refreshes tools,
+dependencies and workstation settings.
+
+Agents can discover the full machine runbook from the portfolio's `/llms.txt`;
+it is embedded in the generated root `llms.txt` and served `/llms-infra.txt`.

@@ -1,8 +1,8 @@
-# {{infraRepo}} — shared infrastructure integration guide
+# {{infraRepo}} — shared machine setup and infrastructure integration guide
 
 > The one file an agent needs to integrate another codebase with the shared infrastructure owned by `{{infraRepo}}`: Vault (OpenBao) secrets, PostgreSQL access, the shared Cloudflare R2 object store, Google sign-in through the auth relay, and hosting on the managed Railway services — every hosted project is **Dockerized and ships as a prebuilt GHCR image**. Values in this file are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml` and `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever it drifts from them.
 
-Canonical deployed URL: {{siteGuideUrl}} (the site's own `/llms.txt` is the candidate summary for recruiters and links here)
+Canonical deployed URL: {{siteGuideUrl}} (the site's own `/llms.txt` is the candidate summary for recruiters and links here for machine setup and infrastructure). The machine setup section is generated from `scripts/dev/README.md` and `mise.toml`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
 Source snapshot (always current `main`): {{rawUrl}}
 
@@ -45,12 +45,14 @@ Rules for every issue:
 ## Ground rules
 
 - **Never invent, print, log, or commit secret values.** If an optional secret is missing or invalid, report its key and source, skip only its dependent integration or skill check, and continue unrelated work. Required credentials for an active deployment fail that deployment; never claim a skipped check passed.
-- **Never install global tooling yourself** (`vault`, `bao`, `jq`, `gh`). Tell the human the install command.
+- **Global tooling follows the shared machine setup below.** When the user requests machine setup, run the checked-in bootstrap and locked mise toolchain. Otherwise report missing tools with the documented command; do not make unrelated global changes.
 - **Shared infrastructure changes belong in `{{infraRepo}}` through OpenTofu** (deployments, secrets, policies, hosting, databases and buckets). **To get one, raise a GitHub issue on `{{infraRepo}}`** (see the section above) — never apply it yourself. A scoped auth-relay registration is an authorized runtime operation: agents may use §6 to manage their own application clients without an infrastructure deployment. Never use provider dashboards or administration APIs.
 - `@pkgs/*` packages in `{{infraRepo}}` are **private workspace packages** — they cannot be installed elsewhere. Use the plain HTTP / S3 / env-var contracts below.
 - Keep the app **twelve-factor**: configuration and secrets come from env vars at runtime, never from files baked into the image or the repo.
 
 ## Integration checklist
+
+0. New computer or missing developer tools? → [Machine setup](#machine-setup-macos-windows-and-linux). Apply the shared locked toolchain before project setup.
 
 1. Needs secrets (API keys, database URLs)? → [1. Vault](#1-vault-secrets). Every other section depends on it.
 2. Needs relational data? → [2. PostgreSQL](#2-postgresql). Use only the `DATABASE_URL` contract; the platform database credentials are not an app interface.
@@ -68,6 +70,14 @@ All consumer credentials live in Vault. Auth agent credentials use isolated `{{k
 This is a consumer guide, not an inventory dump. State backends, provider credentials, the OpenBao storage database, administrative tunnels, and control-plane tokens are intentionally excluded from consumer instructions. They remain OpenTofu-owned and must never be reused by an application.
 
 All 14 domain registrations remain at Squarespace; registrar/DNS consolidation is cancelled. Existing Cloudflare DNS for `chrisvouga.dev`, `gamezilla.app`, `moviefinder.app` and `normalizer.app` is preserved. `bun domains inventory` and `bun domains discover` are read-only. Consumers must not transfer registrations or change shared nameservers. Cancellation evidence and the accepted disabled DNSSEC setting for unused `emulates.dev` are documented in {{path:packages/infra/docs/domain-migration.md}}.
+
+---
+
+{{block:workstation}}
+
+### Exact shared tool versions (generated from mise.toml)
+
+{{block:workstationTools}}
 
 ---
 
