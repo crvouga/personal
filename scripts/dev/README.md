@@ -84,7 +84,7 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
   isolate Python dependencies. Java, Rust, .NET, mobile SDKs and databases belong
   in the projects that need them rather than the default machine setup.
 - **CLI utilities:** ripgrep (`rg`), fd, fzf, bat, delta, jq and Mike Farah yq.
-- **Delivery/infra:** Vercel, Wrangler, Railway, OpenTofu, Docker CLI,
+- **Delivery/infra:** Vercel, Wrangler, Railway, OpenTofu, Vault CLI (for the OpenBao-compatible secret service), Docker CLI,
   ShellCheck and actionlint. Installing provider CLIs does not authorize agents
   to provision resources; shared infrastructure is still OpenTofu-owned.
 - **Agent tooling:** OpenCode; its optional credentials/settings continue to be
