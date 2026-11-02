@@ -8,7 +8,15 @@ import type {
   NotifierTestResult,
   Platform,
   ProcessInfo,
+  ScheduledJob,
+  ScheduledJobStatus,
 } from './types';
+import { existsSync } from 'node:fs';
+import {
+  installSystemdJob,
+  removeSystemdJob,
+  systemdJobStatus,
+} from './systemd-user';
 import { psProcesses } from './ps';
 
 export class LinuxPlatform implements Platform {
@@ -99,5 +107,33 @@ export class LinuxPlatform implements Platform {
 
   listProcesses(): ProcessInfo[] | null {
     return psProcesses();
+  }
+
+  tailscaleAppBinaries(): readonly string[] {
+    return ['/usr/bin/tailscale', '/usr/sbin/tailscale'].filter((p) =>
+      existsSync(p)
+    );
+  }
+
+  vscodeSettingsPath(): string | null {
+    const base =
+      process.env['XDG_CONFIG_HOME']?.trim() || join(homedir(), '.config');
+    return join(base, 'Code/User/settings.json');
+  }
+
+  vscodeCliBinaries(): readonly string[] {
+    return ['/usr/share/code/bin/code'].filter((p) => existsSync(p));
+  }
+
+  installScheduledJob(job: ScheduledJob): NotifierTestResult {
+    return installSystemdJob(job);
+  }
+
+  removeScheduledJob(label: string): NotifierTestResult {
+    return removeSystemdJob(label);
+  }
+
+  scheduledJobStatus(label: string): ScheduledJobStatus {
+    return systemdJobStatus(label);
   }
 }

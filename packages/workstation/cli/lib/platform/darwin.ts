@@ -9,7 +9,14 @@ import type {
   NotifierTestResult,
   Platform,
   ProcessInfo,
+  ScheduledJob,
+  ScheduledJobStatus,
 } from './types';
+import {
+  installLaunchdJob,
+  launchdJobStatus,
+  removeLaunchdJob,
+} from './launchd';
 import { psProcesses } from './ps';
 
 function appleScriptString(value: string): string {
@@ -160,5 +167,36 @@ export class DarwinPlatform implements Platform {
 
   listProcesses(): ProcessInfo[] | null {
     return psProcesses();
+  }
+
+  tailscaleAppBinaries(): readonly string[] {
+    return ['/Applications/Tailscale.app/Contents/MacOS/Tailscale'].filter(
+      (p) => existsSync(p)
+    );
+  }
+
+  vscodeSettingsPath(): string | null {
+    return join(
+      homedir(),
+      'Library/Application Support/Code/User/settings.json'
+    );
+  }
+
+  vscodeCliBinaries(): readonly string[] {
+    return [
+      '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code',
+    ].filter((p) => existsSync(p));
+  }
+
+  installScheduledJob(job: ScheduledJob): NotifierTestResult {
+    return installLaunchdJob(job);
+  }
+
+  removeScheduledJob(label: string): NotifierTestResult {
+    return removeLaunchdJob(label);
+  }
+
+  scheduledJobStatus(label: string): ScheduledJobStatus {
+    return launchdJobStatus(label);
   }
 }
