@@ -11,6 +11,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
 - `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
+- `packages/fleet`: developer fleet diagnostics/onboarding and explicit sync plans. Read its `README.md` and `AGENTS.md`. Start with `bun run fleet help`; `doctor --json` is read-only. The gitignored developer roster is not cloud inventory. Never copy credentials or bypass SSH host-key checks; mutation requires `--apply --yes` and delegates to existing toolchain owners.
 
 ## Shared authentication relay
 

@@ -257,6 +257,14 @@ existing workstation convergence. `ws tools sync` reapplies tool pins/global con
 without pulling or touching project dependencies; `ws tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
+For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
+`bun run fleet init` previews a local SSH-alias roster, `bun run fleet onboard`
+generates per-node connection/auth/editor steps, and `bun run fleet doctor --json`
+diagnoses SSH, authentication, T3 Connect settings/API and checkout/lockfile drift.
+`bun run fleet sync` previews convergence through this same setup script; applying
+requires `--apply --yes`. No credentials are copied or cloud resources provisioned;
+VS Code/T3 end-to-end tests remain explicit operator steps.
+
 To change versions: edit pins with `mise use --pin <tool>@<version>` (or edit
 `mise.toml`), run `mise lock`, review `mise.toml`, `mise.lock` and any `.mise/locks/`
 changes, and test. Keep Bun's pin in `package.json` and the setup action aligned;

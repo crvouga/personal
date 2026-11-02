@@ -85,6 +85,13 @@
         "typescript": "catalog:",
       },
     },
+    "packages/fleet": {
+      "name": "@pkgs/fleet",
+      "version": "0.0.0",
+      "bin": {
+        "fleet": "./bin.mjs",
+      },
+    },
     "packages/infra": {
       "name": "@pkgs/infra",
       "version": "0.0.0",
@@ -869,6 +876,8 @@
     "@pkgs/assert": ["@pkgs/assert@workspace:packages/assert"],
 
     "@pkgs/auth-relay": ["@pkgs/auth-relay@workspace:packages/auth-relay"],
+
+    "@pkgs/fleet": ["@pkgs/fleet@workspace:packages/fleet"],
 
     "@pkgs/infra": ["@pkgs/infra@workspace:packages/infra"],
 

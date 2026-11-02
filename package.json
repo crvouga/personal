@@ -28,6 +28,7 @@
     "gh:ci:watch": "bun scripts/ci/watch.ts",
     "health": "bun run packages/infra/scripts/health.ts",
     "health:fix": "bun scripts/health-fix.ts",
+    "fleet": "bun packages/fleet/src/cli.ts",
     "domains": "bun run packages/infra/scripts/domains.ts",
     "migrate-domains-to-cloudflare": "bun run packages/infra/scripts/migrate-domains-to-cloudflare.ts",
     "health-check": "bun run --filter @pkgs/infra health-check",

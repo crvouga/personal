@@ -24,6 +24,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
 | `zoomies`                                                                                  | Self-hosted GitHub Actions runner controller on Railway                   |
 | `workstation`                                                                              | Portable local machine configuration; `ws` dashboard                      |
+| `fleet`                                                                                    | Developer fleet SSH/auth/T3 diagnostics, sync plans and onboarding        |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 
 [CI](.github/workflows/ci.yml) validates every PR and merge-queue entry, runs the required platform tests, and calls [Deploy](.github/workflows/deploy.yml) after successful main-branch checks. Deploy builds images, applies OpenTofu in order and probes production. [Maintenance](.github/workflows/maintenance.yml) handles health reports, snapshot/dependency update PRs and manual secret repair. Sibling repositories use [Publish](.github/workflows/publish.yml); the old CI publishing interface stays compatible. OpenTofu owns publisher files, dispatch secrets and the required-check ruleset.
@@ -33,6 +34,11 @@ The generated [llms.txt](llms.txt) explains how other projects integrate with Va
 Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for macOS, native Windows or Linux. It installs the pinned mise toolchain globally and frozen workspace dependencies. `bun run setup` installs dependencies only; `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
+
+Development computers: [fleet tooling](packages/fleet/README.md) provides read-only
+`bun run fleet doctor --json`, credential-safe onboarding and explicitly authorized
+shared toolchain/dependency sync. Start with `bun run fleet init` (preview).
+The local developer roster is not cloud inventory; `health` remains the cloud report.
 
 ## Update secrets
 
