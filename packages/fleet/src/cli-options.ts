@@ -1,6 +1,5 @@
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { CAPABILITIES, DEFAULT_CONFIG } from './config';
 import { FleetUsageError } from './errors';
 import type { Capability } from './types';
@@ -39,9 +38,7 @@ export function parseOptions(args: string[]) {
     config: resolve(values.config ?? DEFAULT_CONFIG),
     ids: values.node ?? [],
     local: values.local === true,
-    root: resolve(
-      values.workspace ?? fileURLToPath(new URL('../../../', import.meta.url))
-    ),
+    root: resolve(values.workspace ?? process.cwd()),
     timeoutMs,
     strict: values.strict === true,
     pull: values.pull === true,

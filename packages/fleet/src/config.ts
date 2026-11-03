@@ -37,7 +37,9 @@ function parseNode(value: unknown): FleetNode {
   if (!absolutePath(value['workspace']))
     throw new FleetUsageError('workspace must be an absolute POSIX path.');
   if (value['runtime'] !== undefined && !absolutePath(value['runtime'])) {
-    throw new FleetUsageError('runtime must be an absolute POSIX path to Bun.');
+    throw new FleetUsageError(
+      'runtime must be an absolute POSIX path to Node or Bun.'
+    );
   }
   return {
     ...names,

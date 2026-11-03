@@ -25,11 +25,7 @@ export async function authCheck(
         'Install the VS Code CLI on PATH and ms-vscode-remote.remote-ssh in the local editor profile.',
     },
     toolchain: {
-      command: [
-        process.execPath,
-        join(root, 'scripts/dev/doctor.ts'),
-        '--json',
-      ],
+      command: ['bun', join(root, 'scripts/dev/doctor.ts'), '--json'],
       action:
         'Run ws tools check --json; use the shared mise setup to reconcile tools.',
     },

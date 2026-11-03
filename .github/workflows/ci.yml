@@ -402,6 +402,32 @@ jobs:
           VAULT_CONFIG: dev
           VAULT_PROJECT: personal
         run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
+  personal_cli:
+    name: Personal CLI (${{ matrix.os }}, Node ${{ matrix.node }})
+    if: inputs.service_id == ''
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: '22' }
+          - { os: ubuntu-latest, node: '24' }
+          - { os: ubuntu-latest, node: '26' }
+          - { os: macos-latest, node: '24' }
+          - { os: windows-latest, node: '24' }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test fleet and CLI contracts
+        run: bun test packages/fleet/src packages/personal-cli/src packages/personal-cli/tests
+      - name: Build standalone Node distribution
+        run: bun run personal:build
+      - name: Install and exercise the packed consumer anonymously
+        run: bun run --cwd packages/personal-cli smoke
   check:
     name: Check
     if: always() && inputs.service_id == ''
@@ -412,6 +438,7 @@ jobs:
       - infra
       - auth
       - portfolio_urls
+      - personal_cli
     runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
@@ -424,7 +451,7 @@ jobs:
 
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
 
-          for job in changes repository packages; do
+          for job in changes repository packages personal_cli; do
             test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
           done
 
@@ -469,6 +496,16 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: jq -e 'all(.[]; .result == "success")' <<< "$RESULTS"
+  personal_cli_release:
+    name: Release personal CLI
+    if: "!cancelled() && needs.check.result == 'success' && needs.fleet.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && inputs.service_id == ''"
+    needs:
+      - check
+      - fleet
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/release-personal-cli.yml
   deploy:
     name: Deploy
     if: "!cancelled() && needs.check.result == 'success' && needs.fleet.result ==

@@ -52,6 +52,7 @@ export interface CommandOptions {
   cwd?: string;
   input?: string;
   timeoutMs?: number;
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface CommandResult {

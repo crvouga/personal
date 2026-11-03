@@ -24,7 +24,10 @@ export async function dispatch(options: Options): Promise<number> {
     ? []
     : selectNodes(await loadConfig(options.config), options.ids);
   if (['nodes', 'validate', 'onboard'].includes(options.command)) {
-    const data = options.command === 'onboard' ? nodes.map(onboarding) : nodes;
+    const data =
+      options.command === 'onboard'
+        ? nodes.map((node) => onboarding(node))
+        : nodes;
     print({ version: 1, command: options.command, ok: true, nodes: data });
     return 0;
   }

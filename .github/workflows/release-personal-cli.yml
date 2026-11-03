@@ -1,0 +1,42 @@
+name: Release personal CLI
+on:
+  workflow_call: {}
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: personal-cli-npm-publication
+  cancel-in-progress: false
+jobs:
+  release:
+    name: Publish public npm CLI
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Plan idempotent release
+        id: plan
+        run: bun packages/personal-cli/scripts/release.ts --plan --github-output
+      - name: Validate optional existing credential field selection
+        if: steps.plan.outputs.changed == 'true' && vars.PERSONAL_NPM_TOKEN_KEY != ''
+        env:
+          NPM_KEY: ${{ vars.PERSONAL_NPM_TOKEN_KEY }}
+        run: '[[ "$NPM_KEY" =~ ^[A-Z][A-Z0-9_]*$ ]]'
+      - name: Read existing npm publishing credential through Vault OIDC
+        if: steps.plan.outputs.changed == 'true' && vars.PERSONAL_NPM_TOKEN_KEY != ''
+        uses: hashicorp/vault-action@v4
+        with:
+          url: https://vault.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://vault.chrisvouga.dev
+          secrets: >-
+            secret/data/personal/prd ${{ vars.PERSONAL_NPM_TOKEN_KEY }} | NODE_AUTH_TOKEN
+      - name: Validate tarball, publish and verify registry integrity
+        if: steps.plan.outputs.changed == 'true'
+        env:
+          PERSONAL_NPM_PROVENANCE: ${{ github.event.repository.private == false && 'true' || 'false' }}
+        run: bun run personal:release --apply --yes ${{ vars.PERSONAL_NPM_TOKEN_KEY == '' && '--oidc' || '' }}

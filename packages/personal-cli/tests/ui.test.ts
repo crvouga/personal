@@ -1,0 +1,151 @@
+import { expect, test } from 'bun:test';
+import { runInteractive } from '../src/ui-controller';
+import { inspectChecks } from '../src/ui-reports';
+import { clean } from '../src/ui-data';
+import { COMMANDS } from '../src/registry';
+import type { Display, Prompts, Session } from '../src/ui-types';
+import type { CommandOutcome } from '../src/contracts';
+
+function harness(
+  answers: {
+    search?: string[];
+    select?: string[];
+    input?: string[];
+    confirm?: boolean[];
+  } = {}
+) {
+  const writes: string[] = [];
+  const calls: string[][] = [];
+  const questions: string[] = [];
+  const prompts: Prompts = {
+    search: async (message, source) => {
+      questions.push(message);
+      expect(source('')).toBeArray();
+      return answers.search?.shift() ?? 'exit';
+    },
+    select: async (message) => {
+      questions.push(message);
+      return answers.select?.shift() ?? 'back';
+    },
+    input: async () => answers.input?.shift() ?? '',
+    checkbox: async () => ['github', 't3'],
+    confirm: async () => answers.confirm?.shift() ?? false,
+  };
+  const display: Display = {
+    write: (value) => {
+      writes.push(value);
+    },
+    panel: (title, body) => {
+      writes.push(`${title}\n${body}`);
+    },
+    table: (_headers, rows) => {
+      writes.push(JSON.stringify(rows));
+    },
+    progress: () => ({ stop: () => undefined }),
+  };
+  const options = {
+    version: '1.2.3',
+    workspace: '/workspace',
+    config: '/fleet.json',
+    commands: COMMANDS,
+    execute: async (args: string[]): Promise<CommandOutcome> => {
+      calls.push(args);
+      return { exitCode: 0, data: { version: 1, ok: true, nodes: [] } };
+    },
+  };
+  return { prompts, display, options, writes, calls, questions };
+}
+
+test('local command shortcut does not ask for remote targets', async () => {
+  const fixture = harness({ search: ['command:fleet doctor local', 'exit'] });
+  await runInteractive(fixture.options, fixture.prompts, fixture.display);
+  expect(fixture.calls).toEqual([['fleet', 'doctor', '--local']]);
+  expect(fixture.questions).not.toContain('Choose target scope');
+  expect(fixture.writes.join('\n')).toContain('--json');
+});
+
+test('add-node wizard cannot mutate without explicit approval', async () => {
+  const fixture = harness({
+    search: ['setup', 'exit'],
+    input: ['dev-one', 'dev-one', '/home/dev/workspace', ''],
+    confirm: [false],
+  });
+  await runInteractive(fixture.options, fixture.prompts, fixture.display);
+  expect(fixture.calls).toHaveLength(0);
+  expect(fixture.writes.join('\n')).toContain('no roster was written');
+});
+
+test('confirmed wizard invokes the same explicit agent-friendly command', async () => {
+  const fixture = harness({
+    search: ['setup', 'exit'],
+    input: ['dev-one', 'dev-one', '/home/dev/workspace', '/usr/bin/node'],
+    confirm: [true],
+  });
+  await runInteractive(fixture.options, fixture.prompts, fixture.display);
+  expect(fixture.calls).toHaveLength(1);
+  expect(fixture.calls[0]).toEqual([
+    'fleet',
+    'add',
+    '--id',
+    'dev-one',
+    '--ssh',
+    'dev-one',
+    '--path',
+    '/home/dev/workspace',
+    '--runtime',
+    '/usr/bin/node',
+    '--require',
+    'github,t3',
+    '--apply',
+    '--yes',
+  ]);
+});
+
+test('report filters retain remedies and never execute suggested commands', async () => {
+  const fixture = harness({
+    search: ['status', '0', 'back'],
+    select: ['fail'],
+  });
+  const session: Session = fixture;
+  await inspectChecks(session, {
+    nodes: [
+      {
+        node: 'dev',
+        checks: [
+          { id: 'ok', status: 'pass', summary: 'fine' },
+          {
+            id: 'ssh:auth',
+            status: 'fail',
+            summary: 'SSH key rejected',
+            remedy: { action: 'Inspect keys locally', command: 'ssh-add -l' },
+          },
+        ],
+      },
+    ],
+  });
+  expect(
+    fixture.questions.some((question) => question.includes('1/2 checks'))
+  ).toBe(true);
+  expect(fixture.writes.join('\n')).toContain(
+    'Suggested operator command (not executed)'
+  );
+  expect(fixture.calls).toHaveLength(0);
+});
+
+test('cancellation exits safely without printing the thrown message', async () => {
+  const fixture = harness();
+  fixture.prompts.search = async () => {
+    const error = new Error('private-stack-token');
+    error.name = 'ExitPromptError';
+    throw error;
+  };
+  await expect(
+    runInteractive(fixture.options, fixture.prompts, fixture.display)
+  ).rejects.toThrow();
+  expect(fixture.writes.join('\n')).not.toContain('private-stack-token');
+  expect(fixture.calls).toHaveLength(0);
+});
+
+test('terminal text strips escape sequences and control characters', () => {
+  expect(clean('\x1b[31mred\x1b[0m\x1b]0;title\x07\nvalue')).toBe('red value');
+});

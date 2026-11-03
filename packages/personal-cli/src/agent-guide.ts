@@ -1,0 +1,46 @@
+export const AGENT_GUIDE = {
+  version: 1,
+  name: '@crvouga/personal',
+  invocation:
+    'npx --yes @crvouga/personal@<exact-version> <command> --json --non-interactive',
+  discovery: 'personal commands --json',
+  configuration: {
+    workspace:
+      '--workspace PATH, PERSONAL_WORKSPACE, closest ancestor mise.toml, then current directory',
+    roster:
+      '--config PATH, PERSONAL_FLEET_CONFIG, closest ancestor .fleet.local.json, then ~/.config/personal/fleet.json',
+  },
+  output: {
+    stdout:
+      'One versioned JSON document with --json. Prompts and progress never contaminate stdout.',
+    exitCodes: {
+      '0': 'Success or preview',
+      '1': 'Failed check or operation; strict also rejects warnings/skips',
+      '2': 'Invalid usage or configuration',
+      '130': 'Cancelled',
+    },
+    errors:
+      '{version:1,ok:false,code,error}; raw subprocess output and exception details are withheld',
+    reports:
+      '{version:1,command,ok,generatedAt,nodes:[{node,checks:[{id,status,summary,remedy?}]}],summary,coverage}',
+    statuses: ['pass', 'warn', 'fail', 'skip'],
+    coverage:
+      'Default doctor tests the controller and all configured nodes. --local tests only this controller. A missing roster fails explicitly; configured nodes are not every computer that exists. T3/VS Code end-to-end checks remain manual.',
+  },
+  safety: [
+    'No arguments opens a menu only on an interactive terminal. --json and --non-interactive never prompt.',
+    'Diagnostics, onboarding instructions, schema, catalog and sync previews are read-only.',
+    'Roster writes and sync require both --apply and --yes. npx --yes only approves downloading the CLI.',
+    'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
+    'A healthy controller does not prove another machine can connect to it. Run doctor from each intended controller.',
+    'Use exact npm versions for automation. The application never self-updates.',
+  ],
+  examples: [
+    'personal fleet doctor --local --workspace /path/to/personal --json',
+    'personal fleet doctor --all --json --strict --timeout 120000',
+    'personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --require github,t3,toolchain --json',
+    'personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json',
+    'personal fleet doctor --node dev-linux --json',
+    'personal fleet sync --node dev-linux --json',
+  ],
+};

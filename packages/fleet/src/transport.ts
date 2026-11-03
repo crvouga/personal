@@ -7,7 +7,7 @@ import type { FleetNode, NodeReport, Runner } from './types';
 export async function bundleProbe(): Promise<string> {
   const result = await Bun.build({
     entrypoints: [fileURLToPath(new URL('./remote-entry.ts', import.meta.url))],
-    target: 'bun',
+    target: 'node',
     minify: true,
   });
   if (!result.success || !result.outputs[0])
@@ -49,7 +49,7 @@ export async function inspectRemote(
         id: 'ssh:session',
         status: 'pass',
         summary:
-          'Fresh noninteractive SSH session and Bun probe succeeded with verified host keys and no agent forwarding.',
+          'Fresh noninteractive SSH session and Node-compatible probe succeeded with verified host keys and no agent forwarding.',
       },
       ...snapshot.checks,
       {
@@ -90,7 +90,7 @@ function protocolFailure(node: string): NodeReport {
         summary: 'Remote response is not a supported fleet JSON document.',
         remedy: {
           action:
-            'Remove stdout banners from noninteractive shell startup; check the Bun runtime. No raw remote output is retained.',
+            'Remove stdout banners from noninteractive shell startup; check the Node/Bun runtime. No raw remote output is retained.',
         },
       },
     ],

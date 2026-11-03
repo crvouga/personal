@@ -37,7 +37,7 @@ export function sshArgs(node: FleetNode): string[] {
 
 export function remoteCommand(node: FleetNode, request: object): string[] {
   const encoded = Buffer.from(JSON.stringify(request)).toString('base64');
-  const command = `cd -- ${shellQuote(node.workspace)} && exec ${shellQuote(node.runtime ?? 'bun')} run - ${shellQuote(encoded)}`;
+  const command = `cd -- ${shellQuote(node.workspace)} && exec ${shellQuote(node.runtime ?? 'node')} --input-type=module - ${shellQuote(encoded)}`;
   return [...sshArgs(node), command];
 }
 
@@ -74,10 +74,11 @@ const FAILURES = [
       'Verify the node is awake, VPN is connected, sshd is enabled and the configured port is reachable. Do not open a public SSH port automatically.',
   },
   {
-    pattern: /bun.*not found|No such file or directory|cannot cd|can.t cd/i,
+    pattern:
+      /(?:bun|node).*not found|No such file or directory|cannot cd|can.t cd/i,
     id: 'ssh:runtime',
     summary:
-      'Remote workspace or Bun runtime is missing from the non-login SSH environment.',
+      'Remote workspace or Node/Bun runtime is missing from the non-login SSH environment.',
     action:
       'Follow fleet onboard; configure absolute workspace/runtime paths. GUI terminals and SSH shells may have different PATHs.',
   },
@@ -114,7 +115,7 @@ export function sshFailure(result: CommandResult): Check {
     remedy: {
       action:
         match?.action ??
-        'Run ssh ALIAS manually; verify workspace/Bun, shell startup output and CLI compatibility. Never paste credentials or full logs into agent context.',
+        'Run ssh ALIAS manually; verify workspace/runtime, shell startup output and CLI compatibility. Never paste credentials or full logs into agent context.',
     },
   };
 }

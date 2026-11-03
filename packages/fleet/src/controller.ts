@@ -9,6 +9,7 @@ export interface DoctorOptions {
   timeoutMs: number;
   local: boolean;
   required: Capability[];
+  source?: string;
 }
 
 export async function doctor(
@@ -42,8 +43,8 @@ export async function doctor(
       ],
     },
   ];
-  if (options.local) return reports;
-  const source = await bundleProbe();
+  if (options.local || nodes.length === 0) return reports;
+  const source = options.source ?? (await bundleProbe());
   const reference = await fingerprint(options.root, run);
   const remote = await mapBounded(nodes, async (node) => {
     const report = await inspectRemote(

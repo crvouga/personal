@@ -8,7 +8,7 @@ const workflow = parse(
   readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
 );
 const jobs = workflow.jobs;
-const required = ['changes', 'repository', 'packages'];
+const required = ['changes', 'repository', 'packages', 'personal_cli'];
 const conditional = ['infra', 'auth', 'portfolio_urls'];
 const filters = {
   infra: 'true',

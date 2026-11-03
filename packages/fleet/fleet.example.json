@@ -6,7 +6,7 @@
       "id": "dev-linux",
       "ssh": "dev-linux",
       "workspace": "/home/developer/workspace",
-      "runtime": "/home/developer/.local/share/mise/shims/bun",
+      "runtime": "/home/developer/.local/share/mise/shims/node",
       "required": ["github", "vault", "t3", "toolchain"]
     }
   ]

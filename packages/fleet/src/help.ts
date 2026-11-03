@@ -29,6 +29,6 @@ Exit codes: 0 no failures (warnings/skips remain visible), 1 health/operation
 failure, 2 usage/config error. --strict also treats warnings/skips as failure.
 Sync defaults to a PLAN; a plan is not evidence of health or completed work.
 No credential copying, host-key bypasses, forced Git updates or provisioning.
-Remote nodes require macOS/Linux/WSL with a POSIX SSH shell and Bun. Native
+Remote nodes require macOS/Linux/WSL with a POSIX SSH shell and Node or Bun. Native
 Windows supports local commands. Read packages/fleet/README.md for limitations.
 `;

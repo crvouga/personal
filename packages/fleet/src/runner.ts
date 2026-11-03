@@ -19,7 +19,12 @@ export function runCommand(
   return new Promise((resolve) => {
     const child = spawn(command[0]!, command.slice(1), {
       cwd: options.cwd,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', CI: '1' },
+      env: {
+        ...process.env,
+        ...options.env,
+        GIT_TERMINAL_PROMPT: '0',
+        CI: '1',
+      },
       stdio: 'pipe',
       windowsHide: true,
       detached: process.platform !== 'win32',

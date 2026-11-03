@@ -46,7 +46,7 @@ remains the sole cloud resource owner; fleet creates no networks, hosts or secre
       "id": "dev-linux",
       "ssh": "dev-linux",
       "workspace": "/home/developer/workspace",
-      "runtime": "/home/developer/.local/share/mise/shims/bun",
+      "runtime": "/home/developer/.local/share/mise/shims/node",
       "required": ["github", "vault", "t3", "toolchain"]
     }
   ]
@@ -58,9 +58,9 @@ remains the sole cloud resource owner; fleet creates no networks, hosts or secre
   keychain configuration in normal SSH config. user@host/IPv6 should use aliases.
 - `workspace`: absolute POSIX checkout path. Spaces/apostrophes work; relative
   paths, tilde expansion and control characters are rejected.
-- `runtime`: optional absolute Bun executable or mise shim. Defaults to `bun` on
+- `runtime`: optional absolute Node/Bun executable or mise shim. Defaults to `node` on
   the **non-login SSH PATH**. Configure explicitly when GUI terminals work but SSH
-  cannot find Bun. A shim also needs mise's environment/PATH working.
+  cannot find Node. A shim also needs mise's environment/PATH working.
 - `required`: `github`, `vault`, `t3`, `vscode`, `toolchain`. Defaults to all except
   vscode. Set vscode on editor/controller machines, not just on headless targets.
   `[]` still checks checkout/dependencies/SSH. Unknown fields fail closed.
@@ -81,7 +81,7 @@ remote nodes' required lists. Run `fleet schema` for editor/agent validation.
 | `dependencies`                                                                     | Last successful fleet frozen-sync receipt matches input hashes. Missing receipt is unverified, not in-sync.                           |
 | `auth:toolchain`                                                                   | Existing scripts/dev/doctor.ts runs in the node checkout with its Bun, bounded to 90s. Use ws tools check --json for individual pins. |
 | `ssh:agent`                                                                        | Controller agent exposes an identity; missing agent warns because IdentityFile keys may still work.                                   |
-| `ssh:session`                                                                      | Fresh batch SSH session actually runs Bun. No reused multiplexed connection or agent forwarding.                                      |
+| `ssh:session`                                                                      | Fresh batch SSH session actually runs the Node/Bun probe. No reused multiplexed connection or agent forwarding.                       |
 | `ssh:host-key`, `ssh:dns`, `ssh:auth`, `ssh:network`, `ssh:runtime`, `ssh:timeout` | Classified failure and targeted remedy, without raw logs.                                                                             |
 | `auth:github`                                                                      | gh auth status --active succeeds on this machine; not proof of Git SSH or every repository permission.                                |
 | `auth:vault`                                                                       | Server-side vault token lookup succeeds in this context; not proof of access to every secret path.                                    |
@@ -118,9 +118,9 @@ need normal repository validation. A green install is not a healthy fleet.
    then run `fleet validate` and `fleet onboard --node ID --json`. Onboarding
    emits a ready-to-edit SSH stanza, VS Code settings and ordered instructions;
    it does not overwrite user config. Test `ssh ALIAS` manually first.
-4. Ensure noninteractive shell startup is quiet and Bun is reachable. Fleet
+4. Ensure noninteractive shell startup is quiet and Node (or explicit Bun runtime) is reachable. Fleet
    bundles/streams its own dependency-free probe over stdin: the remote computer
-   needs Bun, **not a matching installation of this package** or its dependencies.
+   needs Node or Bun, **not a matching installation of this package** or its dependencies.
 5. Authenticate separately: GitHub, Git SSH, Vault, coding providers and T3 pairing
    are distinct sessions. Use gh auth login/setup-git, approved vault login and
    operator-driven t3 up --connect as needed. Never put secrets in reports.

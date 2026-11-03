@@ -12,6 +12,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
 - `packages/fleet`: developer fleet diagnostics/onboarding and explicit sync plans. Read its `README.md` and `AGENTS.md`. Start with `bun run fleet help`; `doctor --json` is read-only. The gitignored developer roster is not cloud inventory. Never copy credentials or bypass SSH host-key checks; mutation requires `--apply --yes` and delegates to existing toolchain owners.
+- `packages/personal-cli`: private source workspace for the public `@crvouga/personal` Node/npm CLI. Read its `README.md`, `AGENTS.md` and `releasing.md`. `bun run personal` opens its command palette; `commands --json` and `agent --json` are the noninteractive contracts. CI publishes only after Check; `personal:publish:bootstrap` is plan-only unless `--apply --yes`. Never publish the workspace or include a roster/credentials.
 
 ## Shared authentication relay
 
