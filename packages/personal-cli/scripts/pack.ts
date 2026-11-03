@@ -38,7 +38,9 @@ export async function pack(
       '--pack-destination',
       destination,
     ]),
-    join(root, 'packages/personal-cli/dist')
+    join(root, 'packages/personal-cli/dist'),
+    {},
+    { stage: 'pack' }
   );
   const entries = JSON.parse(output) as {
     filename: string;

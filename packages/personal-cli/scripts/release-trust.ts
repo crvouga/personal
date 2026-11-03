@@ -67,7 +67,8 @@ export async function configurePublisher(
     await mustRun(
       await npmCommand(['trust', 'list', PACKAGE, '--json']),
       dirname(env['NPM_CONFIG_USERCONFIG']!),
-      env
+      env,
+      { stage: 'publisher-verification' }
     )
   );
   if (hasCiPublisher(existing)) {
@@ -94,7 +95,8 @@ export async function configurePublisher(
     await mustRun(
       await npmCommand(['trust', 'list', PACKAGE, '--json']),
       dirname(env['NPM_CONFIG_USERCONFIG']!),
-      env
+      env,
+      { stage: 'publisher-verification' }
     )
   );
   if (!hasCiPublisher(saved))

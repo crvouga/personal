@@ -9,13 +9,36 @@ Node, npm and Bun must be on PATH through the shared mise setup. npm 11.15+ is
 needed for the bootstrap's `npm trust` command. Start with a read-only plan:
 
 ```sh
-bun install --frozen-lockfile
+bash scripts/dev/bootstrap.sh
+exec "$SHELL" -l
+```
+
+The machine bootstrap needs no Bun or npm, installs the shared locked mise
+toolchain and frozen workspace dependencies, and configures persistent shell
+PATH. On native Windows use `& ./scripts/dev/bootstrap.ps1`, then reopen your
+terminal. See [machine setup](../../scripts/dev/README.md) for new/remote nodes.
+After refreshing your terminal, run:
+
+```sh
 bun run personal:release:plan
 bun run personal:publish:bootstrap --apply --yes --npm-login
 ```
 
+Release progress on stderr identifies each stage (`npm-version`, `build`,
+`pack`, `consumer-install`, consumer commands and publisher verification).
+Failures name the stage without exposing raw subprocess output or credentials.
+The npm runner supports mise shims, shell launchers and native executables;
+Windows `.cmd` launchers use npm's adjacent JavaScript entry point through Node.
+To validate the complete build/pack/anonymous-consumer path without logging in,
+publishing or changing trusted publishers, run:
+
+```sh
+bun run personal:build
+bun run --cwd packages/personal-cli smoke
+```
+
 The bootstrap builds and installs/tests the exact tarball in an anonymous isolated
-consumer, opens npm's account authorization, publishes the package if necessary,
+consumer, prints npm's account authorization URL, publishes the package if necessary,
 and configures/verifies its GitHub trusted publisher. Approve npm login and any
 npm account/2FA approval in your own terminal/browser. No npm password, recovery
 code or long-lived publishing token needs to be supplied to this project.
@@ -31,6 +54,28 @@ inherits your terminal so npm can request its publishing-specific 2FA approval.
 Global npm login/config is
 not changed. A hard process kill can leave a temporary directory; remove any
 abandoned `personal-npm-auth-*` directory in your OS temporary directory.
+
+### Remote Mac / SSH browser approval
+
+Run the bootstrap **on the Mac Mini** in an interactive remote terminal. If you
+connect with SSH, use `ssh -t YOUR_ALIAS` to allocate a terminal. No browser is
+needed on the Mini, and no port forwarding or copying npm credentials is needed.
+
+1. Run `bun run personal:publish:bootstrap --apply --yes --npm-login` on the Mini.
+2. When npm prints its HTTPS login URL, copy/open that **new URL on your MacBook
+   Air**, sign in to npm and complete the account/2FA approval there.
+3. **Leave the Mini's terminal running**. It waits for npm's approval and resumes
+   automatically; no Enter-to-open-browser prompt is used. Ctrl+C cancels login.
+4. Publishing may print another approval URL or ask for a one-time code. Open
+   that URL on the Air too, or enter the requested code in the Mini's terminal.
+
+Browser launch is disabled for the entire isolated npm session, including
+publish-time web 2FA and trusted-publisher setup. npm update notices/progress are
+disabled too; keep npm versions owned by the shared mise lock, not a global
+`npm install -g`. After cancellation or expiry, rerun the command and use its new
+URL, not an earlier session's URL. Treat approval links as private; never paste
+them into reports or shared logs. The browser approval is not proof of publication;
+wait for registry-integrity and trusted-publisher verification to finish.
 
 ## Vault username/password login
 

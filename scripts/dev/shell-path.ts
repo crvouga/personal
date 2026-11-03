@@ -44,6 +44,34 @@ function persistWindowsPath(bin: string, shims: string): void {
     );
 }
 
+export function configurePosixShellPath(
+  bin: string,
+  shims: string,
+  home = homedir(),
+  zdotdir = process.env['ZDOTDIR'] || home
+): void {
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  const paths = quote(`${shims}:${bin}`);
+  const legacy = `# crvouga/workspace toolchain\nexport PATH=${paths}:"$PATH"`;
+  const block = `# crvouga/workspace toolchain\ncase ":$PATH:" in\n  *${quote(`:${shims}:${bin}:`)}*) ;;\n  *) export PATH=${paths}:"$PATH" ;;\nesac`;
+  const targets = new Set([
+    join(home, '.profile'),
+    ...['.bash_profile', '.bash_login']
+      .map((name) => join(home, name))
+      .filter(existsSync),
+    join(home, '.bashrc'),
+    join(zdotdir, '.zshenv'),
+    join(zdotdir, '.zshrc'),
+  ]);
+  for (const path of targets) {
+    const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
+    if (current.startsWith(`${block}\n`)) continue;
+    const rest = current.replace(`${block}\n`, '').replace(legacy, '');
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${block}\n${rest}`);
+  }
+}
+
 export function configureShellPath(): void {
   const bin = join(homedir(), '.local', 'bin');
   const shims = process.env['MISE_SHIMS_DIR'] || join(miseDataDir(), 'shims');
@@ -51,10 +79,7 @@ export function configureShellPath(): void {
     persistWindowsPath(bin, shims);
     return;
   }
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  const block = `# crvouga/workspace toolchain\nexport PATH=${quote(`${shims}:${bin}`)}:"$PATH"`;
-  for (const name of ['.profile', '.bashrc', '.zshrc'])
-    appendOnce(join(homedir(), name), block);
+  configurePosixShellPath(bin, shims);
   const fishQuote = (value: string) =>
     `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
   appendOnce(

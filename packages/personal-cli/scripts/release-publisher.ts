@@ -11,7 +11,16 @@ export interface PublisherOptions {
 }
 
 export async function checkBootstrapNpm(cwd: string): Promise<void> {
-  const version = (await mustRun(await npmCommand(['--version']), cwd)).trim();
+  const version = (
+    await mustRun(
+      await npmCommand(['--version']),
+      cwd,
+      {},
+      {
+        stage: 'npm-version',
+      }
+    )
+  ).trim();
   const [major = 0, minor = 0] = version.split('.').map(Number);
   if (
     !/^\d+\.\d+\.\d+$/.test(version) ||
@@ -25,7 +34,8 @@ export async function checkBootstrapNpm(cwd: string): Promise<void> {
 
 export async function withPublisher<T>(
   options: PublisherOptions,
-  operation: (env: NodeJS.ProcessEnv) => Promise<T>
+  operation: (env: NodeJS.ProcessEnv) => Promise<T>,
+  authorize = interactiveNpm
 ): Promise<T> {
   if (
     [options.oidc, options.login, options.npmLogin].filter(Boolean).length > 1
@@ -45,7 +55,7 @@ export async function withPublisher<T>(
   }
   if (options.npmLogin)
     return withNpmAuth('', async (env) => {
-      await interactiveNpm(['login', '--auth-type=web'], env);
+      await authorize(['login', '--auth-type=web'], env);
       return operation(env);
     });
   return withNpmAuth(
@@ -58,10 +68,18 @@ export async function interactiveNpm(
   args: string[],
   env: NodeJS.ProcessEnv
 ): Promise<void> {
-  if (!process.stdin.isTTY || !process.stderr.isTTY || process.env['CI'])
+  if (
+    !process.stdin.isTTY ||
+    !process.stdout.isTTY ||
+    !process.stderr.isTTY ||
+    process.env['CI']
+  )
     throw new ReleaseError(
-      'Initial npm account authorization needs a terminal. Run bun run personal:publish:bootstrap --apply --yes --npm-login; Vault recovery codes are not publishing credentials.'
+      'npm account approval needs an interactive terminal (use ssh -t when connecting remotely). Run bun run personal:publish:bootstrap --apply --yes --npm-login there; Vault recovery codes are not publishing credentials.'
     );
+  process.stderr.write(
+    'npm approval: open the URL printed below in your local browser (for example, on your MacBook Air).\nKeep this remote terminal running while you approve; it resumes automatically. Do not press Ctrl+C unless you want to cancel.\n'
+  );
   const child = Bun.spawn(await npmCommand(args), {
     cwd: dirname(env['NPM_CONFIG_USERCONFIG']!),
     env: { ...process.env, ...env },

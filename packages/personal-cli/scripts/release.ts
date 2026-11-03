@@ -38,7 +38,8 @@ async function publish(
       root,
       {
         PERSONAL_RELEASE_VERSION: plan.next,
-      }
+      },
+      { stage: 'build' }
     );
     const tarball = await pack(root, temporary);
     await consumerSmoke(tarball.path);
@@ -65,7 +66,7 @@ async function publish(
       ];
       const operation = authentication.npmLogin
         ? interactiveNpm(args, env)
-        : mustRun(await npmCommand(args), root, env);
+        : mustRun(await npmCommand(args), root, env, { stage: 'publish' });
       await operation.catch(() => {
         rejected = true;
       });

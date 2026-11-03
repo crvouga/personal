@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { withUserpassSession } from '../scripts/release-userpass';
@@ -93,4 +94,51 @@ test('publisher matching uses the caller workflow and direct publish permission 
   expect(trustConfigurations(' \n')).toEqual([]);
   expect(() => trustConfigurations('{')).toThrow();
   expect(() => trustConfigurations('unexpected')).toThrow();
+});
+
+test('remote web login disables browser launch and reuses its temporary session for publication', async () => {
+  let config = '';
+  let authorized = false;
+  const result = await withPublisher(
+    { login: false, npmLogin: true, oidc: false },
+    async (env) => {
+      expect(authorized).toBe(true);
+      expect(env['NPM_CONFIG_USERCONFIG']).toBe(config);
+      expect(env['NPM_CONFIG_BROWSER']).toBe('false');
+      expect(await readFile(config, 'utf8')).toContain('fixture-session');
+      return 'published-fixture';
+    },
+    async (args, env) => {
+      expect(args).toEqual(['login', '--auth-type=web']);
+      expect(env['NPM_CONFIG_BROWSER']).toBe('false');
+      config = env['NPM_CONFIG_USERCONFIG']!;
+      await writeFile(
+        config,
+        '//registry.npmjs.org/:_authToken=fixture-session\n'
+      );
+      authorized = true;
+    }
+  );
+  expect(result).toBe('published-fixture');
+  expect(existsSync(config)).toBe(false);
+});
+
+test('cancelled remote authorization prevents publication and removes temporary credentials', async () => {
+  let config = '';
+  let published = false;
+  await expect(
+    withPublisher(
+      { login: false, npmLogin: true, oidc: false },
+      async () => {
+        published = true;
+      },
+      async (_args, env) => {
+        config = env['NPM_CONFIG_USERCONFIG']!;
+        await writeFile(config, 'fixture-credentials');
+        throw new Error('cancelled-fixture');
+      }
+    )
+  ).rejects.toThrow('cancelled-fixture');
+  expect(published).toBe(false);
+  expect(existsSync(config)).toBe(false);
 });

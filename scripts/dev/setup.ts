@@ -43,7 +43,7 @@ if (import.meta.main) {
     ]);
   }
   console.log(
-    'Shared toolchain installed globally. Configure your shell as documented in scripts/dev/README.md.'
+    'Shared toolchain installed globally. Reopen terminals/editors, or refresh this terminal with: exec "$SHELL" -l (Unix).'
   );
   console.log(
     'Verify: mise exec -- bun scripts/dev/doctor.ts (add --docker to require a running Docker engine).'

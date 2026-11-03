@@ -118,8 +118,15 @@ reused, never reset or implicitly pulled. From a checkout, run
 The scripts install checksum-verified mise **2026.10.24**, trust this repository's
 configuration, install pinned Bun, install the shared tools with `--locked`, copy
 the managed global config/lock/sidecars, set up persistent shims on PATH, and run
-`bun install --frozen-lockfile`. Reopen your terminal/editor afterward. Unix PATH
-blocks are appended once to `.profile`, `.bashrc`, `.zshrc` and fish's config;
+`bun install --frozen-lockfile`. Reopen your terminal/editor afterward. To refresh
+an already-open Unix terminal immediately, run `exec "$SHELL" -l`; an installer
+cannot change its parent shell's environment. **If `bun` or `mise` is missing,
+run `bash scripts/dev/bootstrap.sh` from this checkout first, not a Bun command.**
+Unix PATH blocks cover `.profile`, existing `.bash_profile`/`.bash_login`,
+`.bashrc`, `.zshenv`, `.zshrc` and fish's config. Zsh uses `ZDOTDIR` when set.
+POSIX blocks are quiet, idempotent
+and placed before interactive-only early returns, so noninteractive SSH/agent
+commands can find the same shims without loading an interactive UI;
 Windows updates only the user's PATH; AWS CLI v2 additionally uses the official
 versioned MSI (a UAC prompt may appear) because mise's AWS recipe supports only
 macOS/Linux. Its version comes from the same manifest and its Windows SHA-256 is
@@ -345,6 +352,23 @@ diagnoses SSH, authentication, T3 Connect settings/API and checkout/lockfile dri
 `bun run fleet sync` previews convergence through this same setup script; applying
 requires `--apply --yes`. No credentials are copied or cloud resources provisioned;
 VS Code/T3 end-to-end tests remain explicit operator steps.
+
+Bootstrap each node once using the same reviewed checkout revision, then check
+tool discovery through its actual SSH alias (not just an interactive terminal):
+
+```sh
+ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
+bun run fleet doctor --json
+bun run fleet sync
+bun run fleet sync --apply --yes
+```
+
+Review the sync plan before applying. SSH must already work and nodes must be in
+your local fleet roster; bootstrap does not create accounts, pair T3, authorize
+SSH keys or copy credentials. Remote Bash sessions depend on sshd sourcing
+`.bashrc`; shells launched with startup files disabled need an explicit PATH or
+the absolute `~/.local/bin/mise exec --locked -- COMMAND` entry point. On Windows,
+restart the parent editor/agent process to inherit the updated user PATH.
 
 To change versions: edit pins with `mise use --pin <tool>@<version>` (or edit
 `mise.toml`), run `mise lock`, review `mise.toml`, `mise.lock` and any `.mise/locks/`

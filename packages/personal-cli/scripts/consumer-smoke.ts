@@ -34,7 +34,8 @@ export async function consumerSmoke(tarball: string): Promise<void> {
         tarball,
       ]),
       directory,
-      env
+      env,
+      { stage: 'consumer-install' }
     );
     await exercise(directory, env);
     await exerciseBinary(directory, env);
@@ -58,7 +59,8 @@ async function exerciseBinary(
       '--json',
     ]),
     directory,
-    env
+    env,
+    { stage: 'consumer-binary' }
   );
   assert(
     JSON.parse(output).command === 'commands',
@@ -79,13 +81,17 @@ async function exercise(
     ['fleet', 'schema', '--json'],
     ['--json'],
   ]) {
-    const output = await mustRun([node, cli, ...args], directory, env);
+    const output = await mustRun([node, cli, ...args], directory, env, {
+      stage: 'consumer-command',
+    });
     assert(
       typeof JSON.parse(output) === 'object',
       'standalone JSON command must work without a checkout'
     );
   }
-  const version = await mustRun([node, cli, '--version'], directory, env);
+  const version = await mustRun([node, cli, '--version'], directory, env, {
+    stage: 'consumer-command',
+  });
   assert(
     /^\d+\.\d+\.\d+\s*$/.test(version),
     'Node executable must report the release version'

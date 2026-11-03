@@ -5,16 +5,28 @@ import { runCommand } from '../../fleet/src/runner';
 import type { Runner } from '../../fleet/src/types';
 import { ReleaseError } from './release-error';
 
+type ReleaseStage =
+  | 'npm-version'
+  | 'build'
+  | 'pack'
+  | 'consumer-install'
+  | 'consumer-command'
+  | 'consumer-binary'
+  | 'publish'
+  | 'publisher-verification';
+
 export async function mustRun(
   command: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = {},
-  run: Runner = runCommand
+  options: { run?: Runner; stage?: ReleaseStage } = {}
 ): Promise<string> {
+  const { run = runCommand, stage } = options;
+  if (stage) process.stderr.write(`Release: ${stage}\n`);
   const result = await run(command, { cwd, env, timeoutMs: 300_000 });
   if (!result.ok)
     throw new ReleaseError(
-      `Release subprocess failed (${result.reason}). Raw output is withheld; inspect Node/npm, network, permissions and the npm publishing token's package scope/2FA policy.`
+      `Release ${stage ?? 'subprocess'} failed (${result.reason}). Raw output is withheld; check this step's tools, network and permissions. Publishing/auth steps also require the correct npm package scope and 2FA approval.`
     );
   return result.stdout;
 }
@@ -59,5 +71,8 @@ export function npmEnvironment(
     NPM_CONFIG_CACHE: join(directory, 'cache'),
     NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org/',
     NPM_CONFIG_LOGLEVEL: 'error',
+    NPM_CONFIG_BROWSER: 'false',
+    NPM_CONFIG_UPDATE_NOTIFIER: 'false',
+    NPM_CONFIG_PROGRESS: 'false',
   };
 }

@@ -61,9 +61,15 @@ test('pack allowlist rejects missing files, secrets, source and duplicate paths'
 test('npm config contains only a token reference and is deleted even after failure', async () => {
   const anonymous = npmEnvironment('/temporary', '', {
     npm_config_registry: 'https://not-the-public-registry.test',
+    npm_config_browser: '/unwanted/browser',
+    NPM_CONFIG_BROWSER: '/another/browser',
     NPM_ID_TOKEN: 'synthetic-identity',
   });
   expect(anonymous['npm_config_registry']).toBeUndefined();
+  expect(anonymous['npm_config_browser']).toBeUndefined();
+  expect(anonymous['NPM_CONFIG_BROWSER']).toBe('false');
+  expect(anonymous['NPM_CONFIG_UPDATE_NOTIFIER']).toBe('false');
+  expect(anonymous['NPM_CONFIG_PROGRESS']).toBe('false');
   expect(anonymous['NPM_ID_TOKEN']).toBeUndefined();
   expect(anonymous['NODE_AUTH_TOKEN']).toBe('');
   let path = '';
@@ -82,13 +88,22 @@ test('npm config contains only a token reference and is deleted even after failu
 });
 
 test('release subprocess failures never expose raw output', async () => {
-  const result = mustRun(['npm', 'publish'], '/', {}, async () => ({
-    ok: false,
-    reason: 'exit',
-    stdout: 'token-secret',
-    stderr: 'token-secret',
-  }));
+  const result = mustRun(
+    ['npm', 'publish'],
+    '/',
+    {},
+    {
+      stage: 'publish',
+      run: async () => ({
+        ok: false,
+        reason: 'exit',
+        stdout: 'token-secret',
+        stderr: 'token-secret',
+      }),
+    }
+  );
   await expect(result).rejects.toBeInstanceOf(ReleaseError);
+  await expect(result).rejects.toThrow('publish failed (exit)');
   await expect(result).rejects.not.toThrow('token-secret');
   expect(
     await publishingToken({ NODE_AUTH_TOKEN: 'existing-session-token' })
