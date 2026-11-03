@@ -7,9 +7,10 @@
     "packages",
     "infra",
     "auth",
-    "portfolio_urls"
+    "portfolio_urls",
+    "personal_cli"
   ],
-  "checkGateJobInstances": 10,
+  "checkGateJobInstances": 15,
   "openTofuRoots": [
     "auth",
     "auth-development",
@@ -24,9 +25,9 @@
   "preventDestroyGuards": 39,
   "healthChecks": 13,
   "inventoryServices": 22,
-  "packages": 16,
-  "workspaceTestFiles": 158,
-  "workspaceTestCallSites": 816,
+  "packages": 18,
+  "workspaceTestFiles": 172,
+  "workspaceTestCallSites": 886,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",
@@ -36,9 +37,9 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "f7b1e3ea1b8e8cd4d6a2d3941275484dee9f2bfa",
-    "asOfDate": "2026-10-31T10:28:32-07:00",
-    "commits": 1774,
+    "asOfCommit": "3a7322811c9cf179c1732c51bf16fe3a3c796227",
+    "asOfDate": "2026-11-03T01:53:47-07:00",
+    "commits": 1779,
     "byTool": [
       { "tool": "Claude Code", "trailers": 116 },
       { "tool": "Cursor", "trailers": 78 }
