@@ -7,9 +7,10 @@
     "packages",
     "infra",
     "auth",
-    "portfolio_urls"
+    "portfolio_urls",
+    "personal_cli"
   ],
-  "checkGateJobInstances": 10,
+  "checkGateJobInstances": 15,
   "openTofuRoots": [
     "auth",
     "auth-development",
@@ -24,9 +25,9 @@
   "preventDestroyGuards": 39,
   "healthChecks": 13,
   "inventoryServices": 22,
-  "packages": 16,
-  "workspaceTestFiles": 158,
-  "workspaceTestCallSites": 816,
+  "packages": 18,
+  "workspaceTestFiles": 172,
+  "workspaceTestCallSites": 886,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",

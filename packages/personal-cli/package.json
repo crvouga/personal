@@ -1,0 +1,26 @@
+{
+  "name": "@pkgs/personal-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interactive, agent-friendly developer fleet command center",
+  "scripts": {
+    "dev": "bun src/cli.ts",
+    "build": "bun scripts/build.ts",
+    "smoke": "bun scripts/smoke.ts",
+    "tc": "tsc --noEmit",
+    "lint": "eslint src scripts --max-warnings 0",
+    "test": "bun test src tests"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "8.7.5",
+    "boxen": "9.0.0",
+    "chalk": "6.0.1",
+    "cli-table3": "0.6.5",
+    "commander": "15.0.0",
+    "fuse.js": "7.5.0",
+    "ora": "10.0.0"
+  },
+  "devDependencies": {
+    "@pkgs/fleet": "workspace:*"
+  }
+}
