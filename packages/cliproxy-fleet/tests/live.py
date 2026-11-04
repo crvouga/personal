@@ -138,10 +138,9 @@ def check_recovery(root, restore):
     with tempfile.TemporaryDirectory(prefix="cliproxy-cloud-recovery-") as directory:
         temporary = pathlib.Path(directory)
         tooling = temporary / "tooling"
-        shutil.copytree(
-            root / "scripts",
-            tooling / "scripts",
-            ignore=shutil.ignore_patterns("__pycache__"),
+        tooling.mkdir()
+        (tooling / "scripts").symlink_to(
+            (root / "scripts").resolve(), target_is_directory=True
         )
         (tooling / "state/secrets").mkdir(parents=True, mode=0o700)
         shutil.copyfile(
@@ -159,7 +158,7 @@ def check_recovery(root, restore):
             )
             restored = target / "opt/cliproxy-fleet"
             run(
-                [str(restored / "scripts/restore-verify"), str(restored)],
+                [str(root / "scripts/restore-verify"), str(restored)],
                 env=environment,
             )
     print(

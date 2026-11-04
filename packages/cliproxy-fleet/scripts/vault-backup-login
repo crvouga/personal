@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import sys
+
+sys.dont_write_bytecode = True
+
 import getpass, importlib.util, os, pathlib, sys
 
 root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()

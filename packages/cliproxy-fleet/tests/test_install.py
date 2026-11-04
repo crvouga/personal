@@ -79,10 +79,19 @@ class Installation(unittest.TestCase):
         legacy.parent.mkdir()
         legacy.write_text("retired one-off provisioning helper")
         revision, files = installer.source_files(self.repo, "HEAD")
-        manifest = installer.materialize(self.target, revision, files)
+        manifest = installer.materialize(
+            self.target,
+            revision,
+            files,
+            installer.prepare_source(self.repo, self.target, revision),
+        )
         self.assertEqual((self.target / "compose.yaml").read_text(), "services: {}\n")
         self.assertEqual((state / "auth.json").read_text(), "synthetic existing state")
         self.assertFalse(legacy.exists())
+        self.assertTrue((self.target / "scripts").is_symlink())
+        tracked_path = (self.target / "scripts/install.py").resolve()
+        self.assertIn("revisions", tracked_path.parts)
+        self.assertTrue((self.target / "revisions" / revision / ".git").is_file())
         self.assertEqual(manifest["revision"], self.git("rev-parse", "HEAD"))
         self.assertEqual(auditor.audit(self.target, check_units=False)[1], [])
         (self.target / "compose.yaml").write_text("local edit")
@@ -97,12 +106,22 @@ class Installation(unittest.TestCase):
         self.write("scripts/retired.py", "# formerly managed\n")
         self.commit()
         old, files = installer.source_files(self.repo, "HEAD")
-        installer.materialize(self.target, old, files)
+        installer.materialize(
+            self.target,
+            old,
+            files,
+            installer.prepare_source(self.repo, self.target, old),
+        )
         (self.package / "scripts/retired.py").unlink()
         self.write("compose.yaml", "services: {proxy: {}}\n")
         self.commit()
         new, files = installer.source_files(self.repo, "HEAD")
-        installer.materialize(self.target, new, files)
+        installer.materialize(
+            self.target,
+            new,
+            files,
+            installer.prepare_source(self.repo, self.target, new),
+        )
         self.assertFalse((self.target / "scripts/retired.py").exists())
         self.assertEqual(
             json.loads((self.target / "INSTALLATION.previous.json").read_text())[
@@ -110,7 +129,12 @@ class Installation(unittest.TestCase):
             ],
             old,
         )
-        installer.materialize(self.target, new, files)
+        installer.materialize(
+            self.target,
+            new,
+            files,
+            installer.prepare_source(self.repo, self.target, new),
+        )
         self.assertEqual(
             json.loads((self.target / "INSTALLATION.previous.json").read_text())[
                 "revision"

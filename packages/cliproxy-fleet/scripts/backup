@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import sys
+
+sys.dont_write_bytecode = True
+
 import datetime, json, os, pathlib, subprocess, sys, tempfile, fcntl, importlib.util
 
 root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
@@ -114,6 +118,8 @@ try:
                 str(root / "state/status"),
                 "--exclude",
                 str(root / "recovery"),
+                "--exclude",
+                str(root / "revisions"),
                 "--exclude",
                 str(root / "state/runtime/logs"),
                 "--exclude",

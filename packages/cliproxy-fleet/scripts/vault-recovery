@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Read existing recovery secrets; all Vault writes belong to the OpenTofu root."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import hmac
 import importlib.util
 import os

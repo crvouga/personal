@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Install only committed package files, preserving cloud-backed runtime state."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import argparse
 import fcntl
 import hashlib
@@ -9,6 +14,7 @@ import os
 import pathlib
 import re
 import subprocess
+import shutil
 
 PACKAGE = "packages/cliproxy-fleet"
 REPOSITORY = "https://github.com/crvouga/personal.git"
@@ -22,7 +28,8 @@ LEGACY_FILES = [
 
 def git(repo, *args):
     return subprocess.check_output(
-        ["git", "-C", str(repo), *args], stderr=subprocess.PIPE
+        ["git", "-c", "safe.directory=" + str(repo), "-C", str(repo), *args],
+        stderr=subprocess.PIPE,
     )
 
 
@@ -77,15 +84,49 @@ def atomic_write(path, data, mode):
     os.replace(temporary, path)
 
 
-def materialize(target, commit, files):
+def prepare_source(repo, target, commit):
+    worktree = target / "revisions" / commit
+    if not worktree.exists():
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        git(repo, "worktree", "add", "--detach", str(worktree), commit)
+        git(worktree, "sparse-checkout", "set", "--no-cone", "/" + PACKAGE + "/")
+    if git(worktree, "rev-parse", "HEAD").decode().strip() != commit:
+        raise ValueError("Deployment worktree is at the wrong revision")
+    if git(worktree, "status", "--porcelain", "--", PACKAGE).strip():
+        raise ValueError("Deployment worktree has local changes")
+    return worktree
+
+
+def link_path(path, destination):
+    temporary = path.with_name(path.name + ".install-link")
+    if temporary.is_symlink():
+        temporary.unlink()
+    temporary.symlink_to(destination)
+    if path.is_dir() and not path.is_symlink():
+        retired = path.with_name(path.name + ".retired-code")
+        if retired.exists():
+            raise ValueError("Previous retired directory needs review")
+        path.rename(retired)
+        os.replace(temporary, path)
+        shutil.rmtree(retired)
+    else:
+        os.replace(temporary, path)
+
+
+def materialize(target, commit, files, worktree):
     target.mkdir(parents=True, exist_ok=True)
     manifest_file = target / "INSTALLATION.json"
     previous = json.loads(manifest_file.read_text()) if manifest_file.exists() else None
-    if previous and previous["revision"] != commit:
+    if (
+        previous
+        and previous.get("schema_version") == 2
+        and previous["revision"] != commit
+    ):
         atomic_write(
             target / "INSTALLATION.previous.json", manifest_file.read_bytes(), 0o644
         )
     stale = set(previous["files"] if previous else LEGACY_FILES) - set(files)
+    # Do not mutate old tracked worktrees through their symlinks.
     for name in stale:
         relative = pathlib.PurePosixPath(name)
         if (
@@ -94,18 +135,22 @@ def materialize(target, commit, files):
             or relative.parts[0] == "state"
         ):
             raise ValueError("Unsafe managed manifest entry")
+        if (target / relative.parts[0]).is_symlink():
+            continue
         file = target / name
         if file.is_file() or file.is_symlink():
             file.unlink()
-    for name, (mode, data) in files.items():
-        atomic_write(target / name, data, mode)
+    source = worktree / PACKAGE
+    for name in sorted({pathlib.PurePosixPath(name).parts[0] for name in files}):
+        link_path(target / name, source / name)
     environment = image_environment(files)
     atomic_write(target / ".env", environment, 0o644)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "repository": REPOSITORY,
         "package": PACKAGE,
         "revision": commit,
+        "worktree": str(worktree),
         "files": {name: digest(data) for name, (_, data) in sorted(files.items())},
         "generated": {".env": digest(environment)},
     }
@@ -133,9 +178,18 @@ def main():
         previous = target / "INSTALLATION.previous.json"
         if not previous.exists():
             parser.error("No previous Git installation is recorded")
-        revision = json.loads(previous.read_text())["revision"]
+        previous_metadata = json.loads(previous.read_text())
+        if previous_metadata.get("schema_version") != 2:
+            parser.error(
+                "Legacy copied-code revisions are not eligible for repository-only rollback"
+            )
+        revision = previous_metadata["revision"]
     commit, files = source_files(args.repo, revision)
     image_environment(files)
+    if "clients/launcher.py" not in files:
+        parser.error(
+            "Choose a revision supporting tracked-code launchers and worktrees"
+        )
     if args.dry_run:
         print(
             json.dumps(
@@ -165,7 +219,8 @@ def main():
     operation_lock = open(status / "operation.lock", "a")
     os.chown(status / "operation.lock", 1000, 1000)
     fcntl.flock(operation_lock, fcntl.LOCK_EX)
-    materialize(target, commit, files)
+    worktree = prepare_source(args.repo, target, commit)
+    materialize(target, commit, files, worktree)
     if args.prepare_only:
         print(
             "Prepared committed recovery tooling at "
@@ -182,9 +237,7 @@ def main():
             ".timer",
         ]:
             raise ValueError("Unexpected system unit name")
-        atomic_write(
-            pathlib.Path("/etc/systemd/system") / file.name, file.read_bytes(), 0o644
-        )
+        link_path(pathlib.Path("/etc/systemd/system") / file.name, file.resolve())
     subprocess.run(["systemctl", "daemon-reload"], check=True)
     subprocess.run(["systemctl", "enable", "--now", "docker.service"], check=True)
     subprocess.run(

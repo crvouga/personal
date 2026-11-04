@@ -4,12 +4,14 @@
 
 ## Source and installed artifacts
 
-The only authored source is `crvouga/personal/packages/cliproxy-fleet`. `/opt/cliproxy-fleet` is a generated installation, not a second source repository. Never patch its code manually. The installer extracts regular tracked files from a Git commit, generates `.env` from `image.lock.json`, preserves `state/`, and records SHA-256 hashes and the source commit in `INSTALLATION.json`. `audit` checks those hashes, installed systemd units and unexpected code files; startup and periodic monitoring enforce the audit. Uncommitted files are never deployed.
+The only executable source is Git-tracked code in `crvouga/personal`. Installation creates a detached sparse Git worktree at `/opt/cliproxy-fleet/revisions/COMMIT`; operational paths under `/opt/cliproxy-fleet` and systemd units are links into that worktree. No executable source is rendered or copied outside Git. Client launchers are also links to the tracked `clients/launcher.py` in a checkout.
 
-- **Git:** scripts, templates, pinned images, unit files, client generator, runbooks and tests.
-- **Vault:** S3 credentials, existing backup recovery password and initial client/admin keys. Tokens remain private local session state and can be reacquired through login.
-- **Encrypted R2 snapshots:** authoritative live proxy config, OAuth files, account state, dedicated Tailscale identity and installation metadata.
-- **Generated local files:** installed code, systemd copies, client launchers/config and `.env` are reproducible from their tracked generators and cloud secrets. Do not hand-edit them.
+`INSTALLATION.json` records the worktree, commit and hashes. `audit` verifies Git tracking, a clean deployed checkout, link targets, systemd links, content hashes and unexpected code. Startup and monitoring enforce it. Uncommitted code is never installed; keep the original Git repository/common object database available, or rebuild a deployment worktree from a fresh clone during recovery.
+
+- **Git:** all executable code, Compose/templates, immutable image pins, unit definitions, clients, tests and runbooks.
+- **Vault:** provider-independent credentials and existing recovery keys; never commit secrets.
+- **Encrypted R2 snapshots:** live provider/config state, dedicated Tailscale identity and source-revision metadata.
+- **Generated non-code data:** private client settings, installation metadata and `.env` image-pin data; their generators are tracked. Runtime data remains separate under `state/`.
 
 ## Install, update and rollback
 
@@ -26,7 +28,7 @@ bun run cliproxy status
 
 The installer uses sudo for the local system deployment. It preserves the live configuration and credentials, refreshes managed files/units, and restarts only this stack. It never provisions cloud resources or writes Vault secrets. On a fresh host, first use the restore procedure below; do not create a competing active instance with copied credentials.
 
-To update, change the package/image pins in Git, pass package/repository checks, commit, and install the selected revision. To undo a code/image update:
+To update, change the package/image pins in Git, pass package/repository checks, commit, and install the selected revision. To undo a Git revision/image update:
 
 ```bash
 bun run cliproxy install --rollback
@@ -119,7 +121,7 @@ Enter the inference key at the hidden prompt. It is available in Vault `secret/p
 
 Codex uses custom-provider CLI overrides and Responses HTTP/SSE. Claude uses its supported base URL/auth-token variables and an explicit Claude model. OpenCode uses its config-file override, with separate Responses and Anthropic SDK providers. Once Claude is authenticated, rerun with `--claude-model MODEL_ID`; otherwise the Claude launcher fails with an explicit setup requirement. Native client config files are preserved. Use plain native clients during a proxy outage.
 
-Bootstrap is idempotent and refuses unrelated launcher collisions. `--uninstall` removes generated launchers while retaining private settings for deliberate cleanup. On Windows run inside WSL; native PowerShell launchers are not provided. Validate from each actual machine and target repository because OpenCode merges project settings.
+Run bootstrap from a repository checkout containing `clients/launcher.py`; detached downloaded bootstrap files are unsupported. Bootstrap is idempotent and refuses unrelated launcher collisions. `--uninstall` removes launcher links while retaining private settings for deliberate cleanup. On Windows run inside WSL; native PowerShell launchers are not provided. Validate from each actual machine and target repository because OpenCode merges project settings.
 
 ## Vault, backups and restore
 
@@ -137,7 +139,7 @@ Vault login is interactive with hidden input; its token is restricted locally an
 
 Daily backups run around 03:15 Phoenix time with up to 15 minutes jitter. They stop only this stack briefly for a consistent snapshot and resume exactly the previously running services, including on failure. Retention: 7 daily, 5 weekly, 12 monthly. Weekly Sunday 05:00 checks repository structure and 10% of data; `check-full` reads all data. Physical pruning is deliberate maintenance. Backup and integrity-check failures use separate markers; monitoring fails for a missing/older-than-36-hours backup. The latest successful snapshot ID is recorded in `state/status/backup-success.json`.
 
-Encrypted snapshots include live config, OAuth/account state, client/admin keys, deployment code/metadata and dedicated Tailscale identity. Docker images, logs, status files, Vault token, encryption password and recovery-confirmation marker are excluded. Recover Vault access independently; losing both Vault recovery and the local Restic password makes snapshots unreadable.
+Encrypted snapshots include live config, OAuth/account state, client/admin keys, source-revision metadata and dedicated Tailscale identity. Git worktrees are excluded: recover code from the repository at the recorded commit, not from copied executable files. Docker images, logs, status files, Vault token, encryption password and recovery-confirmation marker are excluded. Recover Vault access independently; losing both Vault recovery and the local Restic password makes snapshots unreadable.
 
 For a fresh machine, clone this repository, install OS prerequisites, and materialize the committed package in `/opt/cliproxy-fleet` without starting the service using the installer module's documented recovery procedure in [migration](docs/migration.md). Then log into Vault, recover the existing password, restore to an empty staging directory and verify it offline. Do not initialize new provider credentials or run a second restored identity concurrently.
 

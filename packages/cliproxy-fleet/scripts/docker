@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
+import sys
+
+sys.dont_write_bytecode = True
+
 import os, sys, subprocess, shlex
 
+args = sys.argv[1:]
+if args and args[0] == "compose" and "--project-directory" not in args:
+    args = [
+        "compose",
+        "--project-directory",
+        os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"),
+        *args[1:],
+    ]
 if os.access("/var/run/docker.sock", os.R_OK | os.W_OK):
-    os.execv("/usr/bin/docker", ["docker", *sys.argv[1:]])
-os.execvp("sudo", ["sudo", "-n", "/usr/bin/docker", *sys.argv[1:]])
+    os.execv("/usr/bin/docker", ["docker", *args])
+os.execvp("sudo", ["sudo", "-n", "/usr/bin/docker", *args])

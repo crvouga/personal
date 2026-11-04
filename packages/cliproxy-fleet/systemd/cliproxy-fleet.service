@@ -4,6 +4,7 @@ Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
 [Service]
+Environment=PYTHONDONTWRITEBYTECODE=1
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/cliproxy-fleet

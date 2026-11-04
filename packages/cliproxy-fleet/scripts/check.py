@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Offline syntax/config checks; no cloud access or running deployment required."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import ast
 import json
 import pathlib

@@ -3,7 +3,7 @@ set -euo pipefail
 cd /opt/cliproxy-fleet
 ./scripts/audit.py
 ./scripts/validate-config
-/usr/bin/docker compose up -d --wait proxy
+/usr/bin/docker compose --project-directory /opt/cliproxy-fleet up -d --wait --force-recreate proxy
 if [[ -f state/endpoint.json ]]; then
-  /usr/bin/docker compose --profile portable-endpoint up -d tailnet
+  /usr/bin/docker compose --project-directory /opt/cliproxy-fleet --profile portable-endpoint up -d tailnet
 fi

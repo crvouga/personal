@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Repository entry point for installing and operating the local service."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import os
 import pathlib
 import subprocess

@@ -36,11 +36,11 @@ On the destination, restore to an empty directory and validate offline:
 
 ```bash
 bun run cliproxy restore SNAPSHOT_ID /var/tmp/cliproxy-recovery
-python3 -B /var/tmp/cliproxy-recovery/opt/cliproxy-fleet/scripts/restore-verify \
+python3 -B /opt/cliproxy-fleet/scripts/restore-verify \
   /var/tmp/cliproxy-recovery/opt/cliproxy-fleet
 ```
 
-Read the recovered `INSTALLATION.json` to identify the exact package commit. Fetch that commit from the repository if needed. Preserve your newly acquired Vault token and recovered password while merging the restored state:
+Read the recovered `INSTALLATION.json` to identify the exact package commit. Code links in a snapshot may refer to paths on the old host: do not execute restored links. The trusted repository validator compares the recorded hashes with Git objects. Fetch that commit from the repository if needed. Preserve your newly acquired Vault token and recovered password while merging the restored state:
 
 ```bash
 sudo cp -a /var/tmp/cliproxy-recovery/opt/cliproxy-fleet/state/. /opt/cliproxy-fleet/state/

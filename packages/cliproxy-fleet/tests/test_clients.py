@@ -46,6 +46,7 @@ class Clients(unittest.TestCase):
                         text=True,
                     )
                 )
+                self.assertTrue((h / ".local/bin" / f"{name}-fleet").is_symlink())
                 self.assertTrue(out["has_key"])
                 self.assertNotIn("test-only-", json.dumps(out))
                 if name == "codex":

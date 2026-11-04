@@ -1,5 +1,10 @@
 """Vault API helpers. Never print response bodies, tokens, or credentials."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import json, pathlib, urllib.request, os
 
 ROOT = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()

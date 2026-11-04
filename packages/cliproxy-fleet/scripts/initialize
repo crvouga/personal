@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Materialize local state from existing cloud secrets; never seed Vault."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
+
 import hashlib
 import importlib.util
 import json
