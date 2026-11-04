@@ -17,12 +17,9 @@ export async function chooseTargets(
               'No roster or SSH required; uses this session workspace.',
           },
           {
-            name: 'All roster nodes',
+            name: allTargetsName(action),
             value: 'all',
-            description:
-              action === 'doctor'
-                ? 'Controller + every configured node; read-only.'
-                : 'Every configured remote checkout.',
+            description: allTargetsDescription(action),
           },
         ]),
     { name: 'Select roster nodes…', value: 'selected' },
@@ -30,6 +27,7 @@ export async function chooseTargets(
   ]);
   if (selection === 'back') return undefined;
   if (selection === 'local') return ['--local'];
+  if (selection === 'all' && action === 'repair') return [];
   const nodes = await availableNodes(session);
   if (!nodes.length) return missingRoster(session, action);
   if (selection === 'all') return [];
@@ -87,4 +85,18 @@ async function missingRoster(
     { name: 'Back to palette / Fleet setup', value: 'back' },
   ]);
   return choice === 'local' ? ['--local'] : undefined;
+}
+
+function allTargetsName(action: string): string {
+  return action === 'repair'
+    ? 'All visible Tailscale computers'
+    : 'All roster nodes';
+}
+
+function allTargetsDescription(action: string): string {
+  if (action === 'doctor')
+    return 'Controller + every configured node; read-only.';
+  return action === 'repair'
+    ? 'Inspect this controller and every visible computer; preview repairs before applying.'
+    : 'Every configured remote checkout.';
 }

@@ -1,6 +1,9 @@
 import type { CommandOutcome } from './contracts';
+import { showRepairs } from './ui-repairs';
 import {
   callArgs,
+  clean,
+  text,
   isCancellation,
   record,
   reproduction,
@@ -37,11 +40,7 @@ export function showOutcome(session: Session, outcome: CommandOutcome): void {
   const incomplete = checks.filter((check) =>
     ['warn', 'skip'].includes(check.status)
   ).length;
-  const state = successful(outcome)
-    ? incomplete
-      ? 'WARNING'
-      : 'SUCCESS'
-    : 'FAILED';
+  const state = outcomeState(outcome, incomplete);
   const counts = ['pass', 'warn', 'fail', 'skip'].map(
     (status) =>
       `${checks.filter((check) => check.status === status).length} ${status}`
@@ -50,9 +49,13 @@ export function showOutcome(session: Session, outcome: CommandOutcome): void {
     state,
     checks.length ? counts.join(' · ') : outcomeMessage(outcome)
   );
+  showAttention(session, checks);
+  showData(session, outcome);
   if (!successful(outcome))
     session.display.write(
-      'No automatic repair was attempted. Review the command, context and setup.'
+      record(outcome.data) && outcome.data['applied'] === true
+        ? 'Actions were attempted. Review execution results, partial changes and fresh checks before retrying.'
+        : 'No automatic repair was attempted. Review the command, context and setup.'
     );
 }
 
@@ -67,6 +70,8 @@ function outcomeMessage(outcome: CommandOutcome): string {
 function failureMessage(data: unknown): string {
   if (!record(data))
     return 'Operation failed. Raw errors and subprocess output are intentionally hidden.';
+  if (data['code'] === 'invalid_usage' && typeof data['error'] === 'string')
+    return clean(data['error']);
   const messages: Record<string, string> = {
     invalid_usage:
       'Configuration or arguments need attention. Use Fleet setup, validate, or session context.',
@@ -79,4 +84,80 @@ function failureMessage(data: unknown): string {
     messages[String(data['code'])] ??
     'Operation did not complete. Review setup and the noninteractive command.'
   );
+}
+
+function showNodes(session: Session, data: Record<string, unknown>): void {
+  const nodes = Array.isArray(data['nodes'])
+    ? data['nodes'].filter(record)
+    : [];
+  if (!nodes.length) {
+    session.display.write(
+      'No computers registered yet. Choose Fleet: Register a developer computer to add one, or Fleet: Discover Tailscale computers.'
+    );
+    return;
+  }
+  session.display.table(
+    ['Computer', 'SSH', 'Workspace'],
+    nodes.map((node) => [
+      text(node['id']),
+      text(node['ssh']),
+      text(node['workspace']),
+    ])
+  );
+}
+
+function showComputers(session: Session, data: Record<string, unknown>): void {
+  const computers = Array.isArray(data['computers'])
+    ? data['computers'].filter(record)
+    : [];
+  session.display.table(
+    ['Computer', 'OS', 'Online'],
+    computers.map((peer) => [
+      text(peer['dns']),
+      text(peer['os']),
+      peer['online'] === true ? 'yes' : 'no',
+    ])
+  );
+  session.display.write(
+    'Visible Tailscale computers only; mobile devices excluded. Register each remote computer with its existing SSH alias and checkout path before full health checks.'
+  );
+}
+
+function showAttention(
+  session: Session,
+  checks: ReturnType<typeof reportChecks>
+): void {
+  const attention = checks.filter((check) => check.status !== 'pass');
+  if (!attention.length) return;
+  session.display.table(
+    ['Computer', 'Check', 'Status / next step'],
+    attention
+      .slice(0, 15)
+      .map((check) => [
+        check.node,
+        check.id,
+        `${check.status}: ${check.remedy ?? check.summary}`,
+      ])
+  );
+  if (attention.length > 15)
+    session.display.write(
+      `Showing 15 of ${attention.length} checks needing attention. Explore checks and remedies for the complete report.`
+    );
+}
+
+function showData(session: Session, outcome: CommandOutcome): void {
+  if (!record(outcome.data)) return;
+  if (['repair', 'repairs'].includes(String(outcome.data['command'])))
+    showRepairs(session, outcome.data);
+  if (successful(outcome) && outcome.data['command'] === 'nodes')
+    showNodes(session, outcome.data);
+  if (outcome.data['command'] === 'discover')
+    showComputers(session, outcome.data);
+}
+
+function outcomeState(outcome: CommandOutcome, incomplete: number): string {
+  if (record(outcome.data) && outcome.data['applied'] === false)
+    return 'PREVIEW';
+  if (!successful(outcome)) return 'FAILED';
+  return incomplete ? 'WARNING' : 'SUCCESS';
 }

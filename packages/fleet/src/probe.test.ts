@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { probe } from './probe';
+import { CAPABILITIES } from './config';
 import { authCheck } from './auth-checks';
 import {
   compareFingerprints,
@@ -87,7 +88,7 @@ test('unrequested capabilities skip without contacting authentication services',
   expect(commands.every((command) => command[0] === 'git')).toBe(true);
   expect(
     snapshot.checks.filter((check) => check.status === 'skip').length
-  ).toBe(5);
+  ).toBe(CAPABILITIES.length);
 });
 
 test('authentication failures do not expose credentials, private errors or command output', async () => {

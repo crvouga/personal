@@ -15,11 +15,54 @@ function fleet(
     keywords,
     args: ['fleet', command],
     examples: [`personal fleet ${command} --json`],
-    mutation: ['add', 'sync', 'init'].includes(command),
+    mutation: ['add', 'sync', 'init', 'repair'].includes(command),
   };
 }
 
 export const COMMANDS: CommandSpec[] = [
+  fleet(
+    'repairs',
+    'Explore repairs and login commands',
+    'List existing tool owners, automated repairs, native per-machine login commands and shared Vault access guidance. No roster or credentials required.',
+    ['fix', 'repair', 'login', 'credentials', 'sharing', 'vault', 'resources']
+  ),
+  fleet(
+    'repair',
+    'Repair tools and configuration',
+    'Inspect visible Tailscale computers and preview owner-managed repairs. --apply --yes executes eligible tools/config repairs and reruns diagnostics. Logins and host trust remain explicit operator steps.',
+    [
+      'fix',
+      'repair',
+      'sync',
+      'setup',
+      'versions',
+      'config',
+      'login',
+      'credentials',
+    ]
+  ),
+  fleet(
+    'health',
+    'Check all Tailscale computers',
+    'Discover every visible non-mobile Tailscale computer, test reachability, pinned tools, configuration and service logins. Offline, unregistered and unverified computers fail coverage.',
+    [
+      'tailscale',
+      'tailnet',
+      'all',
+      'health',
+      'versions',
+      'codex',
+      'claude',
+      'login',
+      'auth',
+    ]
+  ),
+  fleet(
+    'discover',
+    'Discover Tailscale computers',
+    'List all computers visible to this Tailscale account, including offline devices. Excludes iOS, Android and tvOS; never writes a roster.',
+    ['tailscale', 'tailnet', 'computers', 'discover', 'machines']
+  ),
   fleet(
     'doctor',
     'Diagnose the entire fleet',

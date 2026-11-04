@@ -1,5 +1,14 @@
 export type Status = 'pass' | 'warn' | 'fail' | 'skip';
-export type Capability = 'github' | 'vault' | 't3' | 'vscode' | 'toolchain';
+export type Capability =
+  | 'github'
+  | 'vault'
+  | 't3'
+  | 'vscode'
+  | 'toolchain'
+  | 'codex'
+  | 'claude'
+  | 'services'
+  | 'workstation';
 
 export interface FleetNode {
   id: string;

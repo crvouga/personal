@@ -2,7 +2,8 @@ import { remoteCommand, sshFailure } from './ssh';
 import { cleanCheck, decodeSnapshot, validCheck } from './protocol';
 import { record } from './config';
 import { fileURLToPath } from 'node:url';
-import type { FleetNode, NodeReport, Runner } from './types';
+import type { FleetNode, NodeReport, Runner, Fingerprint } from './types';
+import type { AutomatedRepair } from './repair-catalog';
 
 export async function bundleProbe(): Promise<string> {
   const result = await Bun.build({
@@ -18,7 +19,9 @@ export async function bundleProbe(): Promise<string> {
 export interface RemoteOptions {
   source: string;
   timeoutMs: number;
-  action: 'probe' | 'sync';
+  action: 'probe' | 'sync' | 'repair';
+  repairs?: AutomatedRepair[];
+  expected?: Fingerprint;
   pull?: boolean;
 }
 
@@ -30,7 +33,9 @@ export async function inspectRemote(
   const command = remoteCommand(node, {
     action: options.action,
     node,
-    apply: options.action === 'sync',
+    apply: options.action !== 'probe',
+    repairs: options.repairs,
+    expected: options.expected,
     pull: options.pull === true,
   });
   const result = await run(command, {
@@ -38,7 +43,7 @@ export async function inspectRemote(
     timeoutMs: options.timeoutMs,
   });
   if (!result.ok) return { node: node.id, checks: [sshFailure(result)] };
-  if (options.action === 'sync') return decodeSync(node.id, result.stdout);
+  if (options.action !== 'probe') return decodeSync(node.id, result.stdout);
   const snapshot = decodeSnapshot(result.stdout);
   if (!snapshot) return protocolFailure(node.id);
   return {
@@ -69,6 +74,7 @@ function decodeSync(node: string, output: string): NodeReport {
       record(data) &&
       data['version'] === 1 &&
       Array.isArray(data['checks']) &&
+      data['checks'].length > 0 &&
       data['checks'].length <= 200 &&
       data['checks'].every(validCheck)
     ) {

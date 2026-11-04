@@ -51,15 +51,19 @@ export function commandChoices(
   term: string
 ): Choice[] {
   return searchCommands(commands, term).map((command) => ({
-    name: `[${clean(command.group)}] ${clean(command.title)}`,
+    name: `${clean(command.group)}: ${clean(command.title)}`,
     value: `command:${command.id}`,
     description: `${clean(command.description)}${command.mutation ? ' · confirmation required' : ''}`,
   }));
 }
 
 export function reportChecks(data: unknown): CheckRow[] {
-  if (!record(data) || !Array.isArray(data['nodes'])) return [];
-  return data['nodes'].flatMap(nodeChecks);
+  if (!record(data)) return [];
+  const nodes = Array.isArray(data['nodes']) ? data['nodes'] : [];
+  return [
+    ...nodes.flatMap(nodeChecks),
+    ...nodeChecks({ node: 'tailscale', checks: data['checks'] }),
+  ];
 }
 
 function nodeChecks(value: unknown): CheckRow[] {

@@ -46,7 +46,7 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
   expect(new Set(COMMANDS.map((entry) => entry.id)).size).toBe(COMMANDS.length);
   expect(
     COMMANDS.filter((entry) => entry.mutation).map((entry) => entry.id)
-  ).toEqual(['fleet add', 'fleet sync', 'fleet init']);
+  ).toEqual(['fleet repair', 'fleet add', 'fleet sync', 'fleet init']);
   expect(
     commandCatalog('docter').some((entry) => entry.id === 'fleet doctor')
   ).toBe(true);
@@ -157,4 +157,18 @@ test('explicit configuration and workspace override environment defaults', async
       PERSONAL_FLEET_CONFIG: '/wrong',
     })
   ).toEqual(base);
+});
+
+test('listing an unconfigured fleet is an empty first-run state; validation and unsafe rosters still fail', async () => {
+  const base = await settings();
+  const result = await execute(['fleet', 'nodes', '--json'], base, '1.2.3');
+  expect(result.exitCode).toBe(0);
+  expect(result.data).toMatchObject({ ok: true, configured: false, nodes: [] });
+  expect(
+    (await execute(['fleet', 'validate', '--json'], base, '1.2.3')).exitCode
+  ).toBe(2);
+  await writeFile(base.config, '{broken');
+  expect(
+    (await execute(['fleet', 'nodes', '--json'], base, '1.2.3')).exitCode
+  ).toBe(2);
 });

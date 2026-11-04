@@ -1,6 +1,6 @@
 import type { CommandOutcome, CommandSpec } from './contracts';
 import { execute, showOutcome, successful } from './ui-execute';
-import { clean, reportChecks, reproduction } from './ui-data';
+import { clean, reportChecks, reproduction, record } from './ui-data';
 import { inspectChecks, inspectDetails } from './ui-reports';
 import { chooseTargets } from './ui-targets';
 import type { Choice, Session } from './ui-types';
@@ -13,7 +13,7 @@ export async function runCommand(
   const args = await actionArgs(session, command);
   if (!args) return;
   const preview =
-    args[0] === 'fleet' && ['sync', 'init'].includes(args[1] ?? '');
+    args[0] === 'fleet' && ['sync', 'init', 'repair'].includes(args[1] ?? '');
   if (args[1] === 'init')
     session.display.write(
       'EXAMPLE ONLY: init previews a starter roster, not a configured fleet. Saving requires --apply --yes.'
@@ -31,7 +31,7 @@ async function actionArgs(
   if (args[0] !== 'fleet') return args;
   if (args.includes('--local')) return args;
   const action = args[1] ?? '';
-  if (['sync', 'init'].includes(action)) {
+  if (['sync', 'init', 'repair'].includes(action)) {
     const preview = args.filter((arg) => !['--apply', '--yes'].includes(arg));
     if (action === 'init') return preview;
     const targets = await chooseTargets(session, action);
@@ -61,7 +61,7 @@ export async function runWithResults(
     if (selection === 'back') return;
     await inspectSelection(session, outcome, selection);
     if (selection === 'apply') {
-      const appliedArgs = [...args, '--apply', '--yes'];
+      const appliedArgs = applyArgs(args, outcome);
       if (!(await confirmMutation(session, appliedArgs))) continue;
       args = appliedArgs;
       preview = false;
@@ -86,6 +86,7 @@ async function inspectSelection(
 
 function resultChoices(outcome: CommandOutcome, preview: boolean): Choice[] {
   return [
+    { name: 'Back to commands', value: 'back' },
     ...(reportChecks(outcome.data).length
       ? [{ name: 'Explore checks and remedies…', value: 'checks' }]
       : []),
@@ -96,7 +97,6 @@ function resultChoices(outcome: CommandOutcome, preview: boolean): Choice[] {
     ...(!successful(outcome)
       ? [{ name: 'Retry command…', value: 'retry' }]
       : []),
-    { name: 'Back to palette', value: 'back' },
   ];
 }
 
@@ -106,9 +106,11 @@ export async function confirmMutation(
 ): Promise<boolean> {
   const action = args[1];
   const warning =
-    action === 'sync'
-      ? 'Sync runs trusted checkout lifecycle scripts and installs tools/dependencies. Failure can leave partial changes; remote installers may continue after disconnect. Inspect the node before retrying. No automatic repairs or credentials.'
-      : 'This writes the local roster only. No cloud resources, SSH configuration, credentials or host keys are changed.';
+    action === 'repair'
+      ? 'Repair runs the eligible owner actions in the displayed plan, including trusted setup/install scripts. Workstation actions may read this machine’s Vault session and write managed 0600 provider configuration. No login session is transferred between computers. Failures can leave partial changes; fresh diagnostics follow.'
+      : action === 'sync'
+        ? 'Sync runs trusted checkout lifecycle scripts and installs tools/dependencies. Failure can leave partial changes; remote installers may continue after disconnect. Inspect the node before retrying. No automatic repairs or credentials.'
+        : 'This writes the local roster only. No cloud resources, SSH configuration, credentials or host keys are changed.';
   session.display.panel(
     'Explicit approval required',
     [
@@ -121,4 +123,14 @@ export async function confirmMutation(
     ].join('\n')
   );
   return session.prompts.confirm('Apply this exact command? (default: no)');
+}
+
+function applyArgs(args: string[], outcome: CommandOutcome): string[] {
+  const guard =
+    args[1] === 'repair' &&
+    record(outcome.data) &&
+    typeof outcome.data['planHash'] === 'string'
+      ? ['--plan-hash', outcome.data['planHash']]
+      : [];
+  return [...args, ...guard, '--apply', '--yes'];
 }

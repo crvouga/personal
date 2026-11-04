@@ -36,7 +36,17 @@
             "uniqueItems": true,
             "default": ["github", "vault", "t3", "toolchain"],
             "items": {
-              "enum": ["github", "vault", "t3", "vscode", "toolchain"]
+              "enum": [
+                "github",
+                "vault",
+                "t3",
+                "vscode",
+                "toolchain",
+                "codex",
+                "claude",
+                "services",
+                "workstation"
+              ]
             }
           }
         }
