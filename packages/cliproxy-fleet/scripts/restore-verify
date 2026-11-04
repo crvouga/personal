@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Offline restore validation. Does not start restored OAuth sessions or alter networking."""
+
+import hashlib, json, pathlib, subprocess, sys, importlib.util
+
+root = pathlib.Path(sys.argv[1]).resolve()
+if (
+    not (root / "compose.yaml").is_file()
+    or not (root / "state/runtime/config.yaml").is_file()
+):
+    sys.exit("Pass the restored deployment root, containing compose.yaml and state/.")
+subprocess.run(
+    [
+        sys.executable,
+        str(root / "scripts/validate-config"),
+        str(root / "state/runtime/config.yaml"),
+    ],
+    check=True,
+)
+count = 0
+for p in (root / "state/runtime/auths").glob("*.json"):
+    try:
+        json.loads(p.read_text())
+        count += 1
+    except Exception:
+        sys.exit("An auth JSON file failed validation; contents suppressed.")
+locks = json.loads((root / "image.lock.json").read_text())
+assert all("@sha256:" in x for x in locks.values())
+assert (root / "state/runtime/static/management.html").exists()
+# No credential values, identifiers, or file names in output.
+manifest = root / "INSTALLATION.json"
+if manifest.exists():
+    spec = importlib.util.spec_from_file_location("audit", root / "scripts/audit.py")
+    audit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(audit)
+    assert not audit.audit(root, check_units=False)[1], (
+        "Restored code differs from its source manifest"
+    )
+print(
+    "Restored config, pinned deployment metadata, dashboard, and",
+    count,
+    "auth JSON files validated offline.",
+)
+print(
+    "Credentials remain unactivated. Test inference only after stopping the source host."
+)

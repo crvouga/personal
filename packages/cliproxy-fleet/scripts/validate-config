@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+import pathlib, sys, yaml, os
+
+p = (
+    pathlib.Path(sys.argv[1])
+    if len(sys.argv) > 1
+    else pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
+    / "state/runtime/config.yaml"
+)
+try:
+    c = yaml.safe_load(p.read_text())
+    assert c["config-version"] == 8
+    assert c["server"]["port"] == 8317
+    assert c["oauth"]["auth-dir"] == "/state/auths"
+    assert (
+        c["management"]["secret-key"] and "REPLACE" not in c["management"]["secret-key"]
+    )
+    keys = c["access"]["api-keys"]
+    assert keys and all(
+        isinstance(k, str) and len(k) >= 32 and "REPLACE" not in k for k in keys
+    )
+    assert c["management"]["secret-key"] not in keys
+    assert c.get("quota-exceeded", {}).get("switch-preview-model") is False
+    assert (
+        not c["observability"]["logs"]["debug"]
+        and not c["observability"]["logs"]["request-log"]
+    )
+    assert not c["plugins"]["enabled"]
+except Exception:
+    sys.exit("Configuration failed YAML/security validation; values suppressed.")
+print("YAML and deployment safety invariants passed (runtime staging still required).")

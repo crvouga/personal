@@ -96,6 +96,13 @@ remain exclusively OpenTofu-owned.
 
 ---
 
+## Private fleet AI proxy
+
+`@pkgs/cliproxy-fleet` owns the private CLIProxyAPI service and fleet-client bootstrap.
+Run `bun run cliproxy help` from this repository. Install only committed revisions;
+never patch `/opt/cliproxy-fleet` manually. Source and recovery instructions: {{path:packages/cliproxy-fleet/README.md}}.
+Provider state is encrypted in the existing R2 bucket; recovery credentials remain in Vault.
+
 ## 1. Vault (secrets)
 
 **Coordinates**

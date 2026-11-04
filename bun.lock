@@ -85,6 +85,10 @@
         "typescript": "catalog:",
       },
     },
+    "packages/cliproxy-fleet": {
+      "name": "@pkgs/cliproxy-fleet",
+      "version": "0.0.0",
+    },
     "packages/fleet": {
       "name": "@pkgs/fleet",
       "version": "0.0.0",
@@ -894,6 +898,8 @@
     "@pkgs/assert": ["@pkgs/assert@workspace:packages/assert"],
 
     "@pkgs/auth-relay": ["@pkgs/auth-relay@workspace:packages/auth-relay"],
+
+    "@pkgs/cliproxy-fleet": ["@pkgs/cliproxy-fleet@workspace:packages/cliproxy-fleet"],
 
     "@pkgs/fleet": ["@pkgs/fleet@workspace:packages/fleet"],
 

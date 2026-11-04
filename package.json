@@ -74,7 +74,8 @@
     "gh:deploy:status": "gh run list --workflow deploy.yml --limit 3",
     "gh:maintenance:status": "gh run list --workflow maintenance.yml --limit 3",
     "password-manager": "node packages/password-manager/bin.mjs",
-    "password-manager:setup": "sh scripts/password-manager-setup.sh"
+    "password-manager:setup": "sh scripts/password-manager-setup.sh",
+    "cliproxy": "bun run --cwd packages/cliproxy-fleet cli"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",
