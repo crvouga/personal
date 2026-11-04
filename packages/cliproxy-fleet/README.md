@@ -148,6 +148,8 @@ bun run --filter @pkgs/cliproxy-fleet lint
 bun run --filter @pkgs/cliproxy-fleet test
 ```
 
+Explicit integration checks are also versioned: `python3 -B packages/cliproxy-fleet/tests/live.py --codex --recovery --restore`. They read the existing deployment/Vault login, spend a small number of provider tokens and restore only into a temporary offline directory. Add `--opencode` when the locked OpenCode CLI is installed; no tool is installed automatically.
+
 Offline checks cover syntax/pins, source-only installation, state preservation, manifest drift/unmanaged-code detection, rollback metadata, and repeatable client bootstrap preserving native settings. Integration verification is explicit and uses inexpensive inference. See [initial deployment evidence](docs/deployment-verification-2026-11-04.md) and [migration/restore commands](docs/migration.md). Mac/WSL remote tests, additional provider authentication and a physical host migration remain operator-run checks.
 
 Sources: [upstream release](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.55), [official dashboard](https://help.router-for.me/management/webui), [Codex config](https://learn.chatgpt.com/docs/config-file/config-reference), [Claude gateway](https://code.claude.com/docs/en/llm-gateway-connect), [OpenCode providers](https://opencode.ai/docs/providers/), [Tailscale Services](https://tailscale.com/docs/features/tailscale-services). The vendored upstream config is retained as version-specific schema documentation, not live configuration.
