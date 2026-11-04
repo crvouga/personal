@@ -26,6 +26,7 @@ import type { Settings } from './settings';
 import { capabilities, timeout, validateOptions } from './options';
 import type { CliOptions } from './options';
 import { addNode, nodeFromOptions, readRoster } from './roster';
+import { executeTailnet } from './tailnet';
 import { probeSource } from './probe-source';
 
 export interface FleetServices {
@@ -42,21 +43,15 @@ export async function executeFleet(
   services: FleetServices = SERVICES
 ): Promise<CommandOutcome> {
   validateOptions(command, options);
+  if (['discover', 'health'].includes(command))
+    return executeTailnet(command, options, settings, services);
   if (command === 'schema') return result(schema);
   if (command === 'init') return initialize(settings, options);
   if (command === 'add') return register(settings, options);
   const roster = options.local ? null : await readRoster(settings.config);
   const nodes = resolveNodes(command, options, roster);
   if (['nodes', 'validate', 'onboard'].includes(command))
-    return result({
-      version: 1,
-      command,
-      ok: true,
-      nodes:
-        command === 'onboard'
-          ? nodes.map((node) => onboarding(node, 'personal fleet'))
-          : nodes,
-    });
+    return rosterResult(command, nodes, roster !== null);
   if (command === 'sync')
     return synchronize(nodes, options, settings, services);
   return diagnose(
@@ -67,12 +62,29 @@ export async function executeFleet(
   );
 }
 
+function rosterResult(
+  command: string,
+  nodes: FleetNode[],
+  configured: boolean
+): CommandOutcome {
+  return result({
+    version: 1,
+    command,
+    ok: true,
+    ...(command === 'nodes' ? { configured } : {}),
+    nodes:
+      command === 'onboard'
+        ? nodes.map((node) => onboarding(node, 'personal fleet'))
+        : nodes,
+  });
+}
+
 function resolveNodes(
   command: string,
   options: CliOptions,
   roster: FleetConfig | null
 ): FleetNode[] {
-  if (!roster && !options.local && command !== 'doctor')
+  if (!roster && !options.local && !['doctor', 'nodes'].includes(command))
     throw new FleetUsageError(
       'No fleet roster. Use fleet add or the interactive Register action; use fleet doctor --local for this machine.'
     );

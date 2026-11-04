@@ -1,5 +1,7 @@
 import { record } from './config';
-import { join } from 'node:path';
+import { codingAuth, serviceAuth } from './service-auth';
+import { workstationChecks } from './workstation-checks';
+import { toolchainChecks } from './toolchain-checks';
 import type { Capability, Check, Runner, CommandResult } from './types';
 
 export async function authCheck(
@@ -8,6 +10,19 @@ export async function authCheck(
   root: string
 ): Promise<Check[]> {
   if (capability === 't3') return t3Checks(run);
+  if (capability === 'codex' || capability === 'claude')
+    return codingAuth(capability, run);
+  if (capability === 'services') return serviceAuth(run);
+  if (capability === 'workstation') return workstationChecks(root, run);
+  if (capability === 'toolchain') return toolchainChecks(root, run);
+  return basicAuth(capability, run, root);
+}
+
+async function basicAuth(
+  capability: 'github' | 'vault' | 'vscode',
+  run: Runner,
+  root: string
+): Promise<Check[]> {
   const spec = {
     github: {
       command: ['gh', 'auth', 'status', '--active'],
@@ -24,15 +39,10 @@ export async function authCheck(
       action:
         'Install the VS Code CLI on PATH and ms-vscode-remote.remote-ssh in the local editor profile.',
     },
-    toolchain: {
-      command: ['bun', join(root, 'scripts/dev/doctor.ts'), '--json'],
-      action:
-        'Run ws tools check --json; use the shared mise setup to reconcile tools.',
-    },
   }[capability];
   const result = await run(spec.command, {
     cwd: root,
-    timeoutMs: capability === 'toolchain' ? 90_000 : 15_000,
+    timeoutMs: 15_000,
   });
   const extensions = result.stdout.toLowerCase().split(/\s+/);
   const ok =

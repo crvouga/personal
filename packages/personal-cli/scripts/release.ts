@@ -23,6 +23,7 @@ import { pack } from './pack';
 import { consumerSmoke } from './consumer-smoke';
 import { npmCommand } from './npm';
 import { ReleaseError } from './release-error';
+import { propagatedDocument } from './release-propagation';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -93,25 +94,12 @@ async function publish(
   }
 }
 
-async function propagatedDocument(plan: ReleasePlan) {
-  let doc = await registryDocument();
-  for (
-    let attempt = 0;
-    attempt < 4 && !doc?.versions[plan.next];
-    attempt += 1
-  ) {
-    await new Promise((resolve) => setTimeout(resolve, 1_000 * (attempt + 1)));
-    doc = await registryDocument();
-  }
-  return doc;
-}
-
 async function verifyPublication(
   plan: ReleasePlan,
   integrity: string,
   rejected: boolean
 ): Promise<void> {
-  const doc = await propagatedDocument(plan);
+  const doc = await propagatedDocument(plan.next);
   const saved = doc?.versions[plan.next];
   if (
     saved?.personalCli?.contentHash !== plan.contentHash ||

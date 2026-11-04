@@ -74,7 +74,7 @@ publish-time web 2FA and trusted-publisher setup. npm update notices/progress ar
 disabled too; keep npm versions owned by the shared mise lock, not a global
 `npm install -g`. After cancellation or expiry, rerun the command and use its new
 URL, not an earlier session's URL. Treat approval links as private; never paste
-them into reports or shared logs. The browser approval is not proof of publication;
+them into reports or shared logs. Registry verification retries version and latest-tag propagation with 100 seconds of bounded propagation waits without republishing. Transient read failures are retried within that same bound. The browser approval is not proof of publication;
 wait for registry-integrity and trusted-publisher verification to finish.
 
 ## Vault username/password login

@@ -10,7 +10,7 @@ Requires Node **22.13+ on the 22.x line, or 23.5+** with npm.
 npx --yes @crvouga/personal
 ```
 
-The terminal application has a searchable command palette, category submenus,
+The terminal application has a flat searchable command palette sorted A–Z with group prefixes,
 descriptions, target selection, progress indicators, result summaries, searchable
 node/status/check drill-downs, remedies, retry/back navigation, and an add-node
 wizard. It shows the equivalent noninteractive command before running anything.
@@ -40,9 +40,50 @@ global flags; `agent --json` documents the output/safety contract; `fleet schema
 exposes the roster schema. JSON error messages never contain raw subprocess
 output, environment variables, authentication responses or exception messages.
 
+## Check every Tailscale computer
+
+```sh
+npx --yes @crvouga/personal@latest fleet discover --json
+npx --yes @crvouga/personal@latest fleet health --json
+```
+
+`discover` reads the signed-in local Tailscale daemon, includes offline computers
+and excludes iOS, Android and tvOS devices. `health` checks every visible computer,
+including this controller. It pings online peers, checks registered computers over
+fresh verified SSH sessions, compares checkout/toolchain input hashes, checks each
+pinned tool version and Docker runtime, and runs the existing read-only `ws doctor`
+for managed links, PATH and workstation configuration.
+
+Register remote computers with their existing SSH aliases and actual checkout paths.
+DNS names, Tailscale addresses and resolved SSH aliases are matched exactly. Missing,
+ambiguous, offline or no-longer-visible registrations produce explicit failures;
+the command never guesses a username/path or silently reduces the checked fleet.
+`fleet nodes` before registration shows an empty list and setup guidance.
+
+Authentication checks cover Codex, Claude Code, GitHub, Vault, T3, Railway, Vercel,
+Cloudflare, AWS's active profile and npm. Their status/identity commands run on each
+computer as its SSH user; browser login on another computer does not authenticate
+that session. Credential values and account responses are withheld. Codex/Claude
+status reports do not prove quotas, model access or a live billable request.
+Gemini, Copilot and OpenCode provider access are explicitly **unverified** until a
+supported noninteractive adapter can verify them; saved keys alone never count.
+
+Health uses strict coverage: warnings and skipped checks return exit **1**, as do
+failures. It cannot certify devices hidden by Tailscale ACLs, other accounts/tailnets,
+all-pairs connectivity, every application, or operator-only T3/VS Code connection
+flows. Those limits remain visible in the report. Per-node health probes default
+to five minutes, overridable with `--timeout`; concurrency is bounded to four.
+Commands only diagnose; they never log in, install tools, rewrite configuration,
+or repair machines automatically. Use `--workspace` to select the reference checkout.
+
+The palette lists all commands directly, for example **Fleet: Check all Tailscale
+computers**, **Fleet: Discover Tailscale computers** and **Session: Workspace / config**.
+Node lists and the first checks needing attention display immediately; detailed
+reports remain available without navigating category submenus.
+
 ## Register actual computers
 
-Use the interactive **Fleet setup / add node** action, or preview first:
+Use the interactive **Fleet: Register a developer computer** action, or preview first:
 
 ```sh
 personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --json

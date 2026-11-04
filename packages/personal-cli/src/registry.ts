@@ -21,6 +21,28 @@ function fleet(
 
 export const COMMANDS: CommandSpec[] = [
   fleet(
+    'health',
+    'Check all Tailscale computers',
+    'Discover every visible non-mobile Tailscale computer, test reachability, pinned tools, configuration and service logins. Offline, unregistered and unverified computers fail coverage.',
+    [
+      'tailscale',
+      'tailnet',
+      'all',
+      'health',
+      'versions',
+      'codex',
+      'claude',
+      'login',
+      'auth',
+    ]
+  ),
+  fleet(
+    'discover',
+    'Discover Tailscale computers',
+    'List all computers visible to this Tailscale account, including offline devices. Excludes iOS, Android and tvOS; never writes a roster.',
+    ['tailscale', 'tailnet', 'computers', 'discover', 'machines']
+  ),
+  fleet(
     'doctor',
     'Diagnose the entire fleet',
     'Read-only SSH, authentication, T3, VS Code and dependency checks for this controller and every roster node.',

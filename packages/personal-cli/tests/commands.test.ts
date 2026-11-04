@@ -158,3 +158,17 @@ test('explicit configuration and workspace override environment defaults', async
     })
   ).toEqual(base);
 });
+
+test('listing an unconfigured fleet is an empty first-run state; validation and unsafe rosters still fail', async () => {
+  const base = await settings();
+  const result = await execute(['fleet', 'nodes', '--json'], base, '1.2.3');
+  expect(result.exitCode).toBe(0);
+  expect(result.data).toMatchObject({ ok: true, configured: false, nodes: [] });
+  expect(
+    (await execute(['fleet', 'validate', '--json'], base, '1.2.3')).exitCode
+  ).toBe(2);
+  await writeFile(base.config, '{broken');
+  expect(
+    (await execute(['fleet', 'nodes', '--json'], base, '1.2.3')).exitCode
+  ).toBe(2);
+});

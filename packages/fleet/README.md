@@ -197,3 +197,24 @@ bun run --cwd packages/fleet test
 Tests inject results/use temporary fixtures; they do not contact nodes, login or
 change global config. The transport smoke test runs the bundled probe locally
 against a temporary checkout, not an SSH server.
+
+## Tailscale fleet health in the public CLI
+
+`personal fleet discover --json` lists computers visible to the local signed-in
+Tailscale daemon, including offline devices, while explicitly excluding iOS,
+Android and tvOS. `personal fleet health --json` checks them all and reports
+unregistered/ambiguous computers and registered nodes missing from the inventory.
+Register actual SSH aliases and checkout paths; the checker does not guess them.
+Existing verified-host-key SSH policy and bounded probes apply. Tailscale daemon
+health errors invalidate complete discovery. ACL-hidden devices cannot be certified.
+
+Health requires toolchain, managed workstation configuration, Codex, Claude Code,
+GitHub, Vault, T3 and service authentication. Optional roster capability names now
+also include `codex`, `claude`, `services` and `workstation`; existing roster defaults
+are preserved for `doctor`. The service adapter covers Railway, Vercel, Cloudflare,
+AWS's current profile and npm; unsupported Gemini/Copilot/OpenCode account checks
+are explicit skips. No raw account/auth output is retained. Version checks keep
+per-tool results, including the expected pinned version when available, and require
+Docker Engine/Compose/Buildx readiness. `workstation` delegates to read-only
+`ws doctor --json --non-interactive`; provider configuration presence is not live
+authorization. Warnings/skips fail the strict whole-tailnet health coverage gate.

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { runInteractive } from '../src/ui-controller';
+import { paletteChoices, runInteractive } from '../src/ui-controller';
 import { inspectChecks } from '../src/ui-reports';
 import { clean } from '../src/ui-data';
 import { COMMANDS } from '../src/registry';
@@ -66,7 +66,7 @@ test('local command shortcut does not ask for remote targets', async () => {
 
 test('add-node wizard cannot mutate without explicit approval', async () => {
   const fixture = harness({
-    search: ['setup', 'exit'],
+    search: ['command:fleet add', 'exit'],
     input: ['dev-one', 'dev-one', '/home/dev/workspace', ''],
     confirm: [false],
   });
@@ -77,7 +77,7 @@ test('add-node wizard cannot mutate without explicit approval', async () => {
 
 test('confirmed wizard invokes the same explicit agent-friendly command', async () => {
   const fixture = harness({
-    search: ['setup', 'exit'],
+    search: ['command:fleet add', 'exit'],
     input: ['dev-one', 'dev-one', '/home/dev/workspace', '/usr/bin/node'],
     confirm: [true],
   });
@@ -148,4 +148,22 @@ test('cancellation exits safely without printing the thrown message', async () =
 
 test('terminal text strips escape sequences and control characters', () => {
   expect(clean('\x1b[31mred\x1b[0m\x1b]0;title\x07\nvalue')).toBe('red value');
+});
+
+test('palette is flat, sorted A–Z, searchable, and has one entry per command', () => {
+  const fixture = harness();
+  const choices = paletteChoices(fixture, '');
+  const names = choices.map((choice) => choice.name);
+  expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'en')));
+  expect(choices.some((choice) => choice.value.startsWith('group:'))).toBe(
+    false
+  );
+  expect(
+    choices.filter((choice) => choice.value.startsWith('command:'))
+  ).toHaveLength(COMMANDS.length);
+  expect(
+    paletteChoices(fixture, 'nodes').some(
+      (choice) => choice.value === 'command:fleet nodes'
+    )
+  ).toBe(true);
 });

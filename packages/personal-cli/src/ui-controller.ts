@@ -50,76 +50,30 @@ export function paletteChoices(session: Session, term: string): Choice[] {
   const commands = commandChoices(session.options.commands, term);
   const navigation = [
     {
-      name: 'Fleet setup / add node…',
-      value: 'setup',
-      description:
-        'Register an existing node; preview + explicit approval before saving.',
-    },
-    {
-      name: 'Session workspace / config…',
+      name: 'Session: Workspace / config…',
       value: 'context',
       description: 'Session-only overrides; no hidden configuration writes.',
     },
+    { name: 'Exit', value: 'exit', description: 'Close the command palette.' },
   ].filter((choice) =>
     `${choice.name} ${choice.description}`
       .toLowerCase()
       .includes(term.toLowerCase().trim())
   );
-  const groups = term.trim()
-    ? []
-    : [
-        ...new Set(session.options.commands.map((command) => command.group)),
-      ].map((group) => ({
-        name: `Browse ${clean(group)}…`,
-        value: `group:${group}`,
-      }));
-  return [
-    ...groups,
-    ...navigation,
-    ...commands,
-    ...(!commands.length && !navigation.length && term.trim()
-      ? [
-          {
-            name: 'No matching commands — change search or go back',
-            value: 'none',
-          },
-        ]
-      : []),
-    { name: 'Exit', value: 'exit' },
-  ];
+  const choices = [...navigation, ...commands].sort((a, b) =>
+    a.name.localeCompare(b.name, 'en')
+  );
+  return choices.length
+    ? choices
+    : [{ name: 'No matching commands — change search', value: 'none' }];
 }
 
 async function dispatch(session: Session, choice: string): Promise<boolean> {
   if (choice === 'exit') return false;
-  if (choice === 'setup') await addNode(session);
   if (choice === 'context') await changeContext(session);
-  if (choice.startsWith('group:')) await browseGroup(session, choice.slice(6));
   if (choice.startsWith('command:'))
     await openCommand(session, choice.slice(8));
   return true;
-}
-
-async function browseGroup(session: Session, group: string): Promise<void> {
-  const commands = session.options.commands.filter(
-    (command) => command.group === group
-  );
-  while (true) {
-    const choice = await session.prompts.search(
-      `${clean(group)} · searchable submenu`,
-      (term) => {
-        const choices = commandChoices(commands, term);
-        return [
-          ...(choices.length
-            ? choices
-            : [{ name: 'No matches — try another keyword', value: 'none' }]),
-          { name: 'Back to all commands', value: 'back' },
-        ];
-      }
-    );
-    if (choice === 'back') return;
-    if (choice.startsWith('command:'))
-      await openCommand(session, choice.slice(8));
-  }
 }
 
 async function openCommand(session: Session, id: string): Promise<void> {

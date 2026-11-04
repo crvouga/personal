@@ -1,4 +1,5 @@
 import { dependencyCheck, fingerprint } from './fingerprint';
+import { CAPABILITIES } from './config';
 import { authCheck } from './auth-checks';
 import type { Capability, Check, Runner, Snapshot } from './types';
 
@@ -29,13 +30,7 @@ export async function probe(
         : 'Working tree is dirty or unreadable; sync --pull will refuse.',
   });
   checks.push(await dependencyCheck(root, current));
-  for (const capability of [
-    'github',
-    'vault',
-    't3',
-    'vscode',
-    'toolchain',
-  ] as const) {
+  for (const capability of CAPABILITIES) {
     if (required.includes(capability))
       checks.push(...(await authCheck(capability, run, root)));
     else

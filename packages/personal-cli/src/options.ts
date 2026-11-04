@@ -28,7 +28,7 @@ export function capabilities(value?: string): Capability[] {
   const values = value === 'none' ? [] : (value?.split(',') ?? CAPABILITIES);
   if (values.some((entry) => !CAPABILITIES.includes(entry as Capability)))
     throw new FleetUsageError(
-      '--require expects github,vault,t3,vscode,toolchain or none.'
+      `--require expects ${CAPABILITIES.join(',')} or none.`
     );
   return [...new Set(values)] as Capability[];
 }
@@ -45,6 +45,10 @@ export function timeout(options: CliOptions): number {
 export function validateOptions(command: string, options: CliOptions): void {
   validateMutation(command, options);
   validateScope(command, options);
+  if (['discover', 'health'].includes(command) && options.require !== undefined)
+    throw new FleetUsageError(
+      'Tailscale health always checks the complete capability set; --require is not supported.'
+    );
   if (options.timeout !== undefined) timeout(options);
 }
 
@@ -60,6 +64,13 @@ function validateMutation(command: string, options: CliOptions): void {
 }
 
 function validateScope(command: string, options: CliOptions): void {
+  if (
+    ['discover', 'health'].includes(command) &&
+    (options.local || options.all || options.node?.length)
+  )
+    throw new FleetUsageError(
+      'Tailscale discovery and health always cover all visible computers; scope filters are not supported.'
+    );
   if (options.local && !['doctor', 'sync'].includes(command))
     throw new FleetUsageError(
       '--local is only valid for fleet doctor or sync.'

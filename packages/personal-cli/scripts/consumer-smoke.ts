@@ -79,6 +79,15 @@ async function exercise(
     ['commands', '--json'],
     ['agent', '--json'],
     ['fleet', 'schema', '--json'],
+    [
+      'fleet',
+      'nodes',
+      '--config',
+      join(directory, 'missing-fleet.json'),
+      '--workspace',
+      directory,
+      '--json',
+    ],
     ['--json'],
   ]) {
     const output = await mustRun([node, cli, ...args], directory, env, {

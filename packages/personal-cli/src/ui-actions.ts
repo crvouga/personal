@@ -86,6 +86,7 @@ async function inspectSelection(
 
 function resultChoices(outcome: CommandOutcome, preview: boolean): Choice[] {
   return [
+    { name: 'Back to commands', value: 'back' },
     ...(reportChecks(outcome.data).length
       ? [{ name: 'Explore checks and remedies…', value: 'checks' }]
       : []),
@@ -96,7 +97,6 @@ function resultChoices(outcome: CommandOutcome, preview: boolean): Choice[] {
     ...(!successful(outcome)
       ? [{ name: 'Retry command…', value: 'retry' }]
       : []),
-    { name: 'Back to palette', value: 'back' },
   ];
 }
 

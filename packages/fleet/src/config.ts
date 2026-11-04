@@ -8,6 +8,10 @@ export const CAPABILITIES: Capability[] = [
   't3',
   'vscode',
   'toolchain',
+  'codex',
+  'claude',
+  'services',
+  'workstation',
 ];
 export const DEFAULT_CONFIG = '.fleet.local.json';
 
