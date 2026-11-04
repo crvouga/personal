@@ -118,8 +118,15 @@ reused, never reset or implicitly pulled. From a checkout, run
 The scripts install checksum-verified mise **2026.10.24**, trust this repository's
 configuration, install pinned Bun, install the shared tools with `--locked`, copy
 the managed global config/lock/sidecars, set up persistent shims on PATH, and run
-`bun install --frozen-lockfile`. Reopen your terminal/editor afterward. Unix PATH
-blocks are appended once to `.profile`, `.bashrc`, `.zshrc` and fish's config;
+`bun install --frozen-lockfile`. Reopen your terminal/editor afterward. To refresh
+an already-open Unix terminal immediately, run `exec "$SHELL" -l`; an installer
+cannot change its parent shell's environment. **If `bun` or `mise` is missing,
+run `bash scripts/dev/bootstrap.sh` from this checkout first, not a Bun command.**
+Unix PATH blocks cover `.profile`, existing `.bash_profile`/`.bash_login`,
+`.bashrc`, `.zshenv`, `.zshrc` and fish's config. Zsh uses `ZDOTDIR` when set.
+POSIX blocks are quiet, idempotent
+and placed before interactive-only early returns, so noninteractive SSH/agent
+commands can find the same shims without loading an interactive UI;
 Windows updates only the user's PATH; AWS CLI v2 additionally uses the official
 versioned MSI (a UAC prompt may appear) because mise's AWS recipe supports only
 macOS/Linux. Its version comes from the same manifest and its Windows SHA-256 is
@@ -338,6 +345,31 @@ existing workstation convergence. `ws tools sync` reapplies tool pins/global con
 without pulling or touching project dependencies; `ws tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
+For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
+`bun run fleet init` previews a local SSH-alias roster, `bun run fleet onboard`
+generates per-node connection/auth/editor steps, and `bun run fleet doctor --json`
+diagnoses SSH, authentication, T3 Connect settings/API and checkout/lockfile drift.
+`bun run fleet sync` previews convergence through this same setup script; applying
+requires `--apply --yes`. No credentials are copied or cloud resources provisioned;
+VS Code/T3 end-to-end tests remain explicit operator steps.
+
+Bootstrap each node once using the same reviewed checkout revision, then check
+tool discovery through its actual SSH alias (not just an interactive terminal):
+
+```sh
+ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
+bun run fleet doctor --json
+bun run fleet sync
+bun run fleet sync --apply --yes
+```
+
+Review the sync plan before applying. SSH must already work and nodes must be in
+your local fleet roster; bootstrap does not create accounts, pair T3, authorize
+SSH keys or copy credentials. Remote Bash sessions depend on sshd sourcing
+`.bashrc`; shells launched with startup files disabled need an explicit PATH or
+the absolute `~/.local/bin/mise exec --locked -- COMMAND` entry point. On Windows,
+restart the parent editor/agent process to inherit the updated user PATH.
+
 To change versions: edit pins with `mise use --pin <tool>@<version>` (or edit
 `mise.toml`), run `mise lock`, review `mise.toml`, `mise.lock` and any `.mise/locks/`
 changes, and test. Keep Bun's pin in `package.json` and the setup action aligned;
@@ -422,6 +454,21 @@ setup; fetching a public guide alone does not authorize installs or logins.
 | `npm:@modelcontextprotocol/inspector` | 2.13.0 | On demand |
 | `aws-cdk` | 2.1146.1 | On demand |
 | `aws-sam` | 1.171.0 | On demand (linux, macos) |
+
+### Portable developer fleet CLI
+
+`npx --yes @crvouga/personal` opens a searchable terminal command center without
+a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`,
+`agent --json`, or `fleet doctor --local --json`. Pin an exact published version
+in automation. See [`packages/personal-cli/README.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/README.md) and
+[`packages/personal-cli/releasing.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/releasing.md) for installation, onboarding and CI publishing.
+
+`fleet doctor --all --json` checks the controller and every node in the local,
+secret-free roster. Missing rosters and credentials never count as a pass.
+Register actual SSH aliases and checkout paths with `fleet add`; preview before
+`--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic
+repairs. Shared mise/workstation remain the toolchain owners; cloud resources
+remain exclusively OpenTofu-owned.
 
 ---
 

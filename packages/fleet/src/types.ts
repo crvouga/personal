@@ -1,0 +1,77 @@
+export type Status = 'pass' | 'warn' | 'fail' | 'skip';
+export type Capability =
+  | 'github'
+  | 'vault'
+  | 't3'
+  | 'vscode'
+  | 'toolchain'
+  | 'codex'
+  | 'claude'
+  | 'services'
+  | 'workstation';
+
+export interface FleetNode {
+  id: string;
+  ssh: string;
+  workspace: string;
+  runtime?: string;
+  required: Capability[];
+}
+
+export interface FleetConfig {
+  version: 1;
+  nodes: FleetNode[];
+}
+
+export interface Check {
+  id: string;
+  status: Status;
+  summary: string;
+  remedy?: { action: string; command?: string };
+}
+
+export interface Fingerprint {
+  head: string | null;
+  files: Record<string, string | null>;
+}
+
+export interface Snapshot {
+  version: 1;
+  platform: string;
+  fingerprint: Fingerprint;
+  checks: Check[];
+}
+
+export interface NodeReport {
+  node: string;
+  checks: Check[];
+  snapshot?: Snapshot;
+}
+
+export interface Report {
+  version: 1;
+  command: string;
+  ok: boolean;
+  generatedAt: string;
+  nodes: NodeReport[];
+  summary: Record<Status, number>;
+}
+
+export interface CommandOptions {
+  cwd?: string;
+  input?: string;
+  timeoutMs?: number;
+  env?: NodeJS.ProcessEnv;
+}
+
+export interface CommandResult {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+  reason: 'exit' | 'missing' | 'timeout' | 'overflow';
+}
+
+export type Runner = (
+  command: string[],
+  options?: CommandOptions
+) => Promise<CommandResult>;

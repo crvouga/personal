@@ -79,6 +79,21 @@ All 14 domain registrations remain at Squarespace; registrar/DNS consolidation i
 
 {{block:workstationTools}}
 
+### Portable developer fleet CLI
+
+`npx --yes @crvouga/personal` opens a searchable terminal command center without
+a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`,
+`agent --json`, or `fleet doctor --local --json`. Pin an exact published version
+in automation. See {{path:packages/personal-cli/README.md}} and
+{{path:packages/personal-cli/releasing.md}} for installation, onboarding and CI publishing.
+
+`fleet doctor --all --json` checks the controller and every node in the local,
+secret-free roster. Missing rosters and credentials never count as a pass.
+Register actual SSH aliases and checkout paths with `fleet add`; preview before
+`--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic
+repairs. Shared mise/workstation remain the toolchain owners; cloud resources
+remain exclusively OpenTofu-owned.
+
 ---
 
 ## 1. Vault (secrets)

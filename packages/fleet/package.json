@@ -1,0 +1,17 @@
+{
+  "name": "@pkgs/fleet",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "fleet": "./bin.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "fleet": "bun src/cli.ts",
+    "tc": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "test": "bun test src"
+  }
+}
