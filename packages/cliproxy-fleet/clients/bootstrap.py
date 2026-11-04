@@ -2,6 +2,7 @@
 """Opt-in launchers, preserving all existing native client configuration."""
 
 import hashlib
+import subprocess
 import argparse, getpass, json, os, pathlib, shutil, sys, urllib.request
 
 p = argparse.ArgumentParser()
@@ -11,6 +12,31 @@ p.add_argument("--claude-model")
 p.add_argument("--uninstall", action="store_true")
 p.add_argument("--validate", action="store_true")
 a = p.parse_args()
+launcher = pathlib.Path(__file__).resolve().with_name("launcher.py")
+if not a.validate and not a.uninstall:
+    try:
+        source_repo = launcher.parents[3]
+        tracked = subprocess.run(
+            [
+                "git",
+                "-c",
+                "safe.directory=" + str(source_repo),
+                "-C",
+                str(source_repo),
+                "ls-files",
+                "--error-unmatch",
+                "--",
+                "packages/cliproxy-fleet/clients/bootstrap.py",
+                "packages/cliproxy-fleet/clients/launcher.py",
+            ],
+            capture_output=True,
+        )
+        if tracked.returncode or not launcher.is_file():
+            raise ValueError("Untracked launcher")
+    except (OSError, IndexError, ValueError):
+        sys.exit(
+            "Run bootstrap from the repository: bootstrap.py and launcher.py must be Git-tracked."
+        )
 home = pathlib.Path.home()
 config = home / ".config/cliproxy-fleet"
 bins = home / ".local/bin"

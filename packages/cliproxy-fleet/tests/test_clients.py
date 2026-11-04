@@ -67,5 +67,36 @@ class Clients(unittest.TestCase):
             self.assertTrue(native.exists())
 
 
+class DetachedCode(unittest.TestCase):
+    def test_detached_bootstrap_is_rejected_before_prompt_or_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = pathlib.Path(directory)
+            copied = temporary / "bootstrap.py"
+            copied.write_text((ROOT / "clients/bootstrap.py").read_text())
+            (temporary / "launcher.py").write_text(
+                (ROOT / "clients/launcher.py").read_text()
+            )
+            home = temporary / "home"
+            home.mkdir()
+            environment = os.environ.copy()
+            environment["HOME"] = str(home)
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(copied),
+                    "--endpoint",
+                    "https://proxy.example.ts.net",
+                    "--model",
+                    "explicit-model",
+                ],
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Git-tracked", result.stderr)
+            self.assertFalse((home / ".config/cliproxy-fleet").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
