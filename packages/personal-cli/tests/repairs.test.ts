@@ -187,7 +187,7 @@ test('failed setup stops workstation repair and still returns fresh remaining ch
 
 test('selected remote repairs stream only fixed actions over verified SSH, carry expected inputs, and re-probe afterward', async () => {
   const base = await settings();
-  await addNode(base.config, { ...NODE, workspace: base.workspace }, true);
+  await addNode(base.config, NODE, true);
   const snapshot = await probe(base.workspace, [], gitRunner);
   let repairs = 0;
   let probes = 0;
@@ -204,6 +204,7 @@ test('selected remote repairs stream only fixed actions over verified SSH, carry
         apply: true,
         repairs: ['providers'],
         expected: snapshot.fingerprint,
+        node: { workspace: NODE.workspace },
       });
       return success(
         '{"version":1,"checks":[{"id":"repair:providers","status":"pass","summary":"owner completed"}]}'
@@ -306,7 +307,7 @@ test('whole-tailnet preview retains offline unregistered computers as blocked op
 
 test('post-repair configuration failure preserves execution results and never reuses old health as fresh', async () => {
   const base = await settings();
-  await addNode(base.config, { ...NODE, workspace: base.workspace }, true);
+  await addNode(base.config, NODE, true);
   const snapshot = await probe(base.workspace, [], gitRunner);
   const result = await executeFleet(
     'repair',
@@ -316,6 +317,7 @@ test('post-repair configuration failure preserves execution results and never re
       run: async (command) => {
         const encoded = /'([^']+)'$/.exec(command.at(-1)!)![1]!;
         const request = JSON.parse(Buffer.from(encoded, 'base64').toString());
+        expect(request.node.workspace).toBe(NODE.workspace);
         if (request.action === 'repair') {
           await writeFile(base.config, '{changed-invalid-roster');
           return success(
