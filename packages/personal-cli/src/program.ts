@@ -30,7 +30,10 @@ function common(command: Command): Command {
       []
     )
     .option('--local', 'Controller only; no roster or SSH required')
-    .option('--all', 'All configured nodes and the controller (doctor default)')
+    .option(
+      '--all',
+      'All targets: doctor uses the roster; repair uses the visible tailnet'
+    )
     .option(
       '--require <capabilities>',
       'Controller capabilities, comma separated, or none'
@@ -38,12 +41,24 @@ function common(command: Command): Command {
     .option('--timeout <ms>', 'Per-node deadline, 1000–1800000 milliseconds')
     .option('--strict', 'Warnings and skipped checks also produce exit 1')
     .option(
+      '--repair <ids>',
+      'Repair only: workspace,workstation,providers; comma separated'
+    )
+    .option(
+      '--plan-hash <sha256>',
+      'Repair only: require the reviewed plan to match current diagnostics'
+    )
+    .option(
+      '--script',
+      'Repair only: generate a reviewable POSIX script without executing it'
+    )
+    .option(
       '--pull',
       'Sync only: explicitly request a clean, fast-forward pull'
     )
     .option(
       '--apply',
-      'Authorize the displayed roster/sync mutation; requires --yes'
+      'Authorize the displayed roster/sync/repair mutation; requires --yes'
     )
     .option('--yes', 'Confirm an explicitly requested --apply operation');
 }

@@ -79,6 +79,7 @@ async function exercise(
     ['commands', '--json'],
     ['agent', '--json'],
     ['fleet', 'schema', '--json'],
+    ['fleet', 'repairs', '--json'],
     [
       'fleet',
       'nodes',
@@ -117,6 +118,16 @@ async function exercise(
     !`${invalid.stdout}${invalid.stderr}`.includes('private-value'),
     'errors must not reflect arbitrary input'
   );
+  await exerciseLocal(directory, node, env);
+  await exerciseProbe(directory, node, env);
+}
+
+async function exerciseLocal(
+  directory: string,
+  node: string,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const cli = join(directory, 'node_modules/@crvouga/personal/cli.mjs');
   const local = await runCommand(
     [
       node,
@@ -136,7 +147,6 @@ async function exercise(
     !local.ok && JSON.parse(local.stdout).coverage.scope === 'local',
     'missing workspace must fail honestly'
   );
-  await exerciseProbe(directory, node, env);
 }
 
 async function exerciseProbe(

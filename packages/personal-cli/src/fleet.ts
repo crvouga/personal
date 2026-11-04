@@ -28,6 +28,7 @@ import type { CliOptions } from './options';
 import { addNode, nodeFromOptions, readRoster } from './roster';
 import { executeTailnet } from './tailnet';
 import { probeSource } from './probe-source';
+import { executeRepairCommand } from './repair';
 
 export interface FleetServices {
   run: Runner;
@@ -43,6 +44,8 @@ export async function executeFleet(
   services: FleetServices = SERVICES
 ): Promise<CommandOutcome> {
   validateOptions(command, options);
+  if (['repair', 'repairs'].includes(command))
+    return executeRepairCommand(command, options, settings, services);
   if (['discover', 'health'].includes(command))
     return executeTailnet(command, options, settings, services);
   if (command === 'schema') return result(schema);

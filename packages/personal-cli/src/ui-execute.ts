@@ -1,4 +1,5 @@
 import type { CommandOutcome } from './contracts';
+import { showRepairs } from './ui-repairs';
 import {
   callArgs,
   clean,
@@ -39,11 +40,7 @@ export function showOutcome(session: Session, outcome: CommandOutcome): void {
   const incomplete = checks.filter((check) =>
     ['warn', 'skip'].includes(check.status)
   ).length;
-  const state = successful(outcome)
-    ? incomplete
-      ? 'WARNING'
-      : 'SUCCESS'
-    : 'FAILED';
+  const state = outcomeState(outcome, incomplete);
   const counts = ['pass', 'warn', 'fail', 'skip'].map(
     (status) =>
       `${checks.filter((check) => check.status === status).length} ${status}`
@@ -56,7 +53,9 @@ export function showOutcome(session: Session, outcome: CommandOutcome): void {
   showData(session, outcome);
   if (!successful(outcome))
     session.display.write(
-      'No automatic repair was attempted. Review the command, context and setup.'
+      record(outcome.data) && outcome.data['applied'] === true
+        ? 'Actions were attempted. Review execution results, partial changes and fresh checks before retrying.'
+        : 'No automatic repair was attempted. Review the command, context and setup.'
     );
 }
 
@@ -148,8 +147,17 @@ function showAttention(
 
 function showData(session: Session, outcome: CommandOutcome): void {
   if (!record(outcome.data)) return;
+  if (['repair', 'repairs'].includes(String(outcome.data['command'])))
+    showRepairs(session, outcome.data);
   if (successful(outcome) && outcome.data['command'] === 'nodes')
     showNodes(session, outcome.data);
   if (outcome.data['command'] === 'discover')
     showComputers(session, outcome.data);
+}
+
+function outcomeState(outcome: CommandOutcome, incomplete: number): string {
+  if (record(outcome.data) && outcome.data['applied'] === false)
+    return 'PREVIEW';
+  if (!successful(outcome)) return 'FAILED';
+  return incomplete ? 'WARNING' : 'SUCCESS';
 }

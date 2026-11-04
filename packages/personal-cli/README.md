@@ -144,3 +144,54 @@ bun run personal:build
 
 See [releasing.md](releasing.md) for automatic CI releases, credential sources,
 first-publish bootstrap, packed-consumer verification and recovery.
+
+## Preview and apply repairs
+
+```sh
+personal fleet repairs --json
+personal fleet repair --json                        # all visible Tailscale computers
+personal fleet repair --local --json                # this computer only
+personal fleet repair --node dev-linux --json       # selected registered computer
+personal fleet repair --local --repair workspace --json
+# Copy planHash from the reviewed preview; it rejects changed plans:
+personal fleet repair --local --repair workspace --plan-hash REVIEWED_SHA256 --apply --yes --json
+personal fleet repair --local --repair providers --apply --yes --json
+personal fleet repair --local --script              # emit a POSIX script; never execute it here
+```
+
+The flat palette includes **Fleet: Explore repairs and login commands** and
+**Fleet: Repair tools and configuration**. Applying from the palette carries the
+reviewed plan hash. Plan previews exit 0 even when `healthOk` is false: a valid
+plan is not a healthy computer. `--repair` selects from `workspace`, `workstation`
+and `providers`; omitted selection includes the eligible owner actions identified
+by the failed checks. Explicit selection also supports rerunning an owner action.
+
+`workspace` uses existing mise/shared setup and frozen dependencies. `workstation`
+uses `ws:install --yes` and can update launcher/PATH, managed links, notifications
+and provider configuration. `providers` uses the existing strict Vault-backed
+workstation provider sync. Each computer uses its own Vault authorization; the
+controller never transfers credential files, tokens, SSH agents or keychains.
+Native login recipes are operator steps and are commented in generated scripts.
+Use an intended Vault project/config for runtime access, for example
+`vault run --config dev -- personal fleet health --json`, only when those secrets
+are needed by that process.
+
+Only registered, successfully probed remote machines are eligible for automatic
+repairs. SSH host trust, unavailable computers, conflicting Git changes, native
+account approvals, service permissions and manual end-to-end tests stay explicit
+operator work. Unknown future checks also receive an operator step rather than
+being omitted. A successful repair command is followed by fresh checks; remaining
+failures, warnings or skips return exit 1. Reports separate `executionOk`,
+`healthOk`, completed owner commands, and remaining steps. Actions run serially;
+a failure stops later actions on that computer. Partial changes are possible.
+
+Generated scripts require a POSIX shell and are for review in the operator's own
+terminal. They use existing checkout tooling; they do not require a globally
+installed `personal` on remote machines. They are point-in-time scripts without
+CLI plan-hash enforcement. Prefer the guarded CLI apply path and obtain a fresh
+whole-tailnet health report afterward.
+
+See [fleet access and repair research](../fleet/docs/access-and-repair-research.md)
+for the comparison of mise, OpenBao, Bitwarden, 1Password, Tailscale SSH, chezmoi,
+Teleport, Ansible and Syncthing, plus existing password-manager onboarding and
+the distinction between shared service secrets and per-machine logins.

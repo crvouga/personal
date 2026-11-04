@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { paletteChoices, runInteractive } from '../src/ui-controller';
 import { inspectChecks } from '../src/ui-reports';
+import { showOutcome } from '../src/ui-execute';
 import { clean } from '../src/ui-data';
 import { COMMANDS } from '../src/registry';
 import type { Display, Prompts, Session } from '../src/ui-types';
@@ -166,4 +167,62 @@ test('palette is flat, sorted A–Z, searchable, and has one entry per command',
       (choice) => choice.value === 'command:fleet nodes'
     )
   ).toBe(true);
+});
+
+test('repair approval carries the reviewed plan hash into the exact apply command', async () => {
+  const fixture = harness({
+    search: ['command:fleet repair', 'exit'],
+    select: ['local', 'apply', 'back'],
+    confirm: [true],
+  });
+  fixture.options.execute = async (args): Promise<CommandOutcome> => {
+    fixture.calls.push(args);
+    return {
+      exitCode: 0,
+      data: {
+        version: 1,
+        command: 'repair',
+        ok: true,
+        applied: args.includes('--apply'),
+        planHash: 'b'.repeat(64),
+        nodes: [],
+        steps: [],
+      },
+    };
+  };
+  await runInteractive(fixture.options, fixture.prompts, fixture.display);
+  expect(fixture.calls).toEqual([
+    ['fleet', 'repair', '--local'],
+    [
+      'fleet',
+      'repair',
+      '--local',
+      '--plan-hash',
+      'b'.repeat(64),
+      '--apply',
+      '--yes',
+    ],
+  ]);
+  expect(fixture.writes.join('\n')).toContain('Vault');
+});
+
+test('failed applied repairs report attempted actions instead of claiming nothing ran', () => {
+  const fixture = harness();
+  showOutcome(fixture, {
+    exitCode: 1,
+    data: {
+      command: 'repair',
+      applied: true,
+      ok: false,
+      executionOk: true,
+      healthOk: false,
+      completed: 1,
+      nodes: [],
+      steps: [],
+    },
+  });
+  expect(fixture.writes.join('\n')).toContain('Actions were attempted');
+  expect(fixture.writes.join('\n')).not.toContain(
+    'No automatic repair was attempted'
+  );
 });

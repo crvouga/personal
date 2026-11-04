@@ -98,7 +98,7 @@ export async function tailnetHealth(
   ];
 }
 
-function uniqueMapping(
+export function uniqueMapping(
   candidates: FleetNode[],
   matches: Map<string, FleetNode[]>
 ): boolean {

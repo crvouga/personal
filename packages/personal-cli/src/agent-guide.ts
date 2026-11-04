@@ -29,10 +29,12 @@ export const AGENT_GUIDE = {
   },
   safety: [
     'No arguments opens a menu only on an interactive terminal. --json and --non-interactive never prompt.',
-    'Diagnostics, onboarding instructions, schema, catalog and sync previews are read-only.',
-    'Roster writes and sync require both --apply and --yes. npx --yes only approves downloading the CLI.',
+    'Diagnostics, onboarding instructions, schema, catalogs, scripts and sync/repair previews are read-only.',
+    'Roster writes, sync and repair require both --apply and --yes. npx --yes only approves downloading the CLI.',
     'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
     'A healthy controller does not prove another machine can connect to it. Run doctor from each intended controller.',
+    'Repair executes only allowlisted owner actions, then reruns diagnostics. Native logins, host trust and resource permissions remain explicit operator steps. Pass the reviewed planHash as --plan-hash to reject a changed plan.',
+    'Shared provider keys are fetched through each machine’s existing Vault authorization by workstation tooling. Never copy machine-local login caches.',
     'Use exact npm versions for automation. The application never self-updates.',
   ],
   examples: [
@@ -42,5 +44,9 @@ export const AGENT_GUIDE = {
     'personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json',
     'personal fleet doctor --node dev-linux --json',
     'personal fleet sync --node dev-linux --json',
+    'personal fleet repairs --json',
+    'personal fleet repair --json',
+    'personal fleet repair --local --repair workspace --json',
+    'personal fleet repair --local --repair workspace --plan-hash <reviewed-sha256> --apply --yes --json',
   ],
 };

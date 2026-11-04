@@ -218,3 +218,28 @@ per-tool results, including the expected pinned version when available, and requ
 Docker Engine/Compose/Buildx readiness. `workstation` delegates to read-only
 `ws doctor --json --non-interactive`; provider configuration presence is not live
 authorization. Warnings/skips fail the strict whole-tailnet health coverage gate.
+
+## Repair planning and shared access
+
+The public CLI exposes `personal fleet repairs` (static catalog) and
+`personal fleet repair` (read-only inspection/plan by default). The repair library
+in this package only executes allowlisted existing owner commands. Native
+account logins and unknown/manual checks always remain operator steps.
+
+Use `--apply --yes` only after review; `--plan-hash` binds application to the
+previewed steps, targets and checkout/shared-input fingerprints. The remote
+protocol independently requires explicit apply, a supported repair action and
+expected input fingerprints. It preserves verified SSH and disables forwarding.
+After owner commands, the controller obtains fresh health checks. Successful
+installation never substitutes for authentication or resource authorization.
+
+The workstation owner reads permitted shared provider keys from each machine's
+existing Vault session. For process-scoped shared secret access, use the existing
+`vault run --config dev -- COMMAND` workflow on that machine with its intended
+project/config. Infrastructure, access policy and secret seeding remain owned by
+OpenTofu. No OAuth/session/keychain/SSH credential transfer is implemented.
+
+See the [public CLI repair runbook](../personal-cli/README.md#preview-and-apply-repairs)
+and [market research and access recommendations](docs/access-and-repair-research.md).
+The new commands are in the public `personal` entry point; legacy `bun run fleet`
+continues to provide its existing diagnostics/onboarding/sync commands.

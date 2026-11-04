@@ -46,7 +46,7 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
   expect(new Set(COMMANDS.map((entry) => entry.id)).size).toBe(COMMANDS.length);
   expect(
     COMMANDS.filter((entry) => entry.mutation).map((entry) => entry.id)
-  ).toEqual(['fleet add', 'fleet sync', 'fleet init']);
+  ).toEqual(['fleet repair', 'fleet add', 'fleet sync', 'fleet init']);
   expect(
     commandCatalog('docter').some((entry) => entry.id === 'fleet doctor')
   ).toBe(true);
