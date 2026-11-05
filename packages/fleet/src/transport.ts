@@ -1,3 +1,4 @@
+import type { ConfigurationRequest } from './configure';
 import { remoteCommand, sshFailure } from './ssh';
 import { cleanCheck, decodeSnapshot, validCheck } from './protocol';
 import { record } from './config';
@@ -19,7 +20,8 @@ export async function bundleProbe(): Promise<string> {
 export interface RemoteOptions {
   source: string;
   timeoutMs: number;
-  action: 'probe' | 'sync' | 'repair';
+  action: 'probe' | 'sync' | 'repair' | 'configure';
+  configuration?: ConfigurationRequest;
   repairs?: AutomatedRepair[];
   expected?: Fingerprint;
   pull?: boolean;
@@ -32,6 +34,7 @@ export async function inspectRemote(
 ): Promise<NodeReport> {
   const command = remoteCommand(node, {
     action: options.action,
+    configuration: options.configuration,
     node,
     apply: options.action !== 'probe',
     repairs: options.repairs,

@@ -1,3 +1,4 @@
+import { configureWorkspace, validConfiguration } from './configure';
 import { readFile, writeFile } from 'node:fs/promises';
 import { loadConfig, selectNodes } from './config';
 import { doctor } from './controller';
@@ -31,6 +32,7 @@ export async function dispatch(options: Options): Promise<number> {
     print({ version: 1, command: options.command, ok: true, nodes: data });
     return 0;
   }
+  if (options.command === 'configure') return configureCommand(nodes, options);
   if (options.command === 'sync' && !options.apply) {
     print({
       version: 1,
@@ -132,4 +134,65 @@ async function applySync(
       ),
     1
   );
+}
+
+async function configureCommand(
+  nodes: FleetNode[],
+  options: Options
+): Promise<number> {
+  const targets = options.local ? [{ id: 'local' }] : nodes;
+  const selection = {
+    revision: options.revision,
+    tool: options.tool,
+    profile: options.profile,
+  };
+  if (!validConfiguration({ ...selection, node: targets[0]?.id ?? 'local' }))
+    throw new FleetUsageError(
+      'configure requires --revision FULL_COMMIT_SHA and a supported --tool/--profile.'
+    );
+  if (!options.apply) {
+    print({
+      version: 1,
+      applied: false,
+      targets: targets.map((node) => node.id),
+      ...selection,
+      steps: [
+        'Use a clean pinned Git deployment worktree; preserve developer checkout.',
+        'Delegate setup to mise/bootstrap, configuration to ws.',
+        'Advance per-node receipt only after success. Test canary before selecting more nodes.',
+      ],
+      authorize:
+        'Repeat with --apply --yes. Revision must already exist on each node.',
+    });
+    return 0;
+  }
+  const source = options.local ? '' : await bundleProbe();
+  const reports: NodeReport[] = [];
+  for (const node of targets) {
+    const configuration = { ...selection, node: node.id };
+    reports.push(
+      options.local
+        ? {
+            node: node.id,
+            checks: await configureWorkspace(
+              options.root,
+              configuration,
+              runCommand
+            ),
+          }
+        : await inspectRemote(
+            node as FleetNode,
+            {
+              source,
+              timeoutMs: options.timeoutMs,
+              action: 'configure',
+              configuration,
+            },
+            runCommand
+          )
+    );
+  }
+  const report = makeReport('configure', reports);
+  print(report, options.json ? undefined : renderReport(report));
+  return reportExitCode(report, options.strict);
 }

@@ -1,3 +1,4 @@
+import { registerAgents } from './commands/agents-cmd';
 import { Command } from 'commander';
 
 import { cmdBackup, cmdBackups, cmdReset } from './commands/backup-cmds';
@@ -417,6 +418,7 @@ export function buildProgram(): Command {
     return { json: o.json, yes: o.yes, nonInteractive: o.nonInteractive };
   };
 
+  registerAgents(program, globals);
   registerCore(program, globals);
   registerOpencode(program, globals);
   registerOpenRouter(program, globals);

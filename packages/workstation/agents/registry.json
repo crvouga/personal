@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "defaults": {
+    "codex": {
+      "model": "gpt-6.1-sol"
+    },
+    "claude": {
+      "model": "sonnet"
+    },
+    "opencode": {
+      "model": "openrouter/auto"
+    },
+    "gemini": {
+      "model": "auto"
+    }
+  },
+  "proxy": {
+    "endpoint": "https://cli-proxy.chrisvouga.dev",
+    "secret": {
+      "mount": "secret",
+      "project": "personal",
+      "config": "prd",
+      "key": "CLIPROXY_FLEET_CLIENT_API_KEY"
+    },
+    "models": {
+      "codex": "gpt-6.1-sol",
+      "claude": null,
+      "opencode": "gpt-6.1-sol"
+    }
+  },
+  "nodes": {},
+  "tools": {
+    "codex": {
+      "binary": "codex",
+      "config": "CODEX_HOME/config.toml",
+      "authentication": "Independent codex login for direct; Vault environment key for proxy",
+      "proxy": "responses",
+      "source": "https://learn.chatgpt.com/docs/config-file/config-reference"
+    },
+    "claude": {
+      "binary": "claude",
+      "config": "--settings FILE",
+      "authentication": "Independent claude auth login for direct; ANTHROPIC_AUTH_TOKEN for proxy",
+      "proxy": "messages",
+      "source": "https://code.claude.com/docs/en/llm-gateway-connect"
+    },
+    "opencode": {
+      "binary": "opencode",
+      "config": "OPENCODE_CONFIG",
+      "authentication": "Existing ws opencode sync/Vault; runtime environment key for proxy",
+      "proxy": "responses",
+      "source": "https://opencode.ai/docs/config/"
+    },
+    "gemini": {
+      "binary": "gemini",
+      "config": "GEMINI_CLI_HOME/.gemini/settings.json",
+      "authentication": "Independent interactive Google login; optional native API-key/Vertex flows",
+      "proxy": null,
+      "source": "https://geminicli.com/docs/reference/configuration/"
+    },
+    "t3": {
+      "binary": "t3",
+      "config": "T3CODE_HOME/userdata/settings.json providerInstances",
+      "authentication": "Independent t3 up --connect and peer pairing",
+      "proxy": null,
+      "source": "Installed T3 contracts/settings.ts and providerInstance.ts; see audit.md"
+    },
+    "cursor": {
+      "binary": "cursor",
+      "config": "OS-specific Cursor User/settings.json and .cursor/mcp.json",
+      "authentication": "Interactive Cursor Settings > Models; credentials stay in application storage",
+      "proxy": null,
+      "source": "https://prod.cursor.com/help/models-and-usage/api-keys"
+    },
+    "antigravity": {
+      "binary": "antigravity",
+      "config": "Native settings; no verified portable inference-routing adapter",
+      "authentication": "Independent Google browser sign-in",
+      "proxy": null,
+      "source": "https://antigravity.google/docs/settings"
+    },
+    "copilot": {
+      "binary": "copilot",
+      "config": "Native config and repository .github/copilot-instructions.md",
+      "authentication": "Independent native GitHub login",
+      "proxy": null,
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-cli"
+    }
+  }
+}

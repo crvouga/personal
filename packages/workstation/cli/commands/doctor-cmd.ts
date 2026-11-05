@@ -1,3 +1,4 @@
+import { agentChecks } from '../lib/agents/doctor';
 import { converge } from './sync';
 import { currentPlatform } from '../lib/platform/index';
 import { workstationRoot } from '../lib/paths';
@@ -36,7 +37,10 @@ export async function cmdDoctor(opts: DoctorOpts): Promise<void> {
   const mode = resolveOutputMode(opts.json);
   if (opts.fix === true) {
     await converge(platform);
-    const after = doctorChecks(platform, workstationRoot());
+    const after = [
+      ...doctorChecks(platform, workstationRoot()),
+      ...(await agentChecks(platform)),
+    ];
     if (mode === 'json') {
       printJson({
         ok: true,
@@ -51,7 +55,10 @@ export async function cmdDoctor(opts: DoctorOpts): Promise<void> {
     if (doctorSummary(after).fail > 0) process.exit(1);
     return;
   }
-  const checks = doctorChecks(platform, workstationRoot());
+  const checks = [
+    ...doctorChecks(platform, workstationRoot()),
+    ...(await agentChecks(platform)),
+  ];
   const summary = doctorSummary(checks);
   if (mode === 'json') {
     printJson({ ok: summary.fail === 0, checks, summary });
