@@ -21,8 +21,8 @@ else:
         t = datetime.datetime.fromisoformat(json.loads(f.read_text())["time"])
         if (
             datetime.datetime.now(datetime.timezone.utc) - t
-        ).total_seconds() > 36 * 3600:
-            issues.append("Backup older than 36 hours.")
+        ).total_seconds() > 45 * 60:
+            issues.append("Cloud checkpoint older than 45 minutes.")
     except Exception:
         issues.append("Invalid backup status record.")
 if (r / "state/status/vault-failed").exists():

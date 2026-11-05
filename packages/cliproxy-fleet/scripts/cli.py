@@ -16,7 +16,7 @@ root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).reso
 args = sys.argv[1:]
 if not args or args[0] in ["help", "--help", "-h"]:
     print(
-        "Usage: bun run cliproxy COMMAND\nCommands: install [--revision REV|--rollback|--dry-run|--prepare-only], audit, public-endpoint [enable|start|disable|verify], status, start, stop, restart, health, models, logs, validate, apply FILE, add-account PROVIDER, inference PROTOCOL MODEL, backup, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, vault-login, recover, verify-recovery, portable-login, activate, drain"
+        "Usage: bun run cliproxy COMMAND\nCommands: install [--revision REV|--rollback|--dry-run|--prepare-only], audit, public-endpoint [enable|start|disable|verify], status, start, stop, restart, health, models, logs, validate, apply FILE, add-account PROVIDER, inference PROTOCOL MODEL, backup, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, restore-cache --previous-node-stopped, vault-login, recover, verify-recovery, portable-login, activate, drain"
     )
     sys.exit(0)
 command, *rest = args
@@ -28,7 +28,7 @@ elif command == "public-endpoint":
     invocation = [str(root / "scripts/public-endpoint"), *rest]
 elif command == "audit":
     invocation = [sys.executable, str(root / "scripts/audit.py"), *rest]
-elif command in ["backup", "snapshots", "check", "check-full", "restore"]:
+elif command in ["backup", "snapshots", "check", "check-full", "restore", "restore-cache"]:
     invocation = [str(root / "scripts/backup"), command, *rest]
 elif command in ["vault-login", "recover", "verify-recovery"]:
     invocation = [

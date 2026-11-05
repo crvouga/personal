@@ -32,26 +32,23 @@ bun run cliproxy snapshots
 
 An already stopped stack remains stopped after backup. Record the **latest successful snapshot ID** from `/opt/cliproxy-fleet/state/status/backup-success.json`; do not choose an incomplete snapshot from a failed backup.
 
-On the destination, restore to an empty directory and validate offline:
+On the destination, confirm that the old host is stopped or powered off. The acknowledgement below is operator fencing, not a distributed lock. Recover the latest modern checkpoint directly into the empty cache:
 
 ```bash
-bun run cliproxy restore SNAPSHOT_ID /var/tmp/cliproxy-recovery
-python3 -B /opt/cliproxy-fleet/scripts/restore-verify \
-  /var/tmp/cliproxy-recovery/opt/cliproxy-fleet
-```
-
-Read the recovered `INSTALLATION.json` to identify the exact package commit. Code links in a snapshot may refer to paths on the old host: do not execute restored links. The trusted repository validator compares the recorded hashes with Git objects. Fetch that commit from the repository if needed. Preserve your newly acquired Vault token and recovered password while merging the restored state:
-
-```bash
-sudo cp -a /var/tmp/cliproxy-recovery/opt/cliproxy-fleet/state/. /opt/cliproxy-fleet/state/
-bun run cliproxy install --revision RECOVERED_COMMIT
+bun run cliproxy restore-cache --previous-node-stopped
+bun run cliproxy install --revision HEAD
 bun run cliproxy audit
 bun run cliproxy health
-bun run cliproxy models
-bun run cliproxy inference responses EXACT_AVAILABLE_MODEL_ID
+bun run cliproxy public-endpoint verify
+python3 -B packages/cliproxy-fleet/tests/live.py --endpoint https://cli-proxy.chrisvouga.dev --codex
+bun run cliproxy backup
 ```
 
-The installer fixes local state permissions and starts only this host's restored primary. The snapshot excludes Vault token/password, so the copy preserves the independently recovered files. Application health/inference must pass **before** endpoint activation.
+Recovery uses the current trusted Git checkout, validates decrypted data, and preserves the new Vault login and independently recovered Restic password. It never executes backed-up code. `install` regenerates secret caches from Vault and starts the recovered service; it refuses missing runtime config. To reproduce the original software version, read the recovered checkpoint's `INSTALLATION.json` in an offline restore first and choose that reviewed Git revision instead of HEAD.
+
+`restore-cache` intentionally refuses an existing `runtime`, `tailscale`, endpoint or repository cache. For recovery on the same host, stop the service/timers and move these cache entries to a private rollback directory first. Never move `state/status/operation.lock` while an operation is active. An interrupted recovery leaves `state/recovery-incomplete`; inspect/remove the partial cache before retrying. Keep `state/secrets` (new Vault login/password) and the lock directory intact.
+
+For offline inspection or historical recovery, use `bun run cliproxy restore SNAPSHOT_ID /var/tmp/cliproxy-recovery`, then `python3 -B /opt/cliproxy-fleet/scripts/restore-verify /var/tmp/cliproxy-recovery`. Modern checkpoints are located automatically despite different source paths. Old snapshots without `CHECKPOINT.json` require the original explicit restored deployment path and manual state recovery. No automatic fallback to an older snapshot occurs when validation fails.
 
 The existing Tailscale Service remains in the cloud. Reuse the restored dedicated identity only while the original is stopped. Local runtime commands activate it and resume its existing advertisement:
 

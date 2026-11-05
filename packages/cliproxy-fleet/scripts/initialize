@@ -16,7 +16,7 @@ import urllib.request
 root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
 os.umask(0o077)
 state = root / "state"
-for directory in ["runtime/auths", "runtime/static", "tailscale", "status", "secrets"]:
+for directory in ["status", "secrets"]:
     (state / directory).mkdir(parents=True, exist_ok=True)
 fields = {
     "client-key": "CLIPROXY_FLEET_CLIENT_API_KEY",
@@ -43,14 +43,9 @@ if missing:
         )
 config = state / "runtime/config.yaml"
 if not config.exists():
-    text = (root / "config.template.yaml").read_text()
-    text = text.replace(
-        "REPLACE_CLIENT_KEY", (state / "secrets/client-key").read_text().strip()
+    raise SystemExit(
+        "Runtime cache missing. Recover from the cloud checkpoint with restore-cache; refusing to seed an empty deployment."
     )
-    text = text.replace(
-        "REPLACE_MANAGEMENT_KEY", (state / "secrets/management-key").read_text().strip()
-    )
-    config.write_text(text)
 panel = state / "runtime/static/management.html"
 if not panel.exists():
     metadata = json.load(

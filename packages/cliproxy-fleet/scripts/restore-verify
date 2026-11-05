@@ -12,6 +12,12 @@ sys.dont_write_bytecode = True
 root = pathlib.Path(sys.argv[1]).resolve()
 source = pathlib.Path(__file__).resolve().parent
 if not (root / "state/runtime/config.yaml").is_file():
+    import checkpoint
+    root = checkpoint.locate(root)
+if (root / "CHECKPOINT.json").exists():
+    import checkpoint
+    checkpoint.validate(root)
+if not (root / "state/runtime/config.yaml").is_file():
     sys.exit("Pass the restored deployment root containing state/runtime/config.yaml.")
 subprocess.run(
     [
