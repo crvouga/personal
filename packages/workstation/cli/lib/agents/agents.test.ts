@@ -1,3 +1,4 @@
+import { fieldNames } from './audit';
 import { describe, test, expect } from 'bun:test';
 import { mkdtemp, readFile, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -10,6 +11,15 @@ import { safeParents } from './files';
 const revision = 'a'.repeat(40);
 
 describe('agent configuration ownership', () => {
+  test('audit exposes keys rather than credentials or settings values', () => {
+    const names = fieldNames({
+      model: 'PRIVATE_SENTINEL',
+      apiKey: 'PRIVATE_SENTINEL',
+      mcpServers: { token: 'PRIVATE_SENTINEL' },
+    });
+    expect(names).toEqual(['apiKey', 'mcpServers', 'model']);
+    expect(JSON.stringify(names)).not.toContain('PRIVATE_SENTINEL');
+  });
   test('separates routes and platform destinations without secret values', () => {
     const proxy = render(select('canary', 'codex', 'proxy'))['config.toml']!;
     expect(proxy).toContain('wire_api = "responses"');
@@ -66,6 +76,14 @@ describe('agent configuration ownership', () => {
   test('rejects symlink destinations and concurrent application', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ws-conflict-'));
     try {
+      await mkdir(join(root, '.apply-lock'));
+      await expect(
+        convergeAgents({
+          root,
+          revision,
+          selection: select('canary', 'codex', 'proxy'),
+        })
+      ).rejects.toThrow('Another apply');
       await symlink(root, join(root, 'alias'));
       await expect(safeParents(join(root, 'alias', 'config'))).rejects.toThrow(
         'Symlink conflict'
