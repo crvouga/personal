@@ -39,3 +39,22 @@ Deployment: `/opt/cliproxy-fleet`. Stable private HTTPS endpoint: `https://ai-pr
 - Vault renewal is subject to the server's maximum token lifetime; re-login is required when renewal is no longer allowed. API-token expiry/revocation requires replacement in Vault. These conditions fail closed and surface in monitoring; no credentials are guessed or silently substituted.
 - Alerts are local systemd failures/status files; an external notification destination was not provided. Retention forgets snapshots, while physical pruning remains a deliberate maintenance operation. Usage counters are not advertised as a durable billing ledger.
 - Tailnet changes were additive and preserved existing policy semantics. Existing broader grants still apply; the new service-specific grant does not override those. Application authentication is always enforced.
+
+## Cloud checkpoint hardening and live cache-loss drill
+
+PR [#196](https://github.com/crvouga/personal/pull/196) merged at `ad6e95d70f6a71394a85c92c0d30cf7fb2feea8b`. All PR checks passed. The local full `bun run check` passed (61 package tasks plus root/OpenTofu checks); the focused suite passed 25 tests, including an actual encrypted local Restic round trip after deleting its synthetic source and rejecting a wrong password. CI installs Restic/PyYAML to run that integration test, with no production credentials.
+
+Fault injection covers partial stop, capture failure, restart failure, upload failure, missing snapshot acknowledgement, retention failure, Vault outage and credential rotation. Recovery tests reject modified/missing/extra files, symlinks, special files, malformed provider JSON, different repository pins, partial recovery and overwriting an existing cache. Upstream bbolt state is preserved as opaque bytes; process lock files are excluded. Config security checks are exercised with Python optimization enabled.
+
+Live verification on this workstation:
+
+- Installed the merged Git revision and confirmed the source manifest/audit.
+- Created modern tagged R2 checkpoints. Full Restic `check --read-data` verified every stored pack without errors.
+- Independently recovered the Restic password from Vault and hydrated a temporary offline cache from R2, without activating its identities.
+- Stopped the primary and timers; saved final stopped-state checkpoint `80b9d9f613278d7002102a990f275154dcaa8fa181d0b7c4e1c33dd8babaa0c9`. Verified backup did not start the stopped stack.
+- Set aside local runtime, Tailscale and endpoint caches; retained only bootstrap secrets/status and the repository pin. Ran `restore-cache --previous-node-stopped`, then installed/restarted the same reviewed revision. Recovery used R2, not the set-aside cache.
+- Both public `cli-proxy.chrisvouga.dev` and private `ai-proxy.tail4829dc.ts.net` passed anonymous rejection, authenticated models, client/admin separation and dashboard checks.
+- Actual Codex Responses streaming, shell-tool execution reading a synthetic probe file, and final text all passed through the public hostname after recovery.
+- Source audit and health/checkpoint freshness monitor passed. Timers were re-enabled by installation. The inactive rollback cache was removed after verification.
+
+This is a same-host empty-cache recovery drill, not a physical migration or proof of active-active safety. Checkpoints pause the stack during capture and normally permit approximately 15 minutes plus upload time of lost changes; outages extend that window. Old OAuth refresh tokens may require re-login. The previous node must be stopped explicitly. The cached Vault token still has the broad `admin` policy (outside the proxy mount); a dedicated OpenTofu-managed read-only runtime policy remains a security improvement. External failure notification is not configured. A SIGKILL/power loss cannot execute Python cleanup; inspect abandoned private staging files and verify service recovery after such an interruption.
