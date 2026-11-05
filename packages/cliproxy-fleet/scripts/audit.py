@@ -21,7 +21,14 @@ def audit(root, check_units=True):
             "legacy copied-code installation; reinstall from the repository"
         ]
     worktree = pathlib.Path(manifest["worktree"])
-    command = ["git", "-c", "safe.directory=" + str(worktree), "-C", str(worktree)]
+    command = [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "safe.directory=" + str(worktree),
+        "-C",
+        str(worktree),
+    ]
     revision = (
         subprocess.check_output(command + ["rev-parse", "HEAD"], stderr=subprocess.PIPE)
         .decode()
