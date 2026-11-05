@@ -168,6 +168,10 @@ try:
         validate()
         compose("up", "-d", "--wait")
         health()
+        if (root / "state/endpoint.json").exists():
+            compose("--profile", "portable-endpoint", "up", "-d", "tailnet")
+        if (root / "state/public-endpoint-enabled").exists():
+            run([str(root / "scripts/public-endpoint"), "start"])
     elif command == "stop":
         operation_lock = lock()
         compose(
