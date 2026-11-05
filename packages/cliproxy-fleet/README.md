@@ -1,6 +1,6 @@
 # CLIProxyAPI fleet service
 
-`@pkgs/cliproxy-fleet` owns the source for the private CLIProxyAPI deployment. The package contains Compose configuration, immutable upstream image pins, systemd units, operational scripts, client bootstrap code and recovery procedures. It is private and is not published to npm or as a custom container image.
+`@pkgs/cliproxy-fleet` owns the source for the authenticated CLIProxyAPI deployment. The package contains Compose configuration, immutable upstream image pins, systemd units, operational scripts, client bootstrap code and recovery procedures. It is private and is not published to npm or as a custom container image.
 
 ## Source and installed artifacts
 
@@ -12,6 +12,25 @@ The only executable source is Git-tracked code in `crvouga/personal`. Installati
 - **Vault:** provider-independent credentials and existing recovery keys; never commit secrets.
 - **Encrypted R2 snapshots:** live provider/config state, dedicated Tailscale identity and source-revision metadata.
 - **Generated non-code data:** private client settings, installation metadata and `.env` image-pin data; their generators are tracked. Runtime data remains separate under `state/`.
+
+## Stable public HTTPS
+
+The canonical public API is `https://cli-proxy.chrisvouga.dev/v1` and the dashboard is `https://cli-proxy.chrisvouga.dev/management.html`. Clients send the existing client API key as a bearer token; management requires its separate key. No browser login or Tailscale client is required for this hostname. The existing private `https://ai-proxy.tail4829dc.ts.net` endpoint remains available.
+
+The foundation OpenTofu root owns the Cloudflare tunnel, remotely managed ingress and proxied DNS. The vault root owns the isolated `secret/cliproxy-fleet/tunnel` document. Both are declared in the canonical inventory. No local script provisions them. The pinned cloudflared container shares the proxy's Compose network and connects outbound, with no additional public host port.
+
+After the reviewed main-branch deployment creates these resources, enable the local connector:
+
+```bash
+bun run cliproxy public-endpoint enable
+bun run cliproxy public-endpoint verify
+python3 -B /opt/cliproxy-fleet/clients/bootstrap.py \
+  --endpoint https://cli-proxy.chrisvouga.dev --model gpt-6.1-sol
+```
+
+`enable` records runtime intent; subsequent service starts fetch the current token from Vault before recreating the connector. The token is mounted from a private file, never passed in arguments or copied into source. It is excluded from backups because recovery fetches it from Vault. To reload a rotated token, run `bun run cliproxy public-endpoint start`. `disable` stops only the public connector and removes the startup marker. The private endpoint is independent.
+
+This hostname routes to the current primary workstation; it does not move compute into Railway or provide availability when that host is off. During migration, stop the old primary, restore on the destination, and enable the connector there. DNS remains unchanged. Never run competing proxy/provider-state copies.
 
 ## Install, update and rollback
 

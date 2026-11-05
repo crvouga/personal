@@ -760,6 +760,26 @@
                 "enabled": false
               }
             }
+          },
+          "cli-proxy": {
+            "name": "cli-proxy",
+            "hostname": "cli-proxy.chrisvouga.dev",
+            "credential_path": "cliproxy-fleet/tunnel",
+            "config": {
+              "ingress": [
+                {
+                  "hostname": "cli-proxy.chrisvouga.dev",
+                  "service": "http://proxy:8317",
+                  "origin_request": {}
+                },
+                {
+                  "service": "http_status:404"
+                }
+              ],
+              "warp_routing": {
+                "enabled": false
+              }
+            }
           }
         },
         "redirect_ruleset_name": "Redirect rules ruleset"

@@ -383,3 +383,7 @@ gh workflow run maintenance.yml --ref <diagnostic-branch> -f task=storage-metada
 This reads production object headers and bucket lock rules without printing
 object contents, credentials or signed URLs. It never changes the ownership
 record, retention rules or stored data.
+
+## Local proxy public hostname
+
+Inventory `cloudflare.additional_tunnels.cli-proxy` declares the remotely configured tunnel for `cli-proxy.chrisvouga.dev`. Entries with `credential_path` opt into foundation-owned DNS/token outputs and an isolated vault-root document containing `TUNNEL_TOKEN`. This does not rewrite shared personal secrets. The connector is a pinned local runtime in `packages/cliproxy-fleet`, with API-key authentication enforced by the proxy. Cloud provisioning remains OpenTofu-only; see that package's stable HTTPS and recovery runbooks. The existing Tailscale Service remains available.

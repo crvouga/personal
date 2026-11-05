@@ -82,6 +82,7 @@ override_data {
       r2_access_key_id     = "r2-key"
       r2_secret_access_key = "r2-secret"
       router_token         = "router-token"
+      local_tunnel_tokens  = { cli-proxy = "local-connector-token" }
       database_url         = "postgres://owner:secret@db.example.net/app?sslmode=require"
       auth_console_database = {
         production    = "postgres://console-prd:secret@db.example.net/app?sslmode=verify-full"
@@ -292,5 +293,13 @@ run "retired_cache_credentials_are_filtered_from_stale_inputs" {
       length(setintersection(toset(keys(jsondecode(vault_kv_secret_v2.personal[config].data_json))), toset(["TURBO_TOKEN", "TURBO_API", "TURBO_TEAM"]))) == 0
     ])
     error_message = "Stale secrets exports cannot restore retired credentials or remote caching."
+  }
+}
+
+run "isolated_local_tunnel_credential" {
+  command = plan
+  assert {
+    condition     = vault_kv_secret_v2.local_tunnel["cli-proxy"].name == "cliproxy-fleet/tunnel" && jsondecode(vault_kv_secret_v2.local_tunnel["cli-proxy"].data_json).TUNNEL_TOKEN == "local-connector-token"
+    error_message = "Local connector credentials must use their isolated document and foundation-owned token."
   }
 }

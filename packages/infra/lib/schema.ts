@@ -42,6 +42,9 @@ export type CloudflareTunnelIngressSpec = {
 
 export type CloudflareAdditionalTunnelSpec = {
   readonly name: string;
+  /** Optional public DNS and isolated Vault credential delivery for local connectors. */
+  readonly hostname?: string;
+  readonly credential_path?: string;
   readonly config: { readonly ingress: readonly CloudflareTunnelIngressSpec[] };
 };
 

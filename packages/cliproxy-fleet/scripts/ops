@@ -170,7 +170,9 @@ try:
         health()
     elif command == "stop":
         operation_lock = lock()
-        compose("--profile", "portable-endpoint", "stop")
+        compose(
+            "--profile", "portable-endpoint", "--profile", "public-endpoint", "stop"
+        )
     elif command == "restart":
         operation_lock = lock()
         compose("restart", "proxy")
@@ -178,7 +180,7 @@ try:
     elif command == "health":
         health()
     elif command == "status":
-        compose("--profile", "portable-endpoint", "ps")
+        compose("--profile", "portable-endpoint", "--profile", "public-endpoint", "ps")
         health()
         for f in [
             "backup-success.json",
