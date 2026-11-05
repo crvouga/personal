@@ -16,7 +16,7 @@ root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).reso
 args = sys.argv[1:]
 if not args or args[0] in ["help", "--help", "-h"]:
     print(
-        "Usage: bun run cliproxy COMMAND\nCommands: install [--revision REV|--rollback|--dry-run|--prepare-only], audit, public-endpoint [enable|start|disable|verify], status, start, stop, restart, health, models, logs, validate, apply FILE, add-account PROVIDER, inference PROTOCOL MODEL, backup, gc, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, restore-cache --previous-node-stopped, vault-login, recover, verify-recovery, portable-login, activate, drain"
+        "Usage: bun run cliproxy COMMAND\nCommands: install [--revision REV|--rollback|--dry-run|--prepare-only], audit, public-endpoint [enable|start|disable|verify], status, start, stop, restart, health, models, logs, validate, apply FILE, add-account PROVIDER, inference PROTOCOL MODEL, backup, gc, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, restore-cache --previous-node-stopped, vault-login, recover, recover-node NEW_DIRECTORY [--vault-token-file FILE], verify-recovery, portable-login, activate, drain"
     )
     sys.exit(0)
 command, *rest = args
@@ -24,6 +24,8 @@ if command == "install":
     invocation = [sys.executable, str(source / "install.py"), *rest]
     if os.geteuid() != 0 and "--dry-run" not in rest:
         invocation = ["sudo", *invocation]
+elif command == "recover-node":
+    invocation = [sys.executable, "-B", str(root / "scripts/recover_node.py"), *rest]
 elif command == "public-endpoint":
     invocation = [str(root / "scripts/public-endpoint"), *rest]
 elif command == "audit":
