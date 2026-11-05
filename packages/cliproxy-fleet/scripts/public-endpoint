@@ -29,7 +29,9 @@ def save_token(path, value):
 
 def verify(root, endpoint):
     def request(path, key=None):
-        headers = {"Authorization": "Bearer " + key} if key else {}
+        headers = {"User-Agent": "cliproxy-fleet/1.0"}
+        if key:
+            headers["Authorization"] = "Bearer " + key
         try:
             with urllib.request.urlopen(
                 urllib.request.Request(endpoint + path, headers=headers), timeout=30

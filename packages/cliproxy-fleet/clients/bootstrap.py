@@ -59,7 +59,7 @@ if a.validate:
     key = (config / "client-key").read_text().strip()
     req = urllib.request.Request(
         settings["endpoint"].rstrip("/") + "/v1/models",
-        headers={"Authorization": "Bearer " + key},
+        headers={"Authorization": "Bearer " + key, "User-Agent": "cliproxy-fleet/1.0"},
     )
     with urllib.request.urlopen(req, timeout=20) as r:
         data = json.load(r)
