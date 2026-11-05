@@ -1,4 +1,5 @@
-import { readdir } from 'node:fs/promises';
+import { lstat, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { agentRoot } from './render';
 import { registry, select } from './registry';
@@ -55,6 +56,8 @@ async function profileCheck(
   tool: string,
   profile: string
 ): Promise<DoctorCheck | null> {
+  const receiptPath = join(root, node, tool, profile, 'receipt.json');
+  if (!(await lstat(receiptPath).catch(() => null))) return null;
   try {
     const result = await plan({
       root,
@@ -72,7 +75,13 @@ async function profileCheck(
       detail: `Applied revision ${result.previous.revision}; static configuration ${clean ? 'matches' : 'drifted'}. Secret availability, endpoint, inference and T3 end-to-end require ws agents verify/operator tests.`,
     };
   } catch {
-    return null;
+    return {
+      id: `agent:${node}:${tool}:${profile}`,
+      label: 'Managed profile drift',
+      severity: 'fail',
+      detail:
+        'Profile or receipt cannot be validated. Inspect locally and preview before applying; raw contents withheld.',
+    };
   }
 }
 

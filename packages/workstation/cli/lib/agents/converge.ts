@@ -1,3 +1,4 @@
+import { AgentConfigurationError } from './errors';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { digest, registry, type Selection } from './registry';
@@ -28,7 +29,7 @@ export async function plan(context: Context) {
   );
   const receiptPath = join(directory, 'receipt.json');
   const raw = await readOwned(receiptPath);
-  const previous = raw ? (JSON.parse(raw) as Receipt) : null;
+  const previous = raw ? parseReceipt(raw) : null;
   const outputs = render(selection);
   const files = [];
   for (const [name, content] of Object.entries(outputs)) {
@@ -52,14 +53,14 @@ export async function convergeAgents(context: Context, adopt = false) {
   try {
     await mkdir(lock);
   } catch {
-    throw new Error(
+    throw new AgentConfigurationError(
       'Another apply is active; inspect .apply-lock before retrying.'
     );
   }
   try {
     const result = await plan(context);
     if (!adopt && result.files.some((file) => file.state === 'conflict'))
-      throw new Error(
+      throw new AgentConfigurationError(
         'Unmanaged or modified configuration. Review locally, then use --adopt to back up and replace only this profile.'
       );
     for (const file of result.files) {
@@ -79,7 +80,11 @@ export async function convergeAgents(context: Context, adopt = false) {
     const encoded = JSON.stringify(receipt, null, 2) + '\n';
     if ((await readOwned(result.receiptPath)) !== encoded)
       await atomicWrite(result.receiptPath, encoded);
-    return publicPlan(result, context.revision);
+    return {
+      ...publicPlan(result, context.revision),
+      appliedRevision: context.revision,
+      receiptMatches: true,
+    };
   } finally {
     await rm(lock, { recursive: true, force: true });
   }
@@ -98,4 +103,21 @@ export function publicPlan(
     t3EndToEnd: 'unverified',
     authenticatedInference: 'unverified',
   };
+}
+
+function parseReceipt(raw: string): Receipt {
+  const value = JSON.parse(raw) as Receipt;
+  if (
+    value.version !== 1 ||
+    !/^[a-f0-9]{40}$/.test(value.revision) ||
+    !/^[a-f0-9]{64}$/.test(value.fingerprint) ||
+    !value.files ||
+    !Object.values(value.files).every(
+      (hash) => typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)
+    )
+  )
+    throw new AgentConfigurationError(
+      'Invalid configuration receipt. Inspect it locally and restore a known receipt before applying.'
+    );
+  return value;
 }

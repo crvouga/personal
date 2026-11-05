@@ -11,11 +11,7 @@ async function main(): Promise<void> {
   const raw: unknown = JSON.parse(
     Buffer.from(process.argv.at(-1) ?? '', 'base64').toString()
   );
-  if (
-    !record(raw) ||
-    !['probe', 'sync', 'repair', 'configure'].includes(String(raw['action']))
-  )
-    throw new Error('Invalid request.');
+  if (!validRequest(raw)) throw new Error('Invalid request.');
   const node = parseConfig({ version: 1, nodes: [raw['node']] }).nodes[0]!;
   if (raw['action'] === 'configure') {
     await configureRequest(raw, node);
@@ -81,4 +77,11 @@ async function configureRequest(
     runCommand
   );
   process.stdout.write(JSON.stringify({ version: 1, checks }));
+}
+
+function validRequest(raw: unknown): raw is Record<string, unknown> {
+  return (
+    record(raw) &&
+    ['probe', 'sync', 'repair', 'configure'].includes(String(raw['action']))
+  );
 }

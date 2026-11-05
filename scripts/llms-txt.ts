@@ -282,6 +282,7 @@ function blocks(ctx: Context): Record<string, string> {
 
   return {
     workstation: read('scripts/dev/README.md').trimEnd(),
+    agentSetup: read('packages/workstation/agents/setup.md').trimEnd(),
     workstationTools: table(
       ['Tool', 'Version', 'Installation'],
       Object.entries(

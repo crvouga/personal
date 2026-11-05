@@ -1,3 +1,4 @@
+import { AgentConfigurationError } from './errors';
 import { registry, type Selection } from './registry';
 import { proxyKey } from './secrets';
 
@@ -23,12 +24,12 @@ export async function verifyProvider(selection: Selection, smoke: boolean) {
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok)
-    throw new Error(
+    throw new AgentConfigurationError(
       'Proxy model listing failed; inspect endpoint/authentication locally.'
     );
   const data = (await response.json()) as { data?: Array<{ id: string }> };
   if (!data.data?.some((model) => model.id === selection.model))
-    throw new Error(
+    throw new AgentConfigurationError(
       'Approved model is unavailable; review registry model selection.'
     );
   let inference = 'unverified';
@@ -52,7 +53,7 @@ export async function verifyProvider(selection: Selection, smoke: boolean) {
       }
     );
     if (!result.ok)
-      throw new Error(
+      throw new AgentConfigurationError(
         'Bounded inference request failed; no response body is logged.'
       );
     await validateOutput(result, messages);
@@ -80,7 +81,7 @@ async function validateOutput(
   };
   const output = messages ? payload.content : payload.output;
   if (payload.error || !Array.isArray(output) || output.length === 0)
-    throw new Error(
+    throw new AgentConfigurationError(
       'Inference returned no output; inspect the provider locally.'
     );
 }

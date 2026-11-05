@@ -1,3 +1,4 @@
+import { AgentConfigurationError } from './errors';
 import source from '../../../agents/registry.json';
 import { createHash } from 'node:crypto';
 
@@ -13,15 +14,19 @@ export const registry = source;
 
 export function select(node: string, tool: string, profile: string): Selection {
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(node))
-    throw new Error('Invalid node ID.');
+    throw new AgentConfigurationError('Invalid node ID.');
   if (!(tool in source.defaults) || !['direct', 'proxy'].includes(profile))
-    throw new Error('Unsupported tool/profile; run ws agents inventory.');
+    throw new AgentConfigurationError(
+      'Unsupported tool/profile; run ws agents inventory.'
+    );
   const id = tool as Tool;
   if (profile === 'proxy' && id === 'gemini')
-    throw new Error('Gemini CLI proxy protocol is not verified; use direct.');
+    throw new AgentConfigurationError(
+      'Gemini CLI proxy protocol is not verified; use direct.'
+    );
   const model = resolveModel(node, id, profile as Profile);
   if (!model || !/^[a-zA-Z0-9_./:+-]+$/.test(model))
-    throw new Error(
+    throw new AgentConfigurationError(
       'No approved model. Add an exact model ID to agents/registry.json and review it.'
     );
   return { node, tool: id, profile: profile as Profile, model };

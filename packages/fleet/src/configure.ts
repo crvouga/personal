@@ -71,24 +71,7 @@ export async function configureWorkspace(
     return failure(
       'Existing setup owner failed. Partial tool/dependency installation is possible; no configuration receipt was advanced.'
     );
-  const applied = await run(
-    [
-      'bun',
-      'packages/workstation/cli/index.ts',
-      '--json',
-      '--yes',
-      '--non-interactive',
-      'agents',
-      'apply',
-      '--node',
-      request.node,
-      '--tool',
-      request.tool,
-      '--profile',
-      request.profile,
-    ],
-    { cwd: directory, timeoutMs: 120_000 }
-  );
+  const applied = await applyOwner(directory, request, run);
   if (!applied.ok)
     return failure(
       'ws configuration failed. Inspect preview on this node; no rollout receipt was advanced.'
@@ -184,4 +167,29 @@ async function recordConfiguration(
     { flag: 'wx', mode: 0o600 }
   );
   await rename(temp, path);
+}
+
+async function applyOwner(
+  directory: string,
+  request: ConfigurationRequest,
+  run: Runner
+) {
+  return run(
+    [
+      'bun',
+      'packages/workstation/cli/index.ts',
+      '--json',
+      '--yes',
+      '--non-interactive',
+      'agents',
+      'apply',
+      '--node',
+      request.node,
+      '--tool',
+      request.tool,
+      '--profile',
+      request.profile,
+    ],
+    { cwd: directory, timeoutMs: 120_000 }
+  );
 }

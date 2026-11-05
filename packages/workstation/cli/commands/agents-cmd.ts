@@ -1,4 +1,6 @@
+import { AgentConfigurationError } from '../lib/agents/errors';
 import type { Command } from 'commander';
+import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { currentPlatform } from '../lib/platform';
 import { workspaceRoot } from '../lib/paths';
@@ -9,7 +11,8 @@ import { launchProfile } from '../lib/agents/launch';
 import { verifyProvider } from '../lib/agents/verify';
 import type { GlobalOpts } from '../lib/cli-opts';
 
-async function revision(): Promise<string> {
+async function revision(requireClean: boolean): Promise<string> {
+  if (requireClean) await requireCleanSources();
   const child = Bun.spawn(['git', 'rev-parse', 'HEAD'], {
     cwd: workspaceRoot(),
     stdout: 'pipe',
@@ -17,7 +20,7 @@ async function revision(): Promise<string> {
   });
   const value = (await new Response(child.stdout).text()).trim();
   if ((await child.exited) || !/^[a-f0-9]{40}$/.test(value))
-    throw new Error('Cannot resolve checkout revision.');
+    throw new AgentConfigurationError('Cannot resolve checkout revision.');
   return value;
 }
 
@@ -39,6 +42,7 @@ export function registerAgents(
   agents
     .command('inventory')
     .action(() => console.log(JSON.stringify(registry, null, 2)));
+  registerT3Plan(agents);
   for (const action of ['preview', 'apply', 'status', 'verify', 'run']) {
     agents
       .command(action)
@@ -57,12 +61,14 @@ export function registerAgents(
       .action(async (args: string[], options: AgentOptions) => {
         try {
           await execute(action, args, options, globals());
-        } catch {
+        } catch (error) {
           console.log(
             JSON.stringify({
               ok: false,
               error:
-                'Agent operation failed. Check node/tool/profile, review conflicts with preview, authenticate this node to Vault for proxy, and check approved model availability. No raw error or response is retained.',
+                error instanceof AgentConfigurationError
+                  ? error.message
+                  : 'Agent operation failed. Check node/tool/profile, review conflicts with preview, authenticate this node to Vault for proxy, and check approved model availability. No raw error or response is retained.',
             })
           );
           process.exitCode = 1;
@@ -79,9 +85,13 @@ async function execute(
 ) {
   const selection = select(options.node, options.tool, options.profile);
   const root = agentRoot(homedir(), currentPlatform().name);
-  const context = { root, selection, revision: await revision() };
+  const context = {
+    root,
+    selection,
+    revision: await revision(['apply', 'run', 'verify'].includes(action)),
+  };
   if (action === 'apply') {
-    if (!global.yes) throw new Error('Apply requires --yes.');
+    if (!global.yes) throw new AgentConfigurationError('Apply requires --yes.');
     console.log(
       JSON.stringify({
         ok: true,
@@ -95,7 +105,10 @@ async function execute(
     result.files.every((file) => file.state === 'unchanged') &&
     result.previous?.fingerprint === result.fingerprint;
   if (['run', 'verify'].includes(action)) {
-    if (!clean) throw new Error('Apply the reviewed configuration first.');
+    if (!clean)
+      throw new AgentConfigurationError(
+        'Apply the reviewed configuration first.'
+      );
     await runOrVerify(action, root, selection, {
       args,
       smoke: options.smoke === true,
@@ -127,4 +140,51 @@ async function runOrVerify(
       ...(await verifyProvider(selection, input.smoke)),
     })
   );
+}
+
+function registerT3Plan(agents: Command): void {
+  agents
+    .command('t3-plan')
+    .requiredOption('--node <id>', 'Fleet node ID')
+    .action((options: { node: string }) => {
+      const selection = select(options.node, 'codex', 'proxy');
+      const root = agentRoot(homedir(), currentPlatform().name);
+      console.log(
+        JSON.stringify(
+          {
+            applied: false,
+            instance: 'personal_codex_proxy',
+            driver: 'codex',
+            config: {
+              binaryPath: join(
+                workspaceRoot(),
+                'packages/workstation/agents/codex-proxy.ts'
+              ),
+              homePath: join(root, selection.node, 'codex', 'proxy'),
+            },
+            environment: [{ name: 'WS_AGENT_NODE', value: selection.node }],
+            instruction:
+              'Use these explicitly owned fields in a new T3 Codex provider instance. Preserve all other settings and secret references. Native Windows executable launch has not been validated.',
+          },
+          null,
+          2
+        )
+      );
+    });
+}
+
+async function requireCleanSources(): Promise<void> {
+  const child = Bun.spawn(
+    ['git', 'status', '--porcelain', '--', 'packages/workstation'],
+    {
+      cwd: workspaceRoot(),
+      stdout: 'pipe',
+      stderr: 'ignore',
+    }
+  );
+  const output = await new Response(child.stdout).text();
+  if ((await child.exited) || output.trim())
+    throw new AgentConfigurationError(
+      'Workstation sources are dirty. Commit/review configuration before applying or launching a managed profile. Local work was preserved.'
+    );
 }

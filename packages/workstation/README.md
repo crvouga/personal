@@ -515,3 +515,13 @@ The generated root `llms.txt` and portfolio `/llms-infra.txt` embed the machine
 runbook and an exact version table from the manifest. The site's `/llms.txt`
 provides the entry link. Run `bun run llms:sync` when changing setup instructions
 or tool pins, then `bun run check:llms` to verify all published copies.
+
+## Versioned agent profiles
+
+The [complete setup runbook](agents/setup.md) covers `ws agents inventory`,
+`preview`, `apply`, `status`, `verify`, `run` and `t3-plan`. The
+[ownership and compatibility audit](agents/audit.md) lists sources, destinations,
+secret/runtime boundaries and unsupported integrations. `agents/registry.json`
+owns portable model defaults, explicit node overrides and the CLI Proxy reference.
+`ws doctor` reports installed tools and drift for applied profiles. Native T3 UI
+setup remains explicit; no whole-directory synchronization is performed.

@@ -48,3 +48,36 @@ test('unavailable revision fails without mutation or subprocess output leakage',
   expect(calls).toHaveLength(1);
   expect(JSON.stringify(checks)).not.toContain('PRIVATE_SENTINEL');
 });
+
+test('setup failure preserves previous successful rollout receipt', async () => {
+  const { mkdtemp, mkdir, writeFile, readFile, rm } =
+    await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'fleet-config-'));
+  try {
+    const dir = join(root, 'node_modules', '.fleet-configuration');
+    await mkdir(dir, { recursive: true });
+    const receipt = join(dir, 'canary-codex-proxy.json');
+    await writeFile(receipt, 'previous-success');
+    const run: Runner = async (command, options) => {
+      const stdout = command.includes('--show-toplevel')
+        ? options!.cwd!
+        : command.includes('--porcelain')
+          ? ''
+          : revision;
+      return {
+        ok: command[0] !== 'mise',
+        stdout,
+        stderr: 'PRIVATE_SENTINEL',
+        reason: 'exit',
+      };
+    };
+    const result = await configureWorkspace(root, request, run);
+    expect(result[0]?.status).toBe('fail');
+    expect(await readFile(receipt, 'utf8')).toBe('previous-success');
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_SENTINEL');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

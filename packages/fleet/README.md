@@ -243,3 +243,15 @@ See the [public CLI repair runbook](../personal-cli/README.md#preview-and-apply-
 and [market research and access recommendations](docs/access-and-repair-research.md).
 The new commands are in the public `personal` entry point; legacy `bun run fleet`
 continues to provide its existing diagnostics/onboarding/sync commands.
+
+## Reviewed workstation configuration rollout
+
+`bun run fleet configure --node ID --revision FULL_SHA --tool codex --profile proxy`
+previews selected targets. Add `--apply --yes` after review. `--local` supports
+local configuration, including native Windows; remote nodes retain POSIX-only SSH.
+The [setup runbook](../workstation/agents/setup.md#reviewed-rollout-and-rollback)
+covers canaries, offline/partial failures, per-node receipts and rollback. This
+command delegates rendering to ws and installation to existing mise/bootstrap.
+It never resets the developer checkout or transfers credentials. Doctor delegates
+managed-profile drift evidence to ws; historical rollout receipts alone are not a
+live readiness assertion.

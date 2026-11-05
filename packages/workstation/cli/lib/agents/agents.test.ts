@@ -2,7 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import { mkdtemp, readFile, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { select, digest } from './registry';
+import { select, digest, resolveModel } from './registry';
 import { render, agentRoot } from './render';
 import { convergeAgents, plan, publicPlan } from './converge';
 import { safeParents } from './files';
@@ -23,6 +23,11 @@ describe('agent configuration ownership', () => {
     expect(agentRoot('/home/dev', 'linux')).toBe(
       '/home/dev/.config/personal/agents'
     );
+    expect(
+      resolveModel('canary', 'codex', 'direct', {
+        canary: { codex: { direct: 'reviewed-model' } },
+      })
+    ).toBe('reviewed-model');
     expect(() => select('../escape', 'codex', 'direct')).toThrow();
     expect(() => select('node', 'gemini', 'proxy')).toThrow();
     expect(() => select('node', 'claude', 'proxy')).toThrow();

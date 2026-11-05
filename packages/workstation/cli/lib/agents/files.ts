@@ -1,3 +1,4 @@
+import { AgentConfigurationError } from './errors';
 import {
   lstat,
   mkdir,
@@ -17,7 +18,7 @@ export async function safeParents(path: string): Promise<void> {
   while (current !== parse(current).root) {
     try {
       if ((await lstat(current)).isSymbolicLink())
-        throw new Error(
+        throw new AgentConfigurationError(
           'Symlink conflict; move the managed destination before applying.'
         );
     } catch (error) {
@@ -31,7 +32,9 @@ export async function readOwned(path: string): Promise<string | null> {
   await safeParents(path);
   try {
     if (!(await lstat(path)).isFile())
-      throw new Error('Managed destination is not a regular file.');
+      throw new AgentConfigurationError(
+        'Managed destination is not a regular file.'
+      );
     return await readFile(path, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;

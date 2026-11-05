@@ -1,3 +1,4 @@
+import { AgentConfigurationError } from './errors';
 import { VaultSecretStore } from '@pkgs/secret-store';
 import { VaultCli } from '@pkgs/vault';
 import { registry } from './registry';
@@ -21,7 +22,7 @@ export async function proxyKey(): Promise<string> {
   } catch {
     /* Never forward Vault/network exceptions or response bodies. */
   }
-  throw new Error(
+  throw new AgentConfigurationError(
     'Required Vault secret unavailable: secret/data/personal/prd CLIPROXY_FLEET_CLIENT_API_KEY. Authenticate this node with vault login and verify read permission; secret changes belong to OpenTofu.'
   );
 }
