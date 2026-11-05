@@ -220,7 +220,6 @@ class CloudOperations(unittest.TestCase):
             None,
             "anonymous",
             "empty",
-            "client-admin",
             "dashboard",
             "redirect",
         ):
@@ -234,9 +233,9 @@ class CloudOperations(unittest.TestCase):
                         {"data": [] if failure == "empty" else [{"id": "fixture"}]}
                     ).encode()
                 if url.endswith("/v0/management/config"):
-                    return (
-                        200 if failure == "client-admin" and authenticated else 401
-                    ), b""
+                    raise AssertionError(
+                        "Scheduled monitoring must not attempt management logins"
+                    )
                 return (503 if failure == "dashboard" else 200), b"panel"
 
             if failure is None:

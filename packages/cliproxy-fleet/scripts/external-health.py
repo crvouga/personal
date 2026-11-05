@@ -25,9 +25,8 @@ def endpoint_health(endpoint, key, request=cloud_state.request):
     models = json.loads(body).get("data") if status == 200 else None
     if not isinstance(models, list) or not models:
         raise ValueError("Authenticated endpoint has no available models")
-    for authenticated in (False, True):
-        if get("/v0/management/config", authenticated)[0] not in (401, 403):
-            raise ValueError("Management authorization boundary failed")
+    # Upstream counts missing/wrong management keys toward a per-IP ban.
+    # Scheduled health checks must never generate those failed login attempts.
     if get("/management.html")[0] != 200:
         raise ValueError("Dashboard unavailable")
 
@@ -55,9 +54,7 @@ def main():
     for attempt in range(3):
         try:
             endpoint_health(config["endpoint"], data["CLIPROXY_FLEET_CLIENT_API_KEY"])
-            print(
-                "PASS: external HTTPS, client authentication, models and management isolation."
-            )
+            print("PASS: external HTTPS, client authentication, models and dashboard.")
             break
         except Exception:
             if attempt == 2:
