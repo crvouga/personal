@@ -111,7 +111,7 @@ bun run cliproxy validate
 bun run cliproxy apply /protected/candidate.yaml
 ```
 
-Docker restart policy recovers process crashes. Systemd enables startup independently of desktop sessions. A health probe checks HTTP/auth reachability, and the five-minute monitor checks code provenance, application/admin authentication, backup freshness and Vault failures. Persistent unhealthy states are surfaced, not hidden by automatic restart loops. `logs` is best-effort redaction; keep debug and request logging disabled. External notification delivery is not configured.
+Docker restart policy recovers process crashes. Systemd enables startup independently of desktop sessions. A health probe checks HTTP/auth reachability, and the five-minute monitor checks code provenance, application/admin authentication, backup freshness and Vault failures. Persistent unhealthy states are surfaced, not hidden by automatic restart loops. `logs` is best-effort redaction; keep debug and request logging disabled. Off-machine verification runs in GitHub Actions; notification delivery follows GitHub notification settings.
 
 ## Providers and model selection
 
@@ -162,7 +162,7 @@ bun run cliproxy check-full
 
 Vault login is interactive with hidden input; its token is restricted locally and renewed every 15 minutes where permitted. Maximum token lifetime still applies; re-login when renewal is no longer allowed. The Restic password has an independent existing copy at `CLIPROXY_FLEET_RESTIC_PASSWORD`. Secret creation/rotation goes through the platform's `bun run vault:edit`/OpenTofu workflow, not runtime helpers.
 
-Encrypted cloud checkpoints run every 15 minutes with up to 30 seconds jitter. The stack pauses only while copying a consistent local checkpoint; all previously running containers resume before the upload starts. A stopped stack stays stopped. A failed capture, restart, upload or retention operation records failure and never advances the success marker. Retention keeps the latest 96 snapshots plus 7 daily, 5 weekly and 12 monthly. Weekly integrity checks read 10% of stored data; `check-full` reads all data. Monitoring fails when the last successful checkpoint is older than 45 minutes. Failures are visible in systemd and `cliproxy status`; there is no external paging integration.
+Encrypted cloud checkpoints run every 15 minutes with up to 30 seconds jitter. The stack pauses only while copying a consistent local checkpoint; all previously running containers resume before the upload starts. A stopped stack stays stopped. A failed capture, restart, upload or retention operation records failure and never advances the success marker. Retention keeps the latest 96 snapshots plus 7 daily, 5 weekly and 12 monthly. Weekly integrity checks read 10% of stored data; `check-full` reads all data. Monitoring fails when the last successful checkpoint is older than 45 minutes. Failures are visible in systemd and `cliproxy status`; off-machine checks also run through the CLI proxy health workflow described below.
 
 R2 checkpoints are the durable recovery source for config, provider OAuth/account state and the dedicated Tailscale identity. Local state is a working cache with asynchronous durability: normally up to approximately 15 minutes plus upload duration can be lost, and an outage can extend that indefinitely. Run a successful manual checkpoint after important login/config changes or before moving machines. Provider refresh-token invalidation can still require a fresh provider login after recovering an older checkpoint. This is a single-writer deployment, with operator fencing of the previous node; there is no distributed lease or active-active support.
 
@@ -173,6 +173,22 @@ Weekly garbage collection (`cliproxy-gc.timer`, Sunday 04:00 with up to five min
 Retention groups only by the fixed host, not temporary checkpoint paths or version tags. This bounds normal history to at most 120 recovery points across format changes (usually fewer because daily/weekly/monthly selections overlap). GC also removes clean, unused deployment worktrees, retaining current/previous revisions and revisions referenced by fleet launchers or service links. Dirty or locked worktrees are never force-deleted. Runtime/provider state, other projects, shared Docker storage and manually created recovery directories are not deleted. Retention bounds historical copies, not the size of the current live dataset; failed GC is surfaced rather than silently discarding recovery points.
 
 On a replacement machine, prepare the tracked installation, log into Vault, recover the password, and run `bun run cliproxy restore-cache --previous-node-stopped`. This downloads and verifies the latest tagged checkpoint, checks its manifest and security invariants, and populates an empty cache without starting services. It refuses existing cache state, unexpected files, symlinks, incomplete checkpoints and partial recovery. Installation refuses to invent a blank config when recovery is required. See [migration](docs/migration.md) for the complete cutover commands.
+
+## Off-machine checks and offline recovery
+
+The `CLI proxy health` GitHub Actions workflow runs at minutes 7, 22, 37 and 52 of each hour and supports manual dispatch. It uses the existing read-only GitHub OIDC Vault role, with a short-lived token rather than a stored workstation/admin credential. From a GitHub-hosted runner it checks public endpoint authentication, available models, the client/management boundary, a cloud checkpoint no more than 45 minutes old, and the last successful GC no more than nine days old. GC status is included in subsequent encrypted checkpoints. A failed workflow is visible independently of this workstation and uses GitHub's existing notification settings; it is not a guaranteed paging service, and schedules can be delayed by GitHub.
+
+The monitor does not run inference, access provider credential files, prune storage, change cloud infrastructure, or restart the workstation. Its Restic client permits only read operations and uses no remote locks, so a killed runner cannot leave a lock blocking backups. Concurrent pruning can cause a transient read failure; subsequent scheduled runs retry. HTTPS redirects are rejected to prevent forwarding credentials to another origin.
+
+With an existing private Vault token, one command prepares a complete offline replacement cache:
+
+```bash
+bun run cliproxy recover-node /protected/new-node --vault-token-file /protected/vault-token
+```
+
+The parent directory must exist and the destination must not exist (even an empty directory is refused). The command reads fresh secrets from Vault, pins the latest checkpoint ID, restores and verifies it, checks its source manifest against Git, checks repository/client-key consistency, and publishes the complete private cache atomically. It includes API/management keys, the independently recovered encryption password and the supplied Vault login. It never overwrites the current deployment or activates a duplicate OAuth/Tailscale identity. Interrupted or rejected recovery leaves the existing deployment untouched. This command targets the supported Ubuntu host environment.
+
+`RECOVERY.json` records the source revision and snapshot. The recovered directory contains data only. On a replacement machine, use `/opt/cliproxy-fleet` as the new destination, stop or otherwise fence the old machine, then install a reviewed Git revision with `bun run cliproxy install --revision REV`. Activation remains explicit: there is no automatic failover or machine enrollment. A valid existing Vault login is still required; the runtime token has not been replaced with a least-privilege machine identity by this change.
 
 ## Verification and checks
 

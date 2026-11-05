@@ -16,6 +16,7 @@ STATE_PATHS = (
     "endpoint.json",
     "public-endpoint-enabled",
     "repository.json",
+    "status/gc-success.json",
 )
 
 

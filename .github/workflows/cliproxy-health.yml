@@ -1,0 +1,35 @@
+name: CLI proxy health
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: cliproxy-external-health
+  cancel-in-progress: false
+jobs:
+  health:
+    if: github.repository == 'crvouga/personal' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install read-only backup client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends restic
+      - name: Read-only Vault login using GitHub OIDC
+        uses: hashicorp/vault-action@v4
+        with:
+          url: https://vault.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://vault.chrisvouga.dev
+          exportToken: true
+      - name: Verify endpoint and cloud recovery freshness
+        run: python3 -B packages/cliproxy-fleet/scripts/external-health.py

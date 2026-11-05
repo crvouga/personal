@@ -2,6 +2,12 @@
 
 One primary instance is sufficient. Never activate duplicated OAuth or Tailscale identities concurrently. Source code comes from this package at the commit recorded in the backup's `INSTALLATION.json`; secrets and state come from Vault and encrypted R2 snapshots.
 
+## One-command offline recovery
+
+On a host with the tracked package installed and a valid private Vault token, `bun run cliproxy recover-node NEW_DIRECTORY` builds a complete new cache using fresh Vault secrets and a verified R2 checkpoint. Supply `--vault-token-file FILE` to use an explicit existing login. It refuses existing destinations and never changes or stops the running stack. This is also a safe recovery rehearsal while the primary remains online: the new identity files are never activated. Remove rehearsal caches after inspection, since they contain private credentials.
+
+On a new host without installed tooling, invoke `python3 -B packages/cliproxy-fleet/scripts/recover_node.py /opt/cliproxy-fleet --vault-token-file FILE` from a full Git clone after installing the documented OS prerequisites. Run with permissions to create that destination. The destination must not yet exist. After explicitly fencing the old primary, `bun run cliproxy install --revision REV` installs tracked code and activates the recovered cache. This route replaces the separate prepare/login/password/restore steps below when an existing Vault token is already available. It does not obtain a new machine identity or bypass old-node fencing.
+
 ## Prepare recovery tooling on a new Ubuntu host
 
 Clone `crvouga/personal` and check out a reviewed revision containing this package. Use the shared locked developer toolchain, or Python directly for the installer. Install OS prerequisites, then prepare code without starting the proxy:
