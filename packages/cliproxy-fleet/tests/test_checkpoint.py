@@ -40,6 +40,8 @@ class Checkpoint(unittest.TestCase):
         (self.state / "runtime/auths/provider.json").write_text(
             json.dumps({"refresh_token": "synthetic-refresh"})
         )
+        (self.state / "runtime/auths/kv.db").write_bytes(b"synthetic-bbolt\x00\xff")
+        (self.state / "runtime/auths/provider.json.lock").touch()
         (self.state / "tailscale").mkdir()
         (self.state / "tailscale/tailscaled.state").write_text("synthetic identity")
         (self.state / "secrets").mkdir()
@@ -65,6 +67,13 @@ class Checkpoint(unittest.TestCase):
             self.calls[-1][-4:], ("start", "proxy", "tailnet", "cloudflared")
         )
         checkpoint.validate(self.target)
+        self.assertEqual(
+            (self.target / "state/runtime/auths/kv.db").read_bytes(),
+            b"synthetic-bbolt\x00\xff",
+        )
+        self.assertFalse(
+            (self.target / "state/runtime/auths/provider.json.lock").exists()
+        )
         self.assertFalse((self.target / "state/secrets").exists())
         self.assertFalse((self.target / "state/runtime/logs").exists())
         self.assertFalse((self.target / "state/runtime/config.yaml.previous").exists())

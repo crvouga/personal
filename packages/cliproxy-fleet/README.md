@@ -72,7 +72,7 @@ One upstream CLIProxyAPI v8.0.55 container runs as UID/GID 1000 with a read-only
 - Official dashboard: **https://ai-proxy.tail4829dc.ts.net/management.html**
 - Stable tailnet resource: `svc:ai-proxy`, `tcp:443`; host identity: `tag:ai-proxy`.
 
-Inference requires a client API key. Management uses a separate key; ordinary inference keys cannot authorize admin APIs. HTML is a public asset within the private tailnet, while management data/actions require authentication. Existing broader tailnet policy grants remain in force; application authentication is always enforced. No Funnel/public forwarding is used.
+Inference requires a client API key. Management uses a separate key; ordinary inference keys cannot authorize admin APIs. HTML is publicly reachable; management data/actions require authentication. Existing broader tailnet policy grants remain in force; application authentication is always enforced. The public hostname uses the OpenTofu-managed Cloudflare tunnel; Tailscale Funnel is not used.
 
 Cloud service definitions, policies and Vault values belong to the OpenTofu platform workflow. The original one-off cloud provisioning/secret-writing helpers have been retired. Do not recreate them in this package. Existing Tailscale Service resources survive workstation replacement; local `activate` advertises an existing resource and is a runtime operation. See [cloud adoption notes](docs/cloud-adoption.md) before changing the cloud definitions.
 
@@ -82,12 +82,12 @@ Cloud service definitions, policies and Vault values belong to the OpenTofu plat
 
 | Path under installation     | Purpose                                                                |
 | --------------------------- | ---------------------------------------------------------------------- |
-| `state/runtime/config.yaml` | Sole authoritative live config, including dashboard edits              |
+| `state/runtime/config.yaml` | Working config cache; dashboard edits checkpoint to R2                 |
 | `state/runtime/auths/`      | Provider OAuth, account metadata, bbolt store, cooldown state          |
 | `state/runtime/static/`     | Pinned official management HTML                                        |
 | `state/secrets/`            | Private local material read from Vault and renewable Vault login token |
 | `state/tailscale/`          | Dedicated service identity; never run two copies concurrently          |
-| `state/network/`            | Encrypted-backup copy of the original policy for operator review       |
+| `state/network/`            | Legacy policy cache; not required for recovery                         |
 | `state/endpoint.json`       | Verified stable endpoint metadata                                      |
 | `state/status/`             | Operational results and shared operation lock                          |
 | `INSTALLATION.json`         | Git revision and hashes of generated installed code                    |

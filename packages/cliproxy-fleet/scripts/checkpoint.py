@@ -60,6 +60,8 @@ def validate(root):
     if not (state / "runtime/auths").is_dir():
         raise ValueError("Provider cache directory missing")
     for path in (state / "runtime/auths").iterdir():
+        if path.name == "kv.db" and path.is_file() and path.stat().st_size > 0:
+            continue  # Opaque upstream bbolt state, captured while the process is stopped.
         if path.suffix != ".json" or not path.is_file():
             raise ValueError("Unexpected provider file")
         if not isinstance(json.loads(path.read_text()), dict):
@@ -93,7 +95,13 @@ def capture(root, target, compose):
             destination = target / "state" / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             if source.is_dir():
-                shutil.copytree(source, destination)
+                # Runtime file locks are process-local and must not be restored.
+                ignore = (
+                    shutil.ignore_patterns("*.lock")
+                    if name == "runtime/auths"
+                    else None
+                )
+                shutil.copytree(source, destination, ignore=ignore)
             else:
                 shutil.copyfile(source, destination)
         shutil.copyfile(root / "INSTALLATION.json", target / "INSTALLATION.json")
