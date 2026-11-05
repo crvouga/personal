@@ -218,6 +218,7 @@ def main():
     if target.is_symlink():
         parser.error("Installation root must not be a symlink")
     for directory in [
+        target / "recovery",
         target / "state",
         target / "state/secrets",
         target / "state/status",
