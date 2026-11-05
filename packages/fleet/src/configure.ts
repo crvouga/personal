@@ -176,6 +176,11 @@ async function applyOwner(
 ) {
   return run(
     [
+      'mise',
+      'exec',
+      '--locked',
+      'bun',
+      '--',
       'bun',
       'packages/workstation/cli/index.ts',
       '--json',

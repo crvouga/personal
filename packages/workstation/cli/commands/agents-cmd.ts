@@ -1,3 +1,4 @@
+import { auditMachine } from '../lib/agents/audit';
 import { AgentConfigurationError } from '../lib/agents/errors';
 import type { Command } from 'commander';
 import { join } from 'node:path';
@@ -42,6 +43,13 @@ export function registerAgents(
   agents
     .command('inventory')
     .action(() => console.log(JSON.stringify(registry, null, 2)));
+  agents
+    .command('audit')
+    .action(async () =>
+      console.log(
+        JSON.stringify(await auditMachine(currentPlatform()), null, 2)
+      )
+    );
   registerT3Plan(agents);
   for (const action of ['preview', 'apply', 'status', 'verify', 'run']) {
     agents

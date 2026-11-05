@@ -34,6 +34,7 @@ gh auth login
 gh auth setup-git
 vault login --method=userpass username=crvouga
 bun packages/workstation/cli/index.ts --json agents inventory
+bun packages/workstation/cli/index.ts --json agents audit
 ```
 
 These login commands require operator interaction. The existing approved Vault
