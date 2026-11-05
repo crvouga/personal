@@ -65,12 +65,17 @@ def image_environment(files):
     mapping = {
         "CLI_PROXY_IMAGE": images["eceasy/cli-proxy-api"],
         "TAILSCALE_IMAGE": images["tailscale/tailscale"],
+        **(
+            {"CLOUDFLARED_IMAGE": images["cloudflare/cloudflared"]}
+            if "cloudflare/cloudflared" in images
+            else {}
+        ),
     }
     if not all(
         re.fullmatch(r"[a-z0-9/.-]+@sha256:[0-9a-f]{64}", value)
         for value in mapping.values()
     ):
-        raise ValueError("Both upstream images must use immutable digests")
+        raise ValueError("Upstream images must use immutable digests")
     return "".join(
         name + "=" + value + "\n" for name, value in mapping.items()
     ).encode()
@@ -94,6 +99,11 @@ def prepare_source(repo, target, commit):
         raise ValueError("Deployment worktree is at the wrong revision")
     if git(worktree, "status", "--porcelain", "--", PACKAGE).strip():
         raise ValueError("Deployment worktree has local changes")
+    # Git creates a private index under sudo; normal users need read-only audits.
+    metadata = pathlib.Path(
+        git(worktree, "rev-parse", "--absolute-git-dir").decode().strip()
+    )
+    (metadata / "index").chmod(0o644)
     return worktree
 
 

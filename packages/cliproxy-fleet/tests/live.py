@@ -168,6 +168,7 @@ def check_recovery(root, restore):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--endpoint", help="Explicit HTTPS origin for client verification")
     parser.add_argument("--codex", action="store_true")
     parser.add_argument("--opencode", action="store_true")
     parser.add_argument("--recovery", action="store_true")
@@ -181,7 +182,7 @@ def main():
     root = pathlib.Path(
         os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")
     ).resolve()
-    endpoint = json.loads((root / "state/endpoint.json").read_text())["endpoint"]
+    endpoint = args.endpoint or json.loads((root / "state/endpoint.json").read_text())["endpoint"]
     try:
         if args.codex:
             check_codex(root, endpoint)

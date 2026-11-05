@@ -146,3 +146,15 @@ run "application_namespace_allocation_is_opt_in" {
     error_message = "Allocate only the new namespace; never adopt or alter existing application schemas."
   }
 }
+
+run "local_proxy_public_route" {
+  command = plan
+  assert {
+    condition     = cloudflare_dns_record.local_tunnel["cli-proxy"].name == "cli-proxy.chrisvouga.dev" && cloudflare_dns_record.local_tunnel["cli-proxy"].proxied
+    error_message = "The canonical hostname must use Cloudflare HTTPS to the managed tunnel."
+  }
+  assert {
+    condition     = cloudflare_zero_trust_tunnel_cloudflared_config.additional["cli-proxy"].config.ingress[0].service == "http://proxy:8317"
+    error_message = "Tunnel traffic must reach the proxy inside its Compose network."
+  }
+}

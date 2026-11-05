@@ -1,0 +1,4 @@
+{
+  "endpoint": "https://cli-proxy.chrisvouga.dev",
+  "vault_path": "secret/data/cliproxy-fleet/tunnel"
+}
