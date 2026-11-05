@@ -51,6 +51,24 @@ export type ProcessInfo = {
   readonly command: string;
 };
 
+/** A periodic background job (launchd agent, systemd user timer, …). */
+export type ScheduledJob = {
+  readonly label: string;
+  /** Absolute executable + args. */
+  readonly command: readonly string[];
+  readonly intervalSeconds: number;
+  /** Directory for the job's stdout/stderr logs. */
+  readonly logDir: string;
+  /** Extra environment (e.g. PATH so `bun` resolves outside a login shell). */
+  readonly env: Readonly<Record<string, string>>;
+};
+
+export type ScheduledJobStatus = {
+  readonly supported: boolean;
+  readonly installed: boolean;
+  readonly detail: string;
+};
+
 export type Platform = {
   readonly name: PlatformName;
   readonly label: string;
@@ -87,4 +105,17 @@ export type Platform = {
 
   /** Snapshot of every process, or `null` when unsupported on this OS. */
   listProcesses(): ProcessInfo[] | null;
+
+  /** App-bundled Tailscale CLI binaries that exist (used when `tailscale` is not on PATH). */
+  tailscaleAppBinaries(): readonly string[];
+  /** VS Code user `settings.json`, or `null` when unknown on this OS. */
+  vscodeSettingsPath(): string | null;
+  /** VS Code `code` CLI binaries shipped inside the installed app. */
+  vscodeCliBinaries(): readonly string[];
+
+  /** Install (or replace) a periodic job. Never throws — returns a result. */
+  installScheduledJob(job: ScheduledJob): NotifierTestResult;
+  /** Remove a periodic job. Never throws — returns a result. */
+  removeScheduledJob(label: string): NotifierTestResult;
+  scheduledJobStatus(label: string): ScheduledJobStatus;
 };

@@ -7,6 +7,8 @@ import type {
   NotifierTestResult,
   Platform,
   ProcessInfo,
+  ScheduledJob,
+  ScheduledJobStatus,
 } from './types';
 
 /** Safe default for unrecognized platforms — filesystem converges, notify degrades. */
@@ -70,5 +72,39 @@ export class FallbackPlatform implements Platform {
 
   listProcesses(): ProcessInfo[] | null {
     return null;
+  }
+
+  tailscaleAppBinaries(): readonly string[] {
+    return [];
+  }
+
+  vscodeSettingsPath(): string | null {
+    return null;
+  }
+
+  vscodeCliBinaries(): readonly string[] {
+    return [];
+  }
+
+  installScheduledJob(job: ScheduledJob): NotifierTestResult {
+    return {
+      ok: false,
+      detail: `scheduled jobs are not supported on ${this.label} (${job.label})`,
+    };
+  }
+
+  removeScheduledJob(label: string): NotifierTestResult {
+    return {
+      ok: true,
+      detail: `nothing to remove for ${label} on ${this.label}`,
+    };
+  }
+
+  scheduledJobStatus(label: string): ScheduledJobStatus {
+    return {
+      supported: false,
+      installed: false,
+      detail: `not supported on ${this.label} (${label})`,
+    };
   }
 }

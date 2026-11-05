@@ -1,0 +1,22 @@
+{
+  "hosts": [
+    {
+      "alias": "mac-studio",
+      "tailscaleName": "chriss-mac-studio.tail4829dc.ts.net",
+      "sshPort": 22,
+      "user": "chrisvouga",
+      "identityFile": "~/.ssh/id_ed25519_mac_studio",
+      "os": "macOS",
+      "t3Port": 3773
+    },
+    {
+      "alias": "minisforum-wsl",
+      "tailscaleName": "desktop-cg66t86.tail4829dc.ts.net",
+      "sshPort": 2222,
+      "user": "crvouga",
+      "identityFile": "~/.ssh/super.engineering_minisforum_wsl_d3c56198ae58e8614bb7_ed25519",
+      "os": "linux",
+      "t3Port": 3773
+    }
+  ]
+}
