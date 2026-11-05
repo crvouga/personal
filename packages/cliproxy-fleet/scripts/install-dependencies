@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $EUID == 0 ]] || { echo 'Run with sudo.'; exit 1; }
+apt-get update
+apt-get install -y docker.io docker-compose-v2 restic python3-yaml curl openssl shellcheck
+systemctl enable --now docker
+if [[ -n ${SUDO_USER:-} && $SUDO_USER != root ]]; then
+  usermod -aG docker "$SUDO_USER"
+fi
+printf '\nDependencies installed. Return to Codex to continue deployment.\n'

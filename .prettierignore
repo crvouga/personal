@@ -25,3 +25,6 @@ scripts/llms-txt.template.md
 
 # Generated session metadata is not source.
 .sc/
+
+# Vendored release schema; preserve upstream formatting.
+packages/cliproxy-fleet/vendor/

@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Repository entry point for installing and operating the local service."""
+
+import sys
+
+sys.dont_write_bytecode = True
+
+
+import os
+import pathlib
+import subprocess
+import sys
+
+source = pathlib.Path(__file__).resolve().parent
+root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+args = sys.argv[1:]
+if not args or args[0] in ["help", "--help", "-h"]:
+    print(
+        "Usage: bun run cliproxy COMMAND\nCommands: install [--revision REV|--rollback|--dry-run|--prepare-only], audit, status, start, stop, restart, health, models, logs, validate, apply FILE, add-account PROVIDER, inference PROTOCOL MODEL, backup, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, vault-login, recover, verify-recovery, portable-login, activate, drain"
+    )
+    sys.exit(0)
+command, *rest = args
+if command == "install":
+    invocation = [sys.executable, str(source / "install.py"), *rest]
+    if os.geteuid() != 0 and "--dry-run" not in rest:
+        invocation = ["sudo", *invocation]
+elif command == "audit":
+    invocation = [sys.executable, str(root / "scripts/audit.py"), *rest]
+elif command in ["backup", "snapshots", "check", "check-full", "restore"]:
+    invocation = [str(root / "scripts/backup"), command, *rest]
+elif command in ["vault-login", "recover", "verify-recovery"]:
+    invocation = [
+        str(
+            root
+            / "scripts"
+            / ("vault-backup-login" if command == "vault-login" else "vault-recovery")
+        )
+    ]
+    if command != "vault-login":
+        invocation.append("recover" if command == "recover" else "verify")
+else:
+    invocation = [str(root / "scripts/ops"), command, *rest]
+raise SystemExit(subprocess.call(invocation))

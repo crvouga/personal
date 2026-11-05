@@ -8,6 +8,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/turborepo-remote-cache`: Dormant Bun cache server; excluded from hosting and normal development. Runtime closure: `@pkgs/{assert,logger,object-store,secret-store,secret-string,vault}`.
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
+- `packages/cliproxy-fleet`: private CLIProxyAPI Compose service, reproducible Git-based local installation, fleet clients and encrypted recovery. Read its `AGENTS.md`; never patch installed `/opt` code or add cloud provisioning helpers.
 - `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
 - `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run ws:install`; converge local configuration with `ws sync`.
@@ -17,6 +18,10 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 ## Shared authentication relay
 
 `packages/auth-relay` contains the staged shared Google-to-OIDC broker and same-domain Bun/Hono management UI. Read its `README.md`, `operations.md` and `acceptance.md` before integrating or deploying. Applications use standard OIDC code + S256 PKCE with independent sessions and need no Google credentials. Authorized operators register exact callbacks in the Google-protected UI and can delegate scoped agent registration through **Agent access**. Agents use `/agent/v1/clients` with credentials from isolated Vault `secret/auth-relay-agents/<credential-id>/<config>` documents; the standalone `packages/auth-relay/agent.ts` client needs no workspace imports. Application registrations, agent grants and callback configuration live only in isolated PostgreSQL schemas (`auth_relay_production` / `auth_relay_nonproduction`), never project allowlists in code or inventory. Atlas manages those schemas through OpenTofu. Runtime client registration is application data; hosting, roles, schema, bootstrap system identities and secrets remain OpenTofu-owned. Never use wildcard redirects or the native-app loopback exception for web clients. The relay is preproduction until its documented live and reliability gates pass. Default `dev` loads managed credentials through Vault and fails clearly until the staged relay is deployed and reachable; it never falls back to mocks. Explicit `dev:fixtures` / `AUTH_DEV_MODE=local` prepares a loopback-only mock identity/database stack through `auth-development`, not live Google validation.
+
+## Source ownership
+
+All authored code must live in this repository. Run deployed services and client launchers from Git-tracked files (pinned deployment worktrees are allowed); do not leave standalone executable copies or generated executable wrappers elsewhere on a machine. Keep secrets/runtime data separate in Vault and encrypted cloud backups.
 
 ## Hard infrastructure rule
 
