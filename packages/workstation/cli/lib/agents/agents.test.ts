@@ -1,6 +1,13 @@
 import { fieldNames } from './audit';
 import { describe, test, expect } from 'bun:test';
-import { mkdtemp, readFile, writeFile, symlink, rm } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  writeFile,
+  symlink,
+  rm,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { select, digest, resolveModel } from './registry';
