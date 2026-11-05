@@ -39,6 +39,11 @@ class CloudOperations(unittest.TestCase):
         self.fixture = fixtures.Checkpoint()
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        environment = mock.patch.dict(
+            os.environ, {"CLIPROXY_ROOT": str(self.fixture.root)}
+        )
+        environment.start()
+        self.addCleanup(environment.stop)
         self.root = self.fixture.directory
         self.destination = self.root / "replacement"
         self.token = self.root / "token"
@@ -273,3 +278,18 @@ class CloudOperations(unittest.TestCase):
             run.assert_not_called()
             client("snapshots", "--json")
             self.assertIn("--no-lock", run.call_args.args[0])
+
+    def test_recovery_cannot_publish_inside_live_mount_even_through_parent_symlink(
+        self,
+    ):
+        alias = self.root / "alias"
+        alias.symlink_to(self.fixture.state / "runtime", target_is_directory=True)
+        with mock.patch.dict(os.environ, {"CLIPROXY_ROOT": str(self.fixture.root)}):
+            for destination in (self.fixture.state / "runtime/new", alias / "new"):
+                with mock.patch.object(cloud, "settings") as settings:
+                    with self.assertRaises(ValueError):
+                        recovery.recover(
+                            destination, self.token, read_settings=settings
+                        )
+                    settings.assert_not_called()
+                self.assertFalse(destination.exists())

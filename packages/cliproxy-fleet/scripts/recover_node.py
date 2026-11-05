@@ -56,6 +56,12 @@ def recover(
     read_settings=cloud_state.settings,
 ):
     # Refuse even an empty existing directory: no user data or deployment can be overwritten.
+    live_root = pathlib.Path(
+        os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")
+    ).resolve()
+    canonical_destination = destination.parent.resolve() / destination.name
+    if live_root.exists() and canonical_destination.is_relative_to(live_root):
+        raise ValueError("Recovery destination must be outside the existing deployment")
     if destination.exists() or destination.is_symlink():
         raise ValueError("Recovery destination already exists")
     if not destination.parent.is_dir():
