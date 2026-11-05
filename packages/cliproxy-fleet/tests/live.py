@@ -131,7 +131,9 @@ def check_opencode(root, endpoint):
             and "fleet-opencode-OK" in event.get("part", {}).get("text", "")
             for event in events
         )
-    print("PASS: actual OpenCode Responses stream and final text over the configured HTTPS endpoint.")
+    print(
+        "PASS: actual OpenCode Responses stream and final text over the configured HTTPS endpoint."
+    )
 
 
 def check_recovery(root, restore):
@@ -156,11 +158,24 @@ def check_recovery(root, restore):
                 [str(tooling / "scripts/backup"), "restore", "latest", str(target)],
                 env=environment,
             )
-            restored = target / "opt/cliproxy-fleet"
+            restored = target
             run(
                 [str(root / "scripts/restore-verify"), str(restored)],
                 env=environment,
             )
+            # Exercise the same empty-cache publisher used on a replacement host.
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "checkpoint", root / "scripts/checkpoint.py"
+            )
+            checkpoint = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(checkpoint)
+            cache = temporary / "replacement/state"
+            cache.mkdir(parents=True)
+            checkpoint.hydrate(checkpoint.locate(restored), cache)
+            assert (cache / "runtime/config.yaml").is_file()
+            assert not (cache / "recovery-incomplete").exists()
     print(
         "PASS: independently recovered Vault password decrypts R2; restored credentials remain unactivated."
     )
@@ -168,7 +183,9 @@ def check_recovery(root, restore):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--endpoint", help="Explicit HTTPS origin for client verification")
+    parser.add_argument(
+        "--endpoint", help="Explicit HTTPS origin for client verification"
+    )
     parser.add_argument("--codex", action="store_true")
     parser.add_argument("--opencode", action="store_true")
     parser.add_argument("--recovery", action="store_true")
@@ -182,7 +199,10 @@ def main():
     root = pathlib.Path(
         os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")
     ).resolve()
-    endpoint = args.endpoint or json.loads((root / "state/endpoint.json").read_text())["endpoint"]
+    endpoint = (
+        args.endpoint
+        or json.loads((root / "state/endpoint.json").read_text())["endpoint"]
+    )
     try:
         if args.codex:
             check_codex(root, endpoint)

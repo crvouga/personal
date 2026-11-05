@@ -4,13 +4,14 @@ import sys
 sys.dont_write_bytecode = True
 
 import datetime, json, os, pathlib, subprocess, sys, tempfile, fcntl, importlib.util
+import checkpoint
 
 root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
 os.umask(0o077)
 os.environ["PATH"] = str(root / "scripts") + ":" + os.environ["PATH"]
 state = root / "state"
 status = state / "status"
-status.mkdir(exist_ok=True)
+status.mkdir(parents=True, exist_ok=True)
 lock = open(status / "operation.lock", "w")
 if os.geteuid() == 0:
     os.chown(status / "operation.lock", 1000, 1000)
@@ -49,9 +50,10 @@ try:
         sys.exit(
             "Vault repository location changed. Review and update state/repository.json explicitly; refusing to silently switch repositories."
         )
-    if not destination.exists():
+    if not destination.exists() and command != "restore-cache":
         write(destination, json.dumps(identity) + "\n")
-    assert cfg["S3_ENDPOINT"].startswith("https://")
+    if not cfg["S3_ENDPOINT"].startswith("https://"):
+        raise ValueError("Storage endpoint must use TLS")
     env = os.environ.copy()
     env.update(
         AWS_ACCESS_KEY_ID=cfg["S3_ACCESS_KEY_ID"],
@@ -84,79 +86,99 @@ try:
             sys.exit("Restore target must be empty.")
         target.mkdir(parents=True, exist_ok=True)
         restic("restore", sys.argv[2], "--target", str(target), "--verify")
+    elif command == "restore-cache":
+        if sys.argv[2:] != ["--previous-node-stopped"]:
+            raise ValueError("Explicit previous-node-stopped acknowledgement required")
+        # This local check complements operator fencing of the previous machine.
+        active = subprocess.check_output(
+            [
+                "docker",
+                "compose",
+                "--profile",
+                "portable-endpoint",
+                "--profile",
+                "public-endpoint",
+                "ps",
+                "--status",
+                "running",
+                "--services",
+            ],
+            cwd=root,
+            text=True,
+        ).strip()
+        if active:
+            raise ValueError("Stop the local stack before recovery")
+        with tempfile.TemporaryDirectory(prefix="cliproxy-restore-") as temporary:
+            target = pathlib.Path(temporary)
+            restic(
+                "restore",
+                "latest",
+                "--tag",
+                "cliproxy-checkpoint-v1",
+                "--host",
+                "cliproxy-primary",
+                "--target",
+                str(target),
+                "--verify",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            payload = checkpoint.locate(target)
+            saved_destination = payload / "state/repository.json"
+            if (
+                not saved_destination.exists()
+                or json.loads(saved_destination.read_text()) != identity
+            ):
+                raise ValueError("Recovered repository identity differs from Vault")
+            checkpoint.hydrate(payload, state)
+        print(
+            "Cloud checkpoint recovered into empty cache. No services started. Run install, then health verification."
+        )
     elif command == "backup":
         if not (state / "secrets/recovery-confirmed").exists():
             sys.exit(
                 "Store Restic password independently; then create state/secrets/recovery-confirmed."
             )
-        # Stop only this stack for a consistent filesystem snapshot, including token refresh and bbolt.
-        running = subprocess.check_output(
-            ["docker", "compose", "ps", "--status", "running", "--services"],
-            cwd=root,
-            text=True,
-        ).split()
-        try:
-            if running:
-                run(
-                    ["docker", "compose", "stop", *running],
-                    cwd=root,
-                    stdout=subprocess.DEVNULL,
-                )
+
+        # Local copy while stopped; cloud latency must never extend the service pause.
+        def compose(*args, **kwargs):
+            if not kwargs.get("capture_output"):
+                kwargs.setdefault("stdout", subprocess.DEVNULL)
+            return run(["docker", "compose", *args], cwd=root, text=True, **kwargs)
+
+        recovery = root / "recovery"
+        recovery.mkdir(mode=0o700, exist_ok=True)
+        if os.geteuid() == 0:
+            os.chown(recovery, 1000, 1000)
+        with tempfile.TemporaryDirectory(
+            prefix="checkpoint-", dir=recovery
+        ) as temporary:
+            captured = pathlib.Path(temporary) / "payload"
+            checkpoint.capture(root, captured, compose)
             result = restic(
                 "backup",
                 "--json",
-                str(root),
-                "--exclude",
-                str(root / "state/secrets/vault-token"),
-                "--exclude",
-                str(root / "state/secrets/s3.json"),
-                "--exclude",
-                str(root / "state/secrets/tunnel-token"),
-                "--exclude",
-                str(root / "state/secrets/restic-password"),
-                "--exclude",
-                str(root / "state/secrets/recovery-confirmed"),
-                "--exclude",
-                str(root / "state/status"),
-                "--exclude",
-                str(root / "recovery"),
-                "--exclude",
-                str(root / "revisions"),
-                "--exclude",
-                str(root / "state/runtime/logs"),
-                "--exclude",
-                str(root / ".git"),
+                str(captured),
                 "--tag",
                 "cliproxy-fleet",
+                "--tag",
+                "cliproxy-checkpoint-v1",
                 "--host",
                 "cliproxy-primary",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             )
+            summaries = [json.loads(line) for line in result.stdout.splitlines()]
             summary = next(
-                json.loads(line)
-                for line in reversed(result.stdout.splitlines())
-                if json.loads(line).get("message_type") == "summary"
+                item
+                for item in reversed(summaries)
+                if item.get("message_type") == "summary"
             )
             snapshot = summary["snapshot_id"]
-            print("Complete encrypted snapshot saved:", snapshot)
-        finally:
-            if running:
-                run(
-                    [
-                        "docker",
-                        "compose",
-                        "--profile",
-                        "portable-endpoint",
-                        "--profile",
-                        "public-endpoint",
-                        "start",
-                        *running,
-                    ],
-                    cwd=root,
-                    stdout=subprocess.DEVNULL,
-                )
+            if not isinstance(snapshot, str) or not snapshot:
+                raise ValueError("Missing snapshot acknowledgement")
+            print("Complete encrypted checkpoint saved:", snapshot)
         # Retention only; removal/prune is deliberately a separate manual operation.
         restic(
             "forget",
@@ -166,6 +188,8 @@ try:
             "cliproxy-primary",
             "--group-by",
             "host,tags",
+            "--keep-last",
+            "96",
             "--keep-daily",
             "7",
             "--keep-weekly",
@@ -186,7 +210,7 @@ try:
         )
     else:
         sys.exit(
-            "Use init, backup, snapshots, check, check-full, or restore SNAPSHOT EMPTY_DIRECTORY."
+            "Use init, backup, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, or restore-cache --previous-node-stopped."
         )
 except (Exception, SystemExit):
     write(failure, datetime.datetime.now(datetime.timezone.utc).isoformat() + "\n")
@@ -195,3 +219,6 @@ except (Exception, SystemExit):
     )
 else:
     failure.unlink(missing_ok=True)
+
+finally:
+    lock.close()

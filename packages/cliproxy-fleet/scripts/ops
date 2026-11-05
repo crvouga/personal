@@ -20,6 +20,8 @@ def compose(*args, **kw):
 
 
 def validate():
+    if (root / "state/recovery-incomplete").exists():
+        raise ValueError("Interrupted cache recovery must be resolved before startup")
     run([str(root / "scripts/validate-config")])
     compose("config", "--quiet")
 
@@ -58,6 +60,8 @@ def health():
     )
     assert request("/management.html")[0] == 200, "Official dashboard unavailable"
     models = json.loads(body).get("data", [])
+    if not isinstance(models, list) or not models:
+        raise ValueError("No usable provider models")
     print(
         "PASS: anonymous rejected; client models OK; separate management key enforced; dashboard available."
     )
@@ -179,6 +183,7 @@ try:
         )
     elif command == "restart":
         operation_lock = lock()
+        validate()
         compose("restart", "proxy")
         wait()
     elif command == "health":

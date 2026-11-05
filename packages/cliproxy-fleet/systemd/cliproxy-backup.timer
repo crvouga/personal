@@ -1,8 +1,8 @@
 [Unit]
-Description=Daily CLIProxyAPI backup (briefly pauses this proxy)
+Description=CLIProxyAPI cloud checkpoint every 15 minutes (brief capture pause)
 [Timer]
-OnCalendar=*-*-* 03:15:00
-RandomizedDelaySec=15m
+OnCalendar=*:0/15
+RandomizedDelaySec=30s
 Persistent=true
 [Install]
 WantedBy=timers.target

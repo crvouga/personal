@@ -13,23 +13,33 @@ p = (
 )
 try:
     c = yaml.safe_load(p.read_text())
-    assert c["config-version"] == 8
-    assert c["server"]["port"] == 8317
-    assert c["oauth"]["auth-dir"] == "/state/auths"
-    assert (
-        c["management"]["secret-key"] and "REPLACE" not in c["management"]["secret-key"]
+
+    def require(condition):
+        if not condition:
+            raise ValueError("Unsafe configuration")
+
+    require(c["config-version"] == 8)
+    require(c["server"]["port"] == 8317)
+    require(c["oauth"]["auth-dir"] == "/state/auths")
+    management = c["management"]["secret-key"]
+    require(
+        isinstance(management, str)
+        and len(management) >= 32
+        and "REPLACE" not in management
     )
     keys = c["access"]["api-keys"]
-    assert keys and all(
-        isinstance(k, str) and len(k) >= 32 and "REPLACE" not in k for k in keys
+    require(
+        isinstance(keys, list)
+        and bool(keys)
+        and all(
+            isinstance(k, str) and len(k) >= 32 and "REPLACE" not in k for k in keys
+        )
     )
-    assert c["management"]["secret-key"] not in keys
-    assert c.get("quota-exceeded", {}).get("switch-preview-model") is False
-    assert (
-        not c["observability"]["logs"]["debug"]
-        and not c["observability"]["logs"]["request-log"]
-    )
-    assert not c["plugins"]["enabled"]
+    require(management not in keys)
+    require(c.get("quota-exceeded", {}).get("switch-preview-model") is False)
+    require(c["observability"]["logs"]["debug"] is False)
+    require(c["observability"]["logs"]["request-log"] is False)
+    require(c["plugins"]["enabled"] is False)
 except Exception:
     sys.exit("Configuration failed YAML/security validation; values suppressed.")
 print("YAML and deployment safety invariants passed (runtime staging still required).")

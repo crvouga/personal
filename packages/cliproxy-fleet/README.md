@@ -72,7 +72,7 @@ One upstream CLIProxyAPI v8.0.55 container runs as UID/GID 1000 with a read-only
 - Official dashboard: **https://ai-proxy.tail4829dc.ts.net/management.html**
 - Stable tailnet resource: `svc:ai-proxy`, `tcp:443`; host identity: `tag:ai-proxy`.
 
-Inference requires a client API key. Management uses a separate key; ordinary inference keys cannot authorize admin APIs. HTML is a public asset within the private tailnet, while management data/actions require authentication. Existing broader tailnet policy grants remain in force; application authentication is always enforced. No Funnel/public forwarding is used.
+Inference requires a client API key. Management uses a separate key; ordinary inference keys cannot authorize admin APIs. HTML is publicly reachable; management data/actions require authentication. Existing broader tailnet policy grants remain in force; application authentication is always enforced. The public hostname uses the OpenTofu-managed Cloudflare tunnel; Tailscale Funnel is not used.
 
 Cloud service definitions, policies and Vault values belong to the OpenTofu platform workflow. The original one-off cloud provisioning/secret-writing helpers have been retired. Do not recreate them in this package. Existing Tailscale Service resources survive workstation replacement; local `activate` advertises an existing resource and is a runtime operation. See [cloud adoption notes](docs/cloud-adoption.md) before changing the cloud definitions.
 
@@ -82,12 +82,12 @@ Cloud service definitions, policies and Vault values belong to the OpenTofu plat
 
 | Path under installation     | Purpose                                                                |
 | --------------------------- | ---------------------------------------------------------------------- |
-| `state/runtime/config.yaml` | Sole authoritative live config, including dashboard edits              |
+| `state/runtime/config.yaml` | Working config cache; dashboard edits checkpoint to R2                 |
 | `state/runtime/auths/`      | Provider OAuth, account metadata, bbolt store, cooldown state          |
 | `state/runtime/static/`     | Pinned official management HTML                                        |
 | `state/secrets/`            | Private local material read from Vault and renewable Vault login token |
 | `state/tailscale/`          | Dedicated service identity; never run two copies concurrently          |
-| `state/network/`            | Encrypted-backup copy of the original policy for operator review       |
+| `state/network/`            | Legacy policy cache; not required for recovery                         |
 | `state/endpoint.json`       | Verified stable endpoint metadata                                      |
 | `state/status/`             | Operational results and shared operation lock                          |
 | `INSTALLATION.json`         | Git revision and hashes of generated installed code                    |
@@ -162,11 +162,13 @@ bun run cliproxy check-full
 
 Vault login is interactive with hidden input; its token is restricted locally and renewed every 15 minutes where permitted. Maximum token lifetime still applies; re-login when renewal is no longer allowed. The Restic password has an independent existing copy at `CLIPROXY_FLEET_RESTIC_PASSWORD`. Secret creation/rotation goes through the platform's `bun run vault:edit`/OpenTofu workflow, not runtime helpers.
 
-Daily backups run around 03:15 Phoenix time with up to 15 minutes jitter. They stop only this stack briefly for a consistent snapshot and resume exactly the previously running services, including on failure. Retention: 7 daily, 5 weekly, 12 monthly. Weekly Sunday 05:00 checks repository structure and 10% of data; `check-full` reads all data. Physical pruning is deliberate maintenance. Backup and integrity-check failures use separate markers; monitoring fails for a missing/older-than-36-hours backup. The latest successful snapshot ID is recorded in `state/status/backup-success.json`.
+Encrypted cloud checkpoints run every 15 minutes with up to 30 seconds jitter. The stack pauses only while copying a consistent local checkpoint; all previously running containers resume before the upload starts. A stopped stack stays stopped. A failed capture, restart, upload or retention operation records failure and never advances the success marker. Retention keeps the latest 96 snapshots plus 7 daily, 5 weekly and 12 monthly. Weekly integrity checks read 10% of stored data; `check-full` reads all data. Monitoring fails when the last successful checkpoint is older than 45 minutes. Failures are visible in systemd and `cliproxy status`; there is no external paging integration.
 
-Encrypted snapshots include live config, OAuth/account state, client/admin keys, source-revision metadata and dedicated Tailscale identity. Git worktrees are excluded: recover code from the repository at the recorded commit, not from copied executable files. Docker images, logs, status files, Vault token, encryption password and recovery-confirmation marker are excluded. Recover Vault access independently; losing both Vault recovery and the local Restic password makes snapshots unreadable.
+R2 checkpoints are the durable recovery source for config, provider OAuth/account state and the dedicated Tailscale identity. Local state is a working cache with asynchronous durability: normally up to approximately 15 minutes plus upload duration can be lost, and an outage can extend that indefinitely. Run a successful manual checkpoint after important login/config changes or before moving machines. Provider refresh-token invalidation can still require a fresh provider login after recovering an older checkpoint. This is a single-writer deployment, with operator fencing of the previous node; there is no distributed lease or active-active support.
 
-For a fresh machine, clone this repository, install OS prerequisites, and materialize the committed package in `/opt/cliproxy-fleet` without starting the service using the installer module's documented recovery procedure in [migration](docs/migration.md). Then log into Vault, recover the existing password, restore to an empty staging directory and verify it offline. Do not initialize new provider credentials or run a second restored identity concurrently.
+Checkpoints include only allowlisted runtime state, endpoint intent, repository identity and source revision metadata. GitHub supplies code; Vault supplies client/admin keys, the encryption password and current cloud credentials. Vault/tunnel tokens, local secret files, logs, prior config copies, status files and executable source are excluded. Config and OAuth files themselves contain secrets and remain encrypted in R2. Local capture/restore directories are private plaintext caches, deleted after normal completion. After a killed process, inspect and remove abandoned directories under `recovery/` when no backup is running.
+
+On a replacement machine, prepare the tracked installation, log into Vault, recover the password, and run `bun run cliproxy restore-cache --previous-node-stopped`. This downloads and verifies the latest tagged checkpoint, checks its manifest and security invariants, and populates an empty cache without starting services. It refuses existing cache state, unexpected files, symlinks, incomplete checkpoints and partial recovery. Installation refuses to invent a blank config when recovery is required. See [migration](docs/migration.md) for the complete cutover commands.
 
 ## Verification and checks
 
@@ -177,6 +179,6 @@ bun run --filter @pkgs/cliproxy-fleet test
 
 Explicit integration checks are also versioned: `python3 -B packages/cliproxy-fleet/tests/live.py --codex --recovery --restore`. They read the existing deployment/Vault login, spend a small number of provider tokens and restore only into a temporary offline directory. Add `--opencode` when the locked OpenCode CLI is installed; no tool is installed automatically.
 
-Offline checks cover syntax/pins, source-only installation, state preservation, manifest drift/unmanaged-code detection, rollback metadata, and repeatable client bootstrap preserving native settings. Integration verification is explicit and uses inexpensive inference. See [initial deployment evidence](docs/deployment-verification-2026-11-04.md) and [migration/restore commands](docs/migration.md). Mac/WSL remote tests, additional provider authentication and a physical host migration remain operator-run checks.
+Offline checks require Restic and PyYAML. They cover real encrypted backup/restore with source deletion and wrong-password rejection, fault injection at capture/restart/upload/retention boundaries, corrupt and partial recovery, credential rotation, source-only installation and client bootstrap. Integration verification is explicit and uses inexpensive inference. See [initial deployment evidence](docs/deployment-verification-2026-11-04.md) and [migration/restore commands](docs/migration.md). Mac/WSL remote tests, additional provider authentication and a physical host migration remain operator-run checks.
 
 Sources: [upstream release](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.55), [official dashboard](https://help.router-for.me/management/webui), [Codex config](https://learn.chatgpt.com/docs/config-file/config-reference), [Claude gateway](https://code.claude.com/docs/en/llm-gateway-connect), [OpenCode providers](https://opencode.ai/docs/providers/), [Tailscale Services](https://tailscale.com/docs/features/tailscale-services). The vendored upstream config is retained as version-specific schema documentation, not live configuration.

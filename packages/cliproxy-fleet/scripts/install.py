@@ -260,6 +260,8 @@ def main():
         ],
         check=True,
     )
+    # Startup/stop share the operation lock with checkpoints and recovery.
+    fcntl.flock(operation_lock, fcntl.LOCK_UN)
     subprocess.run(["systemctl", "restart", "cliproxy-fleet.service"], check=True)
     subprocess.run(
         ["systemctl", "start", "cliproxy-monitor.timer", "cliproxy-vault-renew.timer"],

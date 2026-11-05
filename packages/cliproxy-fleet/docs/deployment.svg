@@ -50,10 +50,10 @@
   <text x="715" y="720" text-anchor="middle" style="fill:white;font-size:21px;font-weight:700">CLIProxyAPI</text>
   <text x="715" y="748" text-anchor="middle" style="fill:#dbeafe;font-size:15px">Port 8317 · authentication + API routing</text>
   <rect x="355" y="686" width="161" height="85" rx="13" class="box"/>
-  <text x="435" y="720" text-anchor="middle" class="label">Runtime state</text>
+  <text x="435" y="720" text-anchor="middle" class="label">Working cache</text>
   <text x="435" y="746" text-anchor="middle" class="detail">OAuth + config</text>
   <path d="M 550 728 H 516" class="storage" marker-start="url(#arrow)"/>
-  <text x="356" y="818" class="detail">Startup + health monitoring · Vault renewal · daily encrypted backup</text>
+  <text x="356" y="818" class="detail">Health monitoring · Vault renewal · cloud checkpoint every 15 minutes</text>
 
   <rect x="1140" y="686" width="246" height="104" rx="15" class="box"/>
   <text x="1263" y="719" text-anchor="middle" class="label">AI provider</text>
@@ -91,12 +91,12 @@
 
   <rect x="680" y="903" width="220" height="112" rx="15" class="box"/>
   <text x="790" y="938" text-anchor="middle" class="label">Restic</text>
-  <text x="790" y="967" text-anchor="middle" class="detail">Encrypted snapshots</text>
+  <text x="790" y="967" text-anchor="middle" class="detail">15-minute checkpoints</text>
   <text x="790" y="992" text-anchor="middle" class="detail">Runtime state + revision</text>
   <path d="M 790 854 V 903" class="storage"/>
   <rect x="1140" y="903" width="246" height="112" rx="15" class="box"/>
   <text x="1263" y="938" text-anchor="middle" class="label">Cloudflare R2</text>
-  <text x="1263" y="967" text-anchor="middle" class="detail">Encrypted recovery storage</text>
+  <text x="1263" y="967" text-anchor="middle" class="detail">Durable recovery source</text>
   <text x="1263" y="992" text-anchor="middle" class="detail">cliproxy-fleet/restic</text>
   <path d="M 900 959 H 1140" class="storage"/>
   <text x="1020" y="941" text-anchor="middle" class="edge-label">S3-compatible API</text>

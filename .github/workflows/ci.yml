@@ -244,11 +244,11 @@ jobs:
             packages/portfolio/node_modules/playwright
             packages/auth-relay/node_modules/@playwright/test
             packages/password-manager/node_modules/playwright
-      - name: Install poppler (résumé text-layer test)
+      - name: Install native test dependencies (PDF and encrypted recovery)
         if: matrix.task == 'tests'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends poppler-utils
+          sudo apt-get install -y --no-install-recommends poppler-utils restic python3-yaml
       - name: Test and build packages
         if: matrix.task == 'tests'
         run: bunx turbo run test build test:site
