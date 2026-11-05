@@ -2,6 +2,12 @@
 
 `@pkgs/cliproxy-fleet` owns the source for the authenticated CLIProxyAPI deployment. The package contains Compose configuration, immutable upstream image pins, systemd units, operational scripts, client bootstrap code and recovery procedures. It is private and is not published to npm or as a custom container image.
 
+## Deployment diagram
+
+![CLIProxyAPI deployment and integrations](docs/deployment.png)
+
+[Open the scalable diagram](docs/deployment.svg).
+
 ## Source and installed artifacts
 
 The only executable source is Git-tracked code in `crvouga/personal`. Installation creates a detached sparse Git worktree at `/opt/cliproxy-fleet/revisions/COMMIT`; operational paths under `/opt/cliproxy-fleet` and systemd units are links into that worktree. No executable source is rendered or copied outside Git. Client launchers are also links to the tracked `clients/launcher.py` in a checkout.
