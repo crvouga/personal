@@ -197,6 +197,8 @@ try:
             "backup-check-failed",
             "backup-operation-failed",
             "monitor-failed",
+            "gc-failed",
+            "gc-success.json",
         ]:
             p = root / "state/status" / f
             if p.exists():

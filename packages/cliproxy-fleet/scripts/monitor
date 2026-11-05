@@ -19,17 +19,29 @@ if not f.exists():
 else:
     try:
         t = datetime.datetime.fromisoformat(json.loads(f.read_text())["time"])
-        if (
-            datetime.datetime.now(datetime.timezone.utc) - t
-        ).total_seconds() > 45 * 60:
+        if (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() > 45 * 60:
             issues.append("Cloud checkpoint older than 45 minutes.")
     except Exception:
         issues.append("Invalid backup status record.")
 if (r / "state/status/vault-failed").exists():
     issues.append("Vault login/renewal failed; backups cannot fetch credentials.")
-for marker in ["backup-failed", "backup-check-failed", "backup-operation-failed"]:
+for marker in [
+    "backup-failed",
+    "backup-check-failed",
+    "backup-operation-failed",
+    "gc-failed",
+]:
     if (r / "state/status" / marker).exists():
         issues.append(marker + ": inspect failed operation.")
+gc = r / "state/status/gc-success.json"
+try:
+    age = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.datetime.fromisoformat(json.loads(gc.read_text())["time"])
+    if age.total_seconds() > 9 * 86400:
+        issues.append("Garbage collection older than nine days.")
+except Exception:
+    issues.append("No valid successful garbage collection record.")
 f = r / "state/status/monitor-failed"
 if issues:
     f.write_text("\n".join(issues) + "\n")

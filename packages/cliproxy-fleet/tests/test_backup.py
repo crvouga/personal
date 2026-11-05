@@ -20,6 +20,11 @@ checkpoint = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checkpoint)
 
 
+spec = importlib.util.spec_from_file_location("retention", SCRIPTS / "retention.py")
+retention = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(retention)
+
+
 class BackupCommand(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -74,7 +79,9 @@ class BackupCommand(unittest.TestCase):
 
         with (
             mock.patch.dict(os.environ, {"CLIPROXY_ROOT": str(self.root)}),
-            mock.patch.dict(sys.modules, {"checkpoint": checkpoint}),
+            mock.patch.dict(
+                sys.modules, {"checkpoint": checkpoint, "retention": retention}
+            ),
             mock.patch.object(sys, "argv", [str(SCRIPTS / "backup"), *self.arguments]),
             mock.patch(
                 "importlib.util.spec_from_file_location", return_value=fake_spec
@@ -146,3 +153,23 @@ class BackupCommand(unittest.TestCase):
         self.assertFalse(self.invoke()[0])
         self.assertEqual(self.events, [])
         self.assertFalse((self.root / "state/runtime").exists())
+
+    def test_failed_gc_does_not_claim_success_or_clear_failure_on_backup(self):
+        self.arguments = ["gc"]
+        with mock.patch.object(
+            retention, "prune", side_effect=RuntimeError("injected prune failure")
+        ):
+            self.assertFalse(self.invoke()[0])
+        self.assertTrue((self.root / "state/status/gc-failed").exists())
+        self.assertFalse((self.root / "state/status/gc-success.json").exists())
+        self.arguments = ["backup"]
+        self.assertTrue(self.invoke()[0])
+        self.assertTrue((self.root / "state/status/gc-failed").exists())
+        self.arguments = ["gc"]
+        with (
+            mock.patch.object(retention, "prune"),
+            mock.patch.object(retention, "revisions", return_value=0),
+        ):
+            self.assertTrue(self.invoke()[0])
+        self.assertFalse((self.root / "state/status/gc-failed").exists())
+        self.assertTrue((self.root / "state/status/gc-success.json").exists())

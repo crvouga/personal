@@ -5,6 +5,7 @@ sys.dont_write_bytecode = True
 
 import datetime, json, os, pathlib, subprocess, sys, tempfile, fcntl, importlib.util
 import checkpoint
+import retention
 
 root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
 os.umask(0o077)
@@ -22,6 +23,8 @@ failure = status / (
     if command == "backup"
     else "backup-check-failed"
     if command in ["check", "check-full"]
+    else "gc-failed"
+    if command == "gc"
     else "backup-operation-failed"
 )
 
@@ -37,6 +40,7 @@ def write(path, text):
 
 
 try:
+    retention.staging(root)
     spec = importlib.util.spec_from_file_location(
         "vault_access", root / "scripts/vault-access.py"
     )
@@ -68,7 +72,11 @@ try:
     )
 
     def restic(*args, **kw):
-        return run(["restic", "-o", "s3.bucket-lookup=path", *args], env=env, **kw)
+        return run(
+            ["restic", "-o", "s3.bucket-lookup=path", *args, "--no-cache"],
+            env=env,
+            **kw,
+        )
 
     if command == "init":
         restic("init")
@@ -76,6 +84,23 @@ try:
         restic("check", "--read-data-subset=10%")
     elif command == "check-full":
         restic("check", "--read-data")
+    elif command == "gc":
+        retention.prune(restic)
+        removed = retention.revisions(root)
+        write(
+            status / "gc-success.json",
+            json.dumps(
+                {
+                    "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "retired_worktrees": removed,
+                }
+            )
+            + "\n",
+        )
+        print(
+            "Cloud garbage collected and integrity checked; retired clean worktrees removed:",
+            removed,
+        )
     elif command == "snapshots":
         restic("snapshots")
     elif command == "restore":
@@ -108,7 +133,9 @@ try:
         ).strip()
         if active:
             raise ValueError("Stop the local stack before recovery")
-        with tempfile.TemporaryDirectory(prefix="cliproxy-restore-") as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix="restore-", dir=root / "recovery"
+        ) as temporary:
             target = pathlib.Path(temporary)
             restic(
                 "restore",
@@ -179,24 +206,7 @@ try:
             if not isinstance(snapshot, str) or not snapshot:
                 raise ValueError("Missing snapshot acknowledgement")
             print("Complete encrypted checkpoint saved:", snapshot)
-        # Retention only; removal/prune is deliberately a separate manual operation.
-        restic(
-            "forget",
-            "--tag",
-            "cliproxy-fleet",
-            "--host",
-            "cliproxy-primary",
-            "--group-by",
-            "host,tags",
-            "--keep-last",
-            "96",
-            "--keep-daily",
-            "7",
-            "--keep-weekly",
-            "5",
-            "--keep-monthly",
-            "12",
-        )
+        retention.forget(restic)
         write(
             status / "backup-success.json",
             json.dumps(
@@ -210,7 +220,7 @@ try:
         )
     else:
         sys.exit(
-            "Use init, backup, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, or restore-cache --previous-node-stopped."
+            "Use init, backup, gc, snapshots, check, check-full, restore SNAPSHOT EMPTY_DIRECTORY, or restore-cache --previous-node-stopped."
         )
 except (Exception, SystemExit):
     write(failure, datetime.datetime.now(datetime.timezone.utc).isoformat() + "\n")
