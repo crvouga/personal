@@ -276,6 +276,7 @@ def main():
                 "--now",
                 "cliproxy-backup.timer",
                 "cliproxy-backup-check.timer",
+                "cliproxy-gc.timer",
             ],
             check=True,
         )
