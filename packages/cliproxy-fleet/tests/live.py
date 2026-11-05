@@ -66,7 +66,7 @@ def check_codex(root, endpoint):
             event.get("item", {}).get("type") == "command_execution" for event in events
         )
     print(
-        "PASS: actual Codex Responses stream, shell-tool round trip and final text over private HTTPS."
+        "PASS: actual Codex Responses stream, shell-tool round trip and final text over the configured HTTPS endpoint."
     )
 
 
@@ -131,7 +131,7 @@ def check_opencode(root, endpoint):
             and "fleet-opencode-OK" in event.get("part", {}).get("text", "")
             for event in events
         )
-    print("PASS: actual OpenCode Responses stream and final text over private HTTPS.")
+    print("PASS: actual OpenCode Responses stream and final text over the configured HTTPS endpoint.")
 
 
 def check_recovery(root, restore):
