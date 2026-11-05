@@ -43,6 +43,8 @@ class BackupCommand(unittest.TestCase):
             renew=mock.Mock(), credentials=lambda: dict(self.credentials)
         )
         self.fail_at = None
+        self.arguments = ["backup"]
+        self.active = ""
         self.keys = []
 
     def run_process(self, args, **kwargs):
@@ -73,13 +75,14 @@ class BackupCommand(unittest.TestCase):
         with (
             mock.patch.dict(os.environ, {"CLIPROXY_ROOT": str(self.root)}),
             mock.patch.dict(sys.modules, {"checkpoint": checkpoint}),
-            mock.patch.object(sys, "argv", [str(SCRIPTS / "backup"), "backup"]),
+            mock.patch.object(sys, "argv", [str(SCRIPTS / "backup"), *self.arguments]),
             mock.patch(
                 "importlib.util.spec_from_file_location", return_value=fake_spec
             ),
             mock.patch("importlib.util.module_from_spec", return_value=self.vault),
             mock.patch.object(checkpoint, "capture", side_effect=capture),
             mock.patch("subprocess.run", side_effect=self.run_process),
+            mock.patch("subprocess.check_output", return_value=self.active),
             contextlib.redirect_stdout(output),
         ):
             try:
@@ -133,3 +136,13 @@ class BackupCommand(unittest.TestCase):
         self.fail_at = "forget"
         self.assertFalse(self.invoke()[0])
         self.assertEqual(self.success.read_text(), self.previous)
+
+    def test_restore_cache_requires_fencing_and_refuses_running_stack(self):
+        self.arguments = ["restore-cache"]
+        self.assertFalse(self.invoke()[0])
+        self.assertEqual(self.events, [])
+        self.arguments.append("--previous-node-stopped")
+        self.active = "proxy\n"
+        self.assertFalse(self.invoke()[0])
+        self.assertEqual(self.events, [])
+        self.assertFalse((self.root / "state/runtime").exists())

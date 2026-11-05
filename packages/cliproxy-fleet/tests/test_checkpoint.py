@@ -44,6 +44,7 @@ class Checkpoint(unittest.TestCase):
         (self.state / "runtime/auths/provider.json.lock").touch()
         (self.state / "tailscale").mkdir()
         (self.state / "tailscale/tailscaled.state").write_text("synthetic identity")
+        (self.state / "repository.json").write_text('{"S3_BUCKET":"fixture"}')
         (self.state / "secrets").mkdir()
         (self.state / "secrets/vault-token").write_text("MUST-NOT-BE-SAVED")
         (self.state / "runtime/logs").mkdir()
@@ -189,6 +190,19 @@ class Checkpoint(unittest.TestCase):
         with self.assertRaises(ValueError):
             checkpoint.hydrate(self.target, destination)
         self.assertFalse((destination / "recovery-incomplete").exists())
+
+    def test_bootstrap_repository_pin_must_match_recovered_destination(self):
+        self.capture()
+        destination = self.directory / "empty"
+        destination.mkdir()
+        repository = destination / "repository.json"
+        repository.write_text('{"S3_BUCKET":"different"}')
+        with self.assertRaises(ValueError):
+            checkpoint.hydrate(self.target, destination)
+        self.assertEqual(list(destination.iterdir()), [repository])
+        repository.write_text('{"S3_BUCKET":"fixture"}')
+        checkpoint.hydrate(self.target, destination)
+        self.assertTrue((destination / "runtime/config.yaml").is_file())
 
     def test_partial_hydration_rolls_back_and_interrupted_recovery_fails_closed(self):
         self.capture()

@@ -143,6 +143,15 @@ def hydrate(checkpoint, state):
         "public-endpoint-enabled",
         "repository.json",
     )
+    repository = state / "repository.json"
+    if repository.exists() or repository.is_symlink():
+        regular_tree(repository)
+        saved = checkpoint / "state/repository.json"
+        if not saved.is_file() or json.loads(repository.read_text()) != json.loads(
+            saved.read_text()
+        ):
+            raise ValueError("Existing repository identity differs from checkpoint")
+        names = tuple(name for name in names if name != "repository.json")
     if any((state / name).exists() or (state / name).is_symlink() for name in names):
         raise ValueError(
             "Recovery requires an empty cache; preserve or remove existing cache explicitly"
