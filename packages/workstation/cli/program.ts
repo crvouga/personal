@@ -5,6 +5,7 @@ import { registerCleanup } from './commands/cleanup-cmd';
 import { registerDeprecatedAliases } from './deprecated-aliases';
 import { cmdDoctor } from './commands/doctor-cmd';
 import { cmdInstall, cmdUninstall } from './commands/install-cmds';
+import { registerNet } from './commands/net-cmds';
 import {
   cmdOpencodeDisable,
   cmdOpencodeResetModel,
@@ -49,6 +50,7 @@ import { printJson, resolveOutputMode, section } from './lib/output-and-theme';
  *   ws …            workstation itself (status/sync/doctor/install/update/vault)
  *   ws opencode …   OpenCode config (providers, models, notifications, backups)
  *   ws openrouter … OpenRouter catalog (model list used by opencode set-model)
+ *   ws net …        Tailscale / SSH / T3 / VS Code connectivity across machines
  *
  * Every leaf states its domain in the description (`[ws]`, `[opencode]`,
  * `[openrouter]`) so `ws --help` reads as a domain map. The old flat
@@ -418,6 +420,7 @@ export function buildProgram(): Command {
   registerCore(program, globals);
   registerOpencode(program, globals);
   registerOpenRouter(program, globals);
+  registerNet(program, globals);
   registerLifecycle(program, globals);
   registerDeprecatedAliases(program, globals);
   return program;

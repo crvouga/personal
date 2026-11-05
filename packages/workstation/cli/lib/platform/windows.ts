@@ -8,7 +8,10 @@ import type {
   NotifierTestResult,
   Platform,
   ProcessInfo,
+  ScheduledJob,
+  ScheduledJobStatus,
 } from './types';
+import { existsSync } from 'node:fs';
 
 export class WindowsPlatform implements Platform {
   readonly name = 'windows' as const;
@@ -99,5 +102,47 @@ export class WindowsPlatform implements Platform {
 
   listProcesses(): ProcessInfo[] | null {
     return null;
+  }
+
+  tailscaleAppBinaries(): readonly string[] {
+    return ['C:\\Program Files\\Tailscale\\tailscale.exe'].filter((p) =>
+      existsSync(p)
+    );
+  }
+
+  vscodeSettingsPath(): string | null {
+    const base =
+      process.env['APPDATA']?.trim() || join(homedir(), 'AppData/Roaming');
+    return join(base, 'Code/User/settings.json');
+  }
+
+  vscodeCliBinaries(): readonly string[] {
+    const base =
+      process.env['LOCALAPPDATA']?.trim() || join(homedir(), 'AppData/Local');
+    return [join(base, 'Programs/Microsoft VS Code/bin/code.cmd')].filter((p) =>
+      existsSync(p)
+    );
+  }
+
+  installScheduledJob(job: ScheduledJob): NotifierTestResult {
+    return {
+      ok: false,
+      detail: `scheduled jobs are not supported on ${this.label} (${job.label})`,
+    };
+  }
+
+  removeScheduledJob(label: string): NotifierTestResult {
+    return {
+      ok: true,
+      detail: `nothing to remove for ${label} on ${this.label}`,
+    };
+  }
+
+  scheduledJobStatus(label: string): ScheduledJobStatus {
+    return {
+      supported: false,
+      installed: false,
+      detail: `not supported on ${this.label} (${label})`,
+    };
   }
 }

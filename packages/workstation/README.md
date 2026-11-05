@@ -56,6 +56,9 @@ Commands are namespaced by **domain** — every leaf states its domain in `--hel
 | `ws openrouter status\|models`                                               | OpenRouter key state + live model catalog used by `set-model`    |
 | `ws install\|uninstall\|update`                                              | global launcher lifecycle                                        |
 | `ws vault`                                                                   | resolved Vault coordinates                                       |
+| `ws net check [--host <alias>] [--tries <n>] [--notify] [--quiet]`           | read-only Tailscale/SSH/T3/VS Code check of every machine        |
+| `ws net fix`                                                                 | converge ssh config, VS Code Remote-SSH, CLIs, background check  |
+| `ws net watch install\|remove\|status`                                       | background `ws net check` every 5 min with notifications         |
 
 The old flat names (`ws providers`, `ws notifications`, `ws sounds`, `ws backup|backups|reset`) remain as hidden deprecated aliases that forward to their `ws opencode …` path with a warning.
 
@@ -108,13 +111,45 @@ ws cleanup --include-tools    # also agent-owned MCP/language servers
 ws cleanup --protect 'vite' --protect 'storybook'
 ```
 
+### Machine connectivity (`ws net`)
+
+`ws net` keeps every machine reachable from every other: Tailscale, SSH,
+T3 Code and VS Code Remote-SSH. The machines live in the checked-in
+inventory `net/hosts.json` (alias, Tailscale name, SSH port/user, key path,
+OS, T3 port), so every machine gets the same view. Private keys are never
+committed: the inventory stores only their paths.
+
+`ws net check` is read-only. For each host it checks, in order:
+
+1. Tailscale: peer online, direct connection (warns when only a DERP relay works), latency
+2. MagicDNS resolves the full name, and the SSH port is open
+3. SSH login by alias, several tries (`--tries`, default 3) to catch flaky connections
+4. SSH as `user@full-name`, which is how VS Code Remote-SSH and T3 connect
+5. Machine health over SSH (`net/remote-probe.sh`): CPU load per core, RAM/swap, free disk
+6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, same version as this machine
+
+It also checks this machine: Tailscale running, `tailscale` on `PATH` (T3
+Code shells out to it), local T3 server, the Remote-SSH extension and free
+disk. The machine running `ws` is recognized by its Tailscale name and skipped
+as a remote. Exit code 1 means at least one check failed.
+
+`ws net fix` converges this machine, backing up every file it rewrites to
+`<cache>/ws/net/backups/<time>/`:
+
+- `~/.ssh/config`: one managed block (`# ws-net:begin` … `# ws-net:end`), appended after hand-written entries, whose `Host` lines match each alias, full and short Tailscale name, so all three get the same key and port
+- VS Code `settings.json`: `remote.SSH.remotePlatform` per host, `remote.SSH.connectTimeout` ≥ 60s. JSONC files are refused, not rewritten.
+- `tailscale` / `code` wrappers in the global bin dir when the apps are installed but their CLIs are not on `PATH`
+- the background check (`ws net watch install`): a launchd agent on macOS or a systemd user timer on Linux that runs `ws net check --notify --quiet` every 5 minutes and posts a desktop notification when failures appear or clear. History: `<cache>/ws/net/check.log`.
+
+Adding a machine: add it to `net/hosts.json`, then `ws net fix && ws net check` on each machine.
+
 ### Platform design
 
 All OS-specific behavior lives behind the `Platform` interface (`cli/lib/platform/`): `DarwinPlatform`, `LinuxPlatform`, `WindowsPlatform`, `FallbackPlatform`, selected by the `getPlatform()` factory. Commands never branch on `process.platform` directly.
 
 - **macOS**: full stack — Swift `OpenCodeNotifier` app (click-to-focus, sounds), osascript fallback.
-- **Linux**: `notify-send` / `zenity` fallback (no sounds, no click-to-focus); symlinks + provider sync fully work.
-- **Windows**: PowerShell toast / `msg` fallback (no sounds, no click-to-focus); launcher is `ws.cmd`.
+- **Linux**: `notify-send` / `zenity` fallback (no sounds, no click-to-focus); symlinks + provider sync fully work; `ws net watch` uses a systemd user timer.
+- **Windows**: PowerShell toast / `msg` fallback (no sounds, no click-to-focus); launcher is `ws.cmd`; `ws net check` works, `ws net watch` is not supported.
 
 ## Scope
 
@@ -166,9 +201,11 @@ packages/workstation/
 │   │   ├── sync.ts                    # converge (links + sounds + notifier + providers)
 │   │   ├── sounds-cmds.ts             # notification sounds (list/set/play/configure/reset)
 │   │   ├── update-cmds.ts             # ws update (git pull + bun install + reinstall + sync)
-│   │   └── openrouter-cmds.ts         # OpenRouter key state + model catalog
+│   │   ├── openrouter-cmds.ts         # OpenRouter key state + model catalog
+│   │   └── net-cmds.ts                # ws net check / fix / watch
 │   └── lib/
-│       ├── platform/                  # Platform interface + darwin/linux/windows/fallback adapters
+│       ├── platform/                  # Platform interface + darwin/linux/windows/fallback adapters (+ launchd / systemd-user jobs)
+│       ├── net/                       # ws net: inventory, Tailscale/SSH/T3 checks, ssh-config + VS Code fixers
 │       ├── paths.ts                   # workstationRoot / version
 │       ├── theme.ts / output.ts       # chalk palette + human/JSON output + ora spinners
 │       ├── prompt.ts                  # @inquirer/prompts wrappers (+ --non-interactive guard)
@@ -184,6 +221,9 @@ packages/workstation/
 │       ├── vault-config.ts            # Vault coordinates (env > .vault.yaml > defaults)
 │       ├── doctor.ts                  # checks + summary
 │       └── backup.ts                  # timestamped backups
+├── net/
+│   ├── hosts.json                     # machine inventory for `ws net` (no secrets)
+│   └── remote-probe.sh                # read-only health probe piped to each host over SSH
 └── opencode/
     ├── plugins/
     │   └── notifications.ts           # global OpenCode notification plugin (source of truth)
