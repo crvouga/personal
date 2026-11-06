@@ -24,11 +24,11 @@ There is no separate dotfiles repository and no separate secret system.
 
 ## The `personal` CLI (only entry point)
 
-`personal` is a full-blown CLI installed on the machine. No args opens the interactive dashboard (searchable menu); subcommands are scriptable and LLM-friendly.
+`personal` is a full-blown CLI installed on the machine. No args prints help. `personal --interactive` explicitly opens the menu; subcommands are scriptable and agent-friendly.
 
 ```bash
 bun run personal:install   # repo bootstrap: installs deps + global `personal` launcher + converges
-personal workstation                   # interactive dashboard (status, sync, opencode, notifications, doctor, …)
+personal                               # help and command discovery
 personal workstation status            # human-readable state
 personal workstation status --json     # machine-readable state (LLM-friendly, secrets redacted)
 personal workstation sync              # converge home directory to the checked-in spec
@@ -260,7 +260,7 @@ Install the `personal` CLI and converge workstation-managed configuration:
 
 ```bash
 bun run personal:install
-personal workstation   # interactive dashboard
+personal --interactive # optional command menu
 ```
 
 `personal workstation sync` idempotently converges `~/.config/opencode` to the spec checked into this repo (plugin symlinks, notifier build, provider config). It is safe to run repeatedly:

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runCommand } from '../../fleet/src/runner';
 import { mustRun, npmEnvironment } from './release-io';
+import { consumerHelp } from './consumer-help';
 import { consumerT3 } from './consumer-t3';
 import { ReleaseError } from './release-error';
 import { npmCommand } from './npm';
@@ -43,6 +44,7 @@ export async function consumerSmoke(tarball: string): Promise<void> {
     await exercise(directory, env);
     await exerciseBinary(directory, env);
     await consumerT3(directory, env);
+    await consumerHelp(directory, env);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -2,7 +2,7 @@ import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import manifest from '../package.json';
-import { COMMANDS } from '../src/registry';
+import { indexedCommands } from '../src/command-index';
 import { contentHash, stableVersion } from './release-model';
 import { runCommand } from '../../fleet/src/runner';
 
@@ -39,7 +39,7 @@ async function build(): Promise<void> {
   );
   await writeFile(
     join(destination, 'commands.json'),
-    `${JSON.stringify({ version: 1, commands: COMMANDS }, null, 2)}\n`
+    `${JSON.stringify({ version: 1, commands: indexedCommands() }, null, 2)}\n`
   );
   await writeFile(
     join(destination, 'package.json'),

@@ -1,6 +1,7 @@
 import { Command, CommanderError } from 'commander';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { commandCatalog } from './registry';
+import { indexedCommands } from './command-index';
 import { registerT3 } from './t3/register';
 import { workstationCommand } from './workstation';
 import { registerFlatCommands } from './flat-commands';
@@ -77,18 +78,23 @@ function createProgram(
   const program = new Command()
     .name('personal')
     .description(
-      'Developer command center · interactive for people, structured for agents'
+      'Developer fleet and T3 reconciliation · help by default, structured for agents'
     )
     .version(version)
     .exitOverride()
     .configureOutput({ writeOut: output, writeErr: () => undefined })
     .showSuggestionAfterError(false)
+    .addHelpCommand('help [command]', 'Show help for a command')
     .option(
       '--interactive',
       'Open the interactive terminal application (TTY required)'
     );
   for (const option of GLOBAL_OPTIONS)
     program.option(option.flag, option.description);
+  program.addHelpText(
+    'after',
+    '\nAgent discovery: personal index --json; personal agent --json; personal <command> --help.\nNo command prints help. Use --interactive explicitly for the terminal menu.\nMutations: fleet-node-sync, t3-apply, t3-cleanup and t3-import apply on invocation.\nUse --dry-run to preview sync/apply/cleanup; inspect t3-plan before importing.\nLegacy fleet writes require --apply --yes. --json does not make a command read-only.'
+  );
   return program;
 }
 
@@ -130,7 +136,7 @@ function fleetCommands(program: Command): Command[] {
 }
 
 function catalog(options: CliOptions, version: string): CommandOutcome {
-  const commands = commandCatalog(options.search, options.group);
+  const commands = indexedCommands(options.search, options.group);
   return {
     exitCode: 0,
     data: {
@@ -141,12 +147,14 @@ function catalog(options: CliOptions, version: string): CommandOutcome {
       commands,
       globalOptions: GLOBAL_OPTIONS,
       agentGuide: 'personal agent --json',
+      index: 'personal index --json',
+      defaultCommand: 'help',
       schema: 'personal fleet schema --json',
     },
     text: [
       'Personal command catalog',
       ...commands.map((entry) => `\n  ${entry.id}\n    ${entry.description}`),
-      '\nRun personal for the interactive application; add --json for agents.',
+      '\nUse personal <command> --help for options; personal --interactive opens the menu.',
     ].join('\n'),
   };
 }
@@ -167,20 +175,9 @@ export async function execute(
   registerFlatCommands(program, defaults, (result) => {
     outcome = result;
   });
-  program
-    .command('workstation [args...]')
-    .description(
-      'Local configuration, tools, agent profiles and launcher lifecycle'
-    )
-    .allowUnknownOption()
-    .action(async (args: string[], command: Command) => {
-      const options = command.optsWithGlobals<CliOptions>();
-      const settings = await resolveSettings({
-        ...defaults,
-        ...settingsOverrides(options),
-      });
-      outcome = await workstationCommand(args, settings);
-    });
+  registerWorkstation(program, defaults, (result) => {
+    outcome = result;
+  });
   const commands = fleetCommands(program);
   for (const command of commands)
     command.action(async () => {
@@ -193,6 +190,7 @@ export async function execute(
     });
   program
     .command('commands')
+    .alias('index')
     .description('Search the complete command catalog')
     .option('--search <text>', 'Filter names, descriptions and keywords')
     .option('--group <name>', 'Filter category, for example Fleet or Reference')
@@ -206,7 +204,9 @@ export async function execute(
       outcome = { exitCode: 0, data: AGENT_GUIDE };
     });
   program.action(() => {
-    outcome = catalog(program.opts<CliOptions>(), version);
+    if (program.opts<CliOptions>().json)
+      outcome = catalog(program.opts<CliOptions>(), version);
+    else program.help();
   });
   try {
     await program.parseAsync(args, { from: 'user' });
@@ -252,4 +252,30 @@ function commandError(error: unknown, output: string): CommandOutcome {
             : 'Operation failed. Inspect configuration and permissions locally; raw errors are withheld to protect credentials.',
     },
   };
+}
+
+function registerWorkstation(
+  program: Command,
+  defaults: Settings,
+  complete: (outcome: CommandOutcome) => void
+): void {
+  program
+    .command('workstation [args...]')
+    .description(
+      'Local configuration, tools, agent profiles and launcher lifecycle'
+    )
+    .allowUnknownOption()
+    .addHelpText(
+      'after',
+      '\nDomains: tools, agents, opencode, openrouter, net.\nLocal operations: status, sync, doctor, cleanup, install, uninstall, update, vault.\nExamples: personal workstation tools check --json --non-interactive\n          personal workstation agents verify --node NODE --tool codex --profile proxy --json\nLeaf operations/help require the personal checkout and Bun. Use --workspace PATH or PERSONAL_WORKSPACE.\nInspect leaf --help for mutation controls; native agent launches stream native output.'
+    )
+    .action(async (args: string[], _options, command: Command) => {
+      if (args.length === 0) command.help();
+      const options = command.optsWithGlobals<CliOptions>();
+      const settings = await resolveSettings({
+        ...defaults,
+        ...settingsOverrides(options),
+      });
+      complete(await workstationCommand(args, settings));
+    });
 }

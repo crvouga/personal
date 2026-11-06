@@ -28,7 +28,11 @@ export const COMMANDS: CommandSpec[] = [
     group: 'T3',
     keywords: ['t3', 'configuration', 'terraform', 'drift'],
     args: [id],
-    examples: [`personal ${id} --json`],
+    examples: [
+      id === 't3-import'
+        ? 'personal t3-import --instance INSTANCE_ID --json'
+        : `personal ${id} --json`,
+    ],
     mutation: ['t3-apply', 't3-cleanup', 't3-import'].includes(id),
   })),
   {
@@ -46,7 +50,7 @@ export const COMMANDS: CommandSpec[] = [
     [
       'fleet-node-sync',
       'Sync this node',
-      'Upsert and reconcile locked tools and the Codex proxy profile on this machine. Applies by default; --dry-run previews.',
+      'Reconcile locked tools, the personal launcher, Codex proxy profile and owned T3 instances on this machine. Applies by default; --dry-run previews.',
     ],
     [
       'fleet-status',
@@ -183,11 +187,14 @@ export const COMMANDS: CommandSpec[] = [
     id: 'commands',
     title: 'Explore the command catalog',
     description:
-      'Search command names, descriptions and keywords; emit the complete machine-readable interface.',
+      'Search the command index (also available as personal index); emit help links and mutation semantics.',
     group: 'Reference',
     keywords: ['search', 'help', 'llm', 'agent', 'api'],
     args: ['commands'],
-    examples: ['personal commands --json --search ssh'],
+    examples: [
+      'personal index --json',
+      'personal commands --json --search ssh',
+    ],
     mutation: false,
   },
   {
