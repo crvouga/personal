@@ -5,6 +5,10 @@ import { interactiveNpm } from './release-publisher';
 import { npmCommand } from './npm';
 import { PACKAGE } from './release-model';
 import { ReleaseError } from './release-error';
+import {
+  terminalOutput,
+  terminalPublisherConfigurations,
+} from './release-terminal';
 
 export function trustConfigurations(text: string): unknown[] {
   const objects: unknown[] = [];
@@ -63,14 +67,7 @@ export function hasCiPublisher(configurations: unknown[]): boolean {
 export async function configurePublisher(
   env: NodeJS.ProcessEnv
 ): Promise<void> {
-  const existing = trustConfigurations(
-    await mustRun(
-      await npmCommand(['trust', 'list', PACKAGE, '--json']),
-      dirname(env['NPM_CONFIG_USERCONFIG']!),
-      env,
-      { stage: 'publisher-verification' }
-    )
-  );
+  const existing = await readPublisher(env);
   if (hasCiPublisher(existing)) {
     process.stdout.write(
       'The exact CI trusted publisher is already configured.\n'
@@ -91,19 +88,34 @@ export async function configurePublisher(
     ],
     env
   );
-  const saved = trustConfigurations(
-    await mustRun(
-      await npmCommand(['trust', 'list', PACKAGE, '--json']),
-      dirname(env['NPM_CONFIG_USERCONFIG']!),
-      env,
-      { stage: 'publisher-verification' }
-    )
-  );
+  const saved = await readPublisher(env);
   if (!hasCiPublisher(saved))
     throw new ReleaseError(
       'Package exists, but CI publisher verification is unconfirmed. Rerun bootstrap; it will not republish unchanged content.'
     );
   process.stdout.write(
     'Verified CI trusted publisher: crvouga/personal / ci.yml.\n'
+  );
+}
+
+async function readPublisher(env: NodeJS.ProcessEnv): Promise<unknown[]> {
+  const cwd = dirname(env['NPM_CONFIG_USERCONFIG']!);
+  const interactive =
+    process.stdin.isTTY && process.stdout.isTTY && !process.env['CI'];
+  if (interactive) {
+    const output = await terminalOutput(
+      await npmCommand(['trust', 'list', PACKAGE]),
+      cwd,
+      { ...env, NPM_CONFIG_COLOR: 'false' }
+    );
+    return terminalPublisherConfigurations(output);
+  }
+  return trustConfigurations(
+    await mustRun(
+      await npmCommand(['trust', 'list', PACKAGE, '--json']),
+      cwd,
+      env,
+      { stage: 'publisher-verification' }
+    )
   );
 }

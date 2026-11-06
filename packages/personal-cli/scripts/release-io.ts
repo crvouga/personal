@@ -27,7 +27,7 @@ export async function mustRun(
   const result = await run(command, { cwd, env, timeoutMs: 300_000 });
   if (!result.ok)
     throw new ReleaseError(
-      `Release ${stage ?? 'subprocess'} failed (${result.reason}). Raw output is withheld; check this step's tools, network and permissions. Publishing/auth steps also require the correct npm package scope and 2FA approval.${stage === 'publish' ? npmFailureHint(result.stderr) : ''}`
+      `Release ${stage ?? 'subprocess'} failed (${result.reason}). Raw output is withheld; check this step's tools, network and permissions. Publishing/auth steps also require the correct npm package scope and 2FA approval.${stage === 'publish' || stage === 'publisher-verification' ? npmFailureHint(result.stderr) : ''}`
     );
   return result.stdout;
 }

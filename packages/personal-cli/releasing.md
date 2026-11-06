@@ -47,6 +47,12 @@ permission. The publishing job runs directly in `ci.yml` so the registered
 workflow and executing workflow have the same identity. Do not move publication
 into a reusable workflow: its OIDC identity can differ from the registered publisher.
 
+npm may require a separate browser approval when reading trusted-publisher
+settings after login. Interactive verification keeps a terminal attached and
+uses npm's readable output so those approval URLs appear immediately; npm's JSON
+mode buffers browser URLs until completion. Open approval URLs in your normal
+local browser with access to your security key/passkey.
+
 Bootstrap is retryable: if content is already published, it only checks/configures
 the publisher. Existing publishers are preserved; no connection is revoked or
 replaced. npm account authorization uses an isolated temporary 0600 npmrc, which
