@@ -72,10 +72,10 @@ export class DarwinPlatform implements Platform {
           kind: input.kind,
           title: input.title,
           message: input.message,
-          subtitle: 'ws test',
+          subtitle: 'personal workstation test',
           sessionID: 'ses_ws_test',
           directory: process.cwd(),
-          sessionTitle: 'ws test',
+          sessionTitle: 'personal workstation test',
           token: '',
         });
         const r = spawnSync(cli, ['--post', body], { encoding: 'utf8' });
@@ -161,7 +161,7 @@ export class DarwinPlatform implements Platform {
     }
     return {
       ok: false,
-      detail: `unknown sound "${trimmed}" (see \`ws opencode notifications sounds list\`)`,
+      detail: `unknown sound "${trimmed}" (see \`personal workstation opencode notifications sounds list\`)`,
     };
   }
 

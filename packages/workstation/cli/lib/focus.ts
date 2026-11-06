@@ -114,7 +114,7 @@ const defaultTagIo: TagTerminalIo = {
 
 /**
  * Tag the calling terminal's title (OSC 0), exactly like the notification
- * plugin does — `ws notifications tag` runs this in the user's terminal so
+ * plugin does — `personal workstation notifications tag` runs this in the user's terminal so
  * the token mechanism is manually verifiable.
  */
 export function tagTerminalTitle(

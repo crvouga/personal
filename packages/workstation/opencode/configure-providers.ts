@@ -3,9 +3,9 @@
  * Generate ~/.config/opencode/opencode.json with every OpenCode provider that
  * has a valid API key in the secret store (Vault / OpenBao).
  *
- * Thin wrapper over the `ws` CLI provider sync
+ * Thin wrapper over the `personal` CLI provider sync
  * (`cli/lib/providers-sync.ts`) so the `configure:opencode` package script
- * keeps working. Prefer `ws opencode sync` / `ws providers sync`.
+ * keeps working. Prefer `personal workstation opencode sync` / `personal workstation providers sync`.
  *
  * Usage:
  *   bun run --filter @pkgs/workstation configure:opencode [--strict]

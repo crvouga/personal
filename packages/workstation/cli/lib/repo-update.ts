@@ -49,7 +49,7 @@ export function dirtyFiles(dir: string): string[] {
 export function pullFastForwardOnly(dir: string): PullResult {
   if (!isGitRepo(dir)) {
     throw new Error(
-      `Not a git checkout: ${dir}\nClone the workspace repo, then run \`bun run ws:install\`.`
+      `Not a git checkout: ${dir}\nClone the workspace repo, then run \`bun run personal:install\`.`
     );
   }
   const dirty = dirtyFiles(dir);
@@ -57,7 +57,7 @@ export function pullFastForwardOnly(dir: string): PullResult {
     const preview = dirty.slice(0, 10).join('\n');
     const more = dirty.length > 10 ? `\n… and ${dirty.length - 10} more` : '';
     throw new Error(
-      `Refusing to update with ${dirty.length} uncommitted change(s):\n${preview}${more}\nCommit or stash them, then run \`ws update\` again.`
+      `Refusing to update with ${dirty.length} uncommitted change(s):\n${preview}${more}\nCommit or stash them, then run \`personal workstation update\` again.`
     );
   }
   const before = headSha(dir);
@@ -66,7 +66,7 @@ export function pullFastForwardOnly(dir: string): PullResult {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `${msg}\nLocal branch diverged — reconcile it manually (e.g. \`git pull --rebase\`), then run \`ws update\` again.`
+      `${msg}\nLocal branch diverged — reconcile it manually (e.g. \`git pull --rebase\`), then run \`personal workstation update\` again.`
     );
   }
   const after = headSha(dir);

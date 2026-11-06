@@ -66,7 +66,7 @@ export function isInterruptCommand(command: string): boolean {
 }
 
 /**
- * Runtime sound config written by `ws sync` from the central
+ * Runtime sound config written by `personal workstation sync` from the central
  * `sounds.ts`. Read per notification so sound changes take effect without
  * restarting opencode. Falls back to the central defaults when missing.
  */
@@ -83,7 +83,7 @@ function soundFor(kind: Kind): string {
   }
 }
 
-/** OpenCodeNotifier CLI linked into place by `ws sync`. */
+/** OpenCodeNotifier CLI linked into place by `personal workstation sync`. */
 const NOTIFIER_CLI = join(homedir(), '.config/opencode/bin/opencode-notifier');
 
 type OpencodeClient = PluginInput['client'];

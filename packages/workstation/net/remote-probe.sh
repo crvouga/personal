@@ -1,4 +1,4 @@
-# Read-only health probe that `ws net check` pipes to each host over SSH (`sh -s`).
+# Read-only health probe that `personal workstation net check` pipes to each host over SSH (`sh -s`).
 # Prints key=value lines; works on macOS and Linux (including WSL).
 if [ "$(uname)" = Darwin ]; then
   echo "ncpu=$(sysctl -n hw.ncpu)"

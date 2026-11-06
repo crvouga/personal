@@ -56,7 +56,7 @@ async function inspect(path: string) {
       present: true,
       fields: fieldNames(value),
       ownership:
-        'native/unmanaged; dedicated ws profiles do not overwrite this file',
+        'native/unmanaged; dedicated personal workstation profiles do not overwrite this file',
     };
   } catch (error) {
     return {

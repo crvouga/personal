@@ -71,7 +71,7 @@ test('repair preview and script are read-only, cover login failures and discard 
     healthOk: false,
     planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
   });
-  expect(calls.flat()).not.toContain('ws:install');
+  expect(calls.flat()).not.toContain('personal:install');
   expect(calls.flat()).not.toContain('scripts/dev/setup.ts');
   expect(
     calls.some(
@@ -123,7 +123,7 @@ test('mutations require both flags and refuse stale plans, unsupported repairs a
       services
     )
   ).rejects.toThrow('plan changed');
-  expect(calls.flat()).not.toContain('ws:install');
+  expect(calls.flat()).not.toContain('personal:install');
   expect(calls.flat()).not.toContain('scripts/dev/setup.ts');
 });
 
@@ -181,7 +181,7 @@ test('failed setup stops workstation repair and still returns fresh remaining ch
     executionOk: false,
     remaining: expect.any(Array),
   });
-  expect(calls.flat()).not.toContain('ws:install');
+  expect(calls.flat()).not.toContain('personal:install');
   expect(JSON.stringify(result)).not.toContain('private-secret');
 });
 

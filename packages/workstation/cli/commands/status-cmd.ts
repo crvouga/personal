@@ -27,7 +27,10 @@ export async function cmdStatus(opts: GlobalOpts): Promise<void> {
     printJson({ ok: true, ...status });
     return;
   }
-  section('Status', `ws ${status.version} · ${status.platform}`);
+  section(
+    'Status',
+    `personal workstation ${status.version} · ${status.platform}`
+  );
   printLauncher(
     status.launcher.installed,
     status.launcher.path,

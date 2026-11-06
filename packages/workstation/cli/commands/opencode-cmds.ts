@@ -203,6 +203,6 @@ export async function cmdOpencodeDisable(
     return;
   }
   printOk(
-    `Disabled ${provider} → ${path} (re-enable with \`ws opencode sync\`)`
+    `Disabled ${provider} → ${path} (re-enable with \`personal workstation opencode sync\`)`
   );
 }

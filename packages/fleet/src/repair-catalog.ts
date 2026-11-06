@@ -47,8 +47,8 @@ export const REPAIR_RECIPES: RepairRecipe[] = [
     owner: 'workstation',
     automatic: true,
     action:
-      'Runs ws:install --yes: frozen install, launcher/PATH, managed links, notifications and provider configuration. Reads available provider keys from this machine’s Vault session and writes owner-managed 0600 configuration. Conflicting unmanaged files fail.',
-    commands: [['bun', 'run', 'ws:install', '--yes']],
+      'Runs personal:install --yes: frozen install, launcher/PATH, managed links, notifications and provider configuration. Reads available provider keys from this machine’s Vault session and writes owner-managed 0600 configuration. Conflicting unmanaged files fail.',
+    commands: [['bun', 'run', 'personal:install', '--yes']],
   },
   {
     id: 'providers',
@@ -60,7 +60,7 @@ export const REPAIR_RECIPES: RepairRecipe[] = [
     commands: [
       [
         'bun',
-        'packages/workstation/cli/index.ts',
+        'packages/workstation/cli/internal.ts',
         'opencode',
         'sync',
         '--strict',

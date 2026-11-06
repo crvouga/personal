@@ -12,7 +12,7 @@ export function soundsConfigPath(platform: Platform): string {
 
 /**
  * Read the runtime sound map. Merges stored overrides over the checked-in
- * defaults so a `ws sync` (or a new default kind) never wipes a user's
+ * defaults so a `personal workstation sync` (or a new default kind) never wipes a user's
  * `sounds set` choice. Unknown keys are preserved for forward-compat.
  */
 export function readSounds(platform: Platform): Record<string, string> {

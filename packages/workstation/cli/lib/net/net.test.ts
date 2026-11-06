@@ -187,7 +187,7 @@ test('notificationFor only fires on change', () => {
 test('scheduled job renderers escape and include env', () => {
   const job = {
     label: 'dev.test.job',
-    command: ['/h/.local/bin/ws', 'net', 'check', 'a&b'],
+    command: ['/h/.local/bin/personal', 'workstation', 'net', 'check', 'a&b'],
     intervalSeconds: 300,
     logDir: '/h/logs',
     env: { PATH: '/a b:/c' },
@@ -197,7 +197,9 @@ test('scheduled job renderers escape and include env', () => {
   expect(plist).toContain('<key>PATH</key><string>/a b:/c</string>');
   expect(plist).toContain('<integer>300</integer>');
   const { service, timer } = systemdUnits(job);
-  expect(service).toContain('ExecStart=/h/.local/bin/ws net check "a&b"');
+  expect(service).toContain(
+    'ExecStart=/h/.local/bin/personal workstation net check "a&b"'
+  );
   expect(service).toContain('Environment="PATH=/a b:/c"');
   expect(timer).toContain('OnUnitActiveSec=300');
 });

@@ -5,6 +5,7 @@ import type { GlobalOpts } from '../lib/cli-opts';
 import { confirmOrThrow } from '../lib/cli-opts';
 import {
   globalLauncherPath,
+  ownedPersonalLauncher,
   installGlobalLauncher,
   pathExportLine,
 } from '../lib/global-install';
@@ -48,12 +49,14 @@ export async function cmdUninstall(opts: UninstallOpts): Promise<void> {
   const platform = currentPlatform();
   const mode = resolveOutputMode(opts.json);
   await confirmOrThrow(
-    'Uninstall ws launcher?',
+    'Uninstall personal workstation launcher?',
     `Removes ${globalLauncherPath(platform)}. Managed opencode config is left in place.`,
     opts
   );
   const launcher = globalLauncherPath(platform);
   const existed = existsSync(launcher);
+  if (existed && !ownedPersonalLauncher(launcher))
+    throw new Error('Unrelated personal installation was preserved.');
   if (existed) unlinkSync(launcher);
   const removedLinks = removeLinks(platform, opts.removeLinks === true);
   if (mode === 'json') {

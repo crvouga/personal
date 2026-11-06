@@ -1,7 +1,7 @@
 import { shortName, type NetHost } from './inventory';
 
 export const SSH_BLOCK_BEGIN =
-  '# ws-net:begin (managed by `ws net fix` from packages/workstation/net/hosts.json; do not edit)';
+  '# ws-net:begin (managed by `personal workstation net fix` from packages/workstation/net/hosts.json; do not edit)';
 export const SSH_BLOCK_END = '# ws-net:end';
 
 /** Markers from earlier versions; their blocks are replaced, never duplicated. */

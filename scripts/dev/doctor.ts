@@ -62,7 +62,7 @@ export function toolChecks(
       status: matches ? 'pass' : 'fail',
       detail: matches
         ? version
-        : `Expected ${command} ${version}; run ws tools sync and reopen the shell. Check for competing PATH entries.`,
+        : `Expected ${command} ${version}; run personal workstation tools sync and reopen the shell. Check for competing PATH entries.`,
     });
   }
   for (const command of ['git', 'npm']) {

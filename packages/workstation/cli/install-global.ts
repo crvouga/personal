@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
- * `bun run ws:install` (repo root) — install the global `ws` launcher and
+ * `bun run personal:install` (repo root) — install the global `personal` launcher and
  * converge the workstation to the checked-in spec.
  *
- * - Installs/overwrites the `ws` launcher on PATH (`~/.local/bin/ws`).
+ * - Installs/overwrites the `personal` launcher on PATH (`~/.local/bin/ws`).
  * - Runs the full converge (links + sounds + notifier + providers).
  * - Idempotent; safe to re-run. Never requires sudo, never touches anything
  *   outside `$HOME` + the launcher dir.
  *
  * Usage:
- *   bun run ws:install [--yes]   # --yes also appends PATH exports to shell RCs
+ *   bun run personal:install [--yes]   # --yes also appends PATH exports to shell RCs
  */
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
@@ -26,7 +26,10 @@ function appendPathExport(launcher: GlobalInstallResult, line: string): void {
     try {
       if (!existsSync(rc)) continue;
       if (readFileSync(rc, 'utf8').includes(launcher.binDir)) continue;
-      appendFileSync(rc, `\n# Added by \`ws install\`\n${line}\n`);
+      appendFileSync(
+        rc,
+        `\n# Added by \`personal workstation install\`\n${line}\n`
+      );
       appended += 1;
       console.log(`  [path] appended to ${rc}`);
     } catch {
@@ -73,14 +76,14 @@ async function main(): Promise<void> {
   const platform = currentPlatform();
   const root = workstationRoot();
 
-  console.log(`ws install (${root})`);
+  console.log(`personal workstation install (${root})`);
   const launcher = installGlobalLauncher(root, platform);
   console.log(
     `  [${launcher.created ? 'created' : 'updated'}] ${launcher.launcherPath}`
   );
   ensurePath(launcher, yes);
   printSyncResult(await converge(platform));
-  console.log('Done. Run `ws` for the interactive dashboard.');
+  console.log('Done. Run `personal` for the interactive dashboard.');
 }
 
 main().catch((err: unknown) => {

@@ -48,7 +48,7 @@ export function tailscaleLocalChecks(
           'ts-cli',
           'tailscale command',
           "not on PATH, so T3 Code can't run 'tailscale status'",
-          'Run `ws net fix` (adds a wrapper), then restart T3 Code.'
+          'Run `personal workstation net fix` (adds a wrapper), then restart T3 Code.'
         )
       : passCheck('ts-cli', 'tailscale command', 'on PATH')
   );
@@ -108,7 +108,7 @@ export function vscodeChecks(platform: Platform): Check[] {
         'vscode-cli',
         'code command',
         'not on PATH',
-        'Run `ws net fix`.'
+        'Run `personal workstation net fix`.'
       )
     );
   }

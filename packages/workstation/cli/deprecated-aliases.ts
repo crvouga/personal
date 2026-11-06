@@ -18,7 +18,7 @@ import type { GlobalOpts } from './lib/cli-opts';
 import { printWarn } from './lib/output-and-theme';
 
 function deprecated(path: string): void {
-  printWarn(`deprecated: use \`ws ${path}\` instead`);
+  printWarn(`deprecated: use \`personal workstation ${path}\` instead`);
 }
 
 /** Flat aliases for the pre-domain CLI. Each forwards to its domain path. */
@@ -35,17 +35,21 @@ export function registerDeprecatedAliases(
 function aliasProviders(program: Command, globals: () => GlobalOpts): void {
   const providers = program
     .command('providers', { hidden: true })
-    .description('(deprecated: use `ws opencode providers`)');
+    .description('(deprecated: use `personal workstation opencode providers`)');
   providers
     .command('list')
-    .description('(deprecated: use `ws opencode providers list`)')
+    .description(
+      '(deprecated: use `personal workstation opencode providers list`)'
+    )
     .action(async () => {
       deprecated('opencode providers list');
       await cmdProvidersList(globals());
     });
   providers
     .command('sync')
-    .description('(deprecated: use `ws opencode providers sync`)')
+    .description(
+      '(deprecated: use `personal workstation opencode providers sync`)'
+    )
     .option('--strict', 'Fail when Vault is unavailable')
     .action(async (opts: { strict?: boolean | undefined }) => {
       deprecated('opencode providers sync');
@@ -56,7 +60,9 @@ function aliasProviders(program: Command, globals: () => GlobalOpts): void {
 function aliasNotifications(program: Command, globals: () => GlobalOpts): void {
   const notifications = program
     .command('notifications', { hidden: true })
-    .description('(deprecated: use `ws opencode notifications`)');
+    .description(
+      '(deprecated: use `personal workstation opencode notifications`)'
+    );
   notifications
     .command('status')
     .description('(deprecated)')
@@ -95,7 +101,9 @@ function aliasNotifications(program: Command, globals: () => GlobalOpts): void {
 function aliasSounds(program: Command, globals: () => GlobalOpts): void {
   const sounds = program
     .command('sounds', { hidden: true })
-    .description('(deprecated: use `ws opencode notifications sounds`)');
+    .description(
+      '(deprecated: use `personal workstation opencode notifications sounds`)'
+    );
   sounds
     .command('list')
     .description('(deprecated)')
@@ -122,21 +130,21 @@ function aliasSounds(program: Command, globals: () => GlobalOpts): void {
 function aliasBackups(program: Command, globals: () => GlobalOpts): void {
   program
     .command('backup', { hidden: true })
-    .description('(deprecated: use `ws opencode backup`)')
+    .description('(deprecated: use `personal workstation opencode backup`)')
     .action(async () => {
       deprecated('opencode backup');
       await cmdBackup(globals());
     });
   program
     .command('backups', { hidden: true })
-    .description('(deprecated: use `ws opencode backups`)')
+    .description('(deprecated: use `personal workstation opencode backups`)')
     .action(async () => {
       deprecated('opencode backups');
       await cmdBackups(globals());
     });
   program
     .command('reset', { hidden: true })
-    .description('(deprecated: use `ws opencode reset`)')
+    .description('(deprecated: use `personal workstation opencode reset`)')
     .action(async () => {
       deprecated('opencode reset');
       await cmdReset(globals());

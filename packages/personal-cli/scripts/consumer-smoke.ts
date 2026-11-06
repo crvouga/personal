@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runCommand } from '../../fleet/src/runner';
 import { mustRun, npmEnvironment } from './release-io';
+import { consumerT3 } from './consumer-t3';
 import { ReleaseError } from './release-error';
 import { npmCommand } from './npm';
 
@@ -11,7 +12,9 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 export async function consumerSmoke(tarball: string): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), 'personal-consumer-'));
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'personal-consumer-'))
+  );
   const config = join(directory, 'npmrc');
   await writeFile(config, 'registry=https://registry.npmjs.org/\n', {
     mode: 0o600,
@@ -39,6 +42,7 @@ export async function consumerSmoke(tarball: string): Promise<void> {
     );
     await exercise(directory, env);
     await exerciseBinary(directory, env);
+    await consumerT3(directory, env);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

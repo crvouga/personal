@@ -27,7 +27,7 @@ describe('sounds lib', () => {
   test('re-read merges overrides over defaults (sync-safe)', () => {
     const p = fresh();
     setSound(p, 'error', 'Hero');
-    // Simulate `ws sync`: re-reading must keep the override.
+    // Simulate `personal workstation sync`: re-reading must keep the override.
     expect(readSounds(p)['error']).toBe('Hero');
   });
 

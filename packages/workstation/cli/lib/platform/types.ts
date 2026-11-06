@@ -1,5 +1,5 @@
 /**
- * Platform abstraction for the `ws` CLI.
+ * Platform abstraction for the `personal` CLI.
  *
  * Every OS-specific behavior lives behind this interface so the commands stay
  * platform-agnostic. Concrete adapters (darwin / linux / windows) implement
