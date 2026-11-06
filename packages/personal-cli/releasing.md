@@ -43,8 +43,9 @@ and configures/verifies its GitHub trusted publisher. Approve npm login and any
 npm account/2FA approval in your own terminal/browser. No npm password, recovery
 code or long-lived publishing token needs to be supplied to this project.
 The trusted publisher is **`crvouga/personal` / `ci.yml`**, with direct publishing
-permission. npm validates the calling workflow for reusable workflows, so this
-must be `ci.yml`, not the reusable `release-personal-cli.yml` filename.
+permission. The publishing job runs directly in `ci.yml` so the registered
+workflow and executing workflow have the same identity. Do not move publication
+into a reusable workflow: its OIDC identity can differ from the registered publisher.
 
 Bootstrap is retryable: if content is already published, it only checks/configures
 the publisher. Existing publishers are preserved; no connection is revoked or
@@ -113,8 +114,8 @@ an environment-variable reference, not the token itself.
 The main **CI** workflow validates the CLI on Linux/macOS/Windows and Node
 22/24/26, including installing the packed distribution into a clean directory
 with anonymous registry configuration and running it on real Node. The required
-**Check** includes this job. After Check/Fleet pass on main, the reusable
-`release-personal-cli.yml` workflow:
+**Check** includes this job. After Check/Fleet pass on main, the release job directly in
+`ci.yml`:
 
 1. Reads the public registry and hashes the release inputs.
 2. Skips publication when the published content hash already matches.

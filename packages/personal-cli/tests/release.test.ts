@@ -117,15 +117,7 @@ test('CI gates publication on main and read-only OIDC credential selection', asy
       'utf8'
     )
   );
-  const release = YAML.parse(
-    await readFile(
-      new URL(
-        '../../../.github/workflows/release-personal-cli.yml',
-        import.meta.url
-      ),
-      'utf8'
-    )
-  );
+  const release = ci.jobs.personal_cli_release;
   expect(ci.jobs.check.needs).toContain('personal_cli');
   expect(ci.jobs.personal_cli_release.needs).toEqual(['check', 'fleet']);
   expect(ci.jobs.personal_cli_release.if).toContain('refs/heads/main');
@@ -134,18 +126,19 @@ test('CI gates publication on main and read-only OIDC credential selection', asy
     'id-token': 'write',
   });
   expect(release.concurrency['cancel-in-progress']).toBe(false);
-  expect(release.jobs.release.if).toContain(
-    "github.event_name != 'pull_request'"
-  );
+  expect(release.if).toContain("github.event_name == 'push'");
+  expect(release.if).toContain("github.event_name == 'workflow_dispatch'");
+  expect(release.uses).toBeUndefined();
+  expect(release['runs-on']).toBe('ubuntu-latest');
   expect(
-    release.jobs.release.steps.find(
+    release.steps.find(
       (step: { uses?: string }) => step.uses === 'hashicorp/vault-action@v4'
     ).with.secrets
   ).toContain('NODE_AUTH_TOKEN');
   expect(
-    release.jobs.release.steps.find(
+    release.steps.find(
       (step: { uses?: string }) => step.uses === 'hashicorp/vault-action@v4'
     ).if
   ).toContain("vars.PERSONAL_NPM_TOKEN_KEY != ''");
-  expect(release.jobs.release.steps.at(-1).run).toContain('--oidc');
+  expect(release.steps.at(-1).run).toContain('--oidc');
 });
