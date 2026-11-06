@@ -41,8 +41,8 @@ test('registry propagation waits have a fixed deadline and preserve unconfirmed 
     }
   );
   expect(result).toBeNull();
-  expect(reads).toBe(13);
-  expect(elapsed).toBe(100_000);
+  expect(reads).toBe(34);
+  expect(elapsed).toBe(310_000);
   await expect(
     propagatedDocument(
       '0.1.1',
@@ -52,4 +52,26 @@ test('registry propagation waits have a fixed deadline and preserve unconfirmed 
       async () => {}
     )
   ).rejects.toThrow('unavailable');
+});
+
+test('verification keeps reading until exact published metadata is confirmed', async () => {
+  let reads = 0;
+  const result = await propagatedDocument(
+    '0.1.1',
+    async () => {
+      reads += 1;
+      return reads < 3
+        ? saved
+        : {
+            ...saved,
+            versions: {
+              '0.1.1': { version: '0.1.1', dist: { integrity: 'expected' } },
+            },
+          };
+    },
+    async () => {},
+    (document) => document.versions['0.1.1']?.dist?.integrity === 'expected'
+  );
+  expect(reads).toBe(3);
+  expect(result?.versions['0.1.1']?.dist?.integrity).toBe('expected');
 });

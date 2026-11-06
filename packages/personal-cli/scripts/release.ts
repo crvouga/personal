@@ -101,7 +101,18 @@ async function verifyPublication(
   integrity: string,
   rejected: boolean
 ): Promise<void> {
-  const doc = await propagatedDocument(plan.next);
+  const doc = await propagatedDocument(
+    plan.next,
+    undefined,
+    undefined,
+    (document) => {
+      const saved = document.versions[plan.next];
+      return (
+        saved?.personalCli?.contentHash === plan.contentHash &&
+        saved.dist?.integrity === integrity
+      );
+    }
+  );
   const saved = doc?.versions[plan.next];
   if (
     saved?.personalCli?.contentHash !== plan.contentHash ||
