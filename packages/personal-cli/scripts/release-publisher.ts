@@ -46,7 +46,8 @@ export async function withPublisher<T>(
   if (options.oidc) {
     if (
       process.env['GITHUB_ACTIONS'] !== 'true' ||
-      !process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
+      !process.env['ACTIONS_ID_TOKEN_REQUEST_URL'] ||
+      !process.env['ACTIONS_ID_TOKEN_REQUEST_TOKEN']
     )
       throw new ReleaseError(
         'OIDC publishing requires the authorized GitHub Actions workflow with id-token: write.'
