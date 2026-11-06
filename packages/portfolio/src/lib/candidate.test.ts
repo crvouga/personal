@@ -146,6 +146,7 @@ describe('one story everywhere', () => {
     expect(text).toContain('/resume.json');
     expect(text).toContain('/llms-infra.txt');
     expect(text).toContain('#machine-setup-macos-windows-and-linux');
+    expect(text).toContain('#developer-fleet-configuration-setup');
     expect(text).not.toMatch(/secret\/data|R2 bucket|vault login/i);
   });
 

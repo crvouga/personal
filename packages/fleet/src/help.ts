@@ -1,4 +1,8 @@
-export const HELP = `Developer fleet tooling — read-only diagnostics by default
+export const HELP = `
+fleet configure --node ID --revision FULL_SHA [--tool codex|claude|opencode|gemini] [--profile direct|proxy] [--apply --yes]
+Preview or deploy a reviewed configuration revision through ws. Use one canary first.
+Rollback: repeat configure with a previous reviewed full SHA.
+Developer fleet tooling — read-only diagnostics by default
 
 Usage: bun run fleet COMMAND [options]
 
@@ -32,3 +36,5 @@ No credential copying, host-key bypasses, forced Git updates or provisioning.
 Remote nodes require macOS/Linux/WSL with a POSIX SSH shell and Node or Bun. Native
 Windows supports local commands. Read packages/fleet/README.md for limitations.
 `;
+
+// Configuration deployment is explicit and uses the workstation owner.

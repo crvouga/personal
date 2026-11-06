@@ -10,6 +10,9 @@ function readArguments(args: string[]) {
     allowPositionals: true,
     strict: true,
     options: {
+      revision: { type: 'string' },
+      tool: { type: 'string' },
+      profile: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       json: { type: 'boolean' },
       config: { type: 'string' },
@@ -34,6 +37,9 @@ export function parseOptions(args: string[]) {
   validateFlags(values, command);
   return {
     command,
+    revision: values.revision ?? '',
+    tool: values.tool ?? 'codex',
+    profile: values.profile ?? 'direct',
     json: values.json === true,
     config: resolve(values.config ?? DEFAULT_CONFIG),
     ids: values.node ?? [],
@@ -57,7 +63,7 @@ function validateFlags(
   },
   command: string
 ): void {
-  if (values.apply && !['init', 'sync'].includes(command))
+  if (values.apply && !['init', 'sync', 'configure'].includes(command))
     throw new FleetUsageError('--apply is only valid with init or sync.');
   if (values.apply && !values.yes)
     throw new FleetUsageError('Mutation requires both --apply and --yes.');
@@ -70,7 +76,7 @@ function validateLocal(
   values: { local?: boolean; node?: string[] },
   command: string
 ): void {
-  if (values.local && !['doctor', 'sync'].includes(command))
+  if (values.local && !['doctor', 'sync', 'configure'].includes(command))
     throw new FleetUsageError('--local is only valid with doctor or sync.');
   if (values.local && values.node?.length)
     throw new FleetUsageError('Choose --local or --node, not both.');
@@ -89,6 +95,7 @@ function readCommand(positionals: string[], help: boolean): string {
       'onboard',
       'doctor',
       'sync',
+      'configure',
     ].includes(command)
   )
     throw new FleetUsageError(
@@ -102,7 +109,10 @@ function readTimeout(
   command: string
 ): number {
   const value = Number(
-    values.timeout ?? (command === 'sync' && values.apply ? 1_500_000 : 120_000)
+    values.timeout ??
+      (['sync', 'configure'].includes(command) && values.apply
+        ? 1_500_000
+        : 120_000)
   );
   if (!Number.isInteger(value) || value < 1000 || value > 1_800_000)
     throw new FleetUsageError(

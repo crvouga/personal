@@ -1,3 +1,4 @@
+import { configureWorkspace, validConfiguration } from './configure';
 import { parseConfig, record } from './config';
 import { probe } from './probe';
 import { runCommand } from './runner';
@@ -10,13 +11,11 @@ async function main(): Promise<void> {
   const raw: unknown = JSON.parse(
     Buffer.from(process.argv.at(-1) ?? '', 'base64').toString()
   );
-  if (
-    !record(raw) ||
-    !['probe', 'sync', 'repair'].includes(String(raw['action']))
-  )
-    throw new Error('Invalid request.');
+  if (!validRequest(raw)) throw new Error('Invalid request.');
   const node = parseConfig({ version: 1, nodes: [raw['node']] }).nodes[0]!;
-  if (raw['action'] === 'repair') {
+  if (raw['action'] === 'configure') {
+    await configureRequest(raw, node);
+  } else if (raw['action'] === 'repair') {
     if (
       raw['apply'] !== true ||
       !validRepairs(raw['repairs']) ||
@@ -61,3 +60,28 @@ await main().catch(() => {
   );
   process.exitCode = 1;
 });
+
+async function configureRequest(
+  raw: Record<string, unknown>,
+  node: { id: string; workspace: string }
+): Promise<void> {
+  if (
+    raw['apply'] !== true ||
+    !validConfiguration(raw['configuration']) ||
+    raw['configuration'].node !== node.id
+  )
+    throw new Error('Invalid configuration request.');
+  const checks = await configureWorkspace(
+    node.workspace,
+    raw['configuration'],
+    runCommand
+  );
+  process.stdout.write(JSON.stringify({ version: 1, checks }));
+}
+
+function validRequest(raw: unknown): raw is Record<string, unknown> {
+  return (
+    record(raw) &&
+    ['probe', 'sync', 'repair', 'configure'].includes(String(raw['action']))
+  );
+}

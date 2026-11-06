@@ -1,5 +1,10 @@
 {
   "extends": "../../tsconfig.strict.json",
-  "include": ["./cli/**/*.ts", "./opencode/**/*.ts", "./*.ts"],
+  "include": [
+    "./cli/**/*.ts",
+    "./opencode/**/*.ts",
+    "./*.ts",
+    "./agents/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

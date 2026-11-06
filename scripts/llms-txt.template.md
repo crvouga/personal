@@ -79,6 +79,8 @@ All 14 domain registrations remain at Squarespace; registrar/DNS consolidation i
 
 {{block:workstationTools}}
 
+{{block:agentSetup}}
+
 ### Portable developer fleet CLI
 
 `npx --yes @crvouga/personal` opens a searchable terminal command center without
