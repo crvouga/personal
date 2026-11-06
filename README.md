@@ -23,7 +23,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `vault-service`                                                                            | OpenBao runtime image and local Vault auth/read CLI                       |
 | `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
 | `zoomies`                                                                                  | Self-hosted GitHub Actions runner controller on Railway                   |
-| `workstation`                                                                              | Portable local machine configuration; `ws` dashboard                      |
+| `workstation`                                                                              | Portable local machine configuration; `personal` CLI                      |
 | `fleet`                                                                                    | Developer fleet SSH/auth/T3 diagnostics, sync plans and onboarding        |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 
@@ -31,7 +31,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 
 The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and application hosting. The portfolio publishes it at [www.chrisvouga.dev/llms-infra.txt](https://www.chrisvouga.dev/llms-infra.txt); the site's own `/llms.txt` is a candidate summary for recruiters' screening agents and links to it. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
 
-Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for macOS, native Windows or Linux. It installs the pinned mise toolchain globally and frozen workspace dependencies. `bun run setup` installs dependencies only; `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run ws:install`.
+Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for macOS, native Windows or Linux. It installs the pinned mise toolchain globally and frozen workspace dependencies. `bun run setup` installs dependencies only; `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run personal:install`.
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
@@ -129,8 +129,8 @@ one shared mise manifest/lockfile globally, configure tool shims, and install
 frozen workspace dependencies. It covers Node/npm (mise replaces nvm), Bun,
 pnpm/Yarn, Python/uv, Go, GitHub CLI/Git LFS, shell utilities, provider CLIs,
 OpenTofu and Docker CLI. Git/native build tools and the Docker engine remain
-explicit OS prerequisites. After setup, `ws tools sync` reapplies tools,
-`ws tools check --json` verifies them, and `ws update` pulls and refreshes tools,
+explicit OS prerequisites. After setup, `personal workstation tools sync` reapplies tools,
+`personal workstation tools check --json` verifies them, and `personal workstation update` pulls and refreshes tools,
 dependencies and workstation settings.
 
 Agents can discover the full machine runbook from the portfolio's `/llms.txt`;

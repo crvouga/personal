@@ -10,9 +10,9 @@ import {
 } from '../lib/output-and-theme';
 
 /**
- * `ws openrouter` — the OpenRouter domain. Owns the live model catalog
- * (used by `ws opencode set-model`) and the OpenRouter API key state.
- * Nothing here writes opencode.json — see `ws opencode`.
+ * `personal workstation openrouter` — the OpenRouter domain. Owns the live model catalog
+ * (used by `personal workstation opencode set-model`) and the OpenRouter API key state.
+ * Nothing here writes opencode.json — see `personal workstation opencode`.
  */
 export async function cmdOpenRouterStatus(opts: GlobalOpts): Promise<void> {
   const platform = currentPlatform();

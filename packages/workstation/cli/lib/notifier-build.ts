@@ -43,7 +43,7 @@ export function notifierPaths(platform: Platform): {
 
 /** Write the runtime sound map consumed by the daemon + plugin fallback. */
 export function writeSoundConfig(platform: Platform): string {
-  // Merge-preserving: a user's `sounds set` choice survives `ws sync`.
+  // Merge-preserving: a user's `sounds set` choice survives `personal workstation sync`.
   // New default kinds are added; existing overrides are kept.
   return writeSounds(platform, readSounds(platform));
 }
@@ -110,7 +110,7 @@ export function buildNotifier(
   );
   if (compile.status !== 0) {
     throw new Error(
-      `Failed to compile OpenCodeNotifier (swiftc):\n${compile.stderr}\nFix the compile error and run \`ws sync\` again.`
+      `Failed to compile OpenCodeNotifier (swiftc):\n${compile.stderr}\nFix the compile error and run \`personal workstation sync\` again.`
     );
   }
 

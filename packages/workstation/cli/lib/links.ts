@@ -25,7 +25,7 @@ export type LinkStatus =
   | { state: 'conflict-not-symlink'; link: ManagedLink }
   | { state: 'conflict-wrong-target'; link: ManagedLink; current: string };
 
-/** All symlinks `ws sync` manages. Pure — unit-tested. */
+/** All symlinks `personal workstation sync` manages. Pure — unit-tested. */
 export function managedLinks(
   workstationRoot: string,
   platform: Platform
@@ -78,13 +78,13 @@ export function conflictMessage(status: LinkStatus): string {
   if (status.state === 'conflict-not-symlink') {
     return (
       `Conflict: ${link} already exists and is not a symlink managed by this repository.\n` +
-      `Move or remove it, then run \`ws sync\` again.`
+      `Move or remove it, then run \`personal workstation sync\` again.`
     );
   }
   if (status.state === 'conflict-wrong-target') {
     return (
       `Conflict: ${link} is a symlink to ${status.current}, not to ${status.link.target}.\n` +
-      `Remove it, then run \`ws sync\` again.`
+      `Remove it, then run \`personal workstation sync\` again.`
     );
   }
   return `Conflict: ${link} is in an unexpected state.`;

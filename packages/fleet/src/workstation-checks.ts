@@ -5,17 +5,20 @@ export async function workstationChecks(
   root: string,
   run: Runner
 ): Promise<Check[]> {
-  const result = await run(['ws', 'doctor', '--json', '--non-interactive'], {
-    cwd: root,
-    timeoutMs: 20_000,
-  });
+  const result = await run(
+    ['personal', 'workstation', 'doctor', '--json', '--non-interactive'],
+    {
+      cwd: root,
+      timeoutMs: 20_000,
+    }
+  );
   const fallback: Check = {
     id: 'workstation:configuration',
     status: 'fail',
     summary: 'Managed workstation configuration could not be verified.',
     remedy: {
       action:
-        'Run ws doctor --json on this computer. Review managed links, PATH, coding-tool/provider configuration and notification settings; apply ws sync only explicitly.',
+        'Run personal workstation doctor --json on this computer. Review managed links, PATH, coding-tool/provider configuration and notification settings; apply personal workstation sync only explicitly.',
     },
   };
   try {
@@ -57,7 +60,7 @@ function configurationCheck(value: unknown): Check | null {
       ? {
           remedy: {
             action:
-              'Inspect ws doctor --json on this computer. Use explicit ws sync only after reviewing the configuration changes.',
+              'Inspect personal workstation doctor --json on this computer. Use explicit personal workstation sync only after reviewing the configuration changes.',
           },
         }
       : {}),

@@ -1,3 +1,4 @@
+import { forwardWorkstation } from './workstation';
 import { resolveSettings } from './settings';
 import { COMMANDS } from './registry';
 import { execute } from './program';
@@ -53,8 +54,9 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
       : {}),
     ...(typeof values.config === 'string' ? { config: values.config } : {}),
   });
-  const terminal =
-    process.stdin.isTTY === true && process.stderr.isTTY === true;
+  if (startup(args).positionals[0] === 'workstation')
+    return forwardWorkstation(args, settings);
+  const terminal = interactiveTerminal();
   if (args.includes('--interactive') && !terminal) {
     process.stdout.write(
       `${JSON.stringify({ version: 1, ok: false, code: 'tty_required', error: 'Interactive mode needs a terminal. Use personal commands --json or fleet doctor --local --json.' })}\n`
@@ -81,4 +83,8 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     : (outcome.text ?? JSON.stringify(outcome.data, null, 2));
   process.stdout.write(`${text}\n`);
   return outcome.exitCode;
+}
+
+function interactiveTerminal(): boolean {
+  return process.stdin.isTTY === true && process.stderr.isTTY === true;
 }

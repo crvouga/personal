@@ -1,4 +1,4 @@
-/** Used by both OS bootstraps, ws tools sync and ws update. No workspace dependencies. */
+/** Used by both OS bootstraps, personal workstation tools sync and personal workstation update. No workspace dependencies. */
 import { spawnSync } from 'node:child_process';
 import {
   assertManagedConfig,

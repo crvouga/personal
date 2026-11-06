@@ -38,7 +38,7 @@ export function notificationFor(
   if (next.join('\n') === previous.join('\n')) return null;
   if (next.length === 0) {
     return {
-      title: 'ws net: recovered',
+      title: 'personal workstation net: recovered',
       message: 'All machines are connected again.',
       kind: 'finished',
     };
@@ -49,7 +49,7 @@ export function notificationFor(
     .map((c) => `${c.group.split(' ')[0] ?? c.group}: ${c.label}`)
     .join(' · ');
   return {
-    title: `ws net: ${fails.length} problem(s)`,
+    title: `personal workstation net: ${fails.length} problem(s)`,
     message,
     kind: 'error',
   };

@@ -74,19 +74,19 @@ export async function configureWorkspace(
   const applied = await applyOwner(directory, request, run);
   if (!applied.ok)
     return failure(
-      'ws configuration failed. Inspect preview on this node; no rollout receipt was advanced.'
+      'personal workstation configuration failed. Inspect preview on this node; no rollout receipt was advanced.'
     );
   const receipt = decodeReceipt(applied.stdout, request.revision);
   if (!receipt)
     return failure(
-      'ws returned an invalid receipt; rollout remains unverified.'
+      'personal workstation returned an invalid receipt; rollout remains unverified.'
     );
   await recordConfiguration(root, request, receipt);
   return [
     {
       id: 'configuration:apply',
       status: 'pass',
-      summary: `ws applied revision ${request.revision}; configuration fingerprint ${receipt}. Authentication and T3 end-to-end remain separate gates.`,
+      summary: `personal workstation applied revision ${request.revision}; configuration fingerprint ${receipt}. Authentication and T3 end-to-end remain separate gates.`,
     },
   ];
 }
@@ -182,7 +182,7 @@ async function applyOwner(
       'bun',
       '--',
       'bun',
-      'packages/workstation/cli/index.ts',
+      'packages/workstation/cli/internal.ts',
       '--json',
       '--yes',
       '--non-interactive',

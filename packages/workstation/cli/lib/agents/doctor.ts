@@ -45,7 +45,7 @@ export async function agentChecks(platform: Platform): Promise<DoctorCheck[]> {
       label: 'Managed profiles',
       severity: 'warn',
       detail:
-        'No applied profiles. Run ws agents preview --node ID, then ws --yes agents apply --node ID.',
+        'No applied profiles. Run personal workstation agents preview --node ID, then personal workstation --yes agents apply --node ID.',
     });
   return checks;
 }
@@ -72,7 +72,7 @@ async function profileCheck(
       id: `agent:${node}:${tool}:${profile}`,
       label: 'Managed profile drift',
       severity: clean ? 'pass' : 'fail',
-      detail: `Applied revision ${result.previous.revision}; static configuration ${clean ? 'matches' : 'drifted'}. Secret availability, endpoint, inference and T3 end-to-end require ws agents verify/operator tests.`,
+      detail: `Applied revision ${result.previous.revision}; static configuration ${clean ? 'matches' : 'drifted'}. Secret availability, endpoint, inference and T3 end-to-end require personal workstation agents verify/operator tests.`,
     };
   } catch {
     return {

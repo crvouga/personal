@@ -2,9 +2,6 @@
   "name": "@pkgs/workstation",
   "version": "0.0.0",
   "private": true,
-  "bin": {
-    "ws": "./cli/bin.mjs"
-  },
   "exports": {
     "./*": [
       "./cli/*.ts",
@@ -16,8 +13,7 @@
     "configure:opencode": "bun run opencode/configure-providers.ts",
     "lint": "eslint cli opencode agents --max-warnings 0",
     "tc": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test",
-    "ws": "bun run cli/index.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "@inquirer/prompts": "catalog:",

@@ -50,7 +50,7 @@ export async function cmdDoctor(opts: DoctorOpts): Promise<void> {
       });
       return;
     }
-    printOk('Auto-fix applied (ws sync). Re-check:');
+    printOk('Auto-fix applied (personal workstation sync). Re-check:');
     printChecks(after);
     if (doctorSummary(after).fail > 0) process.exit(1);
     return;

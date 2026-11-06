@@ -55,5 +55,5 @@ test('ensureLink is idempotent; conflicts throw without overwriting', () => {
   const status = describeLink(victim);
   expect(status.state).toBe('conflict-not-symlink');
   expect(() => ensureLink(victim)).toThrow();
-  expect(conflictMessage(status)).toContain('ws sync');
+  expect(conflictMessage(status)).toContain('personal workstation sync');
 });

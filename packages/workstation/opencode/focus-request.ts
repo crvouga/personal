@@ -8,7 +8,7 @@
  * - `opencode/tui/focus-session.ts` (TUI plugin, runs inside every opencode
  *   TUI) polls that file and navigates the owning TUI to the session via
  *   `route.navigate("session", { sessionID })`.
- * - `ws notifications focus|focus-request|tag` (CLI) drives the same flow for
+ * - `personal workstation notifications focus|focus-request|tag` (CLI) drives the same flow for
  *   manual testing.
  *
  * Everything here is pure except the two small file helpers, so the routing

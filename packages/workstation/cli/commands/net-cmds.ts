@@ -105,7 +105,7 @@ export async function cmdNetFix(opts: GlobalOpts): Promise<void> {
   const platform = currentPlatform();
   const hosts = loadInventory();
   await confirmOrThrow(
-    'Apply ws net fixes on this machine?',
+    'Apply personal workstation net fixes on this machine?',
     `Writes a managed block in ~/.ssh/config, VS Code Remote-SSH settings, CLI wrappers in ${platform.globalBinDir()} and a background check. Files are backed up first.`,
     opts
   );
@@ -120,9 +120,9 @@ export async function cmdNetFix(opts: GlobalOpts): Promise<void> {
   if (resolveOutputMode(opts.json) === 'json') {
     printJson({ ok: steps.every((s) => s.ok), steps, backupDir });
   } else {
-    section('ws net fix', `backups: ${backupDir}`);
+    section('personal workstation net fix', `backups: ${backupDir}`);
     printSteps(steps);
-    console.log(muted('\nNext: ws net check'));
+    console.log(muted('\nNext: personal workstation net check'));
   }
   if (!steps.every((s) => s.ok)) process.exitCode = 1;
 }

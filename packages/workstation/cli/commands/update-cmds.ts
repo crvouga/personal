@@ -16,7 +16,7 @@ import {
 import { pullFastForwardOnly } from '../lib/repo-update';
 
 /**
- * `ws update` — pull the workspace checkout to the latest upstream
+ * `personal workstation update` — pull the workspace checkout to the latest upstream
  * (GitHub), refresh dependencies, then reinstall the launcher + sync.
  * Refuses to pull with uncommitted changes (see `repo-update.ts`).
  */
@@ -77,7 +77,7 @@ function runBunInstall(root: string, nonInteractive: boolean): void {
   if (proc.status !== 0) {
     const detail = `${proc.stderr ?? ''}${proc.stdout ?? ''}`.trim();
     throw new Error(
-      `Toolchain/dependency setup failed after pull${detail.length > 0 ? `:\n${detail}` : ''}\nResolve it manually using scripts/dev/README.md, then run \`ws install\`.`
+      `Toolchain/dependency setup failed after pull${detail.length > 0 ? `:\n${detail}` : ''}\nResolve it manually using scripts/dev/README.md, then run \`personal workstation install\`.`
     );
   }
 }

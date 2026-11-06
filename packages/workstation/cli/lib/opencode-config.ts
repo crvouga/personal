@@ -90,7 +90,7 @@ export function getSmallModel(config: OpencodeConfig): string | null {
   return typeof small === 'string' ? small : null;
 }
 
-/** Task-model slots managed by `ws opencode set-model`. */
+/** Task-model slots managed by `personal workstation opencode set-model`. */
 export const MODEL_SLOTS = ['build_model', 'plan_model'] as const;
 
 export type ModelSlot = (typeof MODEL_SLOTS)[number];

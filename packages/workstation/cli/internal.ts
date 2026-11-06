@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * `ws` — the workstation CLI. One stop shop for local machine config.
+ * `personal` — the workstation CLI. One stop shop for local machine config.
  *
  * - No args → interactive dashboard (searchable menu).
  * - Subcommands → scriptable + LLM-friendly (`--json`, `--yes`,
@@ -45,11 +45,12 @@ function reportNonInteractive(err: NonInteractiveError): void {
 
 const entry = process.argv[1] ?? '';
 const isDirectRun =
-  entry.endsWith('cli/index.ts') || entry.endsWith('cli\\index.ts');
+  entry.endsWith('cli/internal.ts') || entry.endsWith('cli\\internal.ts');
 
 if (isDirectRun) {
-  main().catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
+  main().catch(() => {
+    const msg =
+      'Workstation operation failed. Check local configuration, conflicts and per-machine authentication; raw errors are withheld.';
     if (process.argv.includes('--json')) printJson({ ok: false, error: msg });
     else fail(msg);
     process.exit(1);

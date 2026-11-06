@@ -1,64 +1,87 @@
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'node:fs';
-import { join } from 'node:path';
-
+import {
+  mkdirSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  unlinkSync,
+  renameSync,
+} from 'node:fs';
+import { join, resolve } from 'node:path';
 import type { GlobalInstallResult, Platform } from './platform/types';
 
-export const WS_BIN_NAME = 'ws';
+export const PERSONAL_BIN_NAME = 'personal';
 
-/**
- * Launcher shim: execs the checked-in CLI via bun so `ws` always runs the
- * latest repo source. Overwrites any previous `ws` launcher (idempotent).
- */
-export function launcherShellScript(workstationRoot: string): string {
-  const entry = join(workstationRoot, 'cli/index.ts');
-  return `#!/bin/sh
-# Managed by \`ws install\` — do not edit. Re-run \`ws install\` to update.
-exec bun "${entry}" "$@"
-`;
-}
-
-export function launcherCmdScript(workstationRoot: string): string {
-  const entry = join(workstationRoot, 'cli/index.ts');
-  return `@echo off\r\nrem Managed by \`ws install\` - do not edit.\r\nbun "${entry}" %*\r\n`;
-}
-
-/** Install (or overwrite) the global `ws` launcher. Never touches anything else. */
+/** Install the single source-owned public CLI and retire only our legacy launcher. */
 export function installGlobalLauncher(
   workstationRoot: string,
   platform: Platform
 ): GlobalInstallResult {
+  if (platform.name === 'windows')
+    throw new Error(
+      'Use the npm-installed personal executable on native Windows; source launcher installation requires macOS/Linux/WSL.'
+    );
   const binDir = platform.globalBinDir();
   mkdirSync(binDir, { recursive: true });
-  const alreadyOnPath = isOnPath(binDir);
-
-  if (platform.name === 'windows') {
-    const cmdPath = join(binDir, `${WS_BIN_NAME}.cmd`);
-    const existed = existsSync(cmdPath);
-    writeFileSync(cmdPath, launcherCmdScript(workstationRoot));
-    return {
-      binDir,
-      launcherPath: cmdPath,
-      created: !existed,
-      alreadyOnPath,
-    };
+  const launcherPath = globalLauncherPath(platform);
+  const target = resolve(workstationRoot, '../personal-cli/bin.mjs');
+  const existed = entryExists(launcherPath);
+  if (existed && !ownedPersonalLauncher(launcherPath))
+    throw new Error(
+      'personal launcher conflicts with an existing installation. Keep the npm installation or move the conflicting file before source installation.'
+    );
+  if (!existed || readlinkSync(launcherPath) !== target) {
+    const temporary = `${launcherPath}.${process.pid}.tmp`;
+    symlinkSync(target, temporary, 'file');
+    try {
+      renameSync(temporary, launcherPath);
+    } finally {
+      if (entryExists(temporary)) unlinkSync(temporary);
+    }
   }
+  removeLegacyLauncher(binDir);
+  return {
+    binDir,
+    launcherPath,
+    created: !existed,
+    alreadyOnPath: isOnPath(binDir),
+  };
+}
 
-  const launcherPath = join(binDir, WS_BIN_NAME);
-  const existed = existsSync(launcherPath);
-  writeFileSync(launcherPath, launcherShellScript(workstationRoot), {
-    mode: 0o755,
-  });
-  chmodSync(launcherPath, 0o755);
-  return { binDir, launcherPath, created: !existed, alreadyOnPath };
+function entryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+export function removeLegacyLauncher(binDir: string): void {
+  for (const name of ['ws', 'ws.cmd']) {
+    const path = join(binDir, name);
+    if (!entryExists(path)) continue;
+    const info = lstatSync(path);
+    const linked =
+      info.isSymbolicLink() &&
+      /[/\\]workstation[/\\]cli[/\\]bin\.mjs$/.test(readlinkSync(path));
+    const owned =
+      info.isFile() &&
+      info.size < 8192 &&
+      /Managed by `ws install`/.test(readFileSync(path, 'utf8'));
+    if (linked || owned) unlinkSync(path);
+    else
+      throw new Error(
+        'An unrelated ws executable was preserved. Remove it explicitly if it should no longer be on PATH.'
+      );
+  }
 }
 
 export function globalLauncherPath(platform: Platform): string {
-  return platform.name === 'windows'
-    ? join(platform.globalBinDir(), `${WS_BIN_NAME}.cmd`)
-    : join(platform.globalBinDir(), WS_BIN_NAME);
+  return join(platform.globalBinDir(), PERSONAL_BIN_NAME);
 }
 
-/** Whether `dir` is on the current process PATH. Pure over inputs — tested. */
 export function isOnPath(
   dir: string,
   pathEnv: string = process.env['PATH'] ?? ''
@@ -67,10 +90,19 @@ export function isOnPath(
   return pathEnv.split(sep).some((entry) => entry === dir);
 }
 
-/** Shell export line for a given rc file (fish uses a different syntax). */
 export function pathExportLine(binDir: string, rcFile: string): string {
-  if (rcFile.endsWith('config.fish')) {
-    return `fish_add_path "${binDir}"`;
-  }
+  if (rcFile.endsWith('config.fish')) return `fish_add_path "${binDir}"`;
   return `export PATH="${binDir}:$PATH"`;
+}
+
+export function ownedPersonalLauncher(path: string): boolean {
+  if (!entryExists(path) || !lstatSync(path).isSymbolicLink()) return false;
+  const target = readlinkSync(path);
+  if (!/[/\\]packages[/\\]personal-cli[/\\]bin\.mjs$/.test(target))
+    return false;
+  try {
+    return readFileSync(target, 'utf8').includes('// Source-owned launcher;');
+  } catch {
+    return false;
+  }
 }

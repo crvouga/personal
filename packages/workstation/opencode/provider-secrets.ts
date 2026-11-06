@@ -328,7 +328,7 @@ function baseEntry(base: EntryBase): OpenCodeProviderConfig {
       : {}),
     invalidHint:
       base.invalidHint ??
-      `Rotate ${base.vaultKey} at ${base.obtainUrl ?? 'the provider console'} and re-run \`ws opencode sync\`.`,
+      `Rotate ${base.vaultKey} at ${base.obtainUrl ?? 'the provider console'} and re-run \`personal workstation opencode sync\`.`,
     transform: transformTrim,
     ...(base.validate !== undefined ? { validate: base.validate } : {}),
   });

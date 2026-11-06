@@ -106,7 +106,7 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
   Installed versions are checked by doctor on all three OSes. Start the CLI you
   want to use and complete its interactive sign-in; installation does not copy
   tokens, choose paid plans or grant agent permissions. OpenCode's optional
-  settings remain managed by `ws` and Vault. Codex sign-in follows the
+  settings remain managed by `personal` and Vault. Codex sign-in follows the
   [official CLI guide](https://learn.chatgpt.com/docs/codex/cli).
   Claude/Copilot background self-updaters are disabled through mise environment
   settings so they cannot silently replace locked versions; update through this
@@ -171,14 +171,14 @@ identity. Enable Git LFS hooks when needed with `git lfs install`.
 Optional existing workstation/agent settings:
 
 ```sh
-bun run ws:install
-ws doctor
+bun run personal:install
+personal workstation doctor
 # Only for tasks needing the workspace's managed secrets:
 vault login --method=userpass username=crvouga
-ws sync
+personal workstation sync
 ```
 
-The machine bootstrap installs tools/dependencies only. `ws:install` additionally
+The machine bootstrap installs tools/dependencies only. `personal:install` additionally
 installs the existing workstation launcher and converges OpenCode configuration;
 it may need platform permissions and a Vault login for credential-backed
 features. `bun run setup` remains dependency installation only.
@@ -258,10 +258,10 @@ mise install --locked bun
 mise exec --locked bun -- bun scripts/dev/setup.ts
 ```
 
-For an installed workstation CLI, `ws update` pulls with a clean-tree/fast-forward
+For an installed workstation CLI, `personal workstation update` pulls with a clean-tree/fast-forward
 guard, refreshes the toolchain/global config and frozen dependencies, and runs the
-existing workstation convergence. `ws tools sync` reapplies tool pins/global config
-without pulling or touching project dependencies; `ws tools check --json` verifies
+existing workstation convergence. `personal workstation tools sync` reapplies tool pins/global config
+without pulling or touching project dependencies; `personal workstation tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
 For multiple development computers, use [the fleet package](../../packages/fleet/README.md):

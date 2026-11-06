@@ -1,7 +1,7 @@
 import type { ProcessInfo } from '../platform/types';
 
 /**
- * Pure planner for `ws cleanup`: turns one process-table snapshot into the
+ * Pure planner for `personal workstation cleanup`: turns one process-table snapshot into the
  * process trees that should be killed.
  *
  * A "group" is a dev process tree rooted at its topmost dev ancestor
@@ -143,7 +143,7 @@ function ancestors(table: Table, pid: number): number[] {
 
 function protectedPids(table: Table, opts: CleanupOptions): Set<number> {
   const blocked = new Set<number>([0, 1, ...ancestors(table, opts.selfPid)]);
-  // Our own pipeline/job (e.g. `ws cleanup --json | jq`).
+  // Our own pipeline/job (e.g. `personal workstation cleanup --json | jq`).
   const selfGroup = table.byPid.get(opts.selfPid)?.pgid;
   const infra = [INFRA, ...opts.protect];
   for (const p of table.byPid.values()) {

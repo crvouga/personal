@@ -17,7 +17,7 @@ export function select(node: string, tool: string, profile: string): Selection {
     throw new AgentConfigurationError('Invalid node ID.');
   if (!(tool in source.defaults) || !['direct', 'proxy'].includes(profile))
     throw new AgentConfigurationError(
-      'Unsupported tool/profile; run ws agents inventory.'
+      'Unsupported tool/profile; run personal workstation agents inventory.'
     );
   const id = tool as Tool;
   if (profile === 'proxy' && id === 'gemini')

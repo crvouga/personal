@@ -116,7 +116,7 @@ export async function cmdSoundsSet(
   printOk(`Sound for ${kind} set to ${clean} → ${path}`);
   if (!known && platform.notifierCapabilities().sounds) {
     printWarn(
-      `Unknown system sound "${clean}" — preview with \`ws opencode notifications sounds play ${clean}\` and see \`list\` for available names.`
+      `Unknown system sound "${clean}" — preview with \`personal workstation opencode notifications sounds play ${clean}\` and see \`list\` for available names.`
     );
   }
 }

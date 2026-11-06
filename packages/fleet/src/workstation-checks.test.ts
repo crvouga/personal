@@ -4,7 +4,13 @@ import { failure, success } from './test-fixtures';
 
 test('workstation diagnostics are read-only and discard all private fields', async () => {
   const checks = await workstationChecks('/repo', async (command, options) => {
-    expect(command).toEqual(['ws', 'doctor', '--json', '--non-interactive']);
+    expect(command).toEqual([
+      'personal',
+      'workstation',
+      'doctor',
+      '--json',
+      '--non-interactive',
+    ]);
     expect(options).toMatchObject({ cwd: '/repo', timeoutMs: 20_000 });
     return success(
       JSON.stringify({
