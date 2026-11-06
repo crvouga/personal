@@ -187,7 +187,7 @@ The generated guide includes the exact tool table from `mise.toml` below. Scope:
   Installed versions are checked by doctor on all three OSes. Start the CLI you
   want to use and complete its interactive sign-in; installation does not copy
   tokens, choose paid plans or grant agent permissions. OpenCode's optional
-  settings remain managed by `ws` and Vault. Codex sign-in follows the
+  settings remain managed by `personal` and Vault. Codex sign-in follows the
   [official CLI guide](https://learn.chatgpt.com/docs/codex/cli).
   Claude/Copilot background self-updaters are disabled through mise environment
   settings so they cannot silently replace locked versions; update through this
@@ -252,14 +252,14 @@ identity. Enable Git LFS hooks when needed with `git lfs install`.
 Optional existing workstation/agent settings:
 
 ```sh
-bun run ws:install
-ws doctor
+bun run personal:install
+personal workstation doctor
 # Only for tasks needing the workspace's managed secrets:
 vault login --method=userpass username=crvouga
-ws sync
+personal workstation sync
 ```
 
-The machine bootstrap installs tools/dependencies only. `ws:install` additionally
+The machine bootstrap installs tools/dependencies only. `personal:install` additionally
 installs the existing workstation launcher and converges OpenCode configuration;
 it may need platform permissions and a Vault login for credential-backed
 features. `bun run setup` remains dependency installation only.
@@ -339,10 +339,10 @@ mise install --locked bun
 mise exec --locked bun -- bun scripts/dev/setup.ts
 ```
 
-For an installed workstation CLI, `ws update` pulls with a clean-tree/fast-forward
+For an installed workstation CLI, `personal workstation update` pulls with a clean-tree/fast-forward
 guard, refreshes the toolchain/global config and frozen dependencies, and runs the
-existing workstation convergence. `ws tools sync` reapplies tool pins/global config
-without pulling or touching project dependencies; `ws tools check --json` verifies
+existing workstation convergence. `personal workstation tools sync` reapplies tool pins/global config
+without pulling or touching project dependencies; `personal workstation tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
 For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
@@ -457,177 +457,120 @@ setup; fetching a public guide alone does not authorize installs or logins.
 
 # Developer fleet configuration setup
 
-Read root AGENTS.md, the [bootstrap runbook](../../../scripts/dev/README.md),
-[workstation guide](../README.md), [fleet guide](../../fleet/README.md), and
-[configuration audit](audit.md). Git owns portable definitions; ws renders and
-converges; fleet coordinates explicit deployments; mise owns tool versions;
-Vault/OpenBao owns secrets; OpenTofu alone owns cloud infrastructure.
+Use **personal** for node and T3 configuration. Workstation and fleet are internal
+implementation packages; neither exports its own executable.
 
-## Bootstrap and register a node
-
-Use the OS-specific bootstrap commands in the machine setup section of this
-published guide. From the resulting personal checkout:
+After the shared [machine bootstrap](../../../scripts/dev/README.md), run in the
+personal checkout:
 
 ```sh
-bun install --frozen-lockfile
-bun run ws:install
-bun run fleet init
-bun run fleet init --apply --yes
-bun run fleet validate --json
-bun run fleet onboard --node YOUR_NODE --json
+bun run personal:install
+personal fleet-node-sync
+personal fleet-status
 ```
 
-Edit the new gitignored roster once with the real SSH alias and absolute checkout
-path. Verify SSH host keys independently. Native Windows supports local operations;
-remote fleet execution requires a POSIX SSH shell (macOS/Linux/WSL). Each machine
-gets its own SSH key, GitHub/Vault login, coding-tool OAuth and T3 pairing. Never
-copy another node's credential directories. Fleet onboarding does not provision
-accounts, authorize SSH keys or authenticate tools.
-
-## Authenticate and choose profiles
+The npm fallback is the same interface:
 
 ```sh
-gh auth login
-gh auth setup-git
-vault login --method=userpass username=crvouga
-bun packages/workstation/cli/index.ts --json agents inventory
-bun packages/workstation/cli/index.ts --json agents audit
+npx @crvouga/personal fleet-node-sync
 ```
 
-These login commands require operator interaction. The existing approved Vault
-identity must be able to read the declared key; missing permission is a setup
-failure, never permission to seed or change Vault outside OpenTofu.
+Use `PERSONAL_WORKSPACE` or `--workspace PATH` when invoking the npm CLI outside
+the checkout. The installed source launcher resolves its checkout automatically.
+Each machine still needs its own authorized Vault session, SSH keys and T3 pairing.
+The sync never copies them or provisions infrastructure.
 
-Use the installed `ws` or `bun packages/workstation/cli/index.ts` interchangeably.
-Every profile operation requires an explicit node ID; no hostname guessing:
+## Reconciliation
+
+`fleet-node-sync` applies by invocation. It reconciles the locked toolchain, installs
+one `personal` launcher, retires the repository-owned `ws` launcher, upserts the
+Codex proxy profile, and reconciles T3 provider instances. `--dry-run` lists these
+steps without writing or installing. The default node ID is the normalized hostname;
+use `--id NAME` to retain an existing node's registry overrides.
+
+The selected revision defaults to checkout HEAD. `--revision FULL_SHA` pins a
+reviewed commit already fetched into that checkout. Deployment uses a clean Git
+worktree and preserves developer edits. After updating the checkout, repeat sync
+on each node with the same revision. A failed step stops later steps and reports
+partial progress; it never claims authentication or inference was verified.
+
+Portable models live in `agents/registry.json`; T3 desired provider instances live
+in `agents/t3.json`. Edit these tracked definitions and deploy a reviewed revision.
+New sessions use the updated configuration. Running sessions are not restarted.
+
+## T3 plan, apply, import and cleanup
 
 ```sh
-ws agents preview --node YOUR_NODE --tool codex --profile direct --json
-ws --yes agents apply --node YOUR_NODE --tool codex --profile direct --json
-ws agents run --node YOUR_NODE --tool codex --profile direct -- login
-ws agents status --node YOUR_NODE --tool codex --profile direct --json
-ws agents preview --node YOUR_NODE --tool codex --profile proxy --json
-ws --yes agents apply --node YOUR_NODE --tool codex --profile proxy --json
-ws agents verify --node YOUR_NODE --tool codex --profile proxy --json
-ws agents run --node YOUR_NODE --tool codex --profile proxy
+personal t3-plan --json
+personal t3-apply
+personal t3-status
+personal t3-cleanup --dry-run
 ```
 
-Direct Codex login is interactive in its dedicated CODEX_HOME. Existing plain
-`codex` sessions retain their original home. Profile filenames, destinations and
-precedence are listed in the audit. Checked-in shared defaults apply first, then
-`nodes[ID][TOOL].direct` or `.proxy` model overrides in `agents/registry.json`.
-Review overrides through Git; do not edit generated profile files. Preview/status
-never read required secrets or call inference. Apply writes nonsecret configuration
-only; runtime launch and authenticated verification require Vault.
+Plans show create/update/delete/unchanged/conflict by instance ID, with no settings
+values or credentials. `personal t3-apply --plan-hash HASH` binds apply to the exact
+settings, ownership state, desired definitions and destination reviewed in a plan.
+A stale plan fails. A second apply with identical inputs performs no settings write.
 
-Claude and OpenCode use the same commands with `--tool claude` or `--tool opencode`.
-Direct Claude uses native independent authentication (`claude auth login`);
-OpenCode direct retains the existing `ws opencode sync` provider owner and native
-`opencode auth login` where needed. The Claude proxy model is deliberately unset:
-list authorized models using the existing `bun run cliproxy models`, then review
-an exact model ID in the registry before applying. Do not reuse a Codex model for
-Anthropic Messages. Gemini supports `--tool gemini --profile direct`; start it
-through `ws agents run` and finish its own Google sign-in. Gemini proxy routing,
-Cursor/Antigravity unattended inference setup and Copilot proxy routing are
-unsupported by these adapters; see the audit for supported native setup sources.
-No adapter is proof of authentication or protocol compatibility on every version.
-
-## T3 connection and inference routing
+A provider instance becomes managed when created by personal, or explicitly imported:
 
 ```sh
-t3 up --connect
-t3 status --json
-t3 environment list --json
-ws agents t3-plan --node YOUR_NODE --json
+personal t3-import --instance personal_codex_proxy
+personal t3-apply
 ```
 
-Operator interaction is required for T3 Connect login and peer pairing. Use T3's
-Connections screen or `t3 pair` locally; never retain pairing tokens in a receipt,
-Git, shared report or another node's settings. Do not copy ~/.t3.
+Import grants ownership of the entire named provider instance. It does not change
+its settings immediately. Subsequent applies reconcile that instance to the tracked
+definition, including removal of extra fields. Existing unowned instances cause a
+conflict, even when their names match. Unrelated instances and settings are preserved.
 
-The emitted t3-plan is a field-level setup recipe for a **new Codex provider
-instance** in T3 Settings. Set its binary path, CODEX_HOME and WS_AGENT_NODE
-environment field exactly as emitted. These values are machine-derived from the
-reviewed checkout and chosen node. The binary points to the Git-tracked adapter,
-which obtains the proxy key from this node's Vault session at every launch. Leave
-the ordinary Codex provider instance available for direct sessions. Existing T3
-secret references, other instances, pairing and runtime state stay app-owned.
-The adapter does not rewrite a running application's settings file; the supported
-T3 UI performs the merge. Unattended T3 settings convergence and native Windows
-adapter execution are not implemented or verified. Repoint binaryPath when its
-reviewed checkout moves. CLI usage tracking settings do not change inference routing.
+Removing an instance from the desired definition removes it on the next apply.
+`personal t3-cleanup` removes **all owned provider instances** while retaining
+threads, projects, pairing, native provider instances, credentials and profile files.
+It does not delete T3's data directory or secret store. Historical threads may need
+a replacement provider selected after their managed instance is removed.
 
-Create a T3 thread using the new instance, submit a bounded request, and confirm
-the chosen model and a real tool invocation. Test from a paired peer too. A local
-API response, valid settings or a proxy HTTP 200 does not pass this end-to-end gate.
+`--t3-home PATH` selects a T3 base directory (otherwise T3CODE_HOME or ~/.t3).
+`--definition FILE` selects a version-1 desired definition. Supported interpolation
+is `${workspace}`, `${agents}` and `${node}`. The current schema deliberately supports
+the verified Codex proxy adapter fields; it rejects inline credential definitions.
+T3 proxy execution requires macOS/Linux/WSL; native Windows execution is unverified.
 
-## Verification, migration and drift
+## State and concurrency
+
+T3 owns `userdata/settings.json`. Personal merges only its declared instances and
+stores IDs in `userdata/personal-managed.json`, with mode 0600. Private settings and
+state backups sit beside that file. They may contain existing secret references or
+values and must never enter Git or reports. Symlink/malformed destinations fail.
+
+Personal operations use an exclusive lock, atomic replacement, pre-write freshness
+checks and post-write verification. T3's own theme CLI uses the same optimistic
+external-file update pattern; T3 does not honor personal's lock. Avoid concurrent
+Settings edits during apply: there is no cross-process atomic compare-and-swap with
+T3. No strict transaction across application and ownership files is claimed. Ownership
+intent is saved before settings so interrupted creates/removals can be retried.
+Inspect interrupted operations before removing a stale `.lock` directory.
+
+T3's installed server source at revision
+`322f6544dfad0a3c8a0c8cbecf2c7f7874b14268` was inspected for provider-instance shape,
+external settings watch/reload, and optimistic CLI writes. Future T3 schema changes
+require adapter verification. A disk-level success is not a live inference test.
+
+## Other local operations
+
+All former workstation operations are available through `personal workstation`:
 
 ```sh
-ws doctor --json
-ws agents status --node YOUR_NODE --tool codex --profile proxy --json
-ws agents verify --node YOUR_NODE --tool codex --profile proxy --json
-# Explicit opt-in: one inference request, at most 16 requested output tokens,
-# 15s model-list deadline and 30s inference deadline; provider billing still applies.
-ws agents verify --node YOUR_NODE --tool codex --profile proxy --smoke --json
+personal workstation tools check --json
+personal workstation agents verify --node NODE --tool codex --profile proxy --json
+personal workstation opencode sync
+personal workstation net check
 ```
 
-Verify reports static, endpoint, authenticated model-list, inference, streaming,
-tool-call and T3 evidence separately. Streaming/tool calls/T3 remain unverified by
-the simple smoke request. Direct-provider verification is static only. Full provider
-protocol exercises remain available in the existing CLI Proxy tests/runbook.
-
-Preview never prints file contents. Apply refuses changed/unmanaged dedicated
-profile files and symlinks. Inspect conflicts locally, reconcile intentional
-settings into Git, then deliberately adopt with
-`ws --yes agents apply --node YOUR_NODE --tool codex --profile proxy --adopt`.
-Adoption backs up only replaced profile files under the private ROOT/backups;
-it does not import home-directory settings. Reapplying unchanged inputs leaves
-configuration and receipt unchanged. If a process died with `.apply-lock` present,
-confirm no apply is running before removing that lock. There is no daemon or schedule.
-
-Legacy `codex-fleet`/`claude-fleet`/`opencode-fleet` launchers remain available during
-migration. Test the new profiles before changing T3; stop using old launchers only
-after acceptance. Their cached credentials remain local until explicitly retired;
-new ws profiles never copy them. Native sessions and application databases are
-outside this convergence contract.
-
-## Reviewed rollout and rollback
-
-Commit/review changes and pass CI before rollout. Fetch the reviewed commit into
-each node's existing checkout using normal authenticated Git. Fleet never fetches
-an unreviewed moving branch implicitly. Substitute a full 40-character commit SHA:
-
-```sh
-bun run fleet configure --node CANARY --revision FULL_SHA --tool codex --profile proxy --json
-bun run fleet configure --node CANARY --revision FULL_SHA --tool codex --profile proxy --apply --yes --json
-bun run fleet doctor --node CANARY --json
-# After the canary's authenticated and T3 acceptance gates:
-bun run fleet configure --node NODE_A --node NODE_B --revision FULL_SHA --tool codex --profile proxy --apply --yes --json
-```
-
-The command creates/reuses a clean pinned deployment Git worktree, delegates to
-existing mise/bootstrap and ws, then records revision and configuration fingerprint
-only after success. It preserves the developer branch and dirty working files.
-Nodes run serially and failures remain per-node; offline nodes receive no success
-receipt. Re-run failed nodes explicitly. Node setup can partially install tools
-before failing; no tool-install rollback is claimed. No recurring rollout is created.
-Receipts are historical evidence; `ws agents status` checks current file contents.
-
-Rollback uses the same preview/apply commands with a previous reviewed full SHA.
-Only revisions containing the configure/profile implementation support this path.
-Keep old deployment worktrees and receipts until rollback is no longer needed.
-A configuration rollback does not restore OAuth sessions, databases, or provider
-state. Complete native logins again where needed; never restore another node's identity.
-
-## Publish the setup guide
-
-Edit this runbook and canonical sources, then run `bun run llms:sync` and
-`bun run check:llms`. Root llms.txt and portfolio public/llms-infra.txt are generated.
-The portfolio's recruiter-facing llms.txt links prominently to this setup section.
-Use the repository PR/Check/main deployment workflow; after deployment fetch both
-live URLs and confirm this runbook is present. A generated local guide does not
-prove publication or live fleet convergence.
+`personal fleet-status` diagnoses the controller and registered remote nodes.
+`personal fleet-discover` lists visible Tailscale computers. The local SSH roster
+still requires real aliases and checkout paths; discovery never guesses these.
+Use `personal commands --json` to discover the complete interface.
 
 ### Portable developer fleet CLI
 

@@ -48,15 +48,15 @@ import { printJson, resolveOutputMode, section } from './lib/output-and-theme';
 /**
  * Command domains:
  *
- *   ws …            workstation itself (status/sync/doctor/install/update/vault)
- *   ws opencode …   OpenCode config (providers, models, notifications, backups)
- *   ws openrouter … OpenRouter catalog (model list used by opencode set-model)
- *   ws net …        Tailscale / SSH / T3 / VS Code connectivity across machines
+ *   personal workstation …            workstation itself (status/sync/doctor/install/update/vault)
+ *   personal workstation opencode …   OpenCode config (providers, models, notifications, backups)
+ *   personal workstation openrouter … OpenRouter catalog (model list used by opencode set-model)
+ *   personal workstation net …        Tailscale / SSH / T3 / VS Code connectivity across machines
  *
  * Every leaf states its domain in the description (`[ws]`, `[opencode]`,
- * `[openrouter]`) so `ws --help` reads as a domain map. The old flat
- * top-level names (`ws sounds`, `ws notifications`, `ws providers`,
- * `ws backup/…`) remain as deprecated aliases that forward to their
+ * `[openrouter]`) so `personal workstation --help` reads as a domain map. The old flat
+ * top-level names (`personal workstation sounds`, `personal workstation notifications`, `personal workstation providers`,
+ * `personal workstation backup/…`) remain as deprecated aliases that forward to their
  * canonical domain path.
  */
 
@@ -77,7 +77,7 @@ function registerCore(program: Command, globals: () => GlobalOpts): void {
     );
   program
     .command('status')
-    .description('[ws] Show ws + OpenCode + Vault state')
+    .description('[ws] Show personal workstation + OpenCode + Vault state')
     .action(async () => cmdStatus(globals()));
   program
     .command('doctor')
@@ -367,11 +367,13 @@ function registerOpenRouter(program: Command, globals: () => GlobalOpts): void {
 function registerLifecycle(program: Command, globals: () => GlobalOpts): void {
   program
     .command('install')
-    .description('[ws] (Re)install the global ws launcher + sync')
+    .description(
+      '[ws] (Re)install the global personal workstation launcher + sync'
+    )
     .action(async () => cmdInstall(globals()));
   program
     .command('uninstall')
-    .description('[ws] Remove the global ws launcher')
+    .description('[ws] Remove the global personal workstation launcher')
     .option('--remove-links', 'Also remove managed symlinks')
     .action(async (opts: { removeLinks?: boolean | undefined }) =>
       cmdUninstall({ ...globals(), removeLinks: opts.removeLinks })
@@ -400,11 +402,11 @@ function registerLifecycle(program: Command, globals: () => GlobalOpts): void {
 export function buildProgram(): Command {
   const program = new Command();
   program
-    .name('ws')
+    .name('personal workstation')
     .description(
-      'Workstation CLI — domains: `ws` (workstation) · `ws opencode` (editor config) · `ws openrouter` (model catalog)'
+      'Workstation CLI — domains: `personal` (workstation) · `personal workstation opencode` (editor config) · `personal workstation openrouter` (model catalog)'
     )
-    .version(readVersion(), '--version', 'Show ws version')
+    .version(readVersion(), '--version', 'Show personal workstation version')
     .option(
       '--json',
       'Machine-readable JSON output (LLM-friendly, secrets redacted)'

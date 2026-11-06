@@ -28,7 +28,7 @@ try {
   );
 } catch {
   process.stderr.write(
-    'Managed Codex proxy unavailable. Set WS_AGENT_NODE, apply the reviewed ws profile, and authenticate this node to Vault.\n'
+    'Managed Codex proxy unavailable. Set WS_AGENT_NODE, apply the reviewed personal workstation profile, and authenticate this node to Vault.\n'
   );
   process.exitCode = 1;
 }

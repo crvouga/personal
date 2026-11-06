@@ -53,7 +53,7 @@ There are three different workflows to support:
    Select the intended project/config. Only already-managed keys are available;
    a missing key or insufficient policy is not repaired by creating another one.
 3. **Tool configuration that requires a local key file.** The existing
-   `ws opencode sync --strict` owner reads its approved provider catalog from
+   `personal workstation opencode sync --strict` owner reads its approved provider catalog from
    Vault and writes its managed configuration with restrictive permissions.
    Review the resulting workstation diagnostics. Missing keys, Windows ACLs,
    resource permissions and actual live provider access can need further checks.
@@ -106,7 +106,7 @@ Unregistered, offline, ambiguous or unprobed machines remain blocked/manual.
 Automated actions are allowlisted:
 
 - `workspace`: the existing locked toolchain/frozen dependency sync, with receipt;
-- `workstation`: existing `bun run ws:install --yes`, including launcher, PATH,
+- `workstation`: existing `bun run personal:install --yes`, including launcher, PATH,
   managed configuration and available Vault-backed provider configuration;
 - `providers`: existing workstation provider sync in strict mode.
 

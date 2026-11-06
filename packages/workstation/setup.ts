@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Deprecated: use `bun run ws:install` (repo root) or the `ws` CLI.
+ * Deprecated: use `bun run personal:install` (repo root) or the `personal` CLI.
  *
  * This shim preserves the old entry point by forwarding to the new global
- * installer (`cli/install-global.ts`), which installs/overwrites the `ws`
+ * installer (`cli/install-global.ts`), which installs/overwrites the `personal`
  * launcher and converges the workstation.
  *
  * Usage:
- *   bun run ws:install
- *   ws sync
+ *   bun run personal:install
+ *   personal workstation sync
  */
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';

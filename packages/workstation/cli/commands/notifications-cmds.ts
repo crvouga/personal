@@ -92,7 +92,7 @@ export async function cmdNotificationsDisable(opts: GlobalOpts): Promise<void> {
   const plugin = pluginLink();
   await confirmOrThrow(
     'Disable notifications?',
-    `Removes the symlink ${plugin.link}. Re-enable with \`ws notifications enable\`.`,
+    `Removes the symlink ${plugin.link}. Re-enable with \`personal workstation notifications enable\`.`,
     opts
   );
   if (existsSync(plugin.link)) unlinkSync(plugin.link);
@@ -113,7 +113,7 @@ export async function cmdNotificationsTest(
     ? (kind as NotificationKind)
     : 'finished';
   const result = await platform.postNotification({
-    title: 'ws test',
+    title: 'personal workstation test',
     message: `Test notification (${resolved})`,
     kind: resolved,
   });
@@ -159,7 +159,7 @@ function resolveFocusHandler(
   if (script !== undefined) return script;
   return failWith(
     mode,
-    `focus-opencode not found (looked at ${homeScript} and ${repoScript}). Run \`ws sync\`.`
+    `focus-opencode not found (looked at ${homeScript} and ${repoScript}). Run \`personal workstation sync\`.`
   );
 }
 

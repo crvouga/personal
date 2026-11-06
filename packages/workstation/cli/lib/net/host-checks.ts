@@ -210,7 +210,7 @@ async function fullNameCheck(host: NetHost): Promise<Check> {
     'ssh-fullname',
     'SSH by full name (VS Code path)',
     `${target} fails: ${r.timedOut ? 'timed out' : lastLine(r.stderr)}. VS Code Remote-SSH hits the same error.`,
-    `Run \`ws net fix\`, or connect VS Code to '${host.alias}'.`
+    `Run \`personal workstation net fix\`, or connect VS Code to '${host.alias}'.`
   );
 }
 

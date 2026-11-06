@@ -1,7 +1,7 @@
 /**
  * Single re-export surface for CLI presentation helpers.
  *
- * `cli/index.ts` imports presentation utilities from here so it does not
+ * `cli/internal.ts` imports presentation utilities from here so it does not
  * need to know whether a helper lives in `theme.ts` (colors/layout) or
  * `output.ts` (modes/spinners).
  */

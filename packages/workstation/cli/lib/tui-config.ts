@@ -59,7 +59,7 @@ function readTuiConfigRaw(path: string): string | undefined {
   } catch (err) {
     if (isEnoent(err)) return undefined;
     throw new Error(
-      `Refusing to overwrite malformed ${path}: move or fix it, then run \`ws sync\`.`
+      `Refusing to overwrite malformed ${path}: move or fix it, then run \`personal workstation sync\`.`
     );
   }
 }
@@ -70,12 +70,12 @@ function parseTuiConfig(path: string, raw: string): Record<string, unknown> {
     parsed = JSON.parse(raw) as unknown;
   } catch {
     throw new Error(
-      `Refusing to overwrite malformed ${path}: move or fix it, then run \`ws sync\`.`
+      `Refusing to overwrite malformed ${path}: move or fix it, then run \`personal workstation sync\`.`
     );
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(
-      `Refusing to overwrite malformed ${path}: move or fix it, then run \`ws sync\`.`
+      `Refusing to overwrite malformed ${path}: move or fix it, then run \`personal workstation sync\`.`
     );
   }
   return parsed as Record<string, unknown>;

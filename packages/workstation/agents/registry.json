@@ -62,10 +62,10 @@
     "opencode": {
       "binary": "opencode",
       "config": "OPENCODE_CONFIG",
-      "authentication": "Existing ws opencode sync/Vault; runtime environment key for proxy",
+      "authentication": "Existing personal workstation opencode sync/Vault; runtime environment key for proxy",
       "proxy": "responses",
       "source": "https://opencode.ai/docs/config/",
-      "directEndpoint": "Existing ws OpenCode provider catalog and OpenRouter auto policy",
+      "directEndpoint": "Existing personal workstation OpenCode provider catalog and OpenRouter auto policy",
       "capabilities": {
         "streaming": "unverified on fleet nodes",
         "toolCalls": "unverified on fleet nodes",

@@ -185,7 +185,7 @@ async function runTermination(
   if (report.survivors.length > 0) process.exitCode = 1;
 }
 
-/** `ws cleanup` — registered from `program.ts` (kept here for file-size limits). */
+/** `personal workstation cleanup` — registered from `program.ts` (kept here for file-size limits). */
 export function registerCleanup(
   program: Command,
   globals: () => GlobalOpts

@@ -11,7 +11,7 @@
  * typing a session id into a waiting prompt (permission/question) would
  * corrupt the user's input. `route.navigate` is safe in every TUI state.
  *
- * Registered in `~/.config/opencode/tui.json` by `ws sync` (see
+ * Registered in `~/.config/opencode/tui.json` by `personal workstation sync` (see
  * `cli/lib/tui-config.ts`) — a single module cannot export both `server` and
  * `tui`, so this lives apart from the server-side `plugins/notifications.ts`.
  */

@@ -32,7 +32,7 @@ const OPTS: CleanupOptions = {
   protect: [],
 };
 
-// launchd → Superset → login shell → { ws cleanup, claude agent, … }
+// launchd → Superset → login shell → { personal workstation cleanup, claude agent, … }
 const BASE: ProcessInfo[] = [
   proc(1, 0, '/sbin/launchd', { uid: 0 }),
   proc(10, 1, '/Applications/Superset.app/Contents/MacOS/Superset'),

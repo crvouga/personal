@@ -1,3 +1,4 @@
+import { T3_COMMANDS } from './t3/register';
 import type { CommandSpec } from './contracts';
 import { searchCommands } from './search';
 
@@ -20,6 +21,53 @@ function fleet(
 }
 
 export const COMMANDS: CommandSpec[] = [
+  ...T3_COMMANDS.map(([id, description]) => ({
+    id,
+    title: description,
+    description,
+    group: 'T3',
+    keywords: ['t3', 'configuration', 'terraform', 'drift'],
+    args: [id],
+    examples: [`personal ${id} --json`],
+    mutation: ['t3-apply', 't3-cleanup', 't3-import'].includes(id),
+  })),
+  {
+    id: 'workstation',
+    title: 'Workstation configuration',
+    description:
+      'Tools, editor configuration, agent profiles, notifications and launcher lifecycle.',
+    group: 'Workstation',
+    keywords: ['tools', 'agents', 'opencode', 'install'],
+    args: ['workstation'],
+    examples: ['personal workstation --help'],
+    mutation: false,
+  },
+  ...[
+    [
+      'fleet-node-sync',
+      'Sync this node',
+      'Upsert and reconcile locked tools and the Codex proxy profile on this machine. Applies by default; --dry-run previews.',
+    ],
+    [
+      'fleet-status',
+      'Fleet status',
+      'Check this machine and all registered computers without changing them.',
+    ],
+    [
+      'fleet-discover',
+      'Discover computers',
+      'List computers visible through Tailscale.',
+    ],
+  ].map(([id, title, description]) => ({
+    id: id!,
+    title: title!,
+    description: description!,
+    group: 'Fleet',
+    keywords: ['node', 'sync', 'proxy', 'status'],
+    args: [id!],
+    examples: [`personal ${id} --json`],
+    mutation: id === 'fleet-node-sync',
+  })),
   fleet(
     'repairs',
     'Explore repairs and login commands',

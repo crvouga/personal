@@ -1,6 +1,9 @@
 import { Command, CommanderError } from 'commander';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { commandCatalog } from './registry';
+import { registerT3 } from './t3/register';
+import { workstationCommand } from './workstation';
+import { registerFlatCommands } from './flat-commands';
 import { AGENT_GUIDE } from './agent-guide';
 import { executeFleet } from './fleet';
 import { resolveSettings } from './settings';
@@ -94,7 +97,10 @@ function fleetCommands(program: Command): Command[] {
     .command('fleet')
     .description('Diagnose, explore and onboard developer computers');
   const definitions = commandCatalog().filter(
-    (entry) => entry.group === 'Fleet' && entry.id !== 'fleet doctor local'
+    (entry) =>
+      entry.group === 'Fleet' &&
+      entry.args[0] === 'fleet' &&
+      entry.id !== 'fleet doctor local'
   );
   return definitions.map((entry) => {
     const command = common(
@@ -155,6 +161,26 @@ export async function execute(
   const program = createProgram(version, (text) => {
     output += text;
   });
+  registerT3(program, defaults, (result) => {
+    outcome = result;
+  });
+  registerFlatCommands(program, defaults, (result) => {
+    outcome = result;
+  });
+  program
+    .command('workstation [args...]')
+    .description(
+      'Local configuration, tools, agent profiles and launcher lifecycle'
+    )
+    .allowUnknownOption()
+    .action(async (args: string[], command: Command) => {
+      const options = command.optsWithGlobals<CliOptions>();
+      const settings = await resolveSettings({
+        ...defaults,
+        ...settingsOverrides(options),
+      });
+      outcome = await workstationCommand(args, settings);
+    });
   const commands = fleetCommands(program);
   for (const command of commands)
     command.action(async () => {

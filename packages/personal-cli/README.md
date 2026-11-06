@@ -1,4 +1,45 @@
-# Personal developer command center
+# Personal CLI
+
+Use the installed `personal` executable for routine work. `npx @crvouga/personal`
+is the same CLI when it is not installed.
+
+```sh
+personal fleet-node-sync
+personal fleet-status
+personal fleet-discover
+```
+
+`fleet-node-sync` reconciles locked tools, installs the public launcher, removes
+owned legacy `ws` launchers, upserts the Codex proxy profile, and reconciles declared
+T3 provider instances. It applies by invocation; `--dry-run` previews. Run in the
+personal checkout or use `--workspace PATH`. Node ID defaults to hostname; `--id`
+overrides it. Revision defaults to checkout HEAD; `--revision FULL_SHA` pins it.
+
+```sh
+personal t3-plan --json
+personal t3-apply
+personal t3-status
+personal t3-cleanup --dry-run
+personal t3-import --instance EXISTING_ID
+```
+
+Tracked `packages/workstation/agents/t3.json` is desired state. Apply creates and
+updates declared instances and removes previously owned instances absent from the
+definition. Cleanup removes only owned instances. Import is explicit ownership of
+an existing instance. `--plan-hash HASH` rejects stale plans. Secrets and unrelated
+settings are omitted from reports and preserved in the configuration.
+
+All former workstation commands now use `personal workstation …`; there is no `ws`
+package executable. The source installer migrates recognized legacy launchers.
+Native Windows should use the npm executable; proxy adapter execution requires
+macOS/Linux/WSL. Pairing and provider authentication remain per-machine prerequisites.
+
+Read the [node/T3 reconciliation runbook](../workstation/agents/setup.md) for state,
+concurrency, recovery, rollout and precise ownership boundaries. The public package
+needs a local checkout and its shared toolchain for workstation operations; the T3
+reconciler itself runs on Node without Bun or access to live credentials.
+
+## Detailed command reference
 
 Public npm distribution: **`@crvouga/personal`**, executable **`personal`**.
 The source workspace `@pkgs/personal-cli` stays private; its build bundles the
@@ -51,7 +92,7 @@ npx --yes @crvouga/personal@latest fleet health --json
 and excludes iOS, Android and tvOS devices. `health` checks every visible computer,
 including this controller. It pings online peers, checks registered computers over
 fresh verified SSH sessions, compares checkout/toolchain input hashes, checks each
-pinned tool version and Docker runtime, and runs the existing read-only `ws doctor`
+pinned tool version and Docker runtime, and runs the existing read-only `personal workstation doctor`
 for managed links, PATH and workstation configuration.
 
 Register remote computers with their existing SSH aliases and actual checkout paths.
@@ -167,7 +208,7 @@ and `providers`; omitted selection includes the eligible owner actions identifie
 by the failed checks. Explicit selection also supports rerunning an owner action.
 
 `workspace` uses existing mise/shared setup and frozen dependencies. `workstation`
-uses `ws:install --yes` and can update launcher/PATH, managed links, notifications
+uses `personal:install --yes` and can update launcher/PATH, managed links, notifications
 and provider configuration. `providers` uses the existing strict Vault-backed
 workstation provider sync. Each computer uses its own Vault authorization; the
 controller never transfers credential files, tokens, SSH agents or keychains.

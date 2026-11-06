@@ -69,7 +69,7 @@ export function fixTailscaleCli(platform: Platform): FixStep {
   mkdirSync(dirname(wrapper), { recursive: true });
   writeFileSync(
     wrapper,
-    `#!/bin/sh\n# Managed by \`ws net fix\`.\nexec "${app}" "$@"\n`
+    `#!/bin/sh\n# Managed by \`personal workstation net fix\`.\nexec "${app}" "$@"\n`
   );
   chmodSync(wrapper, 0o755);
   return step('tailscale-cli', label, {
@@ -161,6 +161,7 @@ export function netWatchJob(platform: Platform): ScheduledJob {
     label: NET_JOB_LABEL,
     command: [
       globalLauncherPath(platform),
+      'workstation',
       'net',
       'check',
       '--notify',

@@ -25,22 +25,22 @@ function launcherCheck(platform: Platform): DoctorCheck {
   if (!existsSync(launcher)) {
     return {
       id: 'ws-launcher',
-      label: 'ws launcher installed',
+      label: 'personal workstation launcher installed',
       severity: 'fail',
       detail: `missing ${launcher}`,
-      fix: 'Run `ws install`.',
+      fix: 'Run `personal workstation install`.',
     };
   }
   const onPath = isOnPath(platform.globalBinDir());
   return {
     id: 'ws-launcher',
-    label: 'ws launcher installed',
+    label: 'personal workstation launcher installed',
     severity: onPath ? 'pass' : 'warn',
     detail: onPath ? launcher : `${launcher} (not on PATH)`,
     ...(onPath
       ? {}
       : {
-          fix: `Add ${platform.globalBinDir()} to PATH, then re-run \`ws doctor\`.`,
+          fix: `Add ${platform.globalBinDir()} to PATH, then re-run \`personal workstation doctor\`.`,
         }),
   };
 }
@@ -56,7 +56,7 @@ function linkCheck(
       label,
       severity: 'fail',
       detail: `missing ${link}`,
-      fix: 'Run `ws sync`.',
+      fix: 'Run `personal workstation sync`.',
     };
   }
   return {
@@ -89,7 +89,7 @@ function linksChecks(
       label: link.label,
       severity: 'fail' as const,
       detail,
-      fix: `Move or remove ${link.link}, then run \`ws sync\`.`,
+      fix: `Move or remove ${link.link}, then run \`personal workstation sync\`.`,
     };
   });
 }
@@ -118,14 +118,16 @@ function notifierChecks(platform: Platform): DoctorCheck[] {
       detail: built
         ? app
         : 'not built — notifications use the osascript fallback',
-      ...(built ? {} : { fix: 'Run `ws sync` (requires swiftc).' }),
+      ...(built
+        ? {}
+        : { fix: 'Run `personal workstation sync` (requires swiftc).' }),
     },
     {
       id: 'notifier-sounds',
       label: 'Notifier sounds config',
       severity: soundsWritten ? ('pass' as const) : ('fail' as const),
       detail: sounds,
-      ...(soundsWritten ? {} : { fix: 'Run `ws sync`.' }),
+      ...(soundsWritten ? {} : { fix: 'Run `personal workstation sync`.' }),
     },
   ];
 }
@@ -149,7 +151,7 @@ function tuiPluginCheck(
     label: 'focus-session TUI plugin',
     severity: 'warn',
     detail: `not registered in ${path} — banner clicks focus the window/tab but the TUI keeps its current session`,
-    fix: 'Run `ws sync`.',
+    fix: 'Run `personal workstation sync`.',
   };
 }
 
@@ -161,7 +163,7 @@ function configCheck(platform: Platform): DoctorCheck {
       label: 'opencode.json',
       severity: 'warn',
       detail: `missing ${cfgPath}`,
-      fix: 'Run `ws opencode sync`.',
+      fix: 'Run `personal workstation opencode sync`.',
     };
   }
   try {
@@ -171,7 +173,9 @@ function configCheck(platform: Platform): DoctorCheck {
       label: 'opencode.json',
       severity: providers.length > 0 ? 'pass' : 'warn',
       detail: `${cfgPath} (${providers.length} provider(s): ${providers.join(', ') || 'none'})`,
-      ...(providers.length > 0 ? {} : { fix: 'Run `ws opencode sync`.' }),
+      ...(providers.length > 0
+        ? {}
+        : { fix: 'Run `personal workstation opencode sync`.' }),
     };
   } catch (err) {
     return {
@@ -179,7 +183,7 @@ function configCheck(platform: Platform): DoctorCheck {
       label: 'opencode.json',
       severity: 'fail',
       detail: err instanceof Error ? err.message : String(err),
-      fix: `Move or fix ${cfgPath}, then run \`ws opencode sync\`.`,
+      fix: `Move or fix ${cfgPath}, then run \`personal workstation opencode sync\`.`,
     };
   }
 }

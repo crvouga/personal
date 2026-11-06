@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "instances": {
+    "personal_codex_proxy": {
+      "driver": "codex",
+      "displayName": "Personal CLI Proxy",
+      "enabled": true,
+      "config": {
+        "binaryPath": "${workspace}/packages/workstation/agents/codex-proxy.ts",
+        "homePath": "${agents}/${node}/codex/proxy"
+      },
+      "environment": [
+        { "name": "WS_AGENT_NODE", "value": "${node}", "sensitive": false }
+      ]
+    }
+  }
+}
