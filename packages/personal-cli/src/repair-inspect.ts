@@ -11,7 +11,7 @@ import { matchComputers } from '../../fleet/src/tailnet-matching';
 import { inspectRemote } from '../../fleet/src/transport';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { readRoster } from './roster';
-import { timeout } from './options';
+import { capabilities, timeout } from './options';
 import type { NodeReport, FleetConfig } from '../../fleet/src/types';
 import type { RepairTarget } from '../../fleet/src/repair-plan';
 import type { FleetServices } from './fleet';
@@ -28,7 +28,7 @@ export async function inspectRepair(
   settings: Settings,
   services: FleetServices
 ): Promise<RepairInspection> {
-  if (options.local) return inspectLocal(settings, services);
+  if (options.local) return inspectLocal(settings, services, options);
   const roster = await readRoster(settings.config);
   if (options.node?.length) return inspectSelected(options, roster, services);
   return inspectTailnet(options, settings, roster, services);
@@ -36,11 +36,14 @@ export async function inspectRepair(
 
 async function inspectLocal(
   settings: Settings,
-  services: FleetServices
+  services: FleetServices,
+  options: CliOptions
 ): Promise<RepairInspection> {
   const snapshot = await probe(
     settings.workspace,
-    HEALTH_CAPABILITIES,
+    options.require === undefined
+      ? HEALTH_CAPABILITIES
+      : capabilities(options.require),
     services.run
   );
   return {
@@ -72,10 +75,7 @@ async function inspectSelected(
   const source = await services.source();
   const reports = await mapBounded(nodes, (node) =>
     inspectRemote(
-      {
-        ...node,
-        required: [...new Set([...node.required, ...HEALTH_CAPABILITIES])],
-      },
+      node,
       { action: 'probe', source, timeoutMs: timeout(options) },
       services.run
     )

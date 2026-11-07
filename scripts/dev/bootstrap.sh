@@ -47,6 +47,10 @@ else
   }
 fi
 cd "$checkout"
+# Reuse an observed matching managed executable. Repeated reconciliation must
+# not download/reinstall mise solely because a previous run finished.
+installed_mise=$("$HOME/.local/bin/mise" --version 2>/dev/null | awk '{print $1}') || installed_mise=''
+if [[ "$installed_mise" != "$MISE_VERSION" ]]; then
 temp=$(mktemp -d)
 trap 'rm -rf "$temp"' EXIT
 asset="mise-v${MISE_VERSION}-${platform}-${arch}.tar.gz"
@@ -59,7 +63,8 @@ curl -fsSL "$base/SHASUMS256.txt" -o "$temp/SHASUMS256.txt"
   if command -v sha256sum >/dev/null; then sha256sum -c check.txt; else shasum -a 256 -c check.txt; fi)
 tar -xzf "$temp/$asset" -C "$temp"
 mkdir -p "$HOME/.local/bin"
-cp "$temp/mise/bin/mise" "$HOME/.local/bin/mise"
+install -m 0755 "$temp/mise/bin/mise" "$HOME/.local/bin/mise"
+fi
 export PATH="$HOME/.local/bin:$PATH"
 mise trust "$checkout/mise.toml"
 mise install --locked bun

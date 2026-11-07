@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -40,9 +41,24 @@ export function publishGlobalConfig(dir: string, root = workspaceRoot): void {
   assertManagedConfig(dir);
   mkdirSync(dir, { recursive: true });
   const config = readFileSync(join(root, 'mise.toml'), 'utf8');
-  writeFileSync(join(dir, 'config.toml'), MARKER + config);
-  cpSync(join(root, 'mise.lock'), join(dir, 'mise.lock'));
+  const path = join(dir, 'config.toml');
+  if (!existsSync(path) || readFileSync(path, 'utf8') !== MARKER + config)
+    writeFileSync(path, MARKER + config);
+  cpSync(join(root, 'mise.lock'), join(dir, 'mise.lock'), {
+    filter: changedFile,
+  });
   const sidecars = join(root, '.mise/locks');
   if (existsSync(sidecars))
-    cpSync(sidecars, join(dir, '.mise/locks'), { recursive: true });
+    cpSync(sidecars, join(dir, '.mise/locks'), {
+      recursive: true,
+      filter: changedFile,
+    });
+}
+
+function changedFile(source: string, destination: string): boolean {
+  return (
+    statSync(source).isDirectory() ||
+    !existsSync(destination) ||
+    !readFileSync(source).equals(readFileSync(destination))
+  );
 }

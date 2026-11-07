@@ -108,7 +108,7 @@ test('mutations require both flags and refuse stale plans, unsupported repairs a
     { local: true, apply: true },
     { local: true, repair: 'login:codex', apply: true, yes: true },
     { local: true, repair: 'arbitrary-secret-command' },
-    { local: true, require: 'none' },
+    { local: true, require: 'invalid-capability' },
     { local: true, script: true, apply: true, yes: true },
   ])
     await expect(
@@ -133,7 +133,13 @@ test('owner command success is followed by fresh authentication checks and canno
   const base = await settings();
   const result = await executeFleet(
     'repair',
-    { local: true, repair: 'providers', apply: true, yes: true },
+    {
+      local: true,
+      require: 'codex,workstation',
+      repair: 'providers',
+      apply: true,
+      yes: true,
+    },
     base,
     {
       run: async (command) => {

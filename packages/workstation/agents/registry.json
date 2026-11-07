@@ -25,8 +25,36 @@
     },
     "models": {
       "codex": "gpt-6.1-sol",
-      "claude": null,
-      "opencode": "gpt-6.1-sol"
+      "claude": "claude-sonnet-4-6",
+      "opencode": "gpt-6.1-sol",
+      "gemini": "gemini-2.5-flash"
+    },
+    "routes": {
+      "claude": {
+        "model": "claude-sonnet-4-6",
+        "native": "claude",
+        "harness": "opencode"
+      },
+      "codex": {
+        "model": "gpt-6.1-sol",
+        "native": "codex",
+        "harness": "opencode"
+      },
+      "gemini": {
+        "model": "gemini-2.5-flash",
+        "native": "gemini",
+        "harness": "opencode"
+      },
+      "grok": {
+        "model": "grok-4.7",
+        "native": null,
+        "harness": "opencode"
+      },
+      "muse": {
+        "model": "muse-wonder-1.0",
+        "native": null,
+        "harness": "opencode"
+      }
     }
   },
   "nodes": {},
@@ -76,9 +104,9 @@
     "gemini": {
       "binary": "gemini",
       "config": "GEMINI_CLI_HOME/.gemini/settings.json",
-      "authentication": "Independent interactive Google login; optional native API-key/Vertex flows",
-      "proxy": null,
-      "source": "https://geminicli.com/docs/reference/configuration/",
+      "authentication": "Native Google login for direct; supported gateway authentication with runtime Vault key for proxy",
+      "proxy": "generateContent",
+      "source": "https://github.com/google-gemini/gemini-cli/blob/v0.66.0/packages/core/src/core/contentGenerator.ts",
       "directEndpoint": "Native vendor/account configuration; no portable endpoint override is applied",
       "capabilities": {
         "streaming": "unverified on fleet nodes",

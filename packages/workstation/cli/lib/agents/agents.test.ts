@@ -46,8 +46,16 @@ describe('agent configuration ownership', () => {
       })
     ).toBe('reviewed-model');
     expect(() => select('../escape', 'codex', 'direct')).toThrow();
-    expect(() => select('node', 'gemini', 'proxy')).toThrow();
-    expect(() => select('node', 'claude', 'proxy')).toThrow();
+    expect(select('node', 'gemini', 'proxy').model).toBe('gemini-2.5-flash');
+    expect(
+      render(select('node', 'gemini', 'proxy'))['.gemini/settings.json']
+    ).toContain('gateway');
+    expect(select('node', 'claude', 'proxy').model).toBe('claude-sonnet-4-6');
+    const harness = render(select('node', 'opencode', 'proxy'))[
+      'opencode.json'
+    ];
+    expect(harness).toContain('grok-4.7');
+    expect(harness).toContain('muse-wonder-1.0');
   });
 
   test('preview is read-only; apply is idempotent and detects modifications', async () => {

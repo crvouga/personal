@@ -32,7 +32,8 @@ async function sourceFiles(root: string, directory: string): Promise<string[]> {
   const paths: string[] = [];
   for (const entry of entries) {
     const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory()) paths.push(...(await sourceFiles(root, path)));
+    if (entry.isDirectory() && entry.name !== '__pycache__')
+      paths.push(...(await sourceFiles(root, path)));
     else if (
       entry.isFile() &&
       !entry.name.endsWith('.test.ts') &&
@@ -47,11 +48,22 @@ export async function contentHash(root: string): Promise<string> {
   const files = [
     ...(await sourceFiles(root, 'packages/personal-cli/src')),
     ...(await sourceFiles(root, 'packages/fleet/src')),
+    ...(await sourceFiles(root, 'scripts/dev')),
+    ...(await sourceFiles(root, 'packages/workstation/cli')),
+    ...(await sourceFiles(root, 'packages/workstation/agents')),
+    ...(await sourceFiles(root, 'packages/cliproxy-fleet/scripts')),
+    ...(await sourceFiles(root, 'packages/workstation/ubuntu')),
+    ...(await sourceFiles(root, 'packages/workstation/monitoring')),
+    'mise.toml',
+    'mise.lock',
     'packages/personal-cli/package.json',
     'packages/personal-cli/README.md',
     'packages/personal-cli/releasing.md',
     'packages/personal-cli/scripts/build.ts',
+    'packages/fleet/docs/ubuntu-sync.md',
     'packages/fleet/schema.json',
+    'packages/fleet/definition.json',
+    'packages/fleet/definition.schema.json',
     'packages/fleet/fleet.example.json',
   ].sort();
   const hash = createHash('sha256');

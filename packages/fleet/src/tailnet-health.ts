@@ -14,13 +14,8 @@ import type {
 } from './types';
 
 export const HEALTH_CAPABILITIES: Capability[] = [
-  'github',
-  'vault',
   't3',
   'toolchain',
-  'codex',
-  'claude',
-  'services',
   'workstation',
 ];
 export interface TailnetHealthOptions {
@@ -35,8 +30,13 @@ export async function tailnetHealth(
   options: TailnetHealthOptions,
   run: Runner
 ): Promise<NodeReport[]> {
-  const controller = await probe(options.root, HEALTH_CAPABILITIES, run);
   const matches = await matchComputers(nodes, tailnet.computers, run);
+  const self = tailnet.computers.find((peer) => peer.self);
+  const candidates = self ? (matches.get(self.id) ?? []) : [];
+  const required = uniqueMapping(candidates, matches)
+    ? candidates[0]!.required
+    : HEALTH_CAPABILITIES;
+  const controller = await probe(options.root, required, run);
   let source: Promise<string> | undefined;
   const reports = await mapBounded(tailnet.computers, async (peer) => {
     const checks = await connectivity(peer, run);
@@ -52,10 +52,7 @@ export async function tailnetHealth(
     if (!peer.online) return { node: peer.dns, checks };
     const node = candidates[0]!;
     const report = await inspectComputer(
-      {
-        ...node,
-        required: [...new Set([...node.required, ...HEALTH_CAPABILITIES])],
-      },
+      node,
       {
         action: 'probe',
         source: (source ??= Promise.resolve().then(options.source)),

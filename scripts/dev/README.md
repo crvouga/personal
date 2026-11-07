@@ -316,3 +316,28 @@ working in the repo. Claude Code, Gemini CLI and Copilot have thin checked-in
 instruction files pointing to that same canonical document; Codex/OpenCode use
 `AGENTS.md` directly. Harness credentials and personal settings remain per machine. Bootstrap is authorized only when the user requests machine
 setup; fetching a public guide alone does not authorize installs or logins.
+
+### Pinned native T3 for Ubuntu fleet services
+
+The shared setup owner verifies the Linux T3 release archive against the
+architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
+`t3_linux_*_sha256`). Artifacts live under `~/.local/share/personal/tools/`.
+Workstation uses that absolute executable with T3's native `service install`
+interface, with user lingering supplied by the Ubuntu baseline. This does not
+replace an existing desktop launcher or copy `~/.t3` runtime state. A conflicting
+launcher/service version requires reviewed maintenance; routine fleet sync never
+restarts active turns to promote a new pin. The disposable Ubuntu acceptance test
+covers repeat service installation, crash recovery and reboot without desktop
+login. Private routing and paired execution require separate evidence.
+
+Normal Ubuntu fleet setup is controller-led:
+`npx @crvouga/personal fleet-sync`. See the
+[Fleet runbook](../../packages/fleet/docs/ubuntu-sync.md). A controller without
+Node/npm must first run this tracked bootstrap (or install the documented Node
+prerequisite); `npx` cannot execute before Node/npm exist. Reachable remote targets
+are bootstrapped over verified SSH by the same shared owner.
+
+Repeated approved setup reuses an observed matching mise executable and preserves
+unchanged managed configuration/lockfile timestamps. It still asks mise and the
+frozen dependency owner to inspect actual installations; a previous success marker
+is not a reason to skip drift inspection.

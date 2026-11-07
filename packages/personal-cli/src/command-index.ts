@@ -18,6 +18,15 @@ export function indexedCommands(search = '', group?: string) {
 }
 
 function execution(entry: CommandSpec) {
+  if (['fleet-sync', 'fleet converge'].includes(entry.id))
+    return {
+      default: 'interactive-confirmation-or-action-required',
+      authorization: 'interactive-confirmation or --apply --yes',
+      preview: `personal ${entry.id} --dry-run --json`,
+      scope:
+        'enrolled Ubuntu fleet over verified SSH; controller is not an implicit target',
+      note: 'JSON/noninteractive never prompt. Legacy fleet sync stays plan-only. Full Ubuntu acceptance is not yet implemented.',
+    };
   if (entry.id === 'workstation')
     return {
       default: 'help',

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
-import { tailnetHealth, HEALTH_CAPABILITIES } from './tailnet-health';
+import { tailnetHealth } from './tailnet-health';
 import { probe } from './probe';
 import { gitRunner, NODE, success, workspace } from './test-fixtures';
 import type { Tailnet, TailnetComputer } from './tailscale';
@@ -72,7 +72,7 @@ test('every discovered computer is accounted for: offline, unregistered and cont
   expect(calls.filter((command) => command[0] === 'tailscale')).toHaveLength(1);
 });
 
-test('registered online computers receive the current probe and all expected auth capabilities', async () => {
+test('registered online computers receive only their declared capabilities', async () => {
   const settings = await options();
   const snapshot = await probe(settings.root, [], gitRunner);
   const ssh: string[][] = [];
@@ -87,9 +87,8 @@ test('registered online computers receive the current probe and all expected aut
     const request = JSON.parse(Buffer.from(encoded, 'base64').toString()) as {
       node: { required: string[] };
     };
-    expect(request.node.required).toEqual(
-      expect.arrayContaining(HEALTH_CAPABILITIES)
-    );
+    expect(request.node.required).toEqual(NODE.required);
+    expect(request.node.required).not.toContain('services');
     return success(JSON.stringify(snapshot));
   };
   const reports = await tailnetHealth(

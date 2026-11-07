@@ -27,7 +27,16 @@ export function render(s: Selection): Record<string, string> {
   if (s.tool === 'gemini')
     return {
       '.gemini/settings.json':
-        JSON.stringify({ model: { name: s.model } }, null, 2) + '\n',
+        JSON.stringify(
+          {
+            model: { name: s.model },
+            ...(s.profile === 'proxy'
+              ? { security: { auth: { selectedType: 'gateway' } } }
+              : {}),
+          },
+          null,
+          2
+        ) + '\n',
     };
   const config =
     s.profile === 'proxy'
@@ -41,7 +50,14 @@ export function render(s: Selection): Record<string, string> {
                 baseURL: registry.proxy.endpoint + '/v1',
                 apiKey: '{env:CLIPROXY_API_KEY}',
               },
-              models: { [s.model]: { name: s.model } },
+              models: Object.fromEntries(
+                [
+                  ...Object.values(registry.proxy.routes).map(
+                    (route) => route.model
+                  ),
+                  s.model,
+                ].map((id) => [id, { name: id }])
+              ),
             },
           },
         }

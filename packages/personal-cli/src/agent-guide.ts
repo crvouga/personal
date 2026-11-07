@@ -40,6 +40,17 @@ export const AGENT_GUIDE = {
     'Shared provider keys are fetched through each machine’s existing Vault authorization by workstation tooling. Never copy machine-local login caches.',
     'Use exact npm versions for automation. The application never self-updates.',
   ],
+  fleetSync: {
+    command: 'personal fleet-sync',
+    canonical: 'personal fleet converge',
+    preview: 'personal fleet-sync --dry-run --json',
+    approval: 'Interactive confirmation or --apply --yes',
+    scope:
+      'Whole enrolled Ubuntu fleet over verified SSH; --node filters diagnostics/rollout',
+    state: '~/.local/share/personal/fleet/controller/enrollment.json',
+    readiness:
+      'Full Ubuntu acceptance is incomplete and fails closed; do not override it or claim deployment success.',
+  },
   reconciliation: {
     plan: 'personal t3-plan --json',
     apply: 'personal t3-apply --plan-hash HASH',

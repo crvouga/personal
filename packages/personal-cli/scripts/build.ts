@@ -8,6 +8,7 @@ import { runCommand } from '../../fleet/src/runner';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const destination = join(root, 'dist');
+let sourceRevision: string | null = null;
 const version = process.env['PERSONAL_RELEASE_VERSION'] ?? manifest.version;
 stableVersion(version);
 
@@ -18,7 +19,10 @@ async function bundle(entry: string, name: string): Promise<void> {
     format: 'esm',
     minify: false,
     external: Object.keys(manifest.dependencies),
-    define: { PERSONAL_VERSION: JSON.stringify(version) },
+    define: {
+      PERSONAL_VERSION: JSON.stringify(version),
+      PERSONAL_SOURCE_REVISION: JSON.stringify(sourceRevision),
+    },
   });
   if (!result.success || !result.outputs[0])
     throw new Error(`Cannot build ${name}.`);
@@ -26,6 +30,8 @@ async function bundle(entry: string, name: string): Promise<void> {
 }
 
 async function build(): Promise<void> {
+  const metadata = await releaseMetadata();
+  sourceRevision = !metadata.dirty ? (metadata.sourceCommit ?? null) : null;
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   await bundle('src/cli.ts', 'cli.mjs');
@@ -70,7 +76,7 @@ async function build(): Promise<void> {
           access: 'public',
           registry: 'https://registry.npmjs.org/',
         },
-        personalCli: await releaseMetadata(),
+        personalCli: metadata,
       },
       null,
       2

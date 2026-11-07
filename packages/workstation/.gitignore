@@ -1,0 +1,3 @@
+# Disposable Python integration-test caches, never managed machine source.
+__pycache__/
+*.pyc

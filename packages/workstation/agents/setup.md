@@ -1,3 +1,16 @@
+# Controller-led Ubuntu fleet setup
+
+For the enrolled Ubuntu development fleet, run on the designated controller:
+
+```sh
+npx @crvouga/personal fleet-sync
+```
+
+Read the [Fleet operator guide](../../fleet/docs/ubuntu-sync.md) for enrollment,
+approved revisions, bootstrap, provider checks and unresolved release gates.
+Routine fleet updates do not require a command sequence on individual nodes.
+The legacy local commands below retain their existing behavior for compatibility.
+
 # Developer fleet configuration setup
 
 Use **personal** for node and T3 configuration. Workstation and fleet are internal
@@ -33,8 +46,7 @@ use `--id NAME` to retain an existing node's registry overrides.
 
 The selected revision defaults to checkout HEAD. `--revision FULL_SHA` pins a
 reviewed commit already fetched into that checkout. Deployment uses a clean Git
-worktree and preserves developer edits. After updating the checkout, repeat sync
-on each node with the same revision. A failed step stops later steps and reports
+worktree and preserves developer edits. For whole-fleet maintenance, use the controller command above; this legacy local route does not orchestrate other nodes. A failed step stops later steps and reports
 partial progress; it never claims authentication or inference was verified.
 
 Portable models live in `agents/registry.json`; T3 desired provider instances live

@@ -208,3 +208,9 @@ test('public T3 commands run offline against fixtures, including cleanup and dri
     (await execute(['t3-cleanup', ...args], defaults, 'test')).exitCode
   ).toBe(0);
 });
+
+test('relative configuration reads terminate without escaping symlink checks', async () => {
+  const { read } = await import('../src/t3/files');
+  const content = await read('package.json');
+  expect(content).not.toBeNull();
+});

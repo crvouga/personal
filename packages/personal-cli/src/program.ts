@@ -4,6 +4,7 @@ import { commandCatalog } from './registry';
 import { indexedCommands } from './command-index';
 import { registerT3 } from './t3/register';
 import { workstationCommand } from './workstation';
+import { registerFleetSync } from './register-fleet-sync';
 import { registerFlatCommands } from './flat-commands';
 import { AGENT_GUIDE } from './agent-guide';
 import { executeFleet } from './fleet';
@@ -106,7 +107,8 @@ function fleetCommands(program: Command): Command[] {
     (entry) =>
       entry.group === 'Fleet' &&
       entry.args[0] === 'fleet' &&
-      entry.id !== 'fleet doctor local'
+      entry.id !== 'fleet doctor local' &&
+      entry.id !== 'fleet converge'
   );
   return definitions.map((entry) => {
     const command = common(
@@ -179,6 +181,14 @@ export async function execute(
     outcome = result;
   });
   const commands = fleetCommands(program);
+  registerFleetSync(
+    program,
+    program.commands.find((command) => command.name() === 'fleet')!,
+    defaults,
+    (result) => {
+      outcome = result;
+    }
+  );
   for (const command of commands)
     command.action(async () => {
       const options = command.optsWithGlobals<CliOptions>();

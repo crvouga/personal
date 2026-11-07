@@ -157,3 +157,12 @@ npx --yes @crvouga/personal@latest fleet doctor --all --json
 Do not claim release or green CI based on local checks. Deployment of the CI
 workflow requires these source changes to land on main, and remote fleet coverage
 requires actual locally configured SSH aliases and checkout paths.
+
+## Fleet-sync release gate
+
+The Ubuntu fleet-sync flow is not yet a complete machine-convergence release.
+Read `../fleet/docs/ubuntu-sync.md` before publication. The package build embeds
+an automatically approvable source SHA only for a clean checkout; dirty builds
+retain provenance metadata but require an explicit reviewed revision. The anonymous
+consumer smoke covers both `fleet-sync` and `fleet converge` previews without a
+checkout. Passing those checks is not Ubuntu/service/provider acceptance.

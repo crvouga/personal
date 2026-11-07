@@ -1,13 +1,17 @@
-import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { DoctorCheck } from '../doctor';
-import { workstationRoot } from '../paths';
+import { workspaceRoot } from '../paths';
+import {
+  loadNetworkDefinition,
+  networkProjection,
+} from '../../../../fleet/src/network-definition';
+import { parseDefinition } from '../../../../fleet/src/definition';
 
 export type NetHostOs = 'macOS' | 'linux' | 'windows';
 
-/** One machine from the checked-in `net/hosts.json` inventory. */
+/** One machine from the canonical Fleet definition. */
 export type NetHost = {
   readonly alias: string;
   readonly tailscaleName: string;
@@ -22,7 +26,7 @@ export type NetHost = {
 export type NetCheck = DoctorCheck & { readonly group: string };
 
 export function inventoryPath(): string {
-  return join(workstationRoot(), 'net/hosts.json');
+  return join(workspaceRoot(), 'packages/fleet/definition.json');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,6 +71,8 @@ function parseHost(raw: unknown): NetHost {
 /** Parse and validate the inventory JSON. Pure — unit-tested. */
 export function parseInventory(text: string): NetHost[] {
   const parsed: unknown = JSON.parse(text);
+  if (isRecord(parsed) && parsed['version'] === 2)
+    return networkProjection(parseDefinition(parsed), {});
   if (!isRecord(parsed) || !Array.isArray(parsed['hosts'])) {
     throw new Error('net/hosts.json: expected { "hosts": [...] }');
   }
@@ -74,7 +80,7 @@ export function parseInventory(text: string): NetHost[] {
 }
 
 export function loadInventory(): NetHost[] {
-  return parseInventory(readFileSync(inventoryPath(), 'utf8'));
+  return loadNetworkDefinition(workspaceRoot());
 }
 
 /** `~/x` → absolute path under the current home directory. */

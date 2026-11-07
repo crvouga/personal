@@ -251,3 +251,10 @@ See [fleet access and repair research](../fleet/docs/access-and-repair-research.
 for the comparison of mise, OpenBao, Bitwarden, 1Password, Tailscale SSH, chezmoi,
 Teleport, Ansible and Syncthing, plus existing password-manager onboarding and
 the distinction between shared service secrets and per-machine logins.
+
+## Ubuntu one-command synchronization
+
+See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
+`personal fleet-sync` and `personal fleet converge` share the guarded controller-driven
+flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
+apply does not claim machine readiness. Existing commands retain their semantics.

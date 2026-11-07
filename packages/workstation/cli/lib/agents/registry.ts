@@ -20,10 +20,6 @@ export function select(node: string, tool: string, profile: string): Selection {
       'Unsupported tool/profile; run personal workstation agents inventory.'
     );
   const id = tool as Tool;
-  if (profile === 'proxy' && id === 'gemini')
-    throw new AgentConfigurationError(
-      'Gemini CLI proxy protocol is not verified; use direct.'
-    );
   const model = resolveModel(node, id, profile as Profile);
   if (!model || !/^[a-zA-Z0-9_./:+-]+$/.test(model))
     throw new AgentConfigurationError(

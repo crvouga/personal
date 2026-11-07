@@ -49,6 +49,8 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
   expect(
     COMMANDS.filter((entry) => entry.mutation).map((entry) => entry.id)
   ).toEqual([
+    'fleet-sync',
+    'fleet converge',
     't3-apply',
     't3-cleanup',
     't3-import',

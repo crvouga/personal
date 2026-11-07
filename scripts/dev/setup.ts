@@ -8,6 +8,7 @@ import {
 } from './global-config';
 import { configureShellPath } from './shell-path';
 import { installNativeAws } from './native-aws';
+import { installNativeT3 } from './native-t3';
 
 function run(args: string[]): void {
   const result = spawnSync(args[0]!, args.slice(1), {
@@ -24,6 +25,7 @@ export async function syncTools(): Promise<void> {
   assertManagedConfig(dir);
   run(['mise', 'install', '--locked']);
   await installNativeAws();
+  await installNativeT3();
   publishGlobalConfig(dir);
   run(['mise', 'reshim']);
   configureShellPath();

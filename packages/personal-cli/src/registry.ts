@@ -21,6 +21,17 @@ function fleet(
 }
 
 export const COMMANDS: CommandSpec[] = [
+  ...['fleet-sync', 'fleet converge'].map((id) => ({
+    id,
+    title: 'Synchronize the enrolled Ubuntu fleet',
+    description:
+      'Controller push to all enrolled Ubuntu nodes at one approved revision; interactive confirmation or --apply --yes. Readiness is verified separately.',
+    group: 'Fleet',
+    keywords: ['ubuntu', 'enrollment', 'sync'],
+    args: id.split(' '),
+    examples: [`personal ${id} --dry-run --json`],
+    mutation: true,
+  })),
   ...T3_COMMANDS.map(([id, description]) => ({
     id,
     title: description,

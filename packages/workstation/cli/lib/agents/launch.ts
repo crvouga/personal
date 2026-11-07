@@ -23,18 +23,14 @@ export async function launchProfile(
     'CLAUDE_CODE_USE_VERTEX',
     'CLAUDE_CODE_USE_FOUNDRY',
     'CLIPROXY_API_KEY',
+    'GOOGLE_GEMINI_BASE_URL',
   ])
     delete env[name];
   if (selection.profile === 'proxy') {
     env['CLIPROXY_API_KEY'] = await proxyKey();
-    if (selection.tool === 'claude') {
-      delete env['ANTHROPIC_API_KEY'];
-      env['ANTHROPIC_BASE_URL'] = registry.proxy.endpoint;
-      env['ANTHROPIC_AUTH_TOKEN'] = env['CLIPROXY_API_KEY'];
-      for (const family of ['OPUS', 'SONNET', 'HAIKU'])
-        env[`ANTHROPIC_DEFAULT_${family}_MODEL`] = selection.model;
-    }
+    configureGatewayEnvironment(env, selection);
   }
+  if (selection.tool === 'claude') env['DISABLE_AUTOUPDATER'] = '1';
   if (selection.tool === 'codex') env['CODEX_HOME'] = directory;
   if (selection.tool === 'opencode')
     env['OPENCODE_CONFIG'] = join(directory, 'opencode.json');
@@ -50,4 +46,23 @@ export async function launchProfile(
     stderr: 'inherit',
   });
   return child.exited;
+}
+
+function configureGatewayEnvironment(
+  env: NodeJS.ProcessEnv,
+  selection: Selection
+): void {
+  if (selection.tool === 'gemini') {
+    delete env['GOOGLE_GENAI_USE_VERTEXAI'];
+    delete env['GOOGLE_GENAI_USE_GCA'];
+    env['GOOGLE_GEMINI_BASE_URL'] = registry.proxy.endpoint;
+    env['GEMINI_API_KEY'] = env['CLIPROXY_API_KEY'];
+  }
+  if (selection.tool === 'claude') {
+    delete env['ANTHROPIC_API_KEY'];
+    env['ANTHROPIC_BASE_URL'] = registry.proxy.endpoint;
+    env['ANTHROPIC_AUTH_TOKEN'] = env['CLIPROXY_API_KEY'];
+    for (const family of ['OPUS', 'SONNET', 'HAIKU'])
+      env[`ANTHROPIC_DEFAULT_${family}_MODEL`] = selection.model;
+  }
 }

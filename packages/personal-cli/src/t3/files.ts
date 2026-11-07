@@ -6,7 +6,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, parse } from 'node:path';
+import { dirname, parse, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { FleetUsageError } from '../../../fleet/src/errors';
 
@@ -15,7 +15,7 @@ export const hash = (value: string): string =>
 
 export async function safePath(path: string): Promise<void> {
   for (
-    let current = path;
+    let current = resolve(path);
     current !== parse(current).root;
     current = dirname(current)
   ) {

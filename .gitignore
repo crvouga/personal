@@ -50,3 +50,6 @@ crash.log
 
 # Content-validated formatting results.
 .cache/prettier
+
+# Local npm review artifacts, never source or publication inputs.
+.cache/fleet-sync-review/

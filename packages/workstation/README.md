@@ -119,7 +119,7 @@ personal workstation cleanup --protect 'vite' --protect 'storybook'
 
 `personal workstation net` keeps every machine reachable from every other: Tailscale, SSH,
 T3 Code and VS Code Remote-SSH. The machines live in the checked-in
-inventory `net/hosts.json` (alias, Tailscale name, SSH port/user, key path,
+canonical `../fleet/definition.json` (alias, Tailscale name, SSH port/user,
 OS, T3 port), so every machine gets the same view. Private keys are never
 committed: the inventory stores only their paths.
 
@@ -145,7 +145,7 @@ as a remote. Exit code 1 means at least one check failed.
 - `tailscale` / `code` wrappers in the global bin dir when the apps are installed but their CLIs are not on `PATH`
 - the background check (`personal workstation net watch install`): a launchd agent on macOS or a systemd user timer on Linux that runs `personal workstation net check --notify --quiet` every 5 minutes and posts a desktop notification when failures appear or clear. History: `<cache>/ws/net/check.log`.
 
-Adding a machine: add it to `net/hosts.json`, then `personal workstation net fix && personal workstation net check` on each machine.
+Adding a fleet machine: review its membership in `../fleet/definition.json`, then run `npx @crvouga/personal fleet-sync` on the designated controller to enroll its verified connection. Workstation network diagnostics consume that same definition. Legacy key-path migration data is retained under `../fleet/migrations/`; private connection overrides remain local.
 
 ### Platform design
 
@@ -528,3 +528,16 @@ secret/runtime boundaries and unsupported integrations. `agents/registry.json`
 owns portable model defaults, explicit node overrides and the CLI Proxy reference.
 `personal workstation doctor` reports installed tools and drift for applied profiles. T3 provider instances are reconciled by `personal t3-plan`, `t3-apply`, `t3-status`
 and `t3-cleanup`. Only declared/explicitly imported instances are owned.
+
+## Ubuntu one-command synchronization
+
+See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
+`personal fleet-sync` and `personal fleet converge` share the guarded local-first
+flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
+apply does not claim machine readiness. Existing commands retain their semantics.
+
+Ubuntu fleet services and power/sudo policy live in `ubuntu/`; pinned Beszel hub
+and native agent configuration live in [`monitoring/`](monitoring/README.md).
+The shared toolchain installs verified native T3 artifacts; Workstation invokes
+its supported `t3 service install` lifecycle and preserves runtime state. See the
+[controller runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
