@@ -55,3 +55,38 @@ connectivity, private TLS reachability, paired T3 execution, live provider accou
 off-host disaster recovery, or every hardware/desktop configuration. Track those
 separately in Fleet's acceptance issues. Never replace missing evidence with a
 mocked pass, or run destructive fault injection against a live development box.
+
+## Full SSH source/tool bootstrap
+
+This opt-in variant calls the production `bootstrapRemote` transport against a
+fresh guest. It removes the image's preinstalled Git **inside the disposable VM**
+and asserts that Node, Bun, mise and Git are absent. It transfers a Git bundle at
+one exact commit, runs the shared installer, requires a passing Ubuntu baseline,
+then repeats to check preserved work, SSH identity and managed-file timestamps.
+Missing Tailscale/provider credentials and paired T3 acceptance remain incomplete.
+The test does not convert those failures into full fleet readiness.
+
+Use a fresh private directory on a disk with at least 20 GiB free (the guest is a
+64 GiB sparse disk; do not use a small `/tmp` tmpfs). The tested commit must contain
+the implementation. Uncommitted edits are not included in the bundle.
+
+```sh
+fleet_test_dir=$(mktemp -d "$HOME/.cache/fleet-bootstrap.XXXXXX")
+mkdir -p "$fleet_test_dir/vm" "$fleet_test_dir/source" "$fleet_test_dir/verification"
+git rev-parse HEAD > "$fleet_test_dir/source/revision"
+git bundle create "$fleet_test_dir/source/source.bundle" HEAD
+git show HEAD:scripts/dev/fleet-remote-bootstrap.sh > "$fleet_test_dir/source/bootstrap.sh"
+bun build packages/workstation/ubuntu/tests/bootstrap-check.ts --compile --outfile "$fleet_test_dir/verification/bootstrap"
+docker run --rm --device /dev/kvm \
+  -v "$PWD:/workspace:ro" \
+  -v "$fleet_test_dir/vm:/artifacts" \
+  -v "$fleet_test_dir/source:/bootstrap:ro" \
+  -v "$fleet_test_dir/verification:/verification:ro" \
+  personal-fleet-test-tools
+```
+
+Inspect `bootstrap-result.json` and `bootstrap-repeat-result.json` for redacted
+phase evidence. A failed assertion preserves the guest disk for diagnosis and
+terminates the VM. Keep fixture keys and raw diagnostic logs private. This is a
+single-target production transport test; multi-target promotion and controller
+restart/interruption scenarios remain separate gates.

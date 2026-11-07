@@ -82,22 +82,19 @@ export async function installNativeT3(): Promise<void> {
     mkdirSync(staging, { recursive: true, mode: 0o700 });
     try {
       if (
-        spawnSync('tar', ['-xzf', archive, '-C', staging], { timeout: 120_000 })
-          .status !== 0
+        spawnSync(
+          'tar',
+          ['--same-permissions', '-xzf', archive, '-C', staging],
+          { timeout: 120_000 }
+        ).status !== 0
       )
         throw new Error('T3 extraction failed.');
+      verifyArchive(archive, staging);
       renameSync(join(staging, artifact.name), directory);
     } finally {
       rmSync(staging, { recursive: true, force: true });
     }
-  }
-  if (
-    spawnSync('tar', ['-dzf', archive, '-C', root], { timeout: 120_000 })
-      .status !== 0
-  )
-    throw new Error(
-      'Managed T3 files differ from the pinned artifact; maintenance is required.'
-    );
+  } else verifyArchive(archive, root);
   const version = spawnSync(join(directory, 't3'), ['--version'], {
     encoding: 'utf8',
     timeout: 30_000,
@@ -107,4 +104,17 @@ export async function installNativeT3(): Promise<void> {
     version.stdout.trim() !== `t3 v${artifact.version}`
   )
     throw new Error('Pinned T3 executable verification failed.');
+}
+
+function verifyArchive(archive: string, root: string): void {
+  if (
+    spawnSync(
+      'python3',
+      [join(workspaceRoot, 'scripts/dev/verify-t3-archive.py'), archive, root],
+      { timeout: 120_000 }
+    ).status !== 0
+  )
+    throw new Error(
+      'Managed T3 files differ from the pinned artifact; maintenance is required.'
+    );
 }

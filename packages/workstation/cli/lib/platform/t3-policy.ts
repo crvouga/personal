@@ -46,10 +46,21 @@ export async function stageT3Policy(
 }
 export async function verifyT3Policy(
   executable: string,
-  run: Runner
+  run: Runner,
+  pause: () => Promise<void> = () =>
+    new Promise((done) => setTimeout(done, 1000))
 ): Promise<Check> {
-  const result = await run([executable, 'policy', 'show']);
-  const loaded = result.ok && /loaded this policy\.\s*$/.test(result.stdout);
+  // A newly started native server can be active before loading its policy.
+  // Bound read-only startup observation; never restart to make this check pass.
+  let loaded = false;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const result = await run([executable, 'policy', 'show'], {
+      timeoutMs: 5000,
+    });
+    loaded = result.ok && /loaded this policy\.\s*$/.test(result.stdout);
+    if (loaded) break;
+    if (attempt < 5) await pause();
+  }
   return {
     id: 't3:policy-loaded',
     status: loaded ? 'pass' : 'fail',

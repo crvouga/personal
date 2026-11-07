@@ -12,6 +12,7 @@ import time
 import urllib.request
 
 ROOT = Path('/artifacts')
+BOOTSTRAP = Path('/bootstrap/revision').exists()
 IMAGE_SHA = '5645d0318ad21f643ebb1ac4567514620e9893380b07b0201fda163baa5b7eb5'
 
 
@@ -50,12 +51,12 @@ ssh_keys:
   ed25519_private: |
 {private}
   ed25519_public: {public}
-packages: [ansible-core]
+{"" if BOOTSTRAP else "packages: [ansible-core]"}
 ''')
     (ROOT / 'meta-data').write_text('instance-id: disposable-fleet-test\nlocal-hostname: disposable-fleet-test\n')
     run(['cloud-localds', str(ROOT / 'seed.img'), str(ROOT / 'user-data'), str(ROOT / 'meta-data')])
     if not (ROOT / 'guest.qcow2').exists():
-        run(['qemu-img', 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', str(image), str(ROOT / 'guest.qcow2'), '12G'])
+        run(['qemu-img', 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', str(image), str(ROOT / 'guest.qcow2'), '64G' if BOOTSTRAP else '12G'])
     ssh = ['ssh', '-i', str(ROOT / 'client'), '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={ROOT}/known_hosts', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=3', '-p', '2222', 'fleettest@127.0.0.1']
     log = (ROOT / 'serial.log').open('w')
     vm = subprocess.Popen(['qemu-system-x86_64', '-enable-kvm', '-cpu', 'host', '-smp', '2', '-m', '3072', '-display', 'none', '-serial', 'stdio', '-drive', f'file={ROOT}/guest.qcow2,if=virtio', '-drive', f'file={ROOT}/seed.img,format=raw,if=virtio', '-netdev', 'user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22', '-device', 'virtio-net-pci,netdev=net0'], stdout=log, stderr=log)
@@ -65,8 +66,26 @@ packages: [ansible-core]
             if attempt.returncode == 0:
                 break
             time.sleep(2)
-        run(ssh + ['cloud-init status --wait'])
+        run(ssh + ['cloud-init status --wait --long'])
         print('fresh verified SSH and cloud-init complete', flush=True)
+        if BOOTSTRAP:
+            # The official cloud image includes Git. Remove it only in this
+            # disposable fixture to exercise the minimal-target boundary.
+            run(ssh + ['sudo apt-get remove --yes git'])
+            run(ssh + ['! command -v node && ! command -v bun && ! command -v mise && ! command -v git'])
+            print('fresh target has no Node, Bun, mise or Git; invoking production SSH bootstrap', flush=True)
+            run(ssh + ['mkdir -p work && printf preserved > work/uncommitted'])
+            result = subprocess.run(['/verification/bootstrap', str(ROOT), '/bootstrap'], capture_output=True, text=True, timeout=5500)
+            (ROOT / 'bootstrap-result.json').write_text(result.stdout)
+            assert result.returncode == 0, 'production bootstrap did not reach node convergence; inspect redacted bootstrap-result.json'
+            evidence = 'sha256sum work/uncommitted /etc/ssh/ssh_host_ed25519_key.pub; stat -c %Y /etc/systemd/logind.conf.d/60-personal-fleet.conf /etc/ssh/sshd_config.d/60-personal-fleet.conf'
+            before = run(ssh + [evidence]).stdout
+            repeated = subprocess.run(['/verification/bootstrap', str(ROOT), '/bootstrap'], capture_output=True, text=True, timeout=5500)
+            (ROOT / 'bootstrap-repeat-result.json').write_text(repeated.stdout)
+            assert repeated.returncode == 0, 'repeated bootstrap did not pass the baseline'
+            assert run(ssh + [evidence]).stdout == before, 'repeat changed work, SSH identity or unchanged managed files'
+            print('production remote bootstrap and repeat passed the baseline; live auth remains unverified', flush=True)
+            return
         verification = Path('/verification/verify')
         assert verification.exists(), 'Compile the tracked runtime-check.ts fixture and mount /verification first'
         subprocess.run(ssh + ['cat > verify && chmod 700 verify'], input=verification.read_bytes(), capture_output=True, check=True, timeout=60)
@@ -113,6 +132,12 @@ packages: [ansible-core]
         run(ssh + ['sudo docker inspect --format=\"{{.State.Running}}\" personal-beszel-hub-1 | grep -qx true && curl -fsS http://127.0.0.1:8090/api/health >/dev/null'])
         print(json.dumps({'passed': ['Ubuntu baseline apply', 'repeat no-op', 'sudoers validation', 'sleep target masked', 'reboot and fresh SSH', 'uncommitted file preserved', 'sleep/SSH drift repair and injected capacity gate', 'native Beszel agent no-op/crash/reboot with intentionally unreachable fixture hub', 'pinned Beszel hub fresh Docker installation, repeat no-op and reboot'] + (['native T3 service install, no-op, crash recovery, managed update policy and reboot'] if t3_tested else []), 'unverified': ['Tailscale', 'paired T3', 'Beszel agent/private metrics', 'full remote bootstrap']}), flush=True)
     finally:
+        # Preserve failure evidence on disk before terminating the disposable VM.
+        # This is fixture cleanup, not a claimed power-loss acceptance test.
+        try:
+            subprocess.run(ssh + ['sync'], capture_output=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
         vm.terminate()
         try:
             vm.wait(timeout=15)

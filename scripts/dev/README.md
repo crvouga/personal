@@ -57,6 +57,13 @@ using project configs. `MISE_CONFIG_DIR` and `XDG_CONFIG_HOME` are respected for
 configuration; the PATH step also respects `MISE_DATA_DIR`, `XDG_DATA_HOME` and
 `MISE_SHIMS_DIR`, including Windows' `%LOCALAPPDATA%` default.
 
+Fleet's remote bootstrap invokes this same owner with a private `--status-file`
+path. The JSON record contains only a version, installer phase and status, never
+commands or raw errors. It is diagnostic progress, not proof of fleet readiness.
+The native T3 archive verifier checks actual content, modes, links and ownership
+by the development user; archive-builder numeric user/group IDs are not portable.
+A mismatch leaves the running service and application state untouched.
+
 ### OS prerequisites and supported platforms
 
 - **macOS x64 / Apple Silicon:** install Apple's Command Line Tools. If Git is

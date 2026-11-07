@@ -16,7 +16,23 @@ export async function installRemoteAgent(
 ): Promise<Check[]> {
   if (!isRevision(revision)) throw new Error('BESZEL_REVISION');
   const root = `"$HOME/.local/share/personal/fleet/revisions/${revision}"`;
-  const command = `cd ${root} && exec 9>"$HOME/.local/share/personal/fleet/remote-operation.lock" && flock -n 9 && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/workstation/cli/lib/monitoring/apply.ts')}`;
+  const locked = shellQuote(
+    JSON.stringify({
+      version: 1,
+      checks: [
+        {
+          id: 'beszel:lock',
+          status: 'fail',
+          summary: 'FLEET_REMOTE_LOCKED',
+          remedy: {
+            action:
+              'Another remote operation owns the lock. Inspect its state and retry after it finishes; never delete the lock or start a competing installer.',
+          },
+        },
+      ],
+    })
+  );
+  const command = `cd ${root} && exec 9>"$HOME/.local/share/personal/fleet/remote-operation.lock" && { flock -n 9 || { printf '%s\\n' ${locked}; exit 0; }; } && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/workstation/cli/lib/monitoring/apply.ts')}`;
   const result = await run([...sshArgs(node), command], {
     input: JSON.stringify({ ...enrollment, node: node.id, revision }),
     timeoutMs: 360_000,

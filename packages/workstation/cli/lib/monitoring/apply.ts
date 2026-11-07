@@ -96,9 +96,15 @@ async function validateSource(
   root: string,
   run: Runner
 ): Promise<void> {
-  const head = await run(['git', 'rev-parse', 'HEAD'], { cwd: root });
-  if (!head.ok || head.stdout.trim() !== request.revision)
-    throw new Error('BESZEL_SOURCE_MISMATCH');
+  for (const [args, expected] of [
+    [['git', 'rev-parse', 'HEAD'], request.revision],
+    [['git', 'rev-parse', '--show-toplevel'], resolve(root)],
+    [['git', 'status', '--porcelain'], ''],
+  ] as const) {
+    const observed = await run([...args], { cwd: root });
+    if (!observed.ok || observed.stdout.trim() !== expected)
+      throw new Error('BESZEL_SOURCE_MISMATCH');
+  }
 }
 async function main(): Promise<Check[]> {
   let raw = '';

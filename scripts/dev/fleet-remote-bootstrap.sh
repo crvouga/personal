@@ -95,7 +95,21 @@ clean=$(git -C "$deployment" status --porcelain) || die SOURCE_STATUS_FAILED
 phase=toolchain
 cd "$deployment"
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"
-timeout 1800 bash scripts/dev/bootstrap.sh --non-interactive >/dev/null 2>&1 || die TOOLCHAIN_CONVERGENCE_FAILED
+status_file="$root/toolchain-status.json"
+[ ! -L "$status_file" ] || die FLEET_STATE_PATH_UNSAFE
+rm -f -- "$status_file"
+if ! timeout 1800 bash scripts/dev/bootstrap.sh --non-interactive --status-file "$status_file" >/dev/null 2>&1; then
+  tool_phase=$(sed -n 's/.*"phase":"\([a-z0-9-]*\)".*/\1/p' "$status_file" 2>/dev/null) || tool_phase=''
+  case "$tool_phase" in
+    managed-config) die TOOLCHAIN_CONFIG_CONFLICT;;
+    mise) die TOOLCHAIN_MISE_FAILED;;
+    aws) die TOOLCHAIN_AWS_FAILED;;
+    t3) die TOOLCHAIN_T3_FAILED;;
+    global-config|shell) die TOOLCHAIN_PATH_CONFIGURATION_FAILED;;
+    dependencies) die TOOLCHAIN_FROZEN_DEPENDENCIES_FAILED;;
+    *) die TOOLCHAIN_CONVERGENCE_FAILED;;
+  esac
+fi
 phase=configuration
 trap - EXIT INT TERM
 exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision"

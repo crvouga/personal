@@ -4,7 +4,7 @@
 
 This working-tree implementation is **not yet a completed or published fleet
 release**. Do not describe it as having configured Chris’s machines. Required
-acceptance checks remain incomplete: remote VM/bootstrap fault tests, unattended
+acceptance checks remain incomplete: multi-target remote/bootstrap fault tests, unattended
 paired T3 execution and live private-route acceptance, all five live provider routes, controller boot/scheduling acceptance,
 off-host monitoring recovery, and the full Ubuntu drift/fault matrix. Disposable Ubuntu baseline
 apply/repeat/reboot and pinned native T3 install/repeat/crash recovery/reboot passed.
@@ -12,7 +12,7 @@ The production boot-policy observer also passed inside the rebooted VM. Pinned
 Beszel hub installation (including a missing Docker engine), repeat no-op and
 reboot passed. Native Beszel agent installation, repeat no-op, crash recovery and
 reboot also passed with an intentionally unreachable fixture hub; private metrics
-acceptance remains separate. The VM caught and fixed an Ansible piped-stdin
+acceptance remains separate. A further full SSH bootstrap test caught a T3 archive verification bug: release-builder UID/GID values are not the designated installation user. The shared installer now verifies local ownership, content, modes and links independently of archive-builder identity. The same test exposed restrictive-umask extraction drift; archive modes are now preserved and staging is verified before promotion. A fresh Ubuntu VM now passes the production strict-SSH source transfer, missing-prerequisite bootstrap, shared tool installation and baseline, then repeats with preserved SSH identity, developer work and managed-file timestamps. This uses a disposable exact test commit, not a published release or live fleet. Multi-target and interruption acceptance remains open. The VM caught and fixed an Ansible piped-stdin
 variable-loading failure; runtime variables now use a private temporary file with
 cleanup and never enter command arguments. See the
 [reproducible VM test instructions](../../workstation/ubuntu/tests/README.md).
@@ -298,25 +298,28 @@ Official feature references: [native agent](https://beszel.dev/guide/agent-insta
 
 ## Failure, retry and recovery
 
-| Stable outcome                                                | Read-only diagnosis and source-owned remedy                                                                                      |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `FLEET_CONTROLLER_ENROLLMENT_REQUIRED`                        | Inspect canonical membership and private overrides; rerun interactive enrollment. Preserve conflicting files for review.         |
-| `TAILSCALE_ENROLLMENT_REQUIRED` / `TAILSCALE_DEVICE_REPLACED` | Verify intended device ID and host fingerprint. Update reviewed private binding only after genuine enrollment.                   |
-| `TAILSCALE_NODE_OFFLINE` / `TAILSCALE_NODE_MISSING`           | Restore power/connectivity or the trusted LAN route; next controller run catches up.                                             |
-| `ssh:host-key` / `ssh:auth`                                   | Verify fingerprint or designated user/public key. Never disable host-key checking or copy another host’s keys.                   |
-| `SUDO_AUTHORIZATION_REQUIRED`                                 | Supply initial local privilege through an authorized enrollment step; do not disable SSH authentication.                         |
-| `REMOTE_BOOTSTRAP_INCOMPLETE`                                 | Inspect the named phase, dpkg state, free disk, DNS and package access. Wait for a real package transaction; never delete locks. |
-| `FLEET_PROMOTION_BLOCKED`                                     | Resolve discovery/canary failure before promoting the same revision to remaining nodes.                                          |
-| `BESZEL_DUPLICATE_NODE` / host conflict                       | Inspect hub registrations. Preserve history/fingerprint and resolve assignment; do not repeatedly create records.                |
-| `BESZEL_METRICS_STALE`                                        | Check hub/node clocks, connection, capacity and sampling timestamp.                                                              |
-| `BESZEL_ENROLLMENT_INCOMPLETE`                                | Check hub reachability, account grant and Vault renewal. Raw responses/tokens are withheld.                                      |
-| `REQUIRED_ACCEPTANCE_UNVERIFIED`                              | Run the missing real acceptance check; a skip must never be changed to pass without evidence.                                    |
+| Stable outcome                                                                           | Read-only diagnosis and source-owned remedy                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `FLEET_CONTROLLER_ENROLLMENT_REQUIRED`                                                   | Inspect canonical membership and private overrides; rerun interactive enrollment. Preserve conflicting files for review.                                                                                                 |
+| `TAILSCALE_ENROLLMENT_REQUIRED` / `TAILSCALE_DEVICE_REPLACED`                            | Verify intended device ID and host fingerprint. Update reviewed private binding only after genuine enrollment.                                                                                                           |
+| `TAILSCALE_NODE_OFFLINE` / `TAILSCALE_NODE_MISSING`                                      | Restore power/connectivity or the trusted LAN route; next controller run catches up.                                                                                                                                     |
+| `ssh:host-key` / `ssh:auth`                                                              | Verify fingerprint or designated user/public key. Never disable host-key checking or copy another host’s keys.                                                                                                           |
+| `SUDO_AUTHORIZATION_REQUIRED`                                                            | Supply initial local privilege through an authorized enrollment step; do not disable SSH authentication.                                                                                                                 |
+| `REMOTE_BOOTSTRAP_INCOMPLETE`                                                            | Inspect the named phase, dpkg state, free disk, DNS and package access. Wait for a real package transaction; never delete locks.                                                                                         |
+| `TOOLCHAIN_MISE_FAILED` / `TOOLCHAIN_T3_FAILED` / `TOOLCHAIN_FROZEN_DEPENDENCIES_FAILED` | Inspect the nonsecret `toolchain-status.json` under remote Fleet state, available disk and signed artifact/registry access. Rerun the approved revision; never replace pins or bypass checksum/frozen-lock verification. |
+| `TOOLCHAIN_CONFIG_CONFLICT` / `TOOLCHAIN_PATH_CONFIGURATION_FAILED`                      | Inspect managed mise ownership and declared shell/PATH settings. Preserve unrelated configuration and resolve the source-owned migration before retrying.                                                                |
+| `FLEET_REMOTE_LOCKED`                                                                    | A remote configuration operation still owns the kernel lock. Inspect its PID and state; wait for completion instead of deleting locks or launching another installer.                                                    |
+| `FLEET_PROMOTION_BLOCKED`                                                                | Resolve discovery/canary failure before promoting the same revision to remaining nodes.                                                                                                                                  |
+| `BESZEL_DUPLICATE_NODE` / host conflict                                                  | Inspect hub registrations. Preserve history/fingerprint and resolve assignment; do not repeatedly create records.                                                                                                        |
+| `BESZEL_METRICS_STALE`                                                                   | Check hub/node clocks, connection, capacity and sampling timestamp.                                                                                                                                                      |
+| `BESZEL_ENROLLMENT_INCOMPLETE`                                                           | Check hub reachability, account grant and Vault renewal. Raw responses/tokens are withheld.                                                                                                                              |
+| `REQUIRED_ACCEPTANCE_UNVERIFIED`                                                         | Run the missing real acceptance check; a skip must never be changed to pass without evidence.                                                                                                                            |
 
 After interruption rerun the same controller command. Controller locks fail closed
 rather than stealing a possibly live operation. Inspect active controller and
 remote processes before removing an abandoned controller `sync.lock`. Its private
 `owner.json` records PID and start time; node `remote-operation.json` records PID,
-node and source revision. These are diagnostic hints, never proof that a process
+node and source revision. `toolchain-status.json` records only the shared installer phase and running/failed/passed status, mode 0600; it contains no raw subprocess output. These are diagnostic hints, never proof that a process
 has stopped or that a phase succeeded. Remote flock
 lives as long as the process tree holds it: a lost SSH connection is not proof that
 APT stopped. No installer deletes APT locks or blindly kills package processes.
