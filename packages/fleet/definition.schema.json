@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portable developer machine definition; local paths remain in roster overrides",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "nodes", "proxy", "monitoring", "ubuntu"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 2
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "ssh", "os"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "ssh": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}$"
+          },
+          "os": {
+            "enum": ["linux", "macOS", "windows"]
+          },
+          "network": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tailscaleName", "user", "sshPort", "t3Port"],
+            "properties": {
+              "tailscaleName": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}$"
+              },
+              "user": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_-]{0,31}$"
+              },
+              "sshPort": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "t3Port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              }
+            }
+          }
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "endpoint"],
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "endpoint": {
+          "const": "https://cli-proxy.chrisvouga.dev"
+        }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parent"],
+      "properties": {
+        "parent": {
+          "type": "string"
+        }
+      }
+    },
+    "ubuntu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "architectures"],
+      "properties": {
+        "release": {
+          "const": "26.04"
+        },
+        "architectures": {
+          "const": ["amd64", "arm64"]
+        }
+      }
+    }
+  }
+}

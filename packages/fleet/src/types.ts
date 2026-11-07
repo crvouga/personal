@@ -14,6 +14,8 @@ export interface FleetNode {
   id: string;
   ssh: string;
   workspace: string;
+  tailscaleId?: string;
+  bootstrapViaSsh?: boolean;
   runtime?: string;
   required: Capability[];
 }
@@ -24,6 +26,8 @@ export interface FleetConfig {
 }
 
 export interface Check {
+  /** Measured enclosing phase duration; omitted when not observed. */
+  phaseDurationMs?: number;
   id: string;
   status: Status;
   summary: string;
@@ -58,6 +62,8 @@ export interface Report {
 }
 
 export interface CommandOptions {
+  /** Internal remote worker: keep the already-held operation lock on fd 9. */
+  preserveOperationLock?: boolean;
   cwd?: string;
   input?: string;
   timeoutMs?: number;

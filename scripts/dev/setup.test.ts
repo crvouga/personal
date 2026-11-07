@@ -5,6 +5,8 @@ import {
   writeFileSync,
   readFileSync,
   rmSync,
+  statSync,
+  utimesSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -23,7 +25,15 @@ test('global config publishes lock sidecars, is repeatable and refuses foreign c
   writeFileSync(join(source, '.mise/locks/npm.json'), 'fixture graph');
   try {
     publishGlobalConfig(target, source);
+    const managedPaths = [
+      'config.toml',
+      'mise.lock',
+      '.mise/locks/npm.json',
+    ].map((path) => join(target, path));
+    for (const path of managedPaths) utimesSync(path, 1000, 1000);
     publishGlobalConfig(target, source);
+    for (const path of managedPaths)
+      expect(statSync(path).mtimeMs).toBe(1_000_000);
     expect(readFileSync(join(target, 'mise.lock'), 'utf8')).toBe(
       'fixture lock'
     );

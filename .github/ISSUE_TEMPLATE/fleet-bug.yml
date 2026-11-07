@@ -1,0 +1,51 @@
+name: Developer fleet failure
+description: Report a reproducible fleet-sync failure with safe agent-triage evidence.
+title: '[fleet] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is public. Do not attach tokens, pairing URLs, private SSH configuration, complete journals, runtime databases, or backups. Inspect and redact diagnostic output before sharing it. Never bypass trust or reset machine identity to reproduce a failure.
+  - type: input
+    id: version
+    attributes:
+      label: Package version and approved source SHA
+      description: Include the exact npm version and desired/applied revisions. Say unknown if unavailable.
+    validations:
+      required: true
+  - type: input
+    id: code
+    attributes:
+      label: Stable check or error code
+      description: Copy the checkId/code from the versioned JSON result; include the existing package owner if known.
+    validations:
+      required: true
+  - type: dropdown
+    id: execution
+    attributes:
+      label: Execution mode
+      options:
+        - Read-only preview
+        - Interactive apply
+        - Unattended controller apply
+        - Controller scheduled run
+        - Disposable integration test
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Starting state and minimal reproduction
+      description: Include controller OS, Ubuntu release/architecture, fresh/repeat/interrupted state, expected result, observed result, and whether other nodes continued. Use neutral node labels instead of private network details.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Reviewed, redacted evidence
+      description: Include relevant diagnostic entries and timestamps only. Distinguish node checks, fresh controller connections, and paired end-to-end checks; do not substitute a service status for remote acceptance.
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression and recovery acceptance
+      description: Name the existing source owner, a safe regression scenario, and evidence needed to close this issue. Do not propose untracked remote edits or destructive fault injection on live machines.

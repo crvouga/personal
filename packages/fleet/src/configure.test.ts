@@ -81,3 +81,62 @@ test('setup failure preserves previous successful rollout receipt', async () => 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('an already bootstrapped managed revision is verified without a second setup or worktree', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'fleet-prepared-'));
+  const calls: string[][] = [];
+  try {
+    const run: Runner = async (command) => {
+      calls.push(command);
+      let stdout = revision;
+      if (command.includes('--porcelain')) stdout = '';
+      if (command.includes('--show-toplevel')) stdout = root;
+      if (command.includes('agents'))
+        stdout = JSON.stringify({
+          ok: true,
+          revision,
+          fingerprint: 'b'.repeat(64),
+        });
+      return { ok: true, stdout, stderr: '', reason: 'exit' };
+    };
+    const result = await configureWorkspace(root, request, run, {
+      additionalTools: ['opencode'],
+      bootstrappedDeployment: true,
+    });
+    expect(result.every((check) => check.status === 'pass')).toBe(true);
+    expect(
+      calls.some(
+        (command) =>
+          command.includes('scripts/dev/setup.ts') ||
+          command.includes('worktree')
+      )
+    ).toBe(false);
+    expect(calls.filter((command) => command.includes('agents'))).toHaveLength(
+      2
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+test('prepared mode does not trust a marker or skip actual checkout drift inspection', async () => {
+  const calls: string[][] = [];
+  const result = await configureWorkspace(
+    '/managed',
+    request,
+    async (command) => {
+      calls.push(command);
+      return {
+        ok: true,
+        stdout: command.includes('--porcelain') ? ' M tracked-file' : revision,
+        stderr: '',
+        reason: 'exit',
+      };
+    },
+    { additionalTools: [], bootstrappedDeployment: true }
+  );
+  expect(result[0]?.status).toBe('fail');
+  expect(calls.some((command) => command.includes('agents'))).toBe(false);
+});

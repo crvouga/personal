@@ -87,7 +87,7 @@ function validateInstance(id: string, value: unknown): void {
   const env = instance['environment'];
   if (
     !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(id) ||
-    instance['driver'] !== 'codex' ||
+    !['codex', 'opencode'].includes(String(instance['driver'])) ||
     typeof instance['displayName'] !== 'string' ||
     typeof instance['enabled'] !== 'boolean' ||
     Object.keys(instance).some(
@@ -96,21 +96,23 @@ function validateInstance(id: string, value: unknown): void {
           key
         )
     ) ||
-    !validConfig(config) ||
+    !validConfig(config, String(instance['driver'])) ||
     !validEnvironment(env)
   )
     throw new FleetUsageError(
-      'Invalid T3 instance definition; only the supported Codex adapter fields are accepted.'
+      'Invalid T3 instance definition; only the supported Codex/OpenCode adapter fields are accepted.'
     );
 }
 
-function validConfig(config: Record<string, unknown>): boolean {
+function validConfig(config: Record<string, unknown>, driver: string): boolean {
   return (
     Object.keys(config).every((key) =>
       ['binaryPath', 'homePath'].includes(key)
     ) &&
     typeof config['binaryPath'] === 'string' &&
-    typeof config['homePath'] === 'string'
+    (driver === 'opencode'
+      ? config['homePath'] === undefined
+      : typeof config['homePath'] === 'string')
   );
 }
 

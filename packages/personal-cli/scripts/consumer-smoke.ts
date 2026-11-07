@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runCommand } from '../../fleet/src/runner';
 import { mustRun, npmEnvironment } from './release-io';
+import { consumerHelp } from './consumer-help';
 import { consumerT3 } from './consumer-t3';
 import { ReleaseError } from './release-error';
 import { npmCommand } from './npm';
@@ -43,6 +44,7 @@ export async function consumerSmoke(tarball: string): Promise<void> {
     await exercise(directory, env);
     await exerciseBinary(directory, env);
     await consumerT3(directory, env);
+    await consumerHelp(directory, env);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -103,6 +105,7 @@ async function exercise(
       'standalone JSON command must work without a checkout'
     );
   }
+  await exerciseController(cli, node, directory, env);
   const version = await mustRun([node, cli, '--version'], directory, env, {
     stage: 'consumer-command',
   });
@@ -182,4 +185,34 @@ async function exerciseProbe(
     response.ok && JSON.parse(response.stdout).version === 1,
     'bundled remote probe must run on Node without Bun'
   );
+}
+
+async function exerciseController(
+  cli: string,
+  node: string,
+  directory: string,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  for (const command of [['fleet-sync'], ['fleet', 'converge']]) {
+    const result = await runCommand(
+      [
+        node,
+        cli,
+        ...command,
+        '--revision',
+        'a'.repeat(40),
+        '--dry-run',
+        '--json',
+      ],
+      { cwd: directory, env }
+    );
+    const report = JSON.parse(result.stdout);
+    assert(
+      !result.ok &&
+        report.version === 2 &&
+        report.execution === 'controller-push' &&
+        report.applied === false,
+      'clean npm consumer must report missing controller enrollment without writes'
+    );
+  }
 }

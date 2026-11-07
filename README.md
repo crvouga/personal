@@ -35,10 +35,13 @@ Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for ma
 
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
-Development computers: [fleet tooling](packages/fleet/README.md) provides read-only
-`bun run fleet doctor --json`, credential-safe onboarding and explicitly authorized
-shared toolchain/dependency sync. Start with `bun run fleet init` (preview).
-The local developer roster is not cloud inventory; `health` remains the cloud report.
+Development computers: the [controller fleet runbook](packages/fleet/docs/ubuntu-sync.md)
+describes `npx @crvouga/personal fleet-sync`, canonical membership, verified SSH,
+Ubuntu/T3/provider convergence and Beszel. Read its unshipped release and acceptance
+gates before deployment. Legacy `fleet sync` remains plan-only without explicit
+apply confirmation; `fleet doctor --json` remains read-only. Developer membership
+and private connection overrides are separate from cloud inventory; `health`
+remains the cloud report.
 
 ## Update secrets
 

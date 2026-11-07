@@ -37,6 +37,8 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
     ['agent', '--json'],
     ['fleet', 'schema', '--json'],
     ['--help'],
+    ['help'],
+    ['help', 't3-apply'],
     ['fleet', 'add', '--help'],
   ]) {
     const result = await execute(args, await settings(), '1.2.3');
@@ -47,6 +49,8 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
   expect(
     COMMANDS.filter((entry) => entry.mutation).map((entry) => entry.id)
   ).toEqual([
+    'fleet-sync',
+    'fleet converge',
     't3-apply',
     't3-cleanup',
     't3-import',
@@ -68,9 +72,14 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
 });
 
 test('interactive routing never prompts agents, redirected terminals or CI', () => {
-  expect(wantsInteractive([], true, false)).toBe(true);
+  expect(wantsInteractive([], true, false)).toBe(false);
   expect(wantsInteractive(['--config', '/tmp/fleet.json'], true, false)).toBe(
-    true
+    false
+  );
+  expect(wantsInteractive(['--interactive'], true, false)).toBe(true);
+  expect(wantsInteractive(['--interactive'], true, true)).toBe(false);
+  expect(wantsInteractive(['--interactive', 't3-cleanup'], true, false)).toBe(
+    false
   );
   expect(wantsInteractive(['fleet', 'nodes'], true, false)).toBe(false);
   expect(wantsInteractive(['--json', '--interactive'], true, false)).toBe(
@@ -180,4 +189,48 @@ test('listing an unconfigured fleet is an empty first-run state; validation and 
   expect(
     (await execute(['fleet', 'nodes', '--json'], base, '1.2.3')).exitCode
   ).toBe(2);
+});
+
+test('bare invocation is help and JSON discovery aliases share the same index', async () => {
+  const base = await settings();
+  const bare = await execute([], base, '1.2.3');
+  const help = await execute(['--help'], base, '1.2.3');
+  expect(bare.exitCode).toBe(0);
+  expect(bare.text).toBe(help.text);
+  expect(bare.text).toContain('Usage: personal');
+  expect(bare.text).toContain('--json does not make a command read-only');
+  const catalog = await execute(['commands', '--json'], base, '1.2.3');
+  expect((await execute(['index', '--json'], base, '1.2.3')).data).toEqual(
+    catalog.data
+  );
+  expect((await execute(['--json'], base, '1.2.3')).data).toEqual(catalog.data);
+  const data = catalog.data as {
+    commands: { id: string; help: string; execution: { default: string } }[];
+  };
+  expect(
+    data.commands.find((entry) => entry.id === 't3-apply')?.execution.default
+  ).toBe('apply');
+  expect(
+    data.commands.find((entry) => entry.id === 'fleet sync')?.execution.default
+  ).toBe('preview');
+  expect(
+    data.commands.find((entry) => entry.id === 'fleet-status')?.execution
+      .default
+  ).toBe('read-only');
+  expect(data.commands.every((entry) => entry.help.endsWith('--help'))).toBe(
+    true
+  );
+  expect(await readRoster(base.config)).toBeNull();
+});
+
+test('every indexed command has read-only help without a checkout or credentials', async () => {
+  const base = await settings();
+  for (const entry of COMMANDS) {
+    const result = await execute([...entry.args, '--help'], base, 'test');
+    expect(result.exitCode).toBe(0);
+    expect(result.text).toContain('Usage:');
+  }
+  expect((await execute(['workstation'], base, 'test')).text).toContain(
+    'Domains:'
+  );
 });

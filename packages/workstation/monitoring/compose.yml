@@ -1,0 +1,23 @@
+# Run from the verified deployment worktree. Never copy the hub data to an agent.
+name: personal-beszel
+services:
+  hub:
+    image: henrygd/beszel:0.21.1@sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8090:8090'
+    environment:
+      APP_URL: '${BESZEL_HUB_URL:?private HTTPS hub URL required}'
+      DISABLE_SSH: 'true'
+      CHECK_UPDATES: 'false'
+    volumes:
+      - /var/lib/personal-beszel:/beszel_data
+    logging:
+      driver: local
+      options:
+        max-size: '10m'
+        max-file: '3'
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 30s

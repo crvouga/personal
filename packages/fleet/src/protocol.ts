@@ -14,6 +14,7 @@ export function validCheck(value: unknown): value is Check {
     value['summary'].length > 2000
   )
     return false;
+  if (!validDuration(value['phaseDurationMs'])) return false;
   const remedy = value['remedy'];
   return remedy === undefined || validRemedy(remedy);
 }
@@ -75,6 +76,9 @@ export function cleanCheck(check: Check): Check {
     id: check.id,
     status: check.status,
     summary: check.summary,
+    ...(check.phaseDurationMs !== undefined
+      ? { phaseDurationMs: check.phaseDurationMs }
+      : {}),
     ...(check.remedy
       ? {
           remedy: {
@@ -96,4 +100,14 @@ function cleanSnapshot(snapshot: Snapshot): Snapshot {
     },
     checks: snapshot.checks.map(cleanCheck),
   };
+}
+
+function validDuration(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'number' &&
+      Number.isSafeInteger(value) &&
+      value >= 0 &&
+      value <= 86_400_000)
+  );
 }

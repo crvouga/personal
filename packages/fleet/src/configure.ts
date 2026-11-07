@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { mkdir, writeFile, rename } from 'node:fs/promises';
+import { mkdir, writeFile, rename, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { record } from './config';
 import type { Check, Runner } from './types';
@@ -29,15 +29,24 @@ export function validConfiguration(
 export async function configureWorkspace(
   root: string,
   request: ConfigurationRequest,
-  run: Runner
+  run: Runner,
+  options: { additionalTools: string[]; bootstrappedDeployment: boolean } = {
+    additionalTools: [],
+    bootstrappedDeployment: false,
+  }
 ): Promise<Check[]> {
+  if (
+    options.additionalTools.some(
+      (tool) => !validConfiguration({ ...request, tool })
+    )
+  )
+    return failure('Invalid additional profile.');
   if (!validConfiguration(request))
     return failure('Invalid reviewed revision or configuration selection.');
-  const directory = join(
+  const directory = deploymentDirectory(
     root,
-    'node_modules',
-    '.fleet-revisions',
-    request.revision
+    request.revision,
+    options.bootstrappedDeployment
   );
   const head = await run(
     ['git', 'rev-parse', '--verify', `${request.revision}^{commit}`],
@@ -54,6 +63,19 @@ export async function configureWorkspace(
     run
   );
   if (prepared.length) return prepared;
+  if (!options.bootstrappedDeployment) {
+    const setup = await setupRevision(directory, run);
+    if (setup.length) return setup;
+  }
+  const checks: Check[] = [];
+  for (const tool of [request.tool, ...options.additionalTools]) {
+    checks.push(
+      ...(await applyProfile(root, directory, { ...request, tool }, run))
+    );
+  }
+  return checks;
+}
+async function setupRevision(directory: string, run: Runner): Promise<Check[]> {
   const setup = await run(
     [
       'mise',
@@ -71,6 +93,15 @@ export async function configureWorkspace(
     return failure(
       'Existing setup owner failed. Partial tool/dependency installation is possible; no configuration receipt was advanced.'
     );
+  return [];
+}
+
+async function applyProfile(
+  root: string,
+  directory: string,
+  request: ConfigurationRequest,
+  run: Runner
+): Promise<Check[]> {
   const applied = await applyOwner(directory, request, run);
   if (!applied.ok)
     return failure(
@@ -116,6 +147,7 @@ async function prepareRevision(
   revision: string,
   run: Runner
 ): Promise<Check[]> {
+  if (root === directory) return verifyRevision(directory, revision, run);
   await mkdir(join(root, 'node_modules', '.fleet-revisions'), {
     recursive: true,
   });
@@ -131,6 +163,14 @@ async function prepareRevision(
       );
     deployed = await run(['git', 'rev-parse', 'HEAD'], { cwd: directory });
   }
+  return verifyRevision(directory, revision, run);
+}
+async function verifyRevision(
+  directory: string,
+  revision: string,
+  run: Runner
+): Promise<Check[]> {
+  const deployed = await run(['git', 'rev-parse', 'HEAD'], { cwd: directory });
   const clean = await run(['git', 'status', '--porcelain'], { cwd: directory });
   if (
     !deployed.ok ||
@@ -160,12 +200,15 @@ async function recordConfiguration(
     receipts,
     `${request.node}-${request.tool}-${request.profile}.json`
   );
+  const contents =
+    JSON.stringify({ version: 1, ...request, fingerprint: receipt }) + '\n';
+  try {
+    if ((await readFile(path, 'utf8')) === contents) return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
   const temp = `${path}.${randomUUID()}.tmp`;
-  await writeFile(
-    temp,
-    JSON.stringify({ version: 1, ...request, fingerprint: receipt }) + '\n',
-    { flag: 'wx', mode: 0o600 }
-  );
+  await writeFile(temp, contents, { flag: 'wx', mode: 0o600 });
   await rename(temp, path);
 }
 
@@ -197,4 +240,14 @@ async function applyOwner(
     ],
     { cwd: directory, timeoutMs: 120_000 }
   );
+}
+
+function deploymentDirectory(
+  root: string,
+  revision: string,
+  bootstrapped: boolean
+): string {
+  return bootstrapped
+    ? root
+    : join(root, 'node_modules', '.fleet-revisions', revision);
 }

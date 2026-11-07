@@ -16,9 +16,7 @@ export function wantsInteractive(
 ): boolean {
   if (args.includes('--json') || args.includes('--non-interactive'))
     return false;
-  return (
-    terminal && (args.includes('--interactive') || (contextOnly(args) && !ci))
-  );
+  return terminal && !ci && args.includes('--interactive') && contextOnly(args);
 }
 
 function startup(args: string[]) {
@@ -54,8 +52,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
       : {}),
     ...(typeof values.config === 'string' ? { config: values.config } : {}),
   });
-  if (startup(args).positionals[0] === 'workstation')
-    return forwardWorkstation(args, settings);
+  if (workstationOperation(args)) return forwardWorkstation(args, settings);
   const terminal = interactiveTerminal();
   if (args.includes('--interactive') && !terminal) {
     process.stdout.write(
@@ -87,4 +84,9 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
 
 function interactiveTerminal(): boolean {
   return process.stdin.isTTY === true && process.stderr.isTTY === true;
+}
+
+function workstationOperation(args: string[]): boolean {
+  const { positionals } = startup(args);
+  return positionals[0] === 'workstation' && positionals.length > 1;
 }

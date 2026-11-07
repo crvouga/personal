@@ -20,7 +20,7 @@ Cursor and Antigravity are desktop prerequisites, not mise-managed binaries.
 | Existing OpenCode plugins/bin and cli/lib/links.ts; personal workstation          | Platform OpenCode plugins/bin, tui.json, notifier files                 | Notification plugins, sounds, platform-derived app paths                                         |
 | `agents/codex-proxy.ts`; personal workstation                                     | T3 binaryPath points directly into reviewed Git checkout                | Runtime Vault injection; WS_AGENT_NODE is a declared machine value                               |
 | `agents/t3.json`; personal T3 reconciler                                          | T3CODE_HOME/userdata/settings.json                                      | Owned provider instances only; plan/apply/import/cleanup and private ownership state             |
-| `net/hosts.json`, cli/lib/net; personal workstation                               | Managed SSH block and VS Code Remote-SSH settings                       | Existing machine aliases, OS/user/identity public paths and T3 ports; no private keys            |
+| `../fleet/definition.json`, cli/lib/net; personal workstation                     | Managed SSH block and VS Code Remote-SSH settings                       | Existing machine aliases, OS/user/identity public paths and T3 ports; no private keys            |
 | `.agents/commands/*.md`; agents:sync                                              | Harness command symlinks                                                | Canonical agent commands; do not edit copies                                                     |
 | Root AGENTS.md, CLAUDE.md, GEMINI.md, .github/copilot-instructions.md             | Repository instruction discovery                                        | Same canonical repository rules                                                                  |
 | Existing cliproxy clients/bootstrap.py and launcher.py                            | ~/.config/cliproxy-fleet; ~/.local/bin/*-fleet                          | Legacy opt-in migration boundary; native settings preserved                                      |
@@ -47,14 +47,12 @@ Usage tracking in CLIProxyAPI/T3 is independent from the inference route.
   login state. T3 source confirms homePath and binaryPath per provider instance.
 - [Claude gateway](https://code.claude.com/docs/en/llm-gateway-connect) and
   [settings](https://code.claude.com/docs/en/settings): native settings-file override
-  plus ANTHROPIC_BASE_URL/AUTH_TOKEN. No approved proxy Claude model is assumed:
-  the registry deliberately refuses it until an exact available model is reviewed.
+  plus ANTHROPIC_BASE_URL/AUTH_TOKEN. The registry declares `claude-sonnet-4-6`; availability and authentication are checked separately.
 - [OpenCode](https://opencode.ai/docs/config/): OPENCODE_CONFIG merges with native
   configuration; environment placeholders avoid persisting the proxy key. Direct
   OpenRouter defaults remain owned by the existing provider sync.
 - [Gemini CLI](https://geminicli.com/docs/reference/configuration/): native settings,
-  GEMINI_CLI_HOME and Google/API-key/Vertex authentication are distinct. The new
-  adapter supports direct native login only; Gemini-to-proxy compatibility is unverified.
+  GEMINI_CLI_HOME and Google/API-key/Vertex authentication are distinct. Pinned 0.66.0 also supports `gateway` authentication, `GOOGLE_GEMINI_BASE_URL` and a runtime `GEMINI_API_KEY`; the managed proxy adapter uses those native interfaces. Live native-client acceptance remains unverified.
 - [Cursor](https://prod.cursor.com/help/models-and-usage/api-keys): supported API-key
   setup uses Settings > Models; some features continue through Cursor. No supported
   unattended portable credential/settings adapter was established; no SQLite edits.
@@ -70,3 +68,16 @@ may preserve preexisting local contents and therefore stay private, outside Git.
 New proxy profiles read only Vault `secret/data/personal/prd` field
 `CLIPROXY_FLEET_CLIENT_API_KEY`; neither generated configs nor receipts contain it.
 Missing access fails without retaining Vault responses. No secret is seeded here.
+
+## Fleet provider routes
+
+The registry’s `proxy.routes` declares all five required accounts. Grok and Muse
+use the existing OpenCode Responses harness; there is no managed native Grok or
+Muse executable. Version-specific source evidence:
+[Gemini 0.66.0 gateway interface](https://github.com/google-gemini/gemini-cli/blob/v0.66.0/packages/core/src/core/contentGenerator.ts),
+[CLIProxyAPI 8.0.55 catalog](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.55/internal/registry/models/models.json).
+A catalog entry is only a supported identifier, not proof that Chris has an
+active account for it. Fleet verifies authenticated availability, inference,
+stream completion and a harmless echo-tool round trip. Native application/T3
+acceptance is recorded separately. Runtime Vault access must work without an
+interactive shell; missing renewal authorization remains action required.

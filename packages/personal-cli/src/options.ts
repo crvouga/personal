@@ -50,11 +50,12 @@ export function validateOptions(command: string, options: CliOptions): void {
   validateRepair(command, options);
   validateScope(command, options);
   if (
-    ['discover', 'health', 'repair'].includes(command) &&
+    (['discover', 'health'].includes(command) ||
+      (command === 'repair' && !options.local)) &&
     options.require !== undefined
   )
     throw new FleetUsageError(
-      'Tailscale health always checks the complete capability set; --require is not supported.'
+      'Use declared roster requirements for tailnet health/repair; --require is supported for local repair and doctor.'
     );
   if (options.timeout !== undefined) timeout(options);
 }

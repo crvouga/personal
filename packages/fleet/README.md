@@ -5,6 +5,9 @@ per-machine authentication, T3 Connect and shared toolchain/dependency drift.
 It is a local CLI/library, not a daemon or cloud controller. It reuses the
 existing mise/workstation owners rather than introducing another installer.
 
+See [Ubuntu fleet-sync implementation and operator status](docs/ubuntu-sync.md) for
+the new controller-driven public command and its outstanding full-machine gates.
+
 ## Quick start
 
 Run from the repository root after `bun install --frozen-lockfile`:
@@ -208,12 +211,11 @@ Register actual SSH aliases and checkout paths; the checker does not guess them.
 Existing verified-host-key SSH policy and bounded probes apply. Tailscale daemon
 health errors invalidate complete discovery. ACL-hidden devices cannot be certified.
 
-Health requires toolchain, managed workstation configuration, Codex, Claude Code,
-GitHub, Vault, T3 and service authentication. Optional roster capability names now
-also include `codex`, `claude`, `services` and `workstation`; existing roster defaults
-are preserved for `doctor`. The service adapter covers Railway, Vercel, Cloudflare,
-AWS's current profile and npm; unsupported Gemini/Copilot/OpenCode account checks
-are explicit skips. No raw account/auth output is retained. Version checks keep
+Health probes each registered remote node's declared `required` capabilities; it
+no longer adds cloud-service logins or direct provider authentication implicitly.
+The controller default covers T3, toolchain and workstation configuration.
+Explicit `services` requirements retain Railway, Vercel, Cloudflare, AWS and npm
+checks. No raw account/auth output is retained. Version checks keep
 per-tool results, including the expected pinned version when available, and require
 Docker Engine/Compose/Buildx readiness. `workstation` delegates to read-only
 `personal workstation doctor --json --non-interactive`; provider configuration presence is not live

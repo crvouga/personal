@@ -1,5 +1,19 @@
 # Personal CLI
 
+Start with `personal` for help; it never opens a menu implicitly.
+
+```sh
+personal
+personal index --json
+personal agent --json
+personal t3-apply --help
+```
+
+The index includes per-command help, mutation defaults, preview instructions and
+required authorization. `--json` changes output format; it does not prevent writes.
+`commands` remains an alias-compatible name for `index`. Use `personal --interactive`
+only when you want the terminal menu.
+
 Use the installed `personal` executable for routine work. `npx @crvouga/personal`
 is the same CLI when it is not installed.
 
@@ -51,7 +65,7 @@ Requires Node **22.13+ on the 22.x line, or 23.5+** with npm.
 npx --yes @crvouga/personal
 ```
 
-The terminal application has a flat searchable command palette sorted A–Z with group prefixes,
+With `personal --interactive`, the terminal application has a flat searchable command palette sorted A–Z with group prefixes,
 descriptions, target selection, progress indicators, result summaries, searchable
 node/status/check drill-downs, remedies, retry/back navigation, and an add-node
 wizard. It shows the equivalent noninteractive command before running anything.
@@ -71,7 +85,7 @@ npx --yes @crvouga/personal@latest fleet doctor --node dev-linux --json
 
 Pin an **exact released version** instead of `latest` for automation. Direct
 commands, `--json`, `--non-interactive` and redirected input never open prompts.
-No arguments without a terminal prints the command catalog. JSON is one versioned
+No arguments prints help in every environment, including a terminal. `personal --json` or `personal index --json` prints the structured command index. The menu requires `personal --interactive`. JSON is one versioned
 document on stdout; interactive chrome and progress use stderr. Exit codes:
 **0** success/preview, **1** failed operation/check, **2** invalid usage/config,
 **130** cancellation. `--strict` makes warnings and skips fail too.
@@ -176,7 +190,8 @@ untrusted checkout: setup/dependency lifecycle scripts are executable code.
 ## Development and release
 
 ```sh
-bun run personal                         # interactive development entry
+bun run personal                         # help
+bun run personal --interactive           # optional interactive menu
 bun run --cwd packages/personal-cli tc
 bun run --cwd packages/personal-cli lint
 bun run --cwd packages/personal-cli test
@@ -236,3 +251,10 @@ See [fleet access and repair research](../fleet/docs/access-and-repair-research.
 for the comparison of mise, OpenBao, Bitwarden, 1Password, Tailscale SSH, chezmoi,
 Teleport, Ansible and Syncthing, plus existing password-manager onboarding and
 the distinction between shared service secrets and per-machine logins.
+
+## Ubuntu one-command synchronization
+
+See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
+`personal fleet-sync` and `personal fleet converge` share the guarded controller-driven
+flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
+apply does not claim machine readiness. Existing commands retain their semantics.

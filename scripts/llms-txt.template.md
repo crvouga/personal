@@ -738,3 +738,7 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R {
 ## Maintaining this file (agents working inside `{{infraRepo}}`)
 
 `llms.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-txt.template.md}}; values, tables and the publish workflow come from {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}, {{path:.github/workflows/publish.yml}} and {{path:.github/workflows/deploy.yml}}, {{path:packages/turborepo-remote-cache/scripts/vault-secrets-registry.ts}} and {{path:packages/infra/lib/publish-workflow.ts}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` (part of `bun run check`) fails CI on drift, on a dangling file reference, or on an unknown `bun run` script.
+
+## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
+
+{{block:fleetSync}}

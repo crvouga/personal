@@ -1,0 +1,324 @@
+import { diagnostic, type Diagnostic } from './diagnostics';
+import type { Check, FleetNode, NodeReport, Runner } from './types';
+import { discoverTailnet, type TailnetComputer } from './tailscale';
+import { matchComputers } from './tailnet-matching';
+import { sshArgs, sshFailure } from './ssh';
+import type { FleetDefinition } from './definition';
+
+export interface ControllerNode extends NodeReport {
+  reachability: 'online' | 'offline' | 'missing' | 'conflict' | 'unknown';
+  desiredRevision: string | null;
+  appliedRevision: string | null;
+  durationMs: number;
+  diagnostics?: Diagnostic[];
+}
+export interface ControllerReport {
+  version: 2;
+  command: 'fleet-sync';
+  execution: 'controller-push';
+  ok: boolean;
+  applied: boolean;
+  desiredRevision: string | null;
+  checks: Check[];
+  nodes: ControllerNode[];
+  candidates: number;
+  dashboardUrl: string | null;
+}
+export type DeployNode = (
+  node: FleetNode,
+  revision: string
+) => Promise<NodeReport>;
+
+/** Minimal read-only POSIX inspection requires no workspace, Node, Bun or Git. */
+export async function inspectBootstrap(
+  node: FleetNode,
+  run: Runner
+): Promise<Check[]> {
+  const result = await run(
+    [
+      ...sshArgs(node),
+      'sh -c \'test -r /etc/os-release && . /etc/os-release && printf "%s\\n%s\\n" "$ID" "$VERSION_ID" && uname -m\'',
+    ],
+    { timeoutMs: 20_000 }
+  );
+  if (!result.ok) return [sshFailure(result)];
+  const supported = /^ubuntu\n26\.04\n(x86_64|aarch64)\s*$/.test(result.stdout);
+  return [
+    {
+      id: 'ssh:fresh-session',
+      status: 'pass',
+      summary:
+        'Fresh host-key-verified SSH session succeeded without remote developer prerequisites.',
+    },
+    {
+      id: 'ubuntu:release',
+      status: supported ? 'pass' : 'fail',
+      summary: supported
+        ? 'Ubuntu 26.04 and supported CPU architecture observed.'
+        : 'UBUNTU_BASELINE_MISMATCH',
+      remedy: {
+        action:
+          'Review the release/architecture migration in source. No distribution upgrade or downgrade is performed.',
+      },
+    },
+  ];
+}
+
+/** One invocation, one immutable revision. Serial application bounds pressure and
+ * lets a failed declared canary stop promotion; diagnostics still cover all nodes.
+ */
+export async function synchronizeController(
+  input: {
+    definition: FleetDefinition;
+    nodes: FleetNode[];
+    revision: string;
+    apply: boolean;
+    canary?: string;
+    progress?: (node: string, phase: string) => void;
+  },
+  run: Runner,
+  deploy: DeployNode
+): Promise<ControllerReport> {
+  const tailnet = await discoverTailnet(run);
+  const matches = await matchComputers(input.nodes, tailnet.computers, run);
+  const hubNode = input.nodes.find(
+    (node) => node.id === input.definition.monitoring.parent
+  );
+  const hubPeer = tailnet.computers.find(
+    (peer) => peer.id === hubNode?.tailscaleId
+  );
+  const report: ControllerReport = {
+    version: 2,
+    command: 'fleet-sync',
+    execution: 'controller-push',
+    ok: false,
+    applied: false,
+    desiredRevision: input.revision,
+    checks: tailnet.checks,
+    dashboardUrl: hubPeer ? `https://${hubPeer.dns}:8443` : null,
+    nodes: [],
+    candidates: tailnet.computers.filter(
+      (peer) => !peer.self && !matches.get(peer.id)?.length
+    ).length,
+  };
+  for (const machine of input.definition.nodes.filter(
+    (node) => node.os === 'linux'
+  )) {
+    input.progress?.(
+      machine.id,
+      'Inspecting enrolled identity and fresh SSH access'
+    );
+    report.nodes.push(
+      await inspectControllerNode(
+        machine.id,
+        {
+          nodes: input.nodes,
+          revision: input.revision,
+          computers: tailnet.computers,
+          matches,
+        },
+        run
+      )
+    );
+  }
+  if (input.apply) await applyNodes(report, input, deploy);
+  report.ok =
+    report.checks.every((c) => c.status === 'pass') &&
+    report.nodes.length > 0 &&
+    report.nodes.every(
+      (node) =>
+        node.checks.length > 0 && node.checks.every((c) => c.status === 'pass')
+    );
+  for (const node of report.nodes)
+    node.diagnostics = node.checks.map((check) => diagnostic(node.node, check));
+  return report;
+}
+async function applyNodes(
+  report: ControllerReport,
+  input: {
+    nodes: FleetNode[];
+    revision: string;
+    canary?: string;
+    progress?: (node: string, phase: string) => void;
+  },
+  deploy: DeployNode
+): Promise<void> {
+  const ordered = [...report.nodes].sort(
+    (a, b) => Number(b.node === input.canary) - Number(a.node === input.canary)
+  );
+  let blocked = report.checks.some((c) => c.status !== 'pass');
+  for (const result of ordered) {
+    if (!mayDeploy(result, input.nodes)) {
+      if (result.node === input.canary) blocked = true;
+      continue;
+    }
+    if (blocked) {
+      result.checks.push({
+        id: 'rollout:promotion',
+        status: 'skip',
+        summary: 'FLEET_PROMOTION_BLOCKED',
+        remedy: {
+          action:
+            'Resolve discovery or canary failure, then rerun the same approved revision.',
+        },
+      });
+      continue;
+    }
+    notifyProgress(input.progress, result.node);
+    const started = Date.now();
+    try {
+      const outcome = await deploy(
+        input.nodes.find((node) => node.id === result.node)!,
+        input.revision
+      );
+      report.applied = true;
+      result.checks.push(...outcome.checks);
+      if (!outcome.checks.length)
+        result.checks.push({
+          id: 'rollout:evidence',
+          status: 'fail',
+          summary: 'FLEET_VERIFICATION_MISSING',
+        });
+    } catch {
+      result.checks.push({
+        id: 'rollout:operation',
+        status: 'fail',
+        summary: 'FLEET_REMOTE_OPERATION_FAILED',
+        remedy: {
+          action:
+            'Inspect the remote operation lock before retrying. A disconnected controller does not establish that installation stopped.',
+        },
+      });
+    }
+    result.durationMs += Date.now() - started;
+    if (result.checks.every((check) => check.status === 'pass'))
+      result.appliedRevision = input.revision;
+    if (result.node === input.canary && result.checks.some(blocksPromotion))
+      blocked = true;
+  }
+}
+
+function connectionState(
+  conflict: boolean,
+  peer: TailnetComputer | undefined
+): ControllerNode['reachability'] {
+  if (conflict) return 'conflict';
+  if (!peer) return 'missing';
+  return peer.online ? 'online' : 'offline';
+}
+async function inspectControllerNode(
+  id: string,
+  context: {
+    nodes: FleetNode[];
+    revision: string;
+    computers: TailnetComputer[];
+    matches: Map<string, FleetNode[]>;
+  },
+  run: Runner
+): Promise<ControllerNode> {
+  const { nodes, revision, computers, matches } = context;
+  const started = Date.now();
+  const node = nodes.find((entry) => entry.id === id);
+  const peers = computers.filter((peer) =>
+    matches.get(peer.id)?.some((entry) => entry.id === id)
+  );
+  const peer = peers[0];
+  const conflict =
+    peers.length > 1 || (peer && matches.get(peer.id)!.length > 1);
+  const checks: Check[] = [];
+  if (!node)
+    checks.push({
+      id: 'enrollment:connection',
+      status: 'fail',
+      summary: 'FLEET_CONNECTION_REQUIRED',
+      remedy: {
+        action:
+          'Add this canonical node’s reviewed SSH alias and managed workspace path to the private controller overrides. Do not substitute a discovered peer.',
+      },
+    });
+  else if (conflict)
+    checks.push({
+      id: 'tailscale:identity',
+      status: 'fail',
+      summary: 'TAILSCALE_IDENTITY_CONFLICT',
+      remedy: {
+        action:
+          'Resolve duplicate alias/device mappings before enrollment or apply.',
+      },
+    });
+  else {
+    checks.push(...(await inspectBootstrap(node, run)));
+    checks.push(...identityChecks(node, peer));
+  }
+  if (!peer || !peer.online)
+    checks.push({
+      id: 'tailscale:reachability',
+      status: 'fail',
+      summary: peer ? 'TAILSCALE_NODE_OFFLINE' : 'TAILSCALE_NODE_MISSING',
+      remedy: {
+        action:
+          'Restore the intended node’s private connection. A trusted LAN SSH route can be inspected, but discovery never enrolls a replacement.',
+      },
+    });
+  return {
+    node: id,
+    checks,
+    desiredRevision: revision,
+    appliedRevision: null,
+    durationMs: Date.now() - started,
+    reachability: connectionState(Boolean(conflict), peer),
+  };
+}
+
+function identityChecks(
+  node: FleetNode,
+  peer: TailnetComputer | undefined
+): Check[] {
+  const checks: Check[] = [];
+  if (!node.tailscaleId || (peer && peer.id !== node.tailscaleId))
+    checks.push({
+      id: 'tailscale:enrolled-identity',
+      status: 'fail',
+      summary: node.tailscaleId
+        ? 'TAILSCALE_DEVICE_REPLACED'
+        : 'TAILSCALE_ENROLLMENT_REQUIRED',
+      remedy: {
+        action:
+          'Verify the device identity and SSH host key, then record its stable tailscaleId in the reviewed private connection override. Names alone cannot authorize replacement.',
+      },
+    });
+  return checks;
+}
+
+function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
+  const allowBootstrap =
+    nodes.find((node) => node.id === result.node)?.bootstrapViaSsh === true;
+  return result.checks.every(
+    (check) =>
+      check.status === 'pass' ||
+      (allowBootstrap &&
+        [
+          'TAILSCALE_NODE_OFFLINE',
+          'TAILSCALE_NODE_MISSING',
+          'TAILSCALE_ENROLLMENT_REQUIRED',
+        ].includes(check.summary))
+  );
+}
+
+/** Service/account acceptance remains required for readiness, but a missing
+ * external account, dashboard or client pairing must not stop independent OS
+ * configuration on other nodes. Actual deployment failures stop promotion.
+ */
+function blocksPromotion(check: Check): boolean {
+  if (check.status === 'pass') return false;
+  return !/^(beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
+    check.id
+  );
+}
+
+function notifyProgress(
+  notify: ((node: string, phase: string) => void) | undefined,
+  node: string
+): void {
+  notify?.(node, 'Applying the approved revision and verifying postconditions');
+}

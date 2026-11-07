@@ -69,5 +69,9 @@ DISABLE_AUTOUPDATER = "1"
 COPILOT_AUTO_UPDATE = "false"
 
 [vars]
+# Official native Ubuntu server distribution; scripts/dev/native-t3.ts owns installation.
+t3_version = "0.1.7"
+t3_linux_x64_sha256 = "c089892bf7922e2e73c6f44a5d1ea125c99f70e378c18361cbbed2fba1920e6c"
+t3_linux_arm64_sha256 = "5a528e23af394cc6f359036d3cb8441fda14129d477630fc6c53e4f4a1025bc8"
 # Official AWS v2 Windows MSI, same version as tools.aws; checked before execution.
 aws_windows_msi_sha256 = "c7857d5981e68396852e8b7eca0b1772f1c99b34d4938075857d45ec9c232113"

@@ -1,8 +1,15 @@
-import { AgentConfigurationError } from './errors';
+import {
+  ProviderVerificationError,
+  providerHttpFailure,
+} from './provider-errors';
 import { registry, type Selection } from './registry';
 import { proxyKey } from './secrets';
 
-export async function verifyProvider(selection: Selection, smoke: boolean) {
+export async function verifyProvider(
+  selection: Selection,
+  smoke: boolean,
+  credential?: string
+) {
   if (selection.profile !== 'proxy')
     return {
       static: 'pass',
@@ -13,7 +20,7 @@ export async function verifyProvider(selection: Selection, smoke: boolean) {
       toolCalls: 'unverified',
       t3EndToEnd: 'unverified',
     };
-  const key = await proxyKey();
+  const key = credential ?? (await proxyKey());
   const headers = {
     Authorization: `Bearer ${key}`,
     'Content-Type': 'application/json',
@@ -23,40 +30,29 @@ export async function verifyProvider(selection: Selection, smoke: boolean) {
     redirect: 'error',
     signal: AbortSignal.timeout(15_000),
   });
-  if (!response.ok)
-    throw new AgentConfigurationError(
-      'Proxy model listing failed; inspect endpoint/authentication locally.'
-    );
+  if (!response.ok) throw providerHttpFailure(response.status);
   const data = (await response.json()) as { data?: Array<{ id: string }> };
   if (!data.data?.some((model) => model.id === selection.model))
-    throw new AgentConfigurationError(
+    throw new ProviderVerificationError(
+      'PROVIDER_MODEL_UNAVAILABLE',
       'Approved model is unavailable; review registry model selection.'
     );
   let inference = 'unverified';
   if (smoke) {
-    const messages = selection.tool === 'claude';
-    const body = messages
-      ? {
-          model: selection.model,
-          max_tokens: 16,
-          messages: [{ role: 'user', content: 'Reply OK.' }],
-        }
-      : { model: selection.model, max_output_tokens: 16, input: 'Reply OK.' };
-    const result = await fetch(
-      registry.proxy.endpoint + (messages ? '/v1/messages' : '/v1/responses'),
-      {
-        method: 'POST',
-        headers: { ...headers, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify(body),
-        redirect: 'error',
-        signal: AbortSignal.timeout(30_000),
-      }
-    );
-    if (!result.ok)
-      throw new AgentConfigurationError(
-        'Bounded inference request failed; no response body is logged.'
-      );
-    await validateOutput(result, messages);
+    const { path, body } = inferenceRequest(selection);
+    const result = await fetch(registry.proxy.endpoint + path, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'anthropic-version': '2023-06-01',
+        'x-goog-api-key': key,
+      },
+      body: JSON.stringify(body),
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!result.ok) throw providerHttpFailure(result.status);
+    await validateOutput(result, selection.tool);
     inference = 'pass';
   }
   return {
@@ -72,16 +68,51 @@ export async function verifyProvider(selection: Selection, smoke: boolean) {
 
 async function validateOutput(
   result: Response,
-  messages: boolean
+  tool: Selection['tool']
 ): Promise<void> {
   const payload = (await result.json()) as {
     content?: unknown[];
     output?: unknown[];
     error?: unknown;
+    candidates?: unknown[];
   };
-  const output = messages ? payload.content : payload.output;
+  const output =
+    tool === 'gemini'
+      ? payload.candidates
+      : tool === 'claude'
+        ? payload.content
+        : payload.output;
   if (payload.error || !Array.isArray(output) || output.length === 0)
-    throw new AgentConfigurationError(
+    throw new ProviderVerificationError(
+      'PROVIDER_OUTPUT_UNVERIFIED',
       'Inference returned no output; inspect the provider locally.'
     );
+}
+
+/** Exact pinned clients use different wire protocols; model discovery is not inference. */
+export function inferenceRequest(selection: Selection): {
+  path: string;
+  body: object;
+} {
+  if (selection.tool === 'gemini')
+    return {
+      path: `/v1beta/models/${encodeURIComponent(selection.model)}:generateContent`,
+      body: {
+        contents: [{ role: 'user', parts: [{ text: 'Reply OK.' }] }],
+        generationConfig: { maxOutputTokens: 16 },
+      },
+    };
+  if (selection.tool === 'claude')
+    return {
+      path: '/v1/messages',
+      body: {
+        model: selection.model,
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'Reply OK.' }],
+      },
+    };
+  return {
+    path: '/v1/responses',
+    body: { model: selection.model, max_output_tokens: 16, input: 'Reply OK.' },
+  };
 }

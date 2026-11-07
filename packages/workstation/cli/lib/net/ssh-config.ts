@@ -1,7 +1,7 @@
 import { shortName, type NetHost } from './inventory';
 
 export const SSH_BLOCK_BEGIN =
-  '# ws-net:begin (managed by `personal workstation net fix` from packages/workstation/net/hosts.json; do not edit)';
+  '# ws-net:begin (managed by `personal workstation net fix` from packages/fleet/definition.json; do not edit)';
 export const SSH_BLOCK_END = '# ws-net:end';
 
 /** Markers from earlier versions; their blocks are replaced, never duplicated. */
@@ -16,6 +16,10 @@ const MANAGED_MARKERS: readonly (readonly [string, string])[] = [
  * `user@full-name`, which must pick the same key and port as the alias.
  */
 export function renderSshBlock(hosts: readonly NetHost[]): string {
+  if (hosts.some((host) => !host.identityFile))
+    throw new Error(
+      'Controller identity path is missing; migrate local overrides before changing SSH settings.'
+    );
   const entries = hosts.map((h) =>
     [
       `Host ${h.alias} ${h.tailscaleName} ${shortName(h.tailscaleName)}`,

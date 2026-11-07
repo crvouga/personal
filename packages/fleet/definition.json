@@ -1,0 +1,39 @@
+{
+  "$schema": "./definition.schema.json",
+  "version": 2,
+  "nodes": [
+    {
+      "id": "chris-vouga-ms-a2",
+      "ssh": "chris-vouga-ms-a2",
+      "os": "linux"
+    },
+    {
+      "id": "mac-studio",
+      "ssh": "mac-studio",
+      "os": "macOS",
+      "network": {
+        "tailscaleName": "chriss-mac-studio.tail4829dc.ts.net",
+        "sshPort": 22,
+        "user": "chrisvouga",
+        "t3Port": 3773
+      }
+    },
+    {
+      "id": "minisforum-wsl",
+      "ssh": "minisforum-wsl",
+      "os": "linux",
+      "network": {
+        "tailscaleName": "desktop-cg66t86.tail4829dc.ts.net",
+        "sshPort": 2222,
+        "user": "crvouga",
+        "t3Port": 3773
+      }
+    }
+  ],
+  "proxy": {
+    "owner": "chris-vouga-ms-a2",
+    "endpoint": "https://cli-proxy.chrisvouga.dev"
+  },
+  "monitoring": { "parent": "chris-vouga-ms-a2" },
+  "ubuntu": { "release": "26.04", "architectures": ["amd64", "arm64"] }
+}

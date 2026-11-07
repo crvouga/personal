@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "release": "26.04",
+  "architectures": ["amd64", "arm64"],
+  "snapshot": "20261101T000000Z",
+  "packages": {
+    "sudo": "1.9.17p2-1ubuntu3.2",
+    "openssh-server": "1:10.2p1-2ubuntu3.8",
+    "dconf-cli": "0.49.0-4"
+  },
+  "aptLockTimeoutSeconds": 120,
+  "minimumFreeDiskMiB": 4096,
+  "minimumFreeInodes": 10000,
+  "serviceStartLimitBurst": 5,
+  "serviceStartLimitIntervalSeconds": 300
+}

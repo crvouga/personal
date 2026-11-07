@@ -36,7 +36,15 @@ function absolutePath(value: unknown): value is string {
 
 function parseNode(value: unknown): FleetNode {
   if (!record(value)) throw new FleetUsageError('Each node must be an object.');
-  fields(value, ['id', 'ssh', 'workspace', 'runtime', 'required']);
+  fields(value, [
+    'id',
+    'ssh',
+    'workspace',
+    'runtime',
+    'required',
+    'tailscaleId',
+    'bootstrapViaSsh',
+  ]);
   const names = nodeNames(value);
   if (!absolutePath(value['workspace']))
     throw new FleetUsageError('workspace must be an absolute POSIX path.');
@@ -47,11 +55,38 @@ function parseNode(value: unknown): FleetNode {
   }
   return {
     ...names,
+    ...enrollmentOptions(value),
     workspace: value['workspace'],
     ...(typeof value['runtime'] === 'string'
       ? { runtime: value['runtime'] }
       : {}),
     required: requiredCapabilities(value['required']),
+  };
+}
+
+function enrollmentOptions(
+  value: Record<string, unknown>
+): Pick<FleetNode, 'tailscaleId' | 'bootstrapViaSsh'> {
+  if (
+    value['bootstrapViaSsh'] !== undefined &&
+    typeof value['bootstrapViaSsh'] !== 'boolean'
+  )
+    throw new FleetUsageError(
+      'bootstrapViaSsh must explicitly authorize an existing trusted SSH bootstrap route.'
+    );
+  if (
+    value['tailscaleId'] !== undefined &&
+    (typeof value['tailscaleId'] !== 'string' ||
+      !/^[a-zA-Z0-9:_-]{1,128}$/.test(value['tailscaleId']))
+  )
+    throw new FleetUsageError(
+      'tailscaleId must be the explicitly enrolled stable Tailscale device ID.'
+    );
+  return {
+    ...(value['bootstrapViaSsh'] === true ? { bootstrapViaSsh: true } : {}),
+    ...(typeof value['tailscaleId'] === 'string'
+      ? { tailscaleId: value['tailscaleId'] }
+      : {}),
   };
 }
 

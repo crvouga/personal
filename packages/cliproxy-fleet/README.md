@@ -202,3 +202,15 @@ Explicit integration checks are also versioned: `python3 -B packages/cliproxy-fl
 Offline checks require Restic and PyYAML. They cover real encrypted backup/restore with source deletion and wrong-password rejection, fault injection at capture/restart/upload/retention boundaries, corrupt and partial recovery, credential rotation, source-only installation and client bootstrap. Integration verification is explicit and uses inexpensive inference. See [initial deployment evidence](docs/deployment-verification-2026-11-04.md) and [migration/restore commands](docs/migration.md). Mac/WSL remote tests, additional provider authentication and a physical host migration remain operator-run checks.
 
 Sources: [upstream release](https://github.com/router-for-me/CLIProxyAPI/tree/v8.0.55), [official dashboard](https://help.router-for.me/management/webui), [Codex config](https://learn.chatgpt.com/docs/config-file/config-reference), [Claude gateway](https://code.claude.com/docs/en/llm-gateway-connect), [OpenCode providers](https://opencode.ai/docs/providers/), [Tailscale Services](https://tailscale.com/docs/features/tailscale-services). The vendored upstream config is retained as version-specific schema documentation, not live configuration.
+
+## Controller fleet integration
+
+`personal fleet-sync` delegates singleton inspection and permitted stopped-unit
+recovery to `scripts/fleet_sync.py`, using Fleet's canonical `proxy.owner` and the
+unchanged public endpoint contract. Client nodes never start another gateway.
+Missing owner state requires the existing fenced encrypted recovery; a different
+installed revision remains pending maintenance. Routine checks use client endpoint
+health, never management-login attempts. This integration does not provision a
+connector, mutate DNS/Vault/tailnet policy, seed secrets, or copy provider OAuth.
+Live five-provider authentication and tool execution remain separate acceptance
+checks in the [Fleet guide](../fleet/docs/ubuntu-sync.md).

@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
-import type { CommandOptions, CommandResult } from './types';
-import type { ChildProcess } from 'node:child_process';
+import type { CommandOptions, CommandResult, Runner } from './types';
+import type {
+  ChildProcess,
+  ChildProcessWithoutNullStreams,
+  StdioOptions,
+} from 'node:child_process';
 
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
@@ -25,10 +29,10 @@ export function runCommand(
         GIT_TERMINAL_PROMPT: '0',
         CI: '1',
       },
-      stdio: 'pipe',
+      stdio: childStdio(options.preserveOperationLock),
       windowsHide: true,
       detached: process.platform !== 'win32',
-    });
+    }) as ChildProcessWithoutNullStreams;
     let stdout = '';
     let stderr = '';
     let bytes = 0;
@@ -76,4 +80,25 @@ export function runCommand(
     });
     child.stdin.end(options.input);
   });
+}
+
+/** Keep the shell-owned flock in descendants if their JS parent dies. */
+export const runLockedCommand: Runner = (command, options = {}) =>
+  runCommand(command, { ...options, preserveOperationLock: true });
+
+function childStdio(preserveLock: boolean | undefined): StdioOptions {
+  return preserveLock
+    ? [
+        'pipe',
+        'pipe',
+        'pipe',
+        'ignore',
+        'ignore',
+        'ignore',
+        'ignore',
+        'ignore',
+        'ignore',
+        9,
+      ]
+    : ['pipe', 'pipe', 'pipe'];
 }

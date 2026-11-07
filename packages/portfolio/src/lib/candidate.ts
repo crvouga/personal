@@ -154,6 +154,7 @@ export const buildLlmsTxt = (): string =>
     `- Contact: ${CONTENT.EMAIL_ADDRESS}`,
     '',
     '## Developer machine setup',
+    `- [Ubuntu developer-fleet synchronization: setup, maintenance and implementation status](${abs('/llms-infra.txt')}#ubuntu-developer-fleet-synchronization): public fleet-sync entry point, approved revisions, recovery and outstanding acceptance gates.`,
     `- [Complete developer fleet configuration runbook](${abs('/llms-infra.txt')}#developer-fleet-configuration-setup): node registration, independent authentication, direct/proxy profiles, T3 setup, verification, rollout and rollback.`,
     '',
     `- [Shared setup for macOS, Windows and Linux](${abs('/llms-infra.txt')}#machine-setup-macos-windows-and-linux): bootstrap commands, locked developer tools, Docker, authentication and updates for agents setting up Chris's computers.`,
