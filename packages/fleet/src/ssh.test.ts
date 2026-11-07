@@ -81,3 +81,14 @@ describe('safe SSH transport', () => {
     expect(source).not.toMatch(/from["']\.\.?\//);
   });
 });
+test('Tailscale check-mode holds are named auth-policy failures even after deadline, with no challenge URL leaked', () => {
+  const check = sshFailure({
+    ok: false,
+    reason: 'timeout',
+    stdout: '',
+    stderr:
+      'Tailscale SSH requires an additional check. To authenticate, visit: https://login.tailscale.com/PRIVATE_SENTINEL',
+  });
+  expect(check.id).toBe('ssh:tailscale-check');
+  expect(JSON.stringify(check)).not.toContain('PRIVATE_SENTINEL');
+});

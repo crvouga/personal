@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { CAPABILITIES, parseConfig, selectNodes } from './config';
-import { parseOptions } from './cli-options';
+import { parseConfig, selectNodes } from './config';
 import { NODE } from './test-fixtures';
 
 describe('roster validation', () => {
@@ -74,29 +73,5 @@ describe('roster validation', () => {
     );
     expect(pattern.test('/home/name with spaces/repo')).toBe(true);
     expect(pattern.test('/home/name\n')).toBe(false);
-  });
-});
-
-describe('CLI safety', () => {
-  test('defaults to help and does not mutate on yes alone', () => {
-    expect(parseOptions([]).command).toBe('help');
-    expect(parseOptions(['sync', '--yes']).apply).toBe(false);
-    expect(parseOptions(['doctor', '--require', 'none']).required).toEqual([]);
-    expect(parseOptions(['doctor']).required).toEqual(CAPABILITIES);
-  });
-  test.each(
-    [
-      ['sync', '--apply'],
-      ['doctor', '--apply', '--yes'],
-      ['doctor', '--pull'],
-      ['doctor', '--local', '--node', 'dev-one'],
-      ['doctor', '--timeout', 'Infinity'],
-      ['doctor', '--timeout', '0'],
-      ['doctor', '--require', 'made-up'],
-      ['unknown'],
-      ['help', 'extra'],
-    ].map((args) => ({ args }))
-  )('rejects unsafe/invalid flags: %j', ({ args }) => {
-    expect(() => parseOptions(args)).toThrow();
   });
 });

@@ -1,3 +1,6 @@
+import { workerHealthText } from './worker-health-output';
+import { fleetReference } from './fleet-reference';
+import { managedHealthScope, appendControllerLinks } from './managed-health';
 import { discoverTailnet } from '../../fleet/src/tailscale';
 import { tailnetHealth } from '../../fleet/src/tailnet-health';
 import {
@@ -18,14 +21,12 @@ export async function executeTailnet(
   settings: Settings,
   services: FleetServices
 ): Promise<CommandOutcome> {
-  const tailnet = await discoverTailnet(services.run);
-  const coverage = {
-    scope: 'tailscale-visible-computers',
-    computers: tailnet.computers.length,
-    excludedMobile: tailnet.excludedMobile,
-    limitation:
-      'This controller can inspect only devices visible to its Tailscale account/ACLs. Other tailnets, hidden devices and all-pairs connectivity are not verified.',
-  };
+  const { tailnet, registered, coverage } = await healthContext(
+    command,
+    options,
+    settings,
+    services
+  );
   if (command === 'discover') {
     const ok = tailnet.checks.every((check) => check.status === 'pass');
     return {
@@ -40,17 +41,20 @@ export async function executeTailnet(
       },
     };
   }
-  const roster = await readRoster(settings.config);
   const nodes = await tailnetHealth(
     tailnet,
-    roster?.nodes ?? [],
+    registered,
     {
+      ...(options.workers ? { reference: fleetReference() } : {}),
+      includeControllerReport: options.workers !== true,
       root: settings.workspace,
       timeoutMs: timeout({ ...options, timeout: options.timeout ?? '300000' }),
       source: services.source,
     },
     services.run
   );
+  if (options.managed)
+    await appendControllerLinks(nodes, registered, services.run);
   const report = makeReport('health', nodes);
   const exitCode = reportExitCode(report, true);
   const verified = exitCode === 0;
@@ -65,6 +69,41 @@ export async function executeTailnet(
         inspected: nodes.filter((node) => node.snapshot).length,
       },
     },
-    text: `${renderReport({ ...report, ok: verified })}\nCoverage: ${coverage.computers} visible computers; ${coverage.excludedMobile} mobile devices excluded.\n${coverage.limitation}`,
+    text: options.workers
+      ? workerHealthText({ ...report, ok: verified }, coverage)
+      : `${renderReport({ ...report, ok: verified })}\nCoverage: ${coverage.computers} visible computers; ${coverage.excludedMobile} mobile devices excluded.\n${coverage.limitation}`,
+  };
+}
+
+async function healthContext(
+  command: string,
+  options: CliOptions,
+  settings: Settings,
+  services: FleetServices
+) {
+  const discovered = await discoverTailnet(services.run);
+  const roster =
+    command === 'health' ? await readRoster(settings.config) : null;
+  const registered = roster === null ? [] : roster.nodes;
+  const managed = options.managed
+    ? managedHealthScope(discovered, registered, options.workers !== true)
+    : null;
+  const tailnet = managed === null ? discovered : managed.tailnet;
+  const coverage = {
+    scope: options.workers
+      ? 'canonical-workers'
+      : options.managed
+        ? 'canonical-fleet-and-controller'
+        : 'tailscale-visible-computers',
+    excludedUnmanaged: managed === null ? [] : managed.excluded,
+    computers: tailnet.computers.length,
+    excludedMobile: tailnet.excludedMobile,
+    limitation:
+      'This controller can inspect only devices visible to its Tailscale account/ACLs. Other tailnets, hidden devices and all-pairs connectivity are not verified.',
+  };
+  return {
+    tailnet,
+    registered: managed === null ? registered : managed.nodes,
+    coverage,
   };
 }

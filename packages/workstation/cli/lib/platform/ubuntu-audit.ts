@@ -1,3 +1,4 @@
+import policy from '../../../ubuntu/policy.json';
 import type { Runner } from '../../../../fleet/src/types';
 
 export interface UbuntuAudit {
@@ -10,7 +11,7 @@ export interface UbuntuAudit {
   passwordlessSudo: boolean;
   rebootPending: boolean;
 }
-const PACKAGES = ['openssh-server', 'sudo', 'dconf-cli', 'tailscale'];
+const PACKAGES = [...Object.keys(policy.packages), 'tailscale'];
 
 /** Read-only audit: never emit package sources, environment, accounts or raw errors. */
 export async function auditUbuntu(run: Runner): Promise<UbuntuAudit> {
@@ -23,7 +24,7 @@ export async function auditUbuntu(run: Runner): Promise<UbuntuAudit> {
     ...PACKAGES,
   ]);
   const services: Record<string, boolean> = {};
-  for (const name of ['ssh', 'tailscaled', 'beszel-agent']) {
+  for (const name of ['ssh', 'tailscaled', 'beszel-agent', 'docker']) {
     services[name] = (
       await run(['systemctl', 'is-active', `${name}.service`])
     ).ok;

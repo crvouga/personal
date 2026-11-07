@@ -6,6 +6,7 @@ import { matchComputers } from './tailnet-matching';
 import type { Tailnet, TailnetComputer } from './tailscale';
 import type {
   Capability,
+  Fingerprint,
   Check,
   FleetNode,
   NodeReport,
@@ -19,6 +20,8 @@ export const HEALTH_CAPABILITIES: Capability[] = [
   'workstation',
 ];
 export interface TailnetHealthOptions {
+  includeControllerReport?: boolean;
+  reference?: Snapshot | undefined;
   root: string;
   timeoutMs: number;
   source: () => Promise<string>;
@@ -36,7 +39,13 @@ export async function tailnetHealth(
   const required = uniqueMapping(candidates, matches)
     ? candidates[0]!.required
     : HEALTH_CAPABILITIES;
-  const controller = await probe(options.root, required, run);
+  const controller =
+    options.reference ??
+    (await probe(
+      options.root,
+      options.includeControllerReport === false && !self ? [] : required,
+      run
+    ));
   let source: Promise<string> | undefined;
   const reports = await mapBounded(tailnet.computers, async (peer) => {
     const checks = await connectivity(peer, run);
@@ -55,6 +64,7 @@ export async function tailnetHealth(
       node,
       {
         action: 'probe',
+        expected: controller.fingerprint,
         source: (source ??= Promise.resolve().then(options.source)),
         timeoutMs: options.timeoutMs,
       },
@@ -67,7 +77,8 @@ export async function tailnetHealth(
   );
   return [
     { node: 'tailscale', checks: tailnet.checks },
-    ...(!tailnet.computers.some((peer) => peer.self)
+    ...(options.includeControllerReport !== false &&
+    !tailnet.computers.some((peer) => peer.self)
       ? [
           {
             node: 'controller',
@@ -77,21 +88,7 @@ export async function tailnetHealth(
         ]
       : []),
     ...reports,
-    ...absent.map((node): NodeReport => ({
-      node: node.id,
-      checks: [
-        {
-          id: 'tailscale:membership',
-          status: 'fail',
-          summary:
-            'Registered node is absent from visible Tailscale inventory. It was not silently omitted.',
-          remedy: {
-            action:
-              'Check the node account, tailnet visibility, and the registered SSH alias.',
-          },
-        },
-      ],
-    })),
+    ...absent.map(absentNode),
   ];
 }
 
@@ -108,7 +105,12 @@ export function uniqueMapping(
 
 async function inspectComputer(
   node: FleetNode,
-  options: { action: 'probe'; source: Promise<string>; timeoutMs: number },
+  options: {
+    action: 'probe';
+    source: Promise<string>;
+    timeoutMs: number;
+    expected?: Fingerprint;
+  },
   run: Runner
 ): Promise<NodeReport> {
   try {
@@ -206,6 +208,24 @@ function combine(
             report.snapshot.fingerprint
           )
         : []),
+    ],
+  };
+}
+
+function absentNode(node: FleetNode): NodeReport {
+  return {
+    node: node.id,
+    checks: [
+      {
+        id: 'tailscale:membership',
+        status: 'fail',
+        summary:
+          'Registered node is absent from visible Tailscale inventory. It was not silently omitted.',
+        remedy: {
+          action:
+            'Check the node account, tailnet visibility, and the registered SSH alias.',
+        },
+      },
     ],
   };
 }

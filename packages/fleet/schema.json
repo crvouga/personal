@@ -52,7 +52,8 @@
                 "codex",
                 "claude",
                 "services",
-                "workstation"
+                "workstation",
+                "worker"
               ]
             }
           },
@@ -64,6 +65,10 @@
           "bootstrapViaSsh": {
             "type": "boolean",
             "description": "Explicit permission to bootstrap an enrolled node over its trusted SSH route while Tailscale is unavailable; does not accept host keys or replace device identities."
+          },
+          "t3EnvironmentId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$"
           }
         }
       }

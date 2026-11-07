@@ -48,6 +48,14 @@ async function verifyService(run: Runner): Promise<Check[]> {
     'is-active',
     't3code.service',
   ]);
+  if (!active.ok) {
+    const listener = await run(['ss', '-H', '-ltn', 'sport = :3773']);
+    if (!listener.ok || listener.stdout.trim())
+      return pending(
+        'T3_ACTIVE_LISTENER_MIGRATION_REQUIRED',
+        'An active listener exists outside the managed unit. Complete a one-time native-service migration during maintenance; active turns are not interrupted.'
+      );
+  }
   let enabled = await run([
     'systemctl',
     '--user',

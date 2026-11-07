@@ -1,6 +1,6 @@
 # OpenBao service
 
-This package contains the OpenBao runtime image, health proxy and local `vault` auth/read CLI. Every infrastructure resource is owned by [OpenTofu](../infra/tofu/README.md): Railway hosting and DNS, PlanetScale Postgres storage and schema, initialization/unseal, KV mounts, policies, auth backends, users, tokens and secret data.
+This package contains the OpenBao runtime image, health proxy and private auth/read implementation behind `personal vault`. Every infrastructure resource is owned by [OpenTofu](../infra/tofu/README.md): Railway hosting and DNS, PlanetScale Postgres storage and schema, initialization/unseal, KV mounts, policies, auth backends, users, tokens and secret data.
 
 ```bash
 bun run infra plan
@@ -12,4 +12,4 @@ Import the existing initialization output before applying the bootstrap root. It
 
 The runtime expects `DB_CONNECTION_URI` and `BAO_API_ADDR` from OpenTofu-managed Railway variables. The Atlas schema resource owns `secret_store`; there is no standalone migration/provisioning script or Makefile.
 
-Local CLI installation: `./scripts/install-cli.sh`. `vault login`, `vault setup --project personal --config dev`, and `vault run -- <command>` remain available for authentication and secret reads. Secret updates must go through the OpenTofu vault root. The CLI does not provision infrastructure.
+Install the single CLI with `bun run personal:install`; the old `scripts/install-cli.sh` forwards to it. `vault login`, `personal vault setup --project personal --config dev`, and `personal vault run -- <command>` remain available for authentication and secret reads. Secret updates must go through the OpenTofu vault root. The CLI does not provision infrastructure.

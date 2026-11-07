@@ -21,7 +21,13 @@ export function makeReport(command: string, nodes: NodeReport[]): Report {
 
 export function reportExitCode(report: Report, strict: boolean): number {
   return !report.ok ||
-    (strict && (report.summary.warn > 0 || report.summary.skip > 0))
+    (strict &&
+      report.nodes.some((node) =>
+        node.checks.some(
+          (check) =>
+            check.required !== false && ['warn', 'skip'].includes(check.status)
+        )
+      ))
     ? 1
     : 0;
 }

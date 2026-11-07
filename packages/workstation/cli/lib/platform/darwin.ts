@@ -24,6 +24,7 @@ function appleScriptString(value: string): string {
 }
 
 export class DarwinPlatform implements Platform {
+  readonly dockerSetupScript = 'scripts/dev/docker-desktop.sh';
   readonly name = 'darwin' as const;
   readonly label = 'macOS';
 

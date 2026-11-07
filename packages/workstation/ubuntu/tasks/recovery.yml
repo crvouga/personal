@@ -1,0 +1,38 @@
+---
+- name: Declare bounded recovery of the owned worker T3 service
+  ansible.builtin.copy:
+    dest: '{{ development_home }}/.config/systemd/user/personal-worker-recovery.service'
+    owner: '{{ development_user }}'
+    mode: '0600'
+    content: |
+      [Unit]
+      Description=Recover the declared worker T3 service after a stopped or failed run
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/systemctl --user start t3code.service
+      TimeoutStartSec=60
+- name: Declare persistent service recovery checks
+  ansible.builtin.copy:
+    dest: '{{ development_home }}/.config/systemd/user/personal-worker-recovery.timer'
+    owner: '{{ development_user }}'
+    mode: '0600'
+    content: |
+      [Unit]
+      Description=Retry the worker T3 service within its native restart budget
+      [Timer]
+      OnBootSec=1min
+      OnUnitActiveSec=5min
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+- name: Enable bounded T3 recovery without restarting active sessions
+  become: true
+  become_user: '{{ development_user }}'
+  environment:
+    XDG_RUNTIME_DIR: '/run/user/{{ development_uid }}'
+  ansible.builtin.systemd_service:
+    scope: user
+    name: personal-worker-recovery.timer
+    daemon_reload: true
+    enabled: true
+    state: started

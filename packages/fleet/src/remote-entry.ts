@@ -47,7 +47,9 @@ async function main(): Promise<void> {
     process.stdout.write(JSON.stringify({ version: 1, checks }));
   } else
     process.stdout.write(
-      JSON.stringify(await probe(node.workspace, node.required, runCommand))
+      JSON.stringify(
+        await probe(node.workspace, node.required, runCommand, node.id)
+      )
     );
 }
 

@@ -94,6 +94,54 @@
           "const": ["amd64", "arm64"]
         }
       }
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredCapabilities",
+        "githubLogin",
+        "toolchain",
+        "agentProfile",
+        "unattendedSudo",
+        "persistentT3",
+        "neverSleep"
+      ],
+      "properties": {
+        "requiredCapabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "github",
+              "vault",
+              "t3",
+              "toolchain",
+              "workstation",
+              "worker"
+            ]
+          }
+        },
+        "githubLogin": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-]{1,39}$"
+        },
+        "toolchain": {
+          "const": "mise.lock"
+        },
+        "agentProfile": {
+          "const": "proxy"
+        },
+        "unattendedSudo": {
+          "const": true
+        },
+        "persistentT3": {
+          "const": true
+        },
+        "neverSleep": {
+          "const": true
+        }
+      }
     }
   }
 }

@@ -1,0 +1,61 @@
+# Declarative remote workers
+
+The public `personal` CLI owns two primary operations:
+
+```sh
+npx @crvouga/personal fleet-converge
+npx @crvouga/personal fleet-health
+```
+
+The controller needs Node/npm, Git, SSH, Tailscale, and its own authorized T3 link.
+Initially each Ubuntu 26.04 worker needs a designated non-root account, trusted
+SSH access and administrator authorization. Standard Ubuntu cloud-image users
+already commonly have noninteractive sudo; otherwise establish the repository's
+`authorize-sudo.sh` policy once during administrator enrollment. Routine commands
+never ask for or store an SSH/sudo password. Unknown host keys, a different device
+identity, or missing privilege stop with a named action rather than bypassing trust.
+
+Convergence binds one reviewed revision and worker membership. It transfers only
+committed Git objects over SSH, bootstraps missing prerequisites, installs the
+locked minimal tool profile and frozen dependencies, and applies Workstation's
+Ansible policy. Developer checkouts and dirty work stay intact. A published CLI
+uses its source provenance; a source project action explicitly selects checkout
+HEAD. Private rosters contain connection paths and identities, not weaker policy.
+
+| Requirement                        | Declaration and enforcement                                                                                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One consistent dependency set      | `mise.toml` worker profile, `mise.lock`, Ubuntu snapshot/package pins; exact versions and deployed input hashes checked live                                             |
+| Common service access              | Canonical required capabilities; declared GitHub account, worker's own renewable Vault session, authenticated singleton gateway catalog                                  |
+| One gateway host                   | Canonical `proxy.owner`; existing CLIProxy ownership/audit/recovery code rejects unexpected client-node hosts and missing singleton state                                |
+| T3 connected and persistent        | Pinned native binary, service enabled/active with restart policy, bounded recovery timer, private endpoint, controller link matched to SSH-observed environment identity |
+| No idle sleep and session survival | systemd sleep masks, logind policy, designated-user lingering; running policy and boot timing checked, not inferred from files alone                                     |
+| Recovery after power loss          | Required boot services and recovery timers; recognized firmware restore-after-AC settings inspected when exposed                                                         |
+| No routine password prompts        | Verified BatchMode SSH, `sudo -n`, source-owned NOPASSWD policy; missing initial authorization is a failure                                                              |
+| Keep service authorization alive   | Native service credentials stay per-node; Vault self-renewal timer and GitHub recovery from authorized Vault credentials; expiring T3 links are reported before expiry   |
+
+Health does not mutate configuration, renew tokens, log in, install software, or
+make billable inference requests. It audits the immutable desired worker deployment,
+not an unrelated developer branch. Every declared worker must be enrolled and
+reachable. Extra service hosts are listed as outside scope. Required failures,
+warnings and unverified checks prevent a ready result; explicitly non-required
+checks remain visible without inventing a pass.
+
+The desired fleet contract is stronger than today's live acceptance. A real
+power-loss test and firmware/VM-host automatic restart cannot be proved merely by
+starting an OS service. Unsupported firmware inspection remains unverified. A
+running desktop-owned T3 listener needs a deliberate native-service migration;
+convergence preserves active work instead of killing it. External providers can
+revoke authorization; renewal is not a substitute for an initially granted,
+renewable node identity. Required expired/missing credentials remain failures,
+never interactive password prompts or successful receipts.
+
+Cloud resources, Vault roles/policies and secret values remain exclusively owned
+by the OpenTofu roots. Worker configuration belongs to Workstation/Ansible and
+mise. Runtime logins/renewal do not provision cloud resources. Existing SSH keys,
+T3 pairing data, provider identities and the gateway's encrypted recovery state
+are never cloned from another node.
+
+The normal controller apply flow reports configuration application separately
+from readiness and advances the applied-revision receipt only after required
+acceptance succeeds. Read the remaining release gates in [ubuntu-sync.md](ubuntu-sync.md)
+before treating any release as complete fleet certification.

@@ -29,7 +29,10 @@ export function nativeT3Artifact(config: Configuration, architecture: string) {
     architecture === 'x64'
       ? config.vars.t3_linux_x64_sha256
       : config.vars.t3_linux_arm64_sha256;
-  if (!/^\d+\.\d+\.\d+$/.test(version) || !/^[a-f0-9]{64}$/.test(sha256))
+  if (
+    !/^\d+\.\d+\.\d+(?:-nightly\.\d{8}\.\d+)?$/.test(version) ||
+    !/^[a-f0-9]{64}$/.test(sha256)
+  )
     throw new Error('Invalid T3 pin.');
   const name = `t3-${version}-linux-${architecture}`;
   return {

@@ -11,6 +11,7 @@ export function registerFleetSync(
   complete: (value: CommandOutcome) => void
 ): void {
   for (const command of [
+    program.command('fleet-converge'),
     program.command('fleet-sync'),
     fleet.command('converge'),
   ]) {
@@ -20,7 +21,7 @@ export function registerFleetSync(
       )
       .option(
         '--revision <sha>',
-        'Approve an exact source commit; otherwise use saved/package revision'
+        'Approve an exact source commit; defaults to published release or current canonical checkout'
       )
       .option(
         '--node <id>',
