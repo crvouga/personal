@@ -40,6 +40,8 @@ The tracked test covers:
   no-op, and container restart after reboot.
 - Native Beszel agent installation through the production private-variable-file
   adapter, repeated no-op with unchanged PID, bounded crash recovery, and reboot.
+  Injected nonsecret connection-setting drift is repaired by the production owner,
+  followed by another no-change application.
   Its fixture hub deliberately resolves to guest loopback with no HTTPS listener.
   This proves failure isolation and service lifecycle, **not** authenticated metrics.
 - The production boot-policy observer compiled into a disposable test executable
