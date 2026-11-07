@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { join } from 'node:path';
 import { workstationChecks } from './workstation-checks';
 import { failure, success } from './test-fixtures';
 
@@ -6,7 +7,7 @@ test('workstation diagnostics are read-only and discard all private fields', asy
   const checks = await workstationChecks('/repo', async (command, options) => {
     expect(command).toEqual([
       'bun',
-      '/repo/packages/personal-cli/src/cli.ts',
+      join('/repo', 'packages/personal-cli/src/cli.ts'),
       'workstation',
       'doctor',
       '--json',

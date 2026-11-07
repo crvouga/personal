@@ -271,7 +271,8 @@ async function t3Check(ctx: HostContext, host: NetHost): Promise<Check> {
       { timeoutMs: 15000 }
     );
     try {
-      if (probe.status === 0) env = parseT3Environment(JSON.parse(probe.stdout));
+      if (probe.status === 0)
+        env = parseT3Environment(JSON.parse(probe.stdout));
     } catch {
       // Unavailable curl or invalid endpoint output remains a failed check.
     }
