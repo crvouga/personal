@@ -125,16 +125,16 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 
 {{block:kvKeys}}
 
-### Local dev — `vault run`
+### Local dev — `personal vault run`
 
 The human installs the wrapper once per machine (from a `{{infraRepo}}` checkout; needs the `vault` or `bao` CLI and `jq`):
 
 ```bash
-{{file:packages/vault-service/scripts/install-cli.sh}}   # → ~/.local/bin/vault wrapper
+{{file:packages/vault-service/scripts/install-cli.sh}}   # → shared personal CLI installation
 vault login --method=userpass username={{adminUser}}
 ```
 
-In your project, commit a `.vault.yaml` (coordinates only, no secrets — safe to commit). `vault setup --project {{kvProject}} --config dev` writes it:
+In your project, commit a `.vault.yaml` (coordinates only, no secrets — safe to commit). `personal vault setup --project {{kvProject}} --config dev` writes it:
 
 ```yaml
 {{block:vaultYaml}}
@@ -143,14 +143,14 @@ In your project, commit a `.vault.yaml` (coordinates only, no secrets — safe t
 Then wrap commands:
 
 ```bash
-vault run -- bun run dev                  # injects every field as env vars
-vault run --config prd -- <cmd>           # override config
-vault run --dry-run -- <cmd>              # list injected var names only
+personal vault run -- bun run dev                  # injects every field as env vars
+personal vault run --config prd -- <cmd>           # override config
+personal vault run --dry-run -- <cmd>              # list injected var names only
 vault kv get {{kvMount}}/{{kvProject}}/dev          # inspect (human only)
 bun run infra:vault plan  # update the OpenTofu secrets input, then review/apply
 ```
 
-Put `vault run -- …` inside `package.json` scripts rather than asking developers to export variables. List the needed env var **names** (never values) in `.env.example`, and gitignore `.env*` except `.env.example`.
+Put `personal vault run -- …` inside `package.json` scripts rather than asking developers to export variables. List the needed env var **names** (never values) in `.env.example`, and gitignore `.env*` except `.env.example`.
 
 ### CI (GitHub Actions) — OIDC, no stored token
 
@@ -167,7 +167,7 @@ Repos under `{{githubOrg}}/*` mint a short-lived Vault token via GitHub OIDC. Ne
 
 ### App runtime — read token + HTTP
 
-Processes that cannot be wrapped in `vault run` (servers loading secrets at boot, Workers) use a long-lived read-only token supplied as the platform secret `VAULT_TOKEN` (policy `{{runtimeTokenPolicy}}`, period {{runtimeTokenPeriod}}; the human mints it). Pass `VAULT_ADDR={{vaultAddr}}`, `VAULT_PROJECT={{kvProject}}`, `VAULT_CONFIG=prd` as plain env.
+Processes that cannot be wrapped in `personal vault run` (servers loading secrets at boot, Workers) use a long-lived read-only token supplied as the platform secret `VAULT_TOKEN` (policy `{{runtimeTokenPolicy}}`, period {{runtimeTokenPeriod}}; the human mints it). Pass `VAULT_ADDR={{vaultAddr}}`, `VAULT_PROJECT={{kvProject}}`, `VAULT_CONFIG=prd` as plain env.
 
 ```ts
 const res = await fetch(
@@ -200,12 +200,12 @@ The application database contract is the secret env var `{{databaseSecret}}` in 
 Load the development URL through the same `.vault.yaml` contract as §1:
 
 ```bash
-vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select 1"'
-vault run -- bun run dev
-vault run -- bun run db:migrate       # only after the app's schema is allocated
+personal vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select 1"'
+personal vault run -- bun run dev
+personal vault run -- bun run db:migrate       # only after the app's schema is allocated
 ```
 
-The quoting in the `psql` example is intentional: the child shell expands `DATABASE_URL` after `vault run` injects it. A command such as `vault run -- psql "$DATABASE_URL"` expands too early and usually passes an empty value.
+The quoting in the `psql` example is intentional: the child shell expands `DATABASE_URL` after `personal vault run` injects it. A command such as `personal vault run -- psql "$DATABASE_URL"` expands too early and usually passes an empty value.
 
 Minimal Node/Bun shape (use the project's existing PostgreSQL library if it has one):
 
@@ -235,7 +235,7 @@ Do not add an unconditional custom `ssl` object: many clients let it override TL
 Verify without exposing connection details:
 
 ```bash
-vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | grep -qx 1'
+personal vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | grep -qx 1'
 ```
 
 ---
@@ -616,11 +616,11 @@ The dependency-free [Bun agent client](https://github.com/{{infraRepo}}/blob/mai
 curl -fsS https://raw.githubusercontent.com/{{infraRepo}}/main/packages/auth-relay/agent.ts -o auth-relay-agent.ts
 
 # List only the fields that would be injected; no values.
-vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
+personal vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
 
 # A fingerprint is public; it can be supplied to the operator without revealing the token.
-vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts fingerprint
-vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts list --origin {{authNonproductionOrigin}}
+personal vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts fingerprint
+personal vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts list --origin {{authNonproductionOrigin}}
 ```
 
 Commit a **public** `auth-registration.json`. The helper defaults to a one-hour lease capped at the grant expiry; optionally set an explicit future `expiresAt` or `--ttl-seconds` within the grant and environment limits:
@@ -636,9 +636,9 @@ Commit a **public** `auth-registration.json`. The helper defaults to a one-hour 
 ```
 
 ```bash
-vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts register --origin {{authNonproductionOrigin}} --file auth-registration.json
+personal vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts register --origin {{authNonproductionOrigin}} --file auth-registration.json
 # Teardown: use the public client id from the registration result.
-vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts revoke --origin {{authNonproductionOrigin}} --id app-<UUID>
+personal vault run --path {{kvMount}}/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts revoke --origin {{authNonproductionOrigin}} --id app-<UUID>
 ```
 
 For changing ports, supply `--callback http://localhost:<actual-port>/auth/callback` after the server binds; this overrides the single callback without editing the file. `--ttl-seconds 3600` requests a fresh one-hour lease capped at grant expiry.
@@ -703,8 +703,8 @@ Before reporting success, verify discovery, registration readback, fresh login a
 
 | Symptom                                        | Meaning / fix                                                                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `vault run`: `No value found at {{kvMount}}/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
-| `vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
+| `personal vault run`: `No value found at {{kvMount}}/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
+| `personal vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
 | Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R {{infraRepo}} -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: {{vaultAddr}}`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |

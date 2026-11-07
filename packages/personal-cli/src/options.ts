@@ -4,6 +4,8 @@ import type { Capability } from '../../fleet/src/types';
 import type { Settings } from './settings';
 
 export interface CliOptions extends Partial<Settings> {
+  managed?: boolean;
+  workers?: boolean;
   json?: boolean;
   nonInteractive?: boolean;
   interactive?: boolean;
@@ -28,7 +30,11 @@ export interface CliOptions extends Partial<Settings> {
 }
 
 export function capabilities(value?: string): Capability[] {
-  const values = value === 'none' ? [] : (value?.split(',') ?? CAPABILITIES);
+  const values =
+    value === 'none'
+      ? []
+      : (value?.split(',') ??
+        CAPABILITIES.filter((entry) => entry !== 'worker'));
   if (values.some((entry) => !CAPABILITIES.includes(entry as Capability)))
     throw new FleetUsageError(
       `--require expects ${CAPABILITIES.join(',')} or none.`
@@ -46,6 +52,8 @@ export function timeout(options: CliOptions): number {
 }
 
 export function validateOptions(command: string, options: CliOptions): void {
+  if (options.managed && command !== 'health')
+    throw new FleetUsageError('--managed is only valid for fleet health.');
   validateMutation(command, options);
   validateRepair(command, options);
   validateScope(command, options);

@@ -9,7 +9,8 @@ assert.equal(config.version, 1);
 const result = spawnSync(
   process.execPath,
   [
-    'packages/password-manager/bin.mjs',
+    'packages/personal-cli/bin.mjs',
+    'password-manager',
     '--state-dir',
     '/private/password-manager',
     '--non-interactive',
@@ -55,7 +56,8 @@ const before = database
 const repeated = spawnSync(
   process.execPath,
   [
-    'packages/password-manager/bin.mjs',
+    'packages/personal-cli/bin.mjs',
+    'password-manager',
     '--state-dir',
     '/private/password-manager',
     '--non-interactive',

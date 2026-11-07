@@ -39,7 +39,11 @@ import {
 import { cmdStatus } from './commands/status-cmd';
 import { cmdSync } from './commands/sync-cmd';
 import { cmdUpdate } from './commands/update-cmds';
-import { cmdToolsSync, cmdToolsCheck } from './commands/tools-cmds';
+import {
+  cmdToolsSync,
+  cmdToolsCheck,
+  cmdDockerSetup,
+} from './commands/tools-cmds';
 import { resolveVaultConfig } from './lib/vault-config';
 import type { GlobalOpts } from './lib/cli-opts';
 import { readVersion } from './lib/cli-opts';
@@ -64,6 +68,12 @@ function registerCore(program: Command, globals: () => GlobalOpts): void {
   const tools = program
     .command('tools')
     .description('[ws] Shared developer toolchain');
+  tools
+    .command('docker-setup')
+    .description(
+      'Install/start the native Docker runtime on supported platforms'
+    )
+    .action(() => cmdDockerSetup());
   tools
     .command('sync')
     .description('Install locked tools and refresh global mise configuration')

@@ -1,3 +1,4 @@
+import { workerTools } from './worker-tools';
 /** Read-only toolchain checks; no logins, installations or changes to Docker. */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,10 @@ import { tmpdir } from 'node:os';
 import { workspaceRoot } from './global-config';
 
 type Tool = string | { version: string; lazy?: boolean; os?: string[] };
-type Config = { tools: Record<string, Tool> };
+type Config = {
+  tools: Record<string, Tool>;
+  vars?: { worker_tools?: unknown };
+};
 export type Check = {
   id: string;
   status: 'pass' | 'warn' | 'fail';
@@ -98,13 +102,17 @@ export function dockerChecks(
   });
 }
 
-export function checkMachine(requireDocker = false): Check[] {
+export function checkMachine(requireDocker = false, worker = false): Check[] {
   const config = Bun.TOML.parse(
     readFileSync(join(workspaceRoot, 'mise.toml'), 'utf8')
   ) as Config;
   const auth = run(['gh', 'auth', 'status']);
   return [
-    ...toolChecks(config.tools),
+    ...toolChecks(
+      worker
+        ? workerTools(config.tools, config.vars?.worker_tools)
+        : config.tools
+    ),
     ...dockerChecks(requireDocker),
     {
       id: 'github-auth',
@@ -117,7 +125,10 @@ export function checkMachine(requireDocker = false): Check[] {
 }
 
 if (import.meta.main) {
-  const checks = checkMachine(process.argv.includes('--docker'));
+  const checks = checkMachine(
+    process.argv.includes('--docker'),
+    process.argv.includes('--worker')
+  );
   const ok = checks.every((check) => check.status !== 'fail');
   if (process.argv.includes('--json'))
     console.log(JSON.stringify({ ok, checks }, null, 2));

@@ -95,7 +95,7 @@ resolve_secret_path() {
     echo "ERROR: Could not resolve secret path." >&2
     echo "" >&2
     echo "Provide --project and --config, set VAULT_PROJECT/VAULT_CONFIG," >&2
-    echo "or run: vault setup --project <name> --config <name>" >&2
+    echo "or run: personal vault setup --project <name> --config <name>" >&2
     return 1
   fi
 

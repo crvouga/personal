@@ -6,7 +6,8 @@ import type { Capability, Check, Runner, Snapshot } from './types';
 export async function probe(
   root: string,
   required: Capability[],
-  run: Runner
+  run: Runner,
+  nodeId?: string
 ): Promise<Snapshot> {
   const current = await fingerprint(root, run);
   const checks: Check[] = [
@@ -32,11 +33,12 @@ export async function probe(
   checks.push(await dependencyCheck(root, current));
   for (const capability of CAPABILITIES) {
     if (required.includes(capability))
-      checks.push(...(await authCheck(capability, run, root)));
+      checks.push(...(await authCheck(capability, run, root, nodeId)));
     else
       checks.push({
         id: `auth:${capability}`,
         status: 'skip',
+        required: false,
         summary: 'Not required by this node configuration.',
       });
   }

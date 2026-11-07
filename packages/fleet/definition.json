@@ -35,5 +35,21 @@
   "ubuntu": {
     "release": "26.04",
     "architectures": ["amd64", "arm64"]
+  },
+  "worker": {
+    "requiredCapabilities": [
+      "github",
+      "vault",
+      "t3",
+      "toolchain",
+      "workstation",
+      "worker"
+    ],
+    "githubLogin": "crvouga",
+    "toolchain": "mise.lock",
+    "agentProfile": "proxy",
+    "unattendedSudo": true,
+    "persistentT3": true,
+    "neverSleep": true
   }
 }

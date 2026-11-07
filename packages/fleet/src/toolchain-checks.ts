@@ -4,12 +4,13 @@ import type { Check, Runner } from './types';
 
 export async function toolchainChecks(
   root: string,
-  run: Runner
+  run: Runner,
+  worker?: boolean
 ): Promise<Check[]> {
-  const result = await run(
-    ['bun', join(root, 'scripts/dev/doctor.ts'), '--json', '--docker'],
-    { cwd: root, timeoutMs: 90_000 }
-  );
+  const result = await run(doctorArguments(root, worker), {
+    cwd: root,
+    timeoutMs: 90_000,
+  });
   const fallback: Check = {
     id: 'auth:toolchain',
     status: 'fail',
@@ -69,4 +70,14 @@ function toolCheck(value: unknown): Check | null {
         }
       : {}),
   };
+}
+
+function doctorArguments(root: string, worker?: boolean): string[] {
+  return [
+    'bun',
+    join(root, 'scripts/dev/doctor.ts'),
+    '--json',
+    '--docker',
+    ...(worker ? ['--worker'] : []),
+  ];
 }

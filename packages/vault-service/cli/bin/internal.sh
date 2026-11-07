@@ -2,20 +2,11 @@
 # secret-store-vault-wrapper
 set -euo pipefail
 
-if [ -z "${SECRET_STORE_CLI_ROOT:-}" ]; then
-  WRAPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [ -f "${WRAPPER_DIR}/../lib/vault-auth.sh" ]; then
-    SECRET_STORE_CLI_ROOT="$(cd "${WRAPPER_DIR}/.." && pwd)"
-  else
-    INSTALL_ROOT="${SECRET_STORE_INSTALL_ROOT:-${HOME}/.local/share/secret-store}"
-    if [ -f "${INSTALL_ROOT}/cli/lib/vault-auth.sh" ]; then
-      SECRET_STORE_CLI_ROOT="${INSTALL_ROOT}/cli"
-    else
-      echo "ERROR: Could not find secret-store CLI library." >&2
-      echo "       Re-run: ./scripts/install-cli.sh" >&2
-      exit 1
-    fi
-  fi
+WRAPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SECRET_STORE_CLI_ROOT="$(cd "${WRAPPER_DIR}/.." && pwd)"
+if [ ! -f "${SECRET_STORE_CLI_ROOT}/lib/vault-auth.sh" ]; then
+  echo "ERROR: personal vault requires its source checkout and shared toolchain." >&2
+  exit 1
 fi
 
 # shellcheck source=../lib/vault-auth.sh
@@ -47,14 +38,14 @@ case "$subcommand" in
     ;;
   -h|--help|help)
     cat <<EOF
-secret-store vault wrapper — secret injection for self-hosted OpenBao.
+personal vault — secret injection for self-hosted OpenBao.
 
 Usage:
-  vault run [OPTIONS] -- <command> [args...]   Run command with secrets injected
-  vault setup [OPTIONS]                        Write .vault.yaml in current directory
-  vault <command> ...                          Pass through to Vault CLI
+  personal vault run [OPTIONS] -- <command> [args...]   Run command with secrets injected
+  personal vault setup [OPTIONS]                        Write .vault.yaml in current directory
+  personal vault <command> ...                          Pass through to Vault CLI
 
-Run 'vault run --help' or 'vault setup --help' for details.
+Run 'personal vault run --help' or 'personal vault setup --help' for details.
 EOF
     ;;
   *)

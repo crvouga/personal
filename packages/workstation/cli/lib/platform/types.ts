@@ -70,6 +70,8 @@ export type ScheduledJobStatus = {
 };
 
 export type Platform = {
+  /** Optional source-owned native Docker installer. */
+  readonly dockerSetupScript?: string;
   readonly name: PlatformName;
   readonly label: string;
 

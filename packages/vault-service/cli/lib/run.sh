@@ -1,9 +1,9 @@
-# vault run — fetch KV secrets and inject as environment variables.
+# personal vault run — fetch KV secrets and inject as environment variables.
 # shellcheck shell=bash
 
 vault_run_usage() {
   cat <<EOF
-Usage: vault run [OPTIONS] -- <command> [args...]
+Usage: personal vault run [OPTIONS] -- <command> [args...]
 
 Fetch secrets from Vault and run a command with them injected as env vars.
 
@@ -21,10 +21,10 @@ Config resolution (first match wins):
   3. .vault.yaml in current directory or parent (up to git root)
 
 Examples:
-  vault setup --project myapp --config dev
-  vault run -- bun myserver.tsx
-  vault run --project myapp --config prd -- npm start
-  vault run --dry-run -- bun test
+  personal vault setup --project myapp --config dev
+  personal vault run -- bun myserver.tsx
+  personal vault run --project myapp --config prd -- npm start
+  personal vault run --dry-run -- bun test
 EOF
 }
 
@@ -145,7 +145,7 @@ vault_run() {
 
 vault_setup_usage() {
   cat <<EOF
-Usage: vault setup [OPTIONS]
+Usage: personal vault setup [OPTIONS]
 
 Write a .vault.yaml config file in the current directory.
 
@@ -157,7 +157,7 @@ Options:
   -h, --help       Show this help
 
 Example:
-  vault setup --project myapp --config dev
+  personal vault setup --project myapp --config dev
 EOF
 }
 

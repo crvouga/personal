@@ -6,7 +6,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "fleet": "bun src/cli.ts",
+    "fleet": "bun ../personal-cli/src/cli.ts fleet",
     "tc": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
     "test": "bun test src"

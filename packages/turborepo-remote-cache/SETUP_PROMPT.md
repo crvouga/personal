@@ -42,7 +42,7 @@ Ask the human for the token, or if they use the same OpenBao as the cache owner:
 
 - Vault KV path: `secret/data/personal/{dev|prd}` key `TURBO_TOKEN`
 - Or from the cache monorepo (when available):  
-  `vault run --config dev -- <your build command>`
+  `personal vault run --config dev -- <your build command>`
   which reads OpenTofu-managed cache credentials.
 
 **Never commit `TURBO_TOKEN`.** Prefer Vault, GitHub Actions secrets / OIDC→Vault, or a local untracked `.env` that is already gitignored.
@@ -51,7 +51,7 @@ Ask the human for the token, or if they use the same OpenBao as the cache owner:
 
 1. **Confirm Turborepo is in use** (`turbo.json`, root scripts that call `turbo run …`). If not, stop and tell the human.
 2. **Secrets / env**
-   - Local: document or wire exports so developers get the four required vars (e.g. `vault run`, direnv, or project setup script). Example:
+   - Local: document or wire exports so developers get the four required vars (e.g. `personal vault run`, direnv, or project setup script). Example:
 
      ```bash
      export TURBO_API=https://turborepo.chrisvouga.dev

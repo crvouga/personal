@@ -1,3 +1,4 @@
+import { localCheckoutRevision } from '../../fleet/src/machine/local-source';
 import { record } from '../../fleet/src/config';
 import canonicalDefinition from '../../fleet/definition.json';
 import { parseDefinition } from '../../fleet/src/definition';
@@ -64,7 +65,12 @@ export async function fleetSync(
   const root = machineRoot();
   await ensurePrivateRoot(root);
   const state = await readEnrollment(root);
-  const revision = selectedRevision(options.revision, state?.approvedRevision);
+  const revision = await selectedRevision(
+    options.revision,
+    state?.approvedRevision,
+    settings,
+    run
+  );
   if (!isRevision(revision))
     return actionRequired(
       'FLEET_REVISION_REQUIRED',
@@ -74,20 +80,7 @@ export async function fleetSync(
     return scheduleRequest(options, revision, settings, run);
   const request = { ...options, revision };
   if (mayPrompt(options)) await approve(request, settings, run);
-  if (!request.apply) {
-    const result = await selected(request, settings, run);
-    if (request.dryRun) return result;
-    return {
-      ...result,
-      exitCode: 1,
-      data: {
-        ...(result.data as object),
-        ok: false,
-        actionRequired:
-          'FLEET_APPLY_CONFIRMATION_REQUIRED: rerun interactively or with --apply --yes.',
-      },
-    };
-  }
+  if (!request.apply) return previewRequest(request, settings, run);
   return withMachineLock(root, async () => {
     const approval = {
       ...state,
@@ -114,6 +107,24 @@ export async function fleetSync(
       );
     throw error;
   });
+}
+async function previewRequest(
+  request: FleetSyncOptions,
+  settings: Settings,
+  run: Runner
+): Promise<CommandOutcome> {
+  const result = await selected(request, settings, run);
+  if (request.dryRun) return result;
+  return {
+    ...result,
+    exitCode: 1,
+    data: {
+      ...(result.data as object),
+      ok: false,
+      actionRequired:
+        'FLEET_APPLY_CONFIRMATION_REQUIRED: rerun interactively or with --apply --yes.',
+    },
+  };
 }
 function actionRequired(code: string, remedy: string): CommandOutcome {
   const report = controllerFailure(
@@ -239,9 +250,16 @@ function validateSchedule(schedule: unknown): void {
     throw new FleetUsageError('Unknown controller schedule action.');
 }
 
-function selectedRevision(
+async function selectedRevision(
   explicit: string | undefined,
-  approved: string | undefined
-): string | undefined {
-  return explicit ?? approved ?? packageRevision();
+  approved: string | undefined,
+  settings: Settings,
+  run: Runner
+): Promise<string | undefined> {
+  return (
+    explicit ??
+    packageRevision() ??
+    (await localCheckoutRevision(settings.workspace, run)) ??
+    approved
+  );
 }

@@ -15,6 +15,7 @@ export function validCheck(value: unknown): value is Check {
   )
     return false;
   if (!validDuration(value['phaseDurationMs'])) return false;
+  if (!validRequired(value['required'])) return false;
   const remedy = value['remedy'];
   return remedy === undefined || validRemedy(remedy);
 }
@@ -76,6 +77,7 @@ export function cleanCheck(check: Check): Check {
     id: check.id,
     status: check.status,
     summary: check.summary,
+    ...(check.required !== undefined ? { required: check.required } : {}),
     ...(check.phaseDurationMs !== undefined
       ? { phaseDurationMs: check.phaseDurationMs }
       : {}),
@@ -110,4 +112,8 @@ function validDuration(value: unknown): boolean {
       value >= 0 &&
       value <= 86_400_000)
   );
+}
+
+function validRequired(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean';
 }

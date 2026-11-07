@@ -478,7 +478,7 @@ Target macOS for the full experience, but keep commands platform-agnostic behind
 
 ## Secret integration
 
-Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
+Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `personal vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
 
 Ground rules:
 
@@ -542,3 +542,16 @@ and native agent configuration live in [`monitoring/`](monitoring/README.md).
 The shared toolchain installs verified native T3 artifacts; Workstation invokes
 its supported `t3 service install` lifecycle and preserves runtime state. See the
 [controller runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
+
+Docker runtime setup on macOS is exposed through
+`personal workstation tools docker-setup`. The adapter runs the shared,
+checksum-pinned Docker Desktop installer in `scripts/dev/docker-desktop.sh`;
+version/build/hash inputs live in `mise.toml`. Installation opens the native
+first-run flow; readiness is checked separately with `tools check --docker`.
+
+The Ubuntu worker baseline also declares enabled SSH/Tailscale/Docker services,
+no-sleep policy, designated-user passwordless sudo and lingering. Credential renewal
+uses a user timer pointing to the pinned source checkout; bounded T3 recovery is
+enabled only after verifying the native service. Workers use the minimal locked
+profile in `mise.toml`. T3 upgrades never reset pairing data or silently take over
+an active desktop-owned listener; a one-time migration can remain action-required.

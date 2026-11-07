@@ -1,5 +1,27 @@
 # Personal CLI
 
+The worker fleet has two primary commands:
+
+```sh
+npx @crvouga/personal fleet-converge
+npx @crvouga/personal fleet-health
+```
+
+Converge applies one approved immutable revision to every declared Ubuntu worker
+over verified SSH. The first enrollment binds existing hosts; routine execution
+never requests a worker password or interactive sudo. Use `--apply --yes` for an
+unattended approved run, `--dry-run` to inspect, and `--json` for agent output.
+Health is read-only and reports every remaining required gap; optional desktop
+configuration does not weaken or override mandatory worker policy. The public
+release carries its desired input hashes, so worker health needs no checkout on
+the controller. Source-backed workstation operations still need their checkout.
+
+Worker membership, mandatory services and singleton ownership live in
+`packages/fleet/definition.json`; versions and the minimal tool profile live in
+`mise.toml`/`mise.lock`; Ubuntu services, packages and power policy are owned by
+Workstation's Ansible files. Private connection overrides cannot waive those
+requirements. See [the fleet contract](../fleet/docs/worker-contract.md).
+
 Start with `personal` for help; it never opens a menu implicitly.
 
 ```sh
@@ -52,6 +74,17 @@ Read the [node/T3 reconciliation runbook](../workstation/agents/setup.md) for st
 concurrency, recovery, rollout and precise ownership boundaries. The public package
 needs a local checkout and its shared toolchain for workstation operations; the T3
 reconciler itself runs on Node without Bun or access to live credentials.
+
+## One CLI
+
+`personal` is the only repository-owned user CLI. Private package adapters are
+implementation details, never separately installed executables. Existing Bun task
+aliases forward to `personal`. Source-backed domains include `workstation`,
+`password-manager`, `cliproxy`, `health`, `health-fix` and `domains`; inspect each
+with `personal DOMAIN --help`. They need the checkout and shared toolchain and
+preserve the owning domain's output and authorization semantics. The published
+package delegates these operations to the selected checkout rather than bundling
+private services or credentials.
 
 ## Detailed command reference
 
@@ -109,6 +142,11 @@ fresh verified SSH sessions, compares checkout/toolchain input hashes, checks ea
 pinned tool version and Docker runtime, and runs the existing read-only `personal workstation doctor`
 for managed links, PATH and workstation configuration.
 
+`personal fleet health --managed --json` explicitly limits diagnostics to the
+canonical developer fleet plus the controller. It reports excluded unmanaged
+peers and fails on missing canonical registrations. The default full-tailnet
+command is unchanged. The T3 Health project script selects this managed scope.
+
 Register remote computers with their existing SSH aliases and actual checkout paths.
 DNS names, Tailscale addresses and resolved SSH aliases are matched exactly. Missing,
 ambiguous, offline or no-longer-visible registrations produce explicit failures;
@@ -123,8 +161,8 @@ status reports do not prove quotas, model access or a live billable request.
 Gemini, Copilot and OpenCode provider access are explicitly **unverified** until a
 supported noninteractive adapter can verify them; saved keys alone never count.
 
-Health uses strict coverage: warnings and skipped checks return exit **1**, as do
-failures. It cannot certify devices hidden by Tailscale ACLs, other accounts/tailnets,
+Health uses strict coverage: required warnings, unverified checks and failures
+return exit **1**. Explicitly out-of-scope checks remain visible and neutral. It cannot certify devices hidden by Tailscale ACLs, other accounts/tailnets,
 all-pairs connectivity, every application, or operator-only T3/VS Code connection
 flows. Those limits remain visible in the report. Per-node health probes default
 to five minutes, overridable with `--timeout`; concurrency is bounded to four.
@@ -229,7 +267,7 @@ workstation provider sync. Each computer uses its own Vault authorization; the
 controller never transfers credential files, tokens, SSH agents or keychains.
 Native login recipes are operator steps and are commented in generated scripts.
 Use an intended Vault project/config for runtime access, for example
-`vault run --config dev -- personal fleet health --json`, only when those secrets
+`personal vault run --config dev -- personal fleet health --json`, only when those secrets
 are needed by that process.
 
 Only registered, successfully probed remote machines are eligible for automatic

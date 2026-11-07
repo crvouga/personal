@@ -39,7 +39,9 @@ export function registerMaintenance(program: Command): void {
           action: subcommand,
           directory: app.directory,
           hour: app.config.scheduleHour,
-          cli: fileURLToPath(new URL('../../bin.mjs', import.meta.url)),
+          cli: fileURLToPath(
+            new URL('../../../personal-cli/bin.mjs', import.meta.url)
+          ),
         })
       )
     );
