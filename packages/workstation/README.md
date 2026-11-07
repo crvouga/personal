@@ -430,8 +430,9 @@ The `provider-secrets.ts` openrouter entry attaches `models: { "openrouter/auto"
 - **Focus script directly (no banner needed):**
   ```bash
   personal workstation opencode notifications focus --dir /path/to/project --session ses_test --dry-run
-  personal workstation opencode notifications focus --dir /path/to/project --session ses_test --token est1234
+  personal workstation opencode notifications focus --dir /path/to/project --session ses_test --token "$FOCUS_TOKEN"
   ```
+  Set `FOCUS_TOKEN` to the existing terminal’s routing token for the real-run example.
   The dry run prints the window/tab/session plan (Quick Open queries + focus-request payload) without touching anything; the real run executes the exact handler a banner click would.
 - **Session routing directly (no banner needed):**
   ```bash
