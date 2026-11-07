@@ -214,6 +214,15 @@ def test_agent(ssh):
     (ROOT / 'agent-repeat.log').write_text(second.stdout + second.stderr)
     assert 'changed=0' in second.stdout
     assert run(ssh + ['systemctl show beszel-agent.service --property=MainPID --value']).stdout.strip() == pid, 'healthy agent restarted'
+    # Repair owned, nonsecret configuration without replacing agent identity.
+    run(ssh + ["printf 'HUB_URL=https://drift.fixture.ts.net:8443\\nSYSTEM_NAME=drift-node\\n' | sudo tee /etc/personal-beszel/agent.env >/dev/null"])
+    repaired = run(ssh + [command], input=variables)
+    (ROOT / 'agent-drift-repair.log').write_text(repaired.stdout + repaired.stderr)
+    restored = run(ssh + ['sudo cat /etc/personal-beszel/agent.env']).stdout
+    assert restored == 'HUB_URL=https://fixture.fixture.ts.net:8443\nSYSTEM_NAME=fixture-node\n', 'owned agent configuration drift was not repaired'
+    repeated = run(ssh + [command], input=variables)
+    assert 'changed=0' in repeated.stdout, 'agent drift repair did not converge'
+    pid = run(ssh + ['systemctl show beszel-agent.service --property=MainPID --value']).stdout.strip()
     run(ssh + ["printf preserved | sudo tee /var/lib/beszel-agent/fixture-preserved >/dev/null && sudo systemctl kill --signal=SIGKILL beszel-agent.service"])
     for _ in range(30):
         current = run(ssh + ['systemctl show beszel-agent.service --property=MainPID --value']).stdout.strip()
