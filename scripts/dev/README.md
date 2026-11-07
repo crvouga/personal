@@ -348,3 +348,13 @@ Repeated approved setup reuses an observed matching mise executable and preserve
 unchanged managed configuration/lockfile timestamps. It still asks mise and the
 frozen dependency owner to inspect actual installations; a previous success marker
 is not a reason to skip drift inspection.
+
+### T3 project actions
+
+Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
+Actions: `warm`, `sync`, `update`, `net-fix`, `net-check`, `net-fix-check`,
+`portfolio`. Each invocation runs the shared bootstrap first, reusing installed
+locked tools and converging dependencies for the current branch. `warm` performs
+only that setup. No global `ws` or `personal` launcher is required. Setup may
+install tools on first use; application logins (including Vault for portfolio)
+remain per-machine prerequisites. Configuration actions affect the current machine.

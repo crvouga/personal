@@ -121,7 +121,8 @@ personal workstation cleanup --protect 'vite' --protect 'storybook'
 T3 Code and VS Code Remote-SSH. The machines live in the checked-in
 canonical `../fleet/definition.json` (alias, Tailscale name, SSH port/user,
 OS, T3 port), so every machine gets the same view. Private keys are never
-committed: the inventory stores only their paths.
+committed: controller identity paths remain local. Hosts without an explicit
+identity use existing SSH configuration or Tailscale SSH; login is checked separately.
 
 `personal workstation net check` is read-only. For each host it checks, in order:
 
@@ -130,7 +131,7 @@ committed: the inventory stores only their paths.
 3. SSH login by alias, several tries (`--tries`, default 3) to catch flaky connections
 4. SSH as `user@full-name`, which is how VS Code Remote-SSH and T3 connect
 5. Machine health over SSH (`net/remote-probe.sh`): CPU load per core, RAM/swap, free disk
-6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, same version as this machine
+6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, or through verified SSH to the remote loopback endpoint for loopback-only servers; reports the route and compares versions with this machine. This is a readiness probe, not a T3 pairing test.
 
 It also checks this machine: Tailscale running, `tailscale` on `PATH` (T3
 Code shells out to it), local T3 server, the Remote-SSH extension and free
