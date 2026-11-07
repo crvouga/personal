@@ -44,7 +44,7 @@ export const ENV_TOKEN_KEY = 'PORTFOLIO_GITHUB_TOKEN';
 
 export const VAULT_PATH = 'secret/data/personal/{dev|prd}';
 
-export const MISSING_TOKEN_MESSAGE = `${ENV_TOKEN_KEY} is required. Expected ${VAULT_PATH} → ${ENV_TOKEN_KEY}. Locally run: vault run --config dev -- bun run --filter @pkgs/portfolio build. GitHub contribution access also requires read:user.`;
+export const MISSING_TOKEN_MESSAGE = `${ENV_TOKEN_KEY} is required. Expected ${VAULT_PATH} → ${ENV_TOKEN_KEY}. Locally run: personal vault run --config dev -- bun run --filter @pkgs/portfolio build. GitHub contribution access also requires read:user.`;
 
 export const REMEDIATION = `Verify ${ENV_TOKEN_KEY} in ${VAULT_PATH}.`;
 

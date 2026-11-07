@@ -1,3 +1,4 @@
+import { approvedLocalSource } from './local-source';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import type { Runner } from '../types';
@@ -5,8 +6,21 @@ import { ensurePrivateRoot } from './state';
 
 const REPOSITORY = 'https://github.com/crvouga/personal.git';
 
-/** Only called after approval, under the machine lock. Never uses the user's checkout. */
+/** Called after approval; local sources supply Git objects only, never dirty files. */
 export async function prepareSource(
+  root: string,
+  revision: string,
+  run: Runner,
+  checkout?: string
+): Promise<string | null> {
+  if (checkout) {
+    const local = await approvedLocalSource(checkout, revision, run);
+    if (local) return local;
+  }
+  return prepareRemoteSource(root, revision, run);
+}
+
+async function prepareRemoteSource(
   root: string,
   revision: string,
   run: Runner

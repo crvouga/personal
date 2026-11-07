@@ -16,18 +16,15 @@ const MANAGED_MARKERS: readonly (readonly [string, string])[] = [
  * `user@full-name`, which must pick the same key and port as the alias.
  */
 export function renderSshBlock(hosts: readonly NetHost[]): string {
-  if (hosts.some((host) => !host.identityFile))
-    throw new Error(
-      'Controller identity path is missing; migrate local overrides before changing SSH settings.'
-    );
   const entries = hosts.map((h) =>
     [
       `Host ${h.alias} ${h.tailscaleName} ${shortName(h.tailscaleName)}`,
       `    HostName ${h.tailscaleName}`,
       `    User ${h.user}`,
       `    Port ${h.sshPort}`,
-      `    IdentityFile ${h.identityFile}`,
-      '    IdentitiesOnly yes',
+      ...(h.identityFile
+        ? [`    IdentityFile ${h.identityFile}`, '    IdentitiesOnly yes']
+        : []),
       '    AddressFamily inet',
       '    ServerAliveInterval 30',
       '    ServerAliveCountMax 3',

@@ -52,7 +52,7 @@ function linkCheck(
 ): DoctorCheck {
   if (current === null) {
     return {
-      id: `link:${label}`,
+      id: `link:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       label,
       severity: 'fail',
       detail: `missing ${link}`,
@@ -60,7 +60,7 @@ function linkCheck(
     };
   }
   return {
-    id: `link:${label}`,
+    id: `link:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     label,
     severity: 'pass',
     detail: link,
@@ -85,7 +85,7 @@ function linksChecks(
         ? `${link.link} is not a symlink`
         : `${link.link} points at ${status.current}`;
     return {
-      id: `link:${link.label}`,
+      id: `link:${link.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       label: link.label,
       severity: 'fail' as const,
       detail,

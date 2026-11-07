@@ -1,3 +1,4 @@
+import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
 import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';
@@ -56,7 +57,10 @@ export async function selected(
     return { exitCode: 1, data: report, text: controllerText(report) };
   }
   const payload = options.apply
-    ? await prepareBootstrap(machineRoot(), options.revision, run, canonical)
+    ? await prepareBootstrap(machineRoot(), options.revision, run, {
+        definition: canonical,
+        checkout: settings.workspace,
+      })
     : null;
   const report = await synchronizeController(
     {
@@ -126,6 +130,7 @@ function deployWithMonitoring(
     );
     result.checks.push(...(await inspectBootstrap(node, run)));
     result.checks.push(...(await verifyT3Endpoint(node, run)));
+    result.checks.push(await verifyT3Linked(node, run));
     if (
       result.checks.some(
         (check) => check.id === 'configuration:apply' && check.status === 'pass'

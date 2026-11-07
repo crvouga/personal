@@ -1,7 +1,7 @@
 /**
  * Post-deploy smoke test for the self-hosted Turborepo remote cache server.
  *
- * Requires TURBO_API and TURBO_TOKEN in env (via `vault run`).
+ * Requires TURBO_API and TURBO_TOKEN in env (via `personal vault run`).
  * CI: `bun run smoke:prd` after deploy.
  */
 import { assert, hotAssert, type Assert } from '@pkgs/assert';
@@ -33,7 +33,7 @@ function requireEnv(key: string): string {
   const value = process.env[key]?.trim() ?? '';
   if (value.length === 0) {
     fail(
-      `${key} is required (use \`vault run -- bun run scripts/smoke-test-cache.ts\`).`
+      `${key} is required (use \`personal vault run -- bun run scripts/smoke-test-cache.ts\`).`
     );
   }
   return value;

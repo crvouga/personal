@@ -8,6 +8,13 @@ existing mise/workstation owners rather than introducing another installer.
 See [Ubuntu fleet-sync implementation and operator status](docs/ubuntu-sync.md) for
 the new controller-driven public command and its outstanding full-machine gates.
 
+## Worker contract
+
+Use `npx @crvouga/personal fleet-converge` to reconcile all declared workers and
+`npx @crvouga/personal fleet-health` to inspect remaining gaps. See
+[worker-contract.md](docs/worker-contract.md) for bootstrap, ownership and the exact
+scope of readiness. Legacy nested diagnostics remain available for troubleshooting.
+
 ## Quick start
 
 Run from the repository root after `bun install --frozen-lockfile`:
@@ -237,7 +244,7 @@ installation never substitutes for authentication or resource authorization.
 
 The workstation owner reads permitted shared provider keys from each machine's
 existing Vault session. For process-scoped shared secret access, use the existing
-`vault run --config dev -- COMMAND` workflow on that machine with its intended
+`personal vault run --config dev -- COMMAND` workflow on that machine with its intended
 project/config. Infrastructure, access policy and secret seeding remain owned by
 OpenTofu. No OAuth/session/keychain/SSH credential transfer is implemented.
 

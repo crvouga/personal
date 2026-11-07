@@ -1,3 +1,4 @@
+import { parseWorkerPolicy, type WorkerPolicy } from './worker-policy';
 import { readFileSync } from 'node:fs';
 import { FleetUsageError } from './errors';
 import { parseConfig, record } from './config';
@@ -16,6 +17,7 @@ export interface MachineDefinition {
 }
 export interface FleetDefinition {
   version: 2;
+  worker?: WorkerPolicy;
   nodes: MachineDefinition[];
   proxy: { owner: string; endpoint: 'https://cli-proxy.chrisvouga.dev' };
   monitoring: { parent: string };
@@ -82,6 +84,7 @@ export function parseDefinition(value: unknown): FleetDefinition {
       'proxy',
       'monitoring',
       'ubuntu',
+      'worker',
     ])
   )
     return fail();
@@ -95,7 +98,16 @@ export function parseDefinition(value: unknown): FleetDefinition {
     return fail();
   const { proxy, monitoring } = owners(value, nodes);
   const ubuntu = baseline(value['ubuntu']);
-  return { version: 2, nodes, proxy, monitoring, ubuntu };
+  return {
+    version: 2,
+    nodes,
+    proxy,
+    monitoring,
+    ubuntu,
+    ...(value['worker'] === undefined
+      ? {}
+      : { worker: parseWorkerPolicy(value['worker']) }),
+  };
 }
 function owners(
   value: Record<string, unknown>,
@@ -153,5 +165,16 @@ export function enrolledRoster(
         'Fleet SSH assignment conflicts with the local roster. Review the migration; discovery cannot overwrite explicit assignments.'
       );
   }
-  return roster;
+  return {
+    ...roster,
+    nodes: roster.nodes.map((node) => ({
+      ...node,
+      required: [
+        ...new Set([
+          ...node.required,
+          ...(definition.worker?.requiredCapabilities ?? []),
+        ]),
+      ],
+    })),
+  };
 }

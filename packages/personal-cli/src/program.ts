@@ -1,3 +1,4 @@
+import { registerSourceOperations } from './source-operations';
 import { Command, CommanderError } from 'commander';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { commandCatalog } from './registry';
@@ -33,6 +34,10 @@ function common(command: Command): Command {
       'Select an existing node; repeat for multiple nodes',
       collect,
       []
+    )
+    .option(
+      '--managed',
+      'Health: canonical developer fleet and controller; reports excluded peers'
     )
     .option('--local', 'Controller only; no roster or SSH required')
     .option(
@@ -171,15 +176,13 @@ export async function execute(
   const program = createProgram(version, (text) => {
     output += text;
   });
-  registerT3(program, defaults, (result) => {
+  const complete = (result: CommandOutcome) => {
     outcome = result;
-  });
-  registerFlatCommands(program, defaults, (result) => {
-    outcome = result;
-  });
-  registerWorkstation(program, defaults, (result) => {
-    outcome = result;
-  });
+  };
+  registerT3(program, defaults, complete);
+  registerFlatCommands(program, defaults, complete);
+  registerSourceOperations(program, defaults, complete);
+  registerWorkstation(program, defaults, complete);
   const commands = fleetCommands(program);
   registerFleetSync(
     program,

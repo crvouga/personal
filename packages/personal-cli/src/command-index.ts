@@ -1,3 +1,4 @@
+import { SOURCE_OPERATIONS } from './source-operations';
 import { commandCatalog } from './registry';
 import type { CommandSpec } from './contracts';
 
@@ -18,7 +19,14 @@ export function indexedCommands(search = '', group?: string) {
 }
 
 function execution(entry: CommandSpec) {
-  if (['fleet-sync', 'fleet converge'].includes(entry.id))
+  if (Object.hasOwn(SOURCE_OPERATIONS, entry.id))
+    return {
+      default: 'depends-on-subcommand',
+      authorization: 'owner-specific; inspect leaf help before invocation',
+      requirements: ['Personal checkout and shared toolchain'],
+      note: 'Streams the owner protocol. JSON and mutation flags depend on the leaf operation.',
+    };
+  if (['fleet-converge', 'fleet-sync', 'fleet converge'].includes(entry.id))
     return {
       default: 'interactive-confirmation-or-action-required',
       authorization: 'interactive-confirmation or --apply --yes',

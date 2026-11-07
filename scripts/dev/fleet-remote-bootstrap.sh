@@ -15,6 +15,7 @@ case "$bundle_sha" in *[!a-f0-9]*|'') exit 2;; esac
 case "$node" in *[!a-z0-9-]*|'') exit 2;; esac
 phase=bootstrap
 bundle=''
+code=0
 failure_code=REMOTE_BOOTSTRAP_INCOMPLETE
 die() { failure_code=$1; exit 1; }
 fail() {
@@ -26,6 +27,7 @@ trap '' HUP
 trap 'exit 1' INT TERM
 # No shell startup assumptions, and no implicit root development user.
 [ "$(id -u)" != 0 ] || die ROOT_DEVELOPMENT_USER_REJECTED
+# shellcheck source=/dev/null
 . /etc/os-release
 [ "$ID" = ubuntu ] && [ "$VERSION_ID" = 26.04 ] || die UBUNTU_BASELINE_MISMATCH
 case "$(uname -m)" in x86_64|aarch64) ;; *) die UBUNTU_ARCHITECTURE_UNSUPPORTED;; esac
@@ -98,7 +100,7 @@ export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/
 status_file="$root/toolchain-status.json"
 [ ! -L "$status_file" ] || die FLEET_STATE_PATH_UNSAFE
 rm -f -- "$status_file"
-if ! timeout 1800 bash scripts/dev/bootstrap.sh --non-interactive --status-file "$status_file" >/dev/null 2>&1; then
+if ! timeout 1800 bash scripts/dev/bootstrap.sh --worker --non-interactive --status-file "$status_file" >/dev/null 2>&1; then
   tool_phase=$(sed -n 's/.*"phase":"\([a-z0-9-]*\)".*/\1/p' "$status_file" 2>/dev/null) || tool_phase=''
   case "$tool_phase" in
     managed-config) die TOOLCHAIN_CONFIG_CONFLICT;;

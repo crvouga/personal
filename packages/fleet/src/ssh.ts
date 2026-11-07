@@ -37,7 +37,7 @@ export function sshArgs(node: FleetNode): string[] {
 
 export function remoteCommand(node: FleetNode, request: object): string[] {
   const encoded = Buffer.from(JSON.stringify(request)).toString('base64');
-  const command = `cd -- ${shellQuote(node.workspace)} && exec ${shellQuote(node.runtime ?? 'node')} --input-type=module - ${shellQuote(encoded)}`;
+  const command = `cd -- ${shellQuote(node.workspace)} && export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH" && exec ${shellQuote(node.runtime ?? 'node')} --input-type=module - ${shellQuote(encoded)}`;
   return [...sshArgs(node), command];
 }
 
@@ -85,6 +85,20 @@ const FAILURES = [
 ];
 
 export function sshFailure(result: CommandResult): Check {
+  if (
+    /Tailscale SSH requires an additional check|To authenticate, visit: https:\/\/login\.tailscale\.com\//i.test(
+      result.stderr
+    )
+  )
+    return {
+      id: 'ssh:tailscale-check',
+      status: 'fail',
+      summary: 'TAILSCALE_INTERACTIVE_AUTHORIZATION_REQUIRED',
+      remedy: {
+        action:
+          'The current Tailscale SSH policy requires interactive reauthentication. Adopt and update its existing policy through OpenTofu for the enrolled controller/worker scope, or enroll a separately verified OpenSSH key route. Fleet never bypasses trust or prompts for a password.',
+      },
+    };
   if (result.reason === 'timeout')
     return {
       id: 'ssh:timeout',

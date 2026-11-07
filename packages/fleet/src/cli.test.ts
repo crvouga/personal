@@ -8,7 +8,9 @@ import { bundleProbe, inspectRemote } from './transport';
 import { NODE, workspace } from './test-fixtures';
 
 const roots: string[] = [];
-const cli = fileURLToPath(new URL('./cli.ts', import.meta.url));
+const cli = fileURLToPath(
+  new URL('../../personal-cli/src/cli.ts', import.meta.url)
+);
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
@@ -22,9 +24,9 @@ async function directory(): Promise<string> {
 }
 
 test('CLI help/schema work without a roster or credentials', async () => {
-  for (const command of ['help', 'schema']) {
+  for (const command of ['schema', 'nodes']) {
     const result = await runCommand(
-      [process.execPath, cli, command, '--json'],
+      [process.execPath, cli, 'fleet', command, '--json'],
       { cwd: await directory() }
     );
     expect(result.ok).toBe(true);
@@ -36,7 +38,15 @@ test('CLI help/schema work without a roster or credentials', async () => {
 test('init previews only, creates exclusively, and never overwrites a roster', async () => {
   const root = await directory();
   const path = join(root, 'roster.json');
-  const args = [process.execPath, cli, 'init', '--config', path, '--json'];
+  const args = [
+    process.execPath,
+    cli,
+    'fleet',
+    'init',
+    '--config',
+    path,
+    '--json',
+  ];
   const preview = await runCommand(args);
   expect(JSON.parse(preview.stdout).applied).toBe(false);
   expect(await Bun.file(path).exists()).toBe(false);
@@ -53,6 +63,7 @@ test('sync preview and onboarding never attempt SSH/auth or silently apply', asy
   await runCommand([
     process.execPath,
     cli,
+    'fleet',
     'init',
     '--config',
     config,
@@ -62,6 +73,7 @@ test('sync preview and onboarding never attempt SSH/auth or silently apply', asy
   const preview = await runCommand([
     process.execPath,
     cli,
+    'fleet',
     'sync',
     '--config',
     config,
@@ -73,6 +85,7 @@ test('sync preview and onboarding never attempt SSH/auth or silently apply', asy
   const onboard = await runCommand([
     process.execPath,
     cli,
+    'fleet',
     'onboard',
     '--config',
     config,
@@ -88,6 +101,7 @@ test('usage errors are JSON and never echo arbitrary option values', async () =>
   const result = await runCommand([
     process.execPath,
     cli,
+    'fleet',
     '--unrecognized-secret=never-print-this',
   ]);
   expect(result.ok).toBe(false);

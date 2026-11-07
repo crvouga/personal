@@ -1,12 +1,21 @@
 import { record } from './config';
+import { join } from 'node:path';
 import type { Check, Runner } from './types';
 
 export async function workstationChecks(
   root: string,
-  run: Runner
+  run: Runner,
+  nodeId?: string
 ): Promise<Check[]> {
   const result = await run(
-    ['personal', 'workstation', 'doctor', '--json', '--non-interactive'],
+    [
+      'bun',
+      join(root, 'packages/personal-cli/src/cli.ts'),
+      'workstation',
+      'doctor',
+      '--json',
+      '--non-interactive',
+    ],
     {
       cwd: root,
       timeoutMs: 20_000,
@@ -32,10 +41,13 @@ export async function workstationChecks(
       return [fallback];
     const checks = data['checks'].map(configurationCheck);
     if (checks.some((check) => check === null)) return [fallback];
-    return [
-      ...(!result.ok || data['ok'] !== true ? [fallback] : []),
-      ...(checks as Check[]),
-    ];
+    const scoped = (checks as Check[]).map((check) =>
+      nodeId ? workerConfigurationScope(check, nodeId) : check
+    );
+    const failed = nodeId
+      ? scoped.some((check) => check.status === 'fail')
+      : !result.ok || data['ok'] !== true;
+    return [...(failed ? [fallback] : []), ...scoped];
   } catch {
     return [fallback];
   }
@@ -64,5 +76,22 @@ function configurationCheck(value: unknown): Check | null {
           },
         }
       : {}),
+  };
+}
+
+function workerConfigurationScope(check: Check, nodeId: string): Check {
+  const id = check.id.slice('workstation:'.length);
+  if (
+    id === 'ws-launcher' ||
+    /^agent:(codex|claude|opencode|gemini|copilot|profiles)$/.test(id) ||
+    id.startsWith(`agent:${nodeId}:`)
+  )
+    return check;
+  return {
+    ...check,
+    status: 'skip',
+    required: false,
+    summary:
+      'Desktop/direct-provider configuration is outside the minimal proxy-backed worker policy.',
   };
 }

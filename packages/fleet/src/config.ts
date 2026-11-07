@@ -12,6 +12,7 @@ export const CAPABILITIES: Capability[] = [
   'claude',
   'services',
   'workstation',
+  'worker',
 ];
 export const DEFAULT_CONFIG = '.fleet.local.json';
 
@@ -43,8 +44,17 @@ function parseNode(value: unknown): FleetNode {
     'runtime',
     'required',
     'tailscaleId',
+    't3EnvironmentId',
     'bootstrapViaSsh',
   ]);
+  if (
+    value['t3EnvironmentId'] !== undefined &&
+    (typeof value['t3EnvironmentId'] !== 'string' ||
+      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(
+        value['t3EnvironmentId']
+      ))
+  )
+    throw new FleetUsageError('Invalid enrolled T3 environment identity.');
   const names = nodeNames(value);
   if (!absolutePath(value['workspace']))
     throw new FleetUsageError('workspace must be an absolute POSIX path.');
@@ -56,6 +66,9 @@ function parseNode(value: unknown): FleetNode {
   return {
     ...names,
     ...enrollmentOptions(value),
+    ...(typeof value['t3EnvironmentId'] === 'string'
+      ? { t3EnvironmentId: value['t3EnvironmentId'] }
+      : {}),
     workspace: value['workspace'],
     ...(typeof value['runtime'] === 'string'
       ? { runtime: value['runtime'] }

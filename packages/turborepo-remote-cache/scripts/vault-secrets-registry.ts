@@ -250,7 +250,7 @@ export const VAULT_SECRET_REGISTRY: readonly SecretStoreEntry[] = [
     vaultUiPath: `${VAULT_UI_BASE}/personal/{{config}}`,
     validExample: 'ghp_… (classic) or github_pat_… (fine-grained)',
     invalidHint:
-      'Store a GitHub user token with read:user at secret/data/personal/{dev|prd} → PORTFOLIO_GITHUB_TOKEN, e.g. `bun run infra:vault apply`, then build with `vault run --config dev -- bun run --filter @pkgs/portfolio build`.',
+      'Store a GitHub user token with read:user at secret/data/personal/{dev|prd} → PORTFOLIO_GITHUB_TOKEN, e.g. `bun run infra:vault apply`, then build with `personal vault run --config dev -- bun run --filter @pkgs/portfolio build`.',
   }),
 ];
 

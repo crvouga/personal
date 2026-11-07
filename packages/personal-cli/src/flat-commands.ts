@@ -1,3 +1,4 @@
+import type { CliOptions } from './options';
 import type { Command } from 'commander';
 import type { CommandOutcome } from './contracts';
 import type { Settings } from './settings';
@@ -11,6 +12,23 @@ export function registerFlatCommands(
   defaults: Settings,
   complete: (outcome: CommandOutcome) => void
 ): void {
+  program
+    .command('fleet-health')
+    .description(
+      'Check every canonical worker without changing them; lists remaining gaps'
+    )
+    .option('--timeout <ms>', 'Per-node diagnostic timeout')
+    .action(async (_options, command: Command) => {
+      const options = command.optsWithGlobals<CliOptions>();
+      const settings = await resolveSettings({ ...defaults, ...options });
+      complete(
+        await executeFleet(
+          'health',
+          { ...options, managed: true, workers: true },
+          settings
+        )
+      );
+    });
   program
     .command('fleet-node-sync')
     .description(

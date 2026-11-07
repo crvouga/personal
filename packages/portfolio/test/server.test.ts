@@ -243,7 +243,7 @@ test('Docker container serves the multi-route site on port 80', async () => {
     await cleanup();
     if (!process.env[SECRET_ENV]) {
       throw new Error(
-        `${SECRET_ENV} is required to build the image. Run: vault run --config dev -- bun run --filter @pkgs/portfolio test:docker`
+        `${SECRET_ENV} is required to build the image. Run: personal vault run --config dev -- bun run --filter @pkgs/portfolio test:docker`
       );
     }
 
