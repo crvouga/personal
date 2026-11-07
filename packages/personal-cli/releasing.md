@@ -43,8 +43,15 @@ and configures/verifies its GitHub trusted publisher. Approve npm login and any
 npm account/2FA approval in your own terminal/browser. No npm password, recovery
 code or long-lived publishing token needs to be supplied to this project.
 The trusted publisher is **`crvouga/personal` / `ci.yml`**, with direct publishing
-permission. npm validates the calling workflow for reusable workflows, so this
-must be `ci.yml`, not the reusable `release-personal-cli.yml` filename.
+permission. The publishing job runs directly in `ci.yml` so the registered
+workflow and executing workflow have the same identity. Do not move publication
+into a reusable workflow: its OIDC identity can differ from the registered publisher.
+
+npm may require a separate browser approval when reading trusted-publisher
+settings after login. Interactive verification keeps a terminal attached and
+uses npm's readable output so those approval URLs appear immediately; npm's JSON
+mode buffers browser URLs until completion. Open approval URLs in your normal
+local browser with access to your security key/passkey.
 
 Bootstrap is retryable: if content is already published, it only checks/configures
 the publisher. Existing publishers are preserved; no connection is revoked or
@@ -74,7 +81,7 @@ publish-time web 2FA and trusted-publisher setup. npm update notices/progress ar
 disabled too; keep npm versions owned by the shared mise lock, not a global
 `npm install -g`. After cancellation or expiry, rerun the command and use its new
 URL, not an earlier session's URL. Treat approval links as private; never paste
-them into reports or shared logs. Registry verification retries version and latest-tag propagation with 100 seconds of bounded propagation waits without republishing. Transient read failures are retried within that same bound. The browser approval is not proof of publication;
+them into reports or shared logs. Registry verification retries version and latest-tag propagation with 310 seconds of bounded propagation waits without republishing. Transient read failures are retried within that same bound. The browser approval is not proof of publication;
 wait for registry-integrity and trusted-publisher verification to finish.
 
 ## Vault username/password login
@@ -113,8 +120,8 @@ an environment-variable reference, not the token itself.
 The main **CI** workflow validates the CLI on Linux/macOS/Windows and Node
 22/24/26, including installing the packed distribution into a clean directory
 with anonymous registry configuration and running it on real Node. The required
-**Check** includes this job. After Check/Fleet pass on main, the reusable
-`release-personal-cli.yml` workflow:
+**Check** includes this job. After Check/Fleet pass on main, the release job directly in
+`ci.yml`:
 
 1. Reads the public registry and hashes the release inputs.
 2. Skips publication when the published content hash already matches.
@@ -123,7 +130,8 @@ with anonymous registry configuration and running it on real Node. The required
 4. Builds, allowlist-checks, packs and consumer-tests the exact tarball.
 5. Publishes using npm's **GitHub OIDC trusted publishing**, without npm secrets.
 6. Confirms the content hash, SHA-512 integrity and latest tag, with bounded
-   read-only retries for registry propagation. Unconfirmed outcomes fail rather
+   read-only retries for registry propagation. Registry reads bypass stale CDN
+   cache entries and verification waits for matching content and integrity. Unconfirmed outcomes fail rather
    than blindly republish.
 
 Publishing is serialized with non-cancelling concurrency. Dispatch **CI** on main

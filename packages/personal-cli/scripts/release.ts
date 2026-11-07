@@ -68,7 +68,9 @@ async function publish(
       const operation = authentication.npmLogin
         ? interactiveNpm(args, env)
         : mustRun(await npmCommand(args), root, env, { stage: 'publish' });
-      await operation.catch(() => {
+      await operation.catch((error: unknown) => {
+        if (error instanceof ReleaseError)
+          process.stderr.write(`${error.message}\n`);
         rejected = true;
       });
       await verifyPublication(plan, tarball.integrity, rejected);
@@ -99,7 +101,18 @@ async function verifyPublication(
   integrity: string,
   rejected: boolean
 ): Promise<void> {
-  const doc = await propagatedDocument(plan.next);
+  const doc = await propagatedDocument(
+    plan.next,
+    undefined,
+    undefined,
+    (document) => {
+      const saved = document.versions[plan.next];
+      return (
+        saved?.personalCli?.contentHash === plan.contentHash &&
+        saved.dist?.integrity === integrity
+      );
+    }
+  );
   const saved = doc?.versions[plan.next];
   if (
     saved?.personalCli?.contentHash !== plan.contentHash ||
@@ -107,7 +120,7 @@ async function verifyPublication(
   )
     throw new ReleaseError(
       rejected
-        ? 'npm publication failed or its outcome is unconfirmed. Check Vault token validity, npm package scope and 2FA/bypass policy. Rerun the plan before retrying; never republish blindly.'
+        ? 'npm publication failed or its outcome is unconfirmed. Review the publish diagnostic above. For OIDC, verify the exact repository/workflow trusted publisher and its direct-publish permission; for token auth, verify token scope and 2FA policy. Rerun the plan before retrying; never republish blindly.'
         : 'npm accepted publication but registry verification is not yet confirmed. Rerun the plan before retrying; do not publish another version blindly.'
     );
   if (doc?.['dist-tags'].latest !== plan.next)

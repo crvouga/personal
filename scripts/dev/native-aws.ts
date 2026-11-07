@@ -69,7 +69,7 @@ export async function installNativeAws(): Promise<void> {
       );
       if (result.status !== 0 && result.status !== 3010)
         throw new Error(
-          'AWS MSI installation failed; approve the UAC prompt or run the reviewed bootstrap as Administrator.'
+          `AWS MSI installation failed (exit ${result.status}, signal ${result.signal}, error ${result.error?.message ?? 'none'}); check for a conflicting installed version or run the reviewed bootstrap as Administrator.`
         );
     } finally {
       rmSync(directory, { recursive: true, force: true });

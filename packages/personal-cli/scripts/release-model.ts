@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import manifest from '../package.json';
@@ -125,9 +125,16 @@ function nextVersion(current: string | null): string {
   return `${previous[0]}.${previous[1]}.${previous[2]! + 1}`;
 }
 
-export async function registryDocument(): Promise<RegistryDocument | null> {
-  const response = await fetch(`${REGISTRY}/${encodeURIComponent(PACKAGE)}`, {
-    signal: AbortSignal.timeout(30_000),
+export async function registryDocument(
+  request: typeof fetch = fetch
+): Promise<RegistryDocument | null> {
+  // npm metadata is cached for five minutes. Planning and post-publish reads
+  // must not reuse the stale document fetched before publication.
+  const url = new URL(`${REGISTRY}/${encodeURIComponent(PACKAGE)}`);
+  url.searchParams.set('personal-release', randomUUID());
+  const response = await request(url, {
+    headers: { 'Cache-Control': 'no-cache', Accept: 'application/json' },
+    signal: AbortSignal.timeout(10_000),
   });
   if (response.status === 404) return null;
   if (!response.ok)

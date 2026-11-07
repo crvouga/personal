@@ -43,6 +43,22 @@ jobs:
         run: mise install --locked
       - name: Test bootstrap safety and doctor behavior
         run: mise exec --locked -- bun test ./scripts/dev
+      - name: Remove bundled AWS CLI from hosted Windows runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Hosted images can ship a newer MSI that blocks our pinned version.
+          # Keep this reset in CI; never uninstall a developer's tools in setup.
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted') { throw 'Expected a disposable hosted runner.' }
+          $products = @(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+            Where-Object { $_.DisplayName -eq 'AWS Command Line Interface v2' })
+          foreach ($product in $products) {
+            $code = $product.PSChildName
+            if ($code -notmatch '^\{[0-9a-fA-F-]{36}\}$') { throw 'Unexpected AWS MSI product code.' }
+            Write-Host "Removing bundled AWS CLI $($product.DisplayVersion)"
+            $process = Start-Process msiexec.exe -ArgumentList @('/x', $code, '/qn', '/norestart') -Wait -PassThru
+            if ($process.ExitCode -notin @(0, 3010)) { throw "AWS MSI uninstall failed ($($process.ExitCode))." }
+          }
       - name: Apply managed global configuration
         run: mise exec --locked -- bun scripts/dev/setup.ts --tools-only
       - name: Verify actual tool versions
