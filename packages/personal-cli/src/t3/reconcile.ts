@@ -14,11 +14,11 @@ export async function reconcileT3(
     const plan = await planT3(paths, desired);
     if (options.planHash && options.planHash !== plan.planHash)
       throw new FleetUsageError(
-        'T3 plan is stale. Run personal t3-plan again.'
+        'T3 plan is stale. Run personal t3-apply --dry-run again.'
       );
     if (plan.changes.some((change) => change.action === 'conflict'))
       throw new FleetUsageError(
-        'T3 instance already exists without ownership. Review it and use personal t3-import --instance ID.'
+        'T3 instance already exists without ownership. Review it and use personal t3-apply --import ID.'
       );
     if (!plan.settingsChanged && !plan.stateChanged) return report(plan, true);
     await persist(paths, desired, plan);

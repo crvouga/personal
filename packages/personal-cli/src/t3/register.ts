@@ -5,14 +5,15 @@ import { t3Command } from './command';
 import type { T3Options } from './desired';
 
 export const T3_COMMANDS = [
-  ['t3-plan', 'Preview creates, updates and owned removals'],
-  ['t3-apply', 'Reconcile declared T3 provider instances'],
   ['t3-status', 'Check managed T3 configuration for drift'],
+  [
+    't3-apply',
+    'Reconcile declared T3 provider instances; --dry-run plans, --import adopts',
+  ],
   [
     't3-cleanup',
     'Remove only provider instances recorded in personal ownership state',
   ],
-  ['t3-import', 'Adopt an existing provider instance into personal ownership'],
 ] as const;
 
 export function registerT3(
@@ -21,7 +22,7 @@ export function registerT3(
   complete: (outcome: CommandOutcome) => void
 ): void {
   for (const [name, description] of T3_COMMANDS) {
-    program
+    const command = program
       .command(name)
       .description(description)
       .option('--id <name>', 'Node ID; defaults to hostname')
@@ -32,19 +33,23 @@ export function registerT3(
       .option(
         '--definition <path>',
         'Version 1 declarative T3 provider definition'
-      )
-      .option(
-        '--plan-hash <sha256>',
-        'Reject any changes since the reviewed plan'
-      )
-      .option('--dry-run', 'Preview without writing configuration or state')
-      .option('--instance <id>', 'Existing instance to adopt with t3-import')
-      .action(async (_options, command: Command) => {
-        const options = command.optsWithGlobals<
-          T3Options & Partial<Settings>
-        >();
-        const settings = await resolveSettings({ ...defaults, ...options });
-        complete(await t3Command(name, options, settings));
-      });
+      );
+    if (name !== 't3-status')
+      command
+        .option(
+          '--plan-hash <sha256>',
+          'Reject any changes since the reviewed plan'
+        )
+        .option('--dry-run', 'Preview without writing configuration or state');
+    if (name === 't3-apply')
+      command.option(
+        '--import <id>',
+        'Adopt an existing instance into personal ownership instead of reconciling'
+      );
+    command.action(async (_options, command: Command) => {
+      const options = command.optsWithGlobals<T3Options & Partial<Settings>>();
+      const settings = await resolveSettings({ ...defaults, ...options });
+      complete(await t3Command(name, options, settings));
+    });
   }
 }

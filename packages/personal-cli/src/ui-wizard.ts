@@ -50,8 +50,7 @@ async function registerNode(session: Session): Promise<void> {
     }))
   );
   const args = [
-    'fleet',
-    'add',
+    'fleet-node-add',
     '--id',
     id,
     '--ssh',
@@ -83,7 +82,7 @@ async function registerNode(session: Session): Promise<void> {
     mutation: true,
   });
   session.display.write(
-    'Next: fleet validate, then fleet onboard for operator-owned SSH / authentication guidance.'
+    'Next: fleet-nodes --onboard --node ID for operator-owned SSH / authentication guidance, then fleet-status.'
   );
 }
 

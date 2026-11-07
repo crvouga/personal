@@ -38,9 +38,10 @@ export function repairScript(
             [
               'bun',
               'packages/personal-cli/src/cli.ts',
-              'fleet',
-              'sync',
+              'fleet-repair',
               '--local',
+              '--repair',
+              'workspace',
               '--apply',
               '--yes',
               '--json',
@@ -66,7 +67,7 @@ export function repairScript(
   }
   lines.push(
     '',
-    '# Re-run personal fleet health --json for fresh whole-tailnet coverage.'
+    '# Re-run personal fleet-status --tailnet --json for fresh whole-tailnet coverage.'
   );
   return `${lines.join('\n')}\n`;
 }

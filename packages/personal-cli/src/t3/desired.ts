@@ -9,7 +9,7 @@ export interface T3Options {
   definition?: string;
   planHash?: string;
   dryRun?: boolean;
-  instance?: string;
+  import?: string;
 }
 
 export function nodeId(value?: string): string {

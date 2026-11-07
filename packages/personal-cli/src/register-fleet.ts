@@ -1,0 +1,236 @@
+import type { Command } from 'commander';
+import type { CliOptions } from './options';
+import type { CommandOutcome } from './contracts';
+import type { Settings } from './settings';
+import { resolveSettings } from './settings';
+import { executeFleet } from './fleet';
+import { fleetSync, type FleetSyncOptions } from './fleet-sync';
+import { syncNode, type NodeSyncOptions } from './node-sync';
+
+type Complete = (outcome: CommandOutcome) => void;
+
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function targetOptions(command: Command): Command {
+  return command
+    .option('--node <id>', 'Select a registered node; repeatable', collect, [])
+    .option('--local', 'This controller only; no roster or SSH required')
+    .option(
+      '--timeout <ms>',
+      'Per-node deadline, 1000–1800000 milliseconds'
+    );
+}
+
+function withSettings(defaults: Settings, options: CliOptions) {
+  return resolveSettings({
+    ...defaults,
+    ...(options.workspace ? { workspace: options.workspace } : {}),
+    ...(options.config ? { config: options.config } : {}),
+  });
+}
+
+/** Internal fleet actions are selected by flags; the public surface stays flat. */
+function fleetAction(name: string, options: CliOptions): string {
+  if (name === 'fleet-status')
+    return options.tailnet || options.workers ? 'health' : 'doctor';
+  if (name === 'fleet-repair') return options.list ? 'repairs' : 'repair';
+  if (name === 'fleet-nodes')
+    return options.onboard ? 'onboard' : options.schema ? 'schema' : 'nodes';
+  if (name === 'fleet-node-add') return 'add';
+  return 'discover';
+}
+
+function register(
+  program: Command,
+  name: string,
+  description: string,
+  defaults: Settings,
+  complete: Complete
+): Command {
+  return program
+    .command(name)
+    .description(description)
+    .action(async (_options, command: Command) => {
+      const options = command.optsWithGlobals<CliOptions>();
+      const settings = await withSettings(defaults, options);
+      complete(
+        await executeFleet(
+          fleetAction(name, options),
+          { ...options, ...(options.workers ? { managed: true } : {}) },
+          settings
+        )
+      );
+    });
+}
+
+function registerStatus(program: Command, defaults: Settings, complete: Complete) {
+  targetOptions(
+    register(
+      program,
+      'fleet-status',
+      'Check this computer and registered nodes without changing them',
+      defaults,
+      complete
+    )
+  )
+    .option('--all', 'Explicit spelling of the default roster scope')
+    .option(
+      '--tailnet',
+      'Check every visible Tailscale computer instead of the roster'
+    )
+    .option(
+      '--workers',
+      'Audit the canonical worker fleet against the published reference'
+    )
+    .option(
+      '--require <capabilities>',
+      'Controller capabilities, comma separated, or none'
+    )
+    .option('--strict', 'Warnings and skipped checks also produce exit 1')
+    .addHelpText(
+      'after',
+      '\nRead-only. --local, --node and --all select roster scope; --tailnet and --workers check Tailscale computers and never take a roster scope.'
+    );
+}
+
+function registerRepair(program: Command, defaults: Settings, complete: Complete) {
+  targetOptions(
+    register(
+      program,
+      'fleet-repair',
+      'Preview owner-managed repairs; --apply --yes executes them',
+      defaults,
+      complete
+    )
+  )
+    .option('--list', 'Print the static repair and login catalog instead')
+    .option('--all', 'Every visible Tailscale computer (default)')
+    .option(
+      '--require <capabilities>',
+      'Local only: controller capabilities, comma separated, or none'
+    )
+    .option('--repair <ids>', 'workspace,workstation,providers; comma separated')
+    .option(
+      '--plan-hash <sha256>',
+      'Require the reviewed plan to match current diagnostics'
+    )
+    .option('--script', 'Generate a reviewable POSIX script without executing it')
+    .option('--strict', 'Warnings and skipped checks also produce exit 1')
+    .option('--apply', 'Authorize the displayed repair plan; requires --yes')
+    .option('--yes', 'Confirm an explicitly requested --apply operation')
+    .addHelpText(
+      'after',
+      '\nExample: personal fleet-repair --local --repair workspace --plan-hash REVIEWED_SHA256 --apply --yes --json'
+    );
+}
+
+function registerNodes(program: Command, defaults: Settings, complete: Complete) {
+  register(
+    program,
+    'fleet-nodes',
+    'List registered developer computers; --onboard and --schema add guidance',
+    defaults,
+    complete
+  )
+    .option('--node <id>', 'Select a registered node; repeatable', collect, [])
+    .option('--onboard', 'Per-node SSH, VS Code and authentication instructions')
+    .option('--schema', 'Print the versioned roster JSON schema');
+  register(
+    program,
+    'fleet-node-add',
+    'Register an existing computer in the local roster; writes need --apply --yes',
+    defaults,
+    complete
+  )
+    .requiredOption('--id <name>', 'Unique lowercase node ID')
+    .requiredOption(
+      '--ssh <alias>',
+      'Existing OpenSSH alias; never writes SSH configuration'
+    )
+    .requiredOption('--path <path>', 'Absolute POSIX checkout path on the node')
+    .option(
+      '--runtime <path>',
+      'Optional absolute Node/Bun runtime; defaults to node on SSH PATH'
+    )
+    .option(
+      '--require <capabilities>',
+      'Required capabilities, comma separated, or none'
+    )
+    .option('--apply', 'Write the roster; requires --yes')
+    .option('--yes', 'Confirm an explicitly requested --apply operation');
+}
+
+function registerSync(program: Command, defaults: Settings, complete: Complete) {
+  program
+    .command('fleet-sync')
+    .description(
+      'Synchronize the enrolled Ubuntu fleet from this controller over verified SSH'
+    )
+    .option(
+      '--revision <sha>',
+      'Approve an exact source commit; defaults to published release or current canonical checkout'
+    )
+    .option('--node <id>', 'Explicit enrolled remote target; repeatable', collect, [])
+    .option(
+      '--all',
+      'Explicit spelling of the default enrolled fleet scope; never discovered peers'
+    )
+    .option(
+      '--dry-run',
+      'Read-only plan; no authentication, enrollment, installation or scheduling'
+    )
+    .option('--apply', 'Authorize changes; unattended use requires --yes')
+    .option('--yes', 'Confirm --apply')
+    .option(
+      '--schedule <action>',
+      'Controller-only schedule: enable, pause, resume, disable, status'
+    )
+    .action(async (_options, command: Command) => {
+      const options = command.optsWithGlobals<
+        FleetSyncOptions & Partial<Settings>
+      >();
+      complete(
+        await fleetSync(options, {
+          ...defaults,
+          ...(options.config ? { config: options.config } : {}),
+        })
+      );
+    });
+  program
+    .command('fleet-node-sync')
+    .description(
+      'Reconcile this node’s locked tools, launcher, Codex proxy profile and T3 instances; applies by default'
+    )
+    .option('--id <name>', 'Stable node name; defaults to this machine hostname')
+    .option('--revision <sha>', 'Reviewed commit; defaults to checkout HEAD')
+    .option('--dry-run', 'Preview without changing this node')
+    .option('--t3-home <path>', 'T3 base directory')
+    .action(async (_options, command: Command) => {
+      const options = command.optsWithGlobals<
+        NodeSyncOptions & Partial<Settings>
+      >();
+      complete(
+        await syncNode(options, await withSettings(defaults, options))
+      );
+    });
+}
+
+export function registerFleet(
+  program: Command,
+  defaults: Settings,
+  complete: Complete
+): void {
+  registerStatus(program, defaults, complete);
+  register(
+    program,
+    'fleet-discover',
+    'List computers visible through Tailscale, including offline devices',
+    defaults,
+    complete
+  );
+  registerSync(program, defaults, complete);
+  registerRepair(program, defaults, complete);
+  registerNodes(program, defaults, complete);
+}

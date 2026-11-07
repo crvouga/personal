@@ -14,6 +14,8 @@ let sourceRevision: string | null = null;
 let reference: Fingerprint | null = null;
 const version = process.env['PERSONAL_RELEASE_VERSION'] ?? manifest.version;
 stableVersion(version);
+/** Recorded once per build so --version and help show when this release was produced. */
+const releasedAt = new Date().toISOString();
 
 async function bundle(entry: string, name: string): Promise<void> {
   const result = await Bun.build({
@@ -24,6 +26,7 @@ async function bundle(entry: string, name: string): Promise<void> {
     external: Object.keys(manifest.dependencies),
     define: {
       PERSONAL_VERSION: JSON.stringify(version),
+      PERSONAL_RELEASED_AT: JSON.stringify(releasedAt),
       PERSONAL_SOURCE_REVISION: JSON.stringify(sourceRevision),
       PERSONAL_FLEET_REFERENCE: JSON.stringify(reference),
     },
@@ -86,14 +89,14 @@ async function build(): Promise<void> {
           access: 'public',
           registry: 'https://registry.npmjs.org/',
         },
-        personalCli: metadata,
+        personalCli: { ...metadata, releasedAt },
       },
       null,
       2
     )}\n`
   );
   process.stdout.write(
-    `Built @crvouga/personal@${version} in ${destination}\n`
+    `Built @crvouga/personal@${version} (released ${releasedAt}) in ${destination}\n`
   );
 }
 

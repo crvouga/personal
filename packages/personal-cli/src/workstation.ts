@@ -1,7 +1,41 @@
 import { join } from 'node:path';
+import type { Command } from 'commander';
 import { runCommand } from '../../fleet/src/runner';
-import type { Settings } from './settings';
+import { resolveSettings, type Settings } from './settings';
 import type { CommandOutcome } from './contracts';
+
+export function registerWorkstation(
+  program: Command,
+  defaults: Settings,
+  complete: (outcome: CommandOutcome) => void
+): void {
+  program
+    .command('workstation [args...]')
+    .description(
+      'Local configuration, tools, agent profiles and launcher lifecycle'
+    )
+    .allowUnknownOption()
+    .addHelpText(
+      'after',
+      '\nDomains: tools, agents, opencode, openrouter, net.\nLocal operations: status, sync, doctor, cleanup, install, uninstall, update, vault.\nExamples: personal workstation tools check --json --non-interactive\n          personal workstation agents verify --node NODE --tool codex --profile proxy --json\nLeaf operations/help require the personal checkout and Bun. Use --workspace PATH or PERSONAL_WORKSPACE.\nInspect leaf --help for mutation controls; native agent launches stream native output.'
+    )
+    .action(
+      async (
+        args: string[],
+        _options,
+        command: Command & { optsWithGlobals<T>(): T }
+      ) => {
+        if (args.length === 0) command.help();
+        const options = command.optsWithGlobals<Partial<Settings>>();
+        const settings = await resolveSettings({
+          ...defaults,
+          ...(options.workspace ? { workspace: options.workspace } : {}),
+          ...(options.config ? { config: options.config } : {}),
+        });
+        complete(await workstationCommand(args, settings));
+      }
+    );
+}
 
 /** The public Node CLI delegates Bun-only local operations to its source checkout. */
 export async function workstationCommand(

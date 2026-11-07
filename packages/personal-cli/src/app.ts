@@ -6,9 +6,14 @@ import { execute } from './program';
 import { parseArgs } from 'node:util';
 
 declare const PERSONAL_VERSION: string | undefined;
+declare const PERSONAL_RELEASED_AT: string | undefined;
 
 export const VERSION =
   typeof PERSONAL_VERSION === 'undefined' ? '0.1.0-dev' : PERSONAL_VERSION;
+/** Build timestamp of this distribution, printed with the version for debugging. */
+export const RELEASED_AT =
+  typeof PERSONAL_RELEASED_AT === 'undefined' ? null : PERSONAL_RELEASED_AT;
+const RELEASE = { version: VERSION, releasedAt: RELEASED_AT };
 
 export function wantsInteractive(
   args: string[],
@@ -58,7 +63,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   const terminal = interactiveTerminal();
   if (args.includes('--interactive') && !terminal) {
     process.stdout.write(
-      `${JSON.stringify({ version: 1, ok: false, code: 'tty_required', error: 'Interactive mode needs a terminal. Use personal commands --json or fleet doctor --local --json.' })}\n`
+      `${JSON.stringify({ version: 1, ok: false, code: 'tty_required', error: 'Interactive mode needs a terminal. Use personal commands --json or fleet-status --local --json.' })}\n`
     );
     return 2;
   }
@@ -66,16 +71,16 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     const { startInteractive } = await import('./ui');
     await startInteractive({
       ...settings,
-      version: VERSION,
+      ...RELEASE,
       commands: COMMANDS,
-      execute: (command) => execute(command, settings, VERSION),
+      execute: (command) => execute(command, settings, RELEASE),
     });
     return 0;
   }
   const outcome = await execute(
     args.filter((arg) => arg !== '--interactive'),
     settings,
-    VERSION
+    RELEASE
   );
   const text = args.includes('--json')
     ? JSON.stringify(outcome.data, null, 2)

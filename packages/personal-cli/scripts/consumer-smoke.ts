@@ -83,12 +83,10 @@ async function exercise(
   const cli = join(directory, 'node_modules/@crvouga/personal/cli.mjs');
   for (const args of [
     ['commands', '--json'],
-    ['agent', '--json'],
-    ['fleet', 'schema', '--json'],
-    ['fleet', 'repairs', '--json'],
+    ['fleet-nodes', '--schema', '--json'],
+    ['fleet-repair', '--list', '--json'],
     [
-      'fleet',
-      'nodes',
+      'fleet-nodes',
       '--config',
       join(directory, 'missing-fleet.json'),
       '--workspace',
@@ -110,8 +108,8 @@ async function exercise(
     stage: 'consumer-command',
   });
   assert(
-    /^\d+\.\d+\.\d+\s*$/.test(version),
-    'Node executable must report the release version'
+    /^\d+\.\d+\.\d+ \(released \d{4}-\d{2}-\d{2}T[0-9:.]+Z\)\s*$/.test(version),
+    'Node executable must report the release version and build timestamp'
   );
   const invalid = await runCommand(
     [node, cli, '--never-echo=private-value', '--json'],
@@ -139,8 +137,7 @@ async function exerciseLocal(
     [
       node,
       cli,
-      'fleet',
-      'doctor',
+      'fleet-status',
       '--local',
       '--require',
       'none',
@@ -193,26 +190,24 @@ async function exerciseController(
   directory: string,
   env: NodeJS.ProcessEnv
 ): Promise<void> {
-  for (const command of [['fleet-sync'], ['fleet', 'converge']]) {
-    const result = await runCommand(
-      [
-        node,
-        cli,
-        ...command,
-        '--revision',
-        'a'.repeat(40),
-        '--dry-run',
-        '--json',
-      ],
-      { cwd: directory, env }
-    );
-    const report = JSON.parse(result.stdout);
-    assert(
-      !result.ok &&
-        report.version === 2 &&
-        report.execution === 'controller-push' &&
-        report.applied === false,
-      'clean npm consumer must report missing controller enrollment without writes'
-    );
-  }
+  const result = await runCommand(
+    [
+      node,
+      cli,
+      'fleet-sync',
+      '--revision',
+      'a'.repeat(40),
+      '--dry-run',
+      '--json',
+    ],
+    { cwd: directory, env }
+  );
+  const report = JSON.parse(result.stdout);
+  assert(
+    !result.ok &&
+      report.version === 2 &&
+      report.execution === 'controller-push' &&
+      report.applied === false,
+    'clean npm consumer must report missing controller enrollment without writes'
+  );
 }

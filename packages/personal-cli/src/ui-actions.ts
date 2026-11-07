@@ -12,15 +12,23 @@ export async function runCommand(
   session.display.panel(clean(command.title), clean(command.description));
   const args = await actionArgs(session, command);
   if (!args) return;
-  const preview =
-    args[0] === 'fleet' && ['sync', 'init', 'repair'].includes(args[1] ?? '');
-  if (args[1] === 'init')
-    session.display.write(
-      'EXAMPLE ONLY: init previews a starter roster, not a configured fleet. Saving requires --apply --yes.'
-    );
+  const preview = isRepair(args);
   const mutation = !preview && (command.mutation || args.includes('--apply'));
   if (mutation && !(await confirmMutation(session, args))) return;
   await runWithResults(session, args, command.title, { preview, mutation });
+}
+
+function isRepair(args: string[]): boolean {
+  return args[0] === 'fleet-repair' && !args.includes('--list');
+}
+
+/** Palette entries with flags are fixed scopes; bare roster commands ask for targets. */
+function targetAction(args: string[]): string | undefined {
+  if (isRepair(args)) return 'repair';
+  if (args[0] === 'fleet-status' && args.length === 1) return 'doctor';
+  if (args[0] === 'fleet-nodes' && args.includes('--onboard'))
+    return 'onboard';
+  return undefined;
 }
 
 async function actionArgs(
@@ -28,16 +36,8 @@ async function actionArgs(
   command: CommandSpec
 ): Promise<string[] | undefined> {
   const args = [...command.args];
-  if (args[0] !== 'fleet') return args;
-  if (args.includes('--local')) return args;
-  const action = args[1] ?? '';
-  if (['sync', 'init', 'repair'].includes(action)) {
-    const preview = args.filter((arg) => !['--apply', '--yes'].includes(arg));
-    if (action === 'init') return preview;
-    const targets = await chooseTargets(session, action);
-    return targets ? [...preview, ...targets] : undefined;
-  }
-  if (!['doctor', 'onboard'].includes(action)) return args;
+  const action = targetAction(args);
+  if (!action) return args;
   const targets = await chooseTargets(session, action);
   return targets ? [...args, ...targets] : undefined;
 }
@@ -104,19 +104,17 @@ export async function confirmMutation(
   session: Session,
   args: string[]
 ): Promise<boolean> {
-  const action = args[1];
+  const action = args[0];
   const warning =
-    action === 'repair'
+    action === 'fleet-repair'
       ? 'Repair runs the eligible owner actions in the displayed plan, including trusted setup/install scripts. Workstation actions may read this machine’s Vault session and write managed 0600 provider configuration. No login session is transferred between computers. Failures can leave partial changes; fresh diagnostics follow.'
-      : action === 'sync'
-        ? 'Sync runs trusted checkout lifecycle scripts and installs tools/dependencies. Failure can leave partial changes; remote installers may continue after disconnect. Inspect the node before retrying. No automatic repairs or credentials.'
-        : 'This writes the local roster only. No cloud resources, SSH configuration, credentials or host keys are changed.';
+      : action === 'fleet-node-add'
+        ? 'This writes the local roster only. No cloud resources, SSH configuration, credentials or host keys are changed.'
+        : 'This command applies changes on invocation as documented in its --help. Failure can leave partial changes; inspect before retrying. No credentials are copied between computers.';
   session.display.panel(
     'Explicit approval required',
     [
-      action === 'init'
-        ? 'Create an EXAMPLE roster only. Replace sample aliases and paths before diagnostics.'
-        : warning,
+      warning,
       `Workspace: ${clean(session.workspace ?? session.options.workspace)}`,
       `Config: ${clean(session.config ?? session.options.config)}`,
       `$ ${reproduction(session, args)}`,
@@ -127,7 +125,7 @@ export async function confirmMutation(
 
 function applyArgs(args: string[], outcome: CommandOutcome): string[] {
   const guard =
-    args[1] === 'repair' &&
+    isRepair(args) &&
     record(outcome.data) &&
     typeof outcome.data['planHash'] === 'string'
       ? ['--plan-hash', outcome.data['planHash']]

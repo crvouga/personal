@@ -46,7 +46,7 @@ export function managedHealthScope(
           summary:
             'Canonical developer node lacks a verified SSH/check-out registration.',
           remedy: {
-            action: `Enroll ${node.id} with personal fleet add, or use interactive fleet converge enrollment.`,
+            action: `Enroll ${node.id} with personal fleet-node-add, or use interactive fleet-sync enrollment.`,
           },
         })),
       ],

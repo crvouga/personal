@@ -47,7 +47,7 @@ export async function chooseTargets(
 async function availableNodes(session: Session): Promise<Choice[]> {
   const outcome = await execute(
     session,
-    ['fleet', 'nodes'],
+    ['fleet-nodes'],
     'Reading local roster (no SSH)'
   );
   if (!successful(outcome)) {
@@ -74,9 +74,8 @@ async function missingRoster(
   session.display.panel(
     'Fleet setup needed',
     [
-      'No usable roster nodes. Return to Fleet setup / add node to register an existing computer.',
-      'Fleet init creates an EXAMPLE only; saving it requires --apply --yes. Edit its aliases and paths before use.',
-      'Controller-only doctor works without a roster or SSH. No login, host-key change or repair is automatic.',
+      'No usable roster nodes. Return to Fleet: Register a developer computer to register an existing computer.',
+      'Controller-only status works without a roster or SSH. No login, host-key change or repair is automatic.',
     ].join('\n')
   );
   if (action !== 'doctor') return undefined;
