@@ -21,14 +21,14 @@ export async function prepareBootstrap(
   root: string,
   revision: string,
   run: Runner,
-  expectedDefinition?: FleetDefinition
+  options: { definition?: FleetDefinition; checkout?: string } = {}
 ): Promise<BootstrapPayload | null> {
   if (!isRevision(revision)) return null;
-  const source = await prepareSource(root, revision, run);
+  const source = await prepareSource(root, revision, run, options.checkout);
   if (!source) return null;
   if (
-    expectedDefinition &&
-    !(await definitionMatches(source, revision, expectedDefinition, run))
+    options.definition &&
+    !(await definitionMatches(source, revision, options.definition, run))
   )
     return null;
   const script = await trackedScript(

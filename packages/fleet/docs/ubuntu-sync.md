@@ -410,3 +410,16 @@ never delete repositories or caches. Git bundles are bounded to 512 MiB, and a
 verified clean cached revision avoids retransferring repository history.
 
 The current-controller provider preflight returned `PROVIDER_UNATTENDED_CREDENTIAL_REQUIRED` for all five providers. It performed no inference or native OAuth login. Restore the existing authorized Vault lifecycle before treating any route as live-accepted.
+
+### Checkout project actions
+
+`bash scripts/dev/project-action.sh fleet-converge` warms the shared toolchain
+and passes the current checkout HEAD as the exact revision to the existing approval
+flow. Extra arguments such as `--dry-run` are forwarded. The controller can bundle
+committed objects from this canonical local repository, including unpublished
+commits; dirty working files are never transferred. Review and commit desired
+changes before approving deployment. The Ubuntu baseline now owns the native
+Docker engine, Compose and Buildx on every enrolled Linux workstation, preserving
+third-party engine ownership conflicts and existing running workloads. Workstation
+launcher/link convergence is part of the node apply, with credentials still checked
+separately. A dependency receipt proves frozen installation inputs only.

@@ -5,7 +5,8 @@ import { failure, success } from './test-fixtures';
 test('workstation diagnostics are read-only and discard all private fields', async () => {
   const checks = await workstationChecks('/repo', async (command, options) => {
     expect(command).toEqual([
-      'personal',
+      'bun',
+      '/repo/packages/personal-cli/src/cli.ts',
       'workstation',
       'doctor',
       '--json',

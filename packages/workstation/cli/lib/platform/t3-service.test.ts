@@ -63,6 +63,7 @@ test('stopped pinned service is started once and independently rechecked without
           service: { installed: true, installedVersion: '0.1.7' },
         })
       );
+    if (args[0] === 'ss') return result('');
     if (args.includes('start')) {
       started = true;
       return result('');
@@ -87,4 +88,21 @@ test('a conflicting native launcher prevents managed policy installation too', a
     }
   );
   expect(prepared).toBe(false);
+});
+test('a desktop-owned live listener blocks starting an installed but inactive native unit', async () => {
+  const calls: string[][] = [];
+  const checks = await convergeT3Service(artifact, async (args) => {
+    calls.push(args);
+    if (args.includes('--version')) return result('t3 v0.1.7');
+    if (args.includes('--json'))
+      return result(
+        JSON.stringify({
+          service: { installed: true, installedVersion: '0.1.7' },
+        })
+      );
+    if (args[0] === 'ss') return result('LISTEN desktop');
+    return result('inactive', false);
+  });
+  expect(checks[0]?.summary).toBe('T3_ACTIVE_LISTENER_MIGRATION_REQUIRED');
+  expect(calls.some((args) => args.includes('start'))).toBe(false);
 });

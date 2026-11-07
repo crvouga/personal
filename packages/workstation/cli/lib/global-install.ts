@@ -1,6 +1,7 @@
 import {
   mkdirSync,
   lstatSync,
+  statSync,
   readFileSync,
   readlinkSync,
   symlinkSync,
@@ -40,6 +41,7 @@ export function installGlobalLauncher(
     }
   }
   removeLegacyLauncher(binDir);
+  retireOwnedVaultLauncher(binDir);
   return {
     binDir,
     launcherPath,
@@ -104,5 +106,21 @@ export function ownedPersonalLauncher(path: string): boolean {
     return readFileSync(target, 'utf8').includes('// Source-owned launcher;');
   } catch {
     return false;
+  }
+}
+
+function retireOwnedVaultLauncher(binDir: string): void {
+  const path = join(binDir, 'vault');
+  if (!entryExists(path)) return;
+  const info = lstatSync(path);
+  try {
+    if (
+      (info.isFile() || info.isSymbolicLink()) &&
+      statSync(path).size < 8192 &&
+      /secret-store-vault-wrapper/.test(readFileSync(path, 'utf8'))
+    )
+      unlinkSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 }

@@ -8,3 +8,5 @@
 - Use stable check IDs, structured remedies and versioned JSON. Never serialize raw subprocess output, environment variables, SSH config, auth responses or exception messages.
 - Remote commands target POSIX SSH shells only. Native Windows supports local commands; use WSL for remote nodes.
 - Keep command execution bounded and injected in tests. Do not contact real nodes in tests.
+
+- `personal fleet-converge` and `personal fleet-health` are the primary worker contracts. Private rosters cannot waive canonical worker requirements. Keep health read-only; never classify expired/unavailable required authentication or unverified firmware recovery as healthy. Worker sudo and SSH are noninteractive; missing administrator enrollment is action-required, never a password prompt.

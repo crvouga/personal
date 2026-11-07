@@ -1,3 +1,6 @@
+import { resolveVaultConfig } from '../../workstation/cli/lib/vault-config';
+import definition from '../definition.json';
+import { workerReadiness } from './worker-readiness';
 import { record } from './config';
 import { codingAuth, serviceAuth } from './service-auth';
 import { workstationChecks } from './workstation-checks';
@@ -7,14 +10,21 @@ import type { Capability, Check, Runner, CommandResult } from './types';
 export async function authCheck(
   capability: Capability,
   run: Runner,
-  root: string
+  root: string,
+  nodeId?: string
 ): Promise<Check[]> {
-  if (capability === 't3') return t3Checks(run);
+  if (capability === 'worker') return workerReadiness(run, nodeId, root);
+  if (capability === 't3') return t3Checks(run, nodeId !== undefined);
   if (capability === 'codex' || capability === 'claude')
     return codingAuth(capability, run);
   if (capability === 'services') return serviceAuth(run);
-  if (capability === 'workstation') return workstationChecks(root, run);
-  if (capability === 'toolchain') return toolchainChecks(root, run);
+  if (capability === 'workstation') return workstationChecks(root, run, nodeId);
+  if (capability === 'toolchain')
+    return toolchainChecks(
+      root,
+      run,
+      definition.nodes.some((node) => node.id === nodeId)
+    );
   return basicAuth(capability, run, root);
 }
 
@@ -30,7 +40,13 @@ async function basicAuth(
         'Authenticate on this node with gh auth login, then gh auth setup-git.',
     },
     vault: {
-      command: ['vault', 'token', 'lookup', '-format=json'],
+      command: [
+        'vault',
+        'token',
+        'lookup',
+        '-format=json',
+        `-address=${resolveVaultConfig().addr}`,
+      ],
       action:
         'Authenticate to the configured Vault on this node. Do not copy a token from another computer.',
     },
@@ -61,7 +77,10 @@ async function basicAuth(
   ];
 }
 
-async function t3Checks(run: Runner): Promise<Check[]> {
+async function t3Checks(
+  run: Runner,
+  controllerChecksLinks = false
+): Promise<Check[]> {
   const config = await run(['t3', 'status', '--json']);
   const checks: Check[] = [t3Settings(config)];
   const live = await run(['t3', 'environment', 'list', '--json']);
@@ -80,12 +99,13 @@ async function t3Checks(run: Runner): Promise<Check[]> {
         }
       : {}),
   });
-  checks.push({
-    id: 't3:end-to-end',
-    status: 'skip',
-    summary:
-      'Relay traversal and remote peer authorization require an operator connection test; local settings are not proof.',
-  });
+  if (!controllerChecksLinks)
+    checks.push({
+      id: 't3:end-to-end',
+      status: 'skip',
+      summary:
+        'Relay traversal and remote peer authorization require an operator connection test; local settings are not proof.',
+    });
   return checks;
 }
 

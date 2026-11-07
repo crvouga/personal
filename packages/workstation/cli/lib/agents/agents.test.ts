@@ -3,6 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import {
   mkdir,
   mkdtemp,
+  realpath,
   readFile,
   writeFile,
   symlink,
@@ -59,7 +60,7 @@ describe('agent configuration ownership', () => {
   });
 
   test('preview is read-only; apply is idempotent and detects modifications', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'ws-agents-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'ws-agents-')));
     try {
       const context = {
         root,
@@ -89,7 +90,7 @@ describe('agent configuration ownership', () => {
   });
 
   test('rejects symlink destinations and concurrent application', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'ws-conflict-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'ws-conflict-')));
     try {
       await mkdir(join(root, '.apply-lock'));
       await expect(

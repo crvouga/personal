@@ -121,7 +121,8 @@ personal workstation cleanup --protect 'vite' --protect 'storybook'
 T3 Code and VS Code Remote-SSH. The machines live in the checked-in
 canonical `../fleet/definition.json` (alias, Tailscale name, SSH port/user,
 OS, T3 port), so every machine gets the same view. Private keys are never
-committed: the inventory stores only their paths.
+committed: controller identity paths remain local. Hosts without an explicit
+identity use existing SSH configuration or Tailscale SSH; login is checked separately.
 
 `personal workstation net check` is read-only. For each host it checks, in order:
 
@@ -130,7 +131,7 @@ committed: the inventory stores only their paths.
 3. SSH login by alias, several tries (`--tries`, default 3) to catch flaky connections
 4. SSH as `user@full-name`, which is how VS Code Remote-SSH and T3 connect
 5. Machine health over SSH (`net/remote-probe.sh`): CPU load per core, RAM/swap, free disk
-6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, same version as this machine
+6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, or through verified SSH to the remote loopback endpoint for loopback-only servers; reports the route and compares versions with this machine. This is a readiness probe, not a T3 pairing test.
 
 It also checks this machine: Tailscale running, `tailscale` on `PATH` (T3
 Code shells out to it), local T3 server, the Remote-SSH extension and free
@@ -477,7 +478,7 @@ Target macOS for the full experience, but keep commands platform-agnostic behind
 
 ## Secret integration
 
-Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
+Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `personal vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
 
 Ground rules:
 
@@ -541,3 +542,16 @@ and native agent configuration live in [`monitoring/`](monitoring/README.md).
 The shared toolchain installs verified native T3 artifacts; Workstation invokes
 its supported `t3 service install` lifecycle and preserves runtime state. See the
 [controller runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
+
+Docker runtime setup on macOS is exposed through
+`personal workstation tools docker-setup`. The adapter runs the shared,
+checksum-pinned Docker Desktop installer in `scripts/dev/docker-desktop.sh`;
+version/build/hash inputs live in `mise.toml`. Installation opens the native
+first-run flow; readiness is checked separately with `tools check --docker`.
+
+The Ubuntu worker baseline also declares enabled SSH/Tailscale/Docker services,
+no-sleep policy, designated-user passwordless sudo and lingering. Credential renewal
+uses a user timer pointing to the pinned source checkout; bounded T3 recovery is
+enabled only after verifying the native service. Workers use the minimal locked
+profile in `mise.toml`. T3 upgrades never reset pairing data or silently take over
+an active desktop-owned listener; a one-time migration can remain action-required.

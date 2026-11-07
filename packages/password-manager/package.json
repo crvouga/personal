@@ -2,16 +2,13 @@
   "name": "@pkgs/password-manager",
   "version": "0.0.0",
   "private": true,
-  "bin": {
-    "password-manager": "./bin.mjs"
-  },
   "scripts": {
     "tc": "tsc --noEmit",
     "lint": "eslint src tests --max-warnings 0",
     "test": "bun test src && node --import tsx --test tests/*.test.ts",
     "test:browser": "node --import tsx --test tests/browser/*.test.ts",
     "build": "tsc --noEmit",
-    "password-manager": "node --import tsx src/cli/main.ts",
+    "password-manager": "bun run ../../packages/personal-cli/src/cli.ts password-manager",
     "test:bootstrap": "node tests/bootstrap/run.mjs"
   },
   "dependencies": {

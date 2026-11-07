@@ -1,5 +1,6 @@
+import { sourceOperation, forwardSourceOperation } from './source-operations';
 import { forwardWorkstation } from './workstation';
-import { resolveSettings } from './settings';
+import { resolveSettings, type Settings } from './settings';
 import { COMMANDS } from './registry';
 import { execute } from './program';
 import { parseArgs } from 'node:util';
@@ -52,7 +53,8 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
       : {}),
     ...(typeof values.config === 'string' ? { config: values.config } : {}),
   });
-  if (workstationOperation(args)) return forwardWorkstation(args, settings);
+  const forwarded = forwardOwner(args, settings);
+  if (forwarded) return forwarded;
   const terminal = interactiveTerminal();
   if (args.includes('--interactive') && !terminal) {
     process.stdout.write(
@@ -89,4 +91,30 @@ function interactiveTerminal(): boolean {
 function workstationOperation(args: string[]): boolean {
   const { positionals } = startup(args);
   return positionals[0] === 'workstation' && positionals.length > 1;
+}
+
+function forwardOwner(
+  args: string[],
+  settings: Settings
+): Promise<number> | undefined {
+  const ownerArgs = stripOwnerWorkspace(args);
+  if (sourceOperation(ownerArgs))
+    return forwardSourceOperation(ownerArgs, settings);
+  if (workstationOperation(args)) return forwardWorkstation(args, settings);
+  return undefined;
+}
+
+export function stripOwnerWorkspace(args: string[]): string[] {
+  const forwarded: string[] = [];
+  let child = false;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === '--') child = true;
+    if (!child && arg === '--workspace') {
+      index++;
+      continue;
+    }
+    forwarded.push(arg);
+  }
+  return forwarded;
 }

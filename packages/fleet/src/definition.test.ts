@@ -23,14 +23,14 @@ test('missing, duplicate, non-Linux and arbitrary endpoint owner assignments fai
 test('portable definitions do not authorize peers or invent controller paths', () => {
   const definition = parseDefinition(source);
   const node = {
-    id: 'mac-studio',
-    ssh: 'mac-studio',
+    id: 'chris-vouga-mac-studio',
+    ssh: 'chris-vouga-mac-studio',
     workspace: '/a real/path',
     required: [],
   };
   expect(
     enrolledRoster(definition, { version: 1, nodes: [node] }).nodes
-  ).toEqual([node]);
+  ).toEqual([{ ...node, required: definition.worker!.requiredCapabilities }]);
   expect(() =>
     enrolledRoster(definition, {
       version: 1,

@@ -23,7 +23,7 @@ const OPTIONAL_APP_FIELDS = [
 ] as const;
 
 /**
- * CI holds a Vault token and the bootstrap token; `vault run` injects every
+ * CI holds a Vault token and the bootstrap token; `personal vault run` injects every
  * field. Fill any App field still absent from the Vault document, tolerating
  * an App that has not been created yet.
  */
@@ -145,7 +145,7 @@ if (import.meta.main) {
   const token = process.env['ZOOMIES_BOOTSTRAP_TOKEN'];
   if (!token) {
     console.error(
-      'Missing ZOOMIES_BOOTSTRAP_TOKEN. Run through: vault run --config prd -- ...'
+      'Missing ZOOMIES_BOOTSTRAP_TOKEN. Run through: personal vault run --config prd -- ...'
     );
     process.exit(1);
   }

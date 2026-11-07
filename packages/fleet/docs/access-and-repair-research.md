@@ -48,7 +48,7 @@ There are three different workflows to support:
    approval remains an operator action. The CLI returns commands and comments
    them in generated scripts; it does not execute login flows automatically.
 2. **Shared permitted API keys.** The existing Vault/secret-store can inject
-   secrets for a child process using `vault run --config dev -- COMMAND`.
+   secrets for a child process using `personal vault run --config dev -- COMMAND`.
    Run it on the machine that needs the access, after authorizing that machine.
    Select the intended project/config. Only already-managed keys are available;
    a missing key or insufficient policy is not repaired by creating another one.

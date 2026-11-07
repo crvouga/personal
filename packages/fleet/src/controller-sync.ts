@@ -311,7 +311,7 @@ function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
  */
 function blocksPromotion(check: Check): boolean {
   if (check.status === 'pass') return false;
-  return !/^(beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
+  return !/^(worker:|beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
     check.id
   );
 }

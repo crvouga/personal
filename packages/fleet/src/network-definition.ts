@@ -56,6 +56,8 @@ export function legacyIdentities(
     if (!record(host))
       throw new FleetUsageError('Invalid legacy network host.');
     const node = definition.nodes.find((node) => node.ssh === host['alias']);
+    // A retired host has no controller identity to migrate into this fleet.
+    if (!node) continue;
     if (!compatible(node, host))
       throw new FleetUsageError(
         'Legacy Workstation and canonical Fleet definitions conflict. Review IDs, aliases and network settings before migration.'

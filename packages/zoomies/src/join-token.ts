@@ -48,7 +48,7 @@ if (import.meta.main) {
   const token = process.env['ZOOMIES_BOOTSTRAP_TOKEN'];
   if (!token) {
     console.error(
-      'Missing ZOOMIES_BOOTSTRAP_TOKEN. Run through: vault run --config prd -- ...'
+      'Missing ZOOMIES_BOOTSTRAP_TOKEN. Run through: personal vault run --config prd -- ...'
     );
     process.exit(1);
   }

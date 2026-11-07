@@ -1,5 +1,6 @@
+import { managedProbeTarget } from './managed-source';
 import type { ConfigurationRequest } from './configure';
-import { remoteCommand, sshFailure } from './ssh';
+import { remoteCommand, sshFailure, sshArgs } from './ssh';
 import { cleanCheck, decodeSnapshot, validCheck } from './protocol';
 import { record } from './config';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +33,21 @@ export async function inspectRemote(
   options: RemoteOptions,
   run: Runner
 ): Promise<NodeReport> {
-  const command = remoteCommand(node, {
+  if (node.required.includes('worker')) {
+    const preflight = await run([...sshArgs(node), 'true'], {
+      timeoutMs: 15_000,
+    });
+    if (!preflight.ok)
+      return { node: node.id, checks: [sshFailure(preflight)] };
+  }
+  const target =
+    options.action === 'probe' && options.expected
+      ? await managedProbeTarget(node, options.expected.head, run)
+      : { node, checks: [] };
+  const command = remoteCommand(target.node, {
     action: options.action,
     configuration: options.configuration,
-    node,
+    node: target.node,
     apply: options.action !== 'probe',
     repairs: options.repairs,
     expected: options.expected,
@@ -45,7 +57,8 @@ export async function inspectRemote(
     input: options.source,
     timeoutMs: options.timeoutMs,
   });
-  if (!result.ok) return { node: node.id, checks: [sshFailure(result)] };
+  if (!result.ok)
+    return { node: node.id, checks: [...target.checks, sshFailure(result)] };
   if (options.action !== 'probe') return decodeSync(node.id, result.stdout);
   const snapshot = decodeSnapshot(result.stdout);
   if (!snapshot) return protocolFailure(node.id);
@@ -53,6 +66,7 @@ export async function inspectRemote(
     node: node.id,
     snapshot,
     checks: [
+      ...target.checks,
       {
         id: 'ssh:session',
         status: 'pass',
@@ -63,6 +77,7 @@ export async function inspectRemote(
       {
         id: 'vscode:forwarding',
         status: 'skip',
+        required: node.required.includes('vscode'),
         summary:
           'VS Code Remote-SSH tunnel/server installation is not tested by a shell session. Use the onboarding forwarding test.',
       },

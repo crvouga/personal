@@ -49,6 +49,11 @@ test('discovery, agent guide, schema and help need no roster or credentials', as
   expect(
     COMMANDS.filter((entry) => entry.mutation).map((entry) => entry.id)
   ).toEqual([
+    'password-manager',
+    'cliproxy',
+    'health-fix',
+    'vault',
+    'fleet-converge',
     'fleet-sync',
     'fleet converge',
     't3-apply',

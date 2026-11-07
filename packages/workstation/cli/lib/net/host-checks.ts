@@ -14,7 +14,7 @@ import {
   tailscalePing,
   type TailscaleStatus,
 } from './tailscale';
-import { fetchT3Environment } from './t3';
+import { fetchT3Environment, parseT3Environment } from './t3';
 
 export type HostContext = {
   readonly tailscaleBin: string | null;
@@ -215,6 +215,12 @@ async function fullNameCheck(host: NetHost): Promise<Check> {
 }
 
 function keyCheck(host: NetHost): Check {
+  if (!host.identityFile)
+    return passCheck(
+      'ssh-key',
+      'SSH authentication',
+      'Uses existing SSH configuration or Tailscale SSH; login checked separately'
+    );
   const path = expandHome(host.identityFile);
   return existsSync(path)
     ? passCheck('ssh-key', 'SSH key', host.identityFile)
@@ -250,7 +256,27 @@ async function machineHealth(host: NetHost): Promise<Check[]> {
 
 async function t3Check(ctx: HostContext, host: NetHost): Promise<Check> {
   const url = `http://${host.tailscaleName}:${host.t3Port}`;
-  const env = await fetchT3Environment(url);
+  let env = await fetchT3Environment(url);
+  let route = 'direct';
+  if (env === null) {
+    const probe = await run(
+      'ssh',
+      [
+        ...SSH_OPTS,
+        '-o',
+        'StrictHostKeyChecking=yes',
+        `${host.user}@${host.tailscaleName}`,
+        `curl --fail --silent --max-time 5 http://127.0.0.1:${host.t3Port}/.well-known/t3/environment`,
+      ],
+      { timeoutMs: 15000 }
+    );
+    try {
+      if (probe.status === 0) env = parseT3Environment(JSON.parse(probe.stdout));
+    } catch {
+      // Unavailable curl or invalid endpoint output remains a failed check.
+    }
+    route = 'via verified SSH (loopback)';
+  }
   if (env === null) {
     return failCheck(
       't3',
@@ -267,7 +293,11 @@ async function t3Check(ctx: HostContext, host: NetHost): Promise<Check> {
       `Update T3 Code on ${host.alias} (or here).`
     );
   }
-  return passCheck('t3', 'T3 server', `${env.label} v${env.serverVersion}`);
+  return passCheck(
+    't3',
+    'T3 server',
+    `${env.label} v${env.serverVersion} (${route})`
+  );
 }
 
 /** Every check for one remote machine, in dependency order. */

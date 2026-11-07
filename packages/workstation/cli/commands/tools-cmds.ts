@@ -1,3 +1,4 @@
+import { currentPlatform } from '../lib/platform/index';
 import { spawnSync } from 'node:child_process';
 import { checkMachine } from '../../../../scripts/dev/doctor';
 import { workspaceRoot } from '../lib/paths';
@@ -39,4 +40,20 @@ export function cmdToolsCheck(opts: GlobalOpts & { docker?: boolean }): void {
     for (const check of checks)
       console.log(`${check.status.toUpperCase()} ${check.id}: ${check.detail}`);
   if (!ok) process.exitCode = 1;
+}
+
+export function cmdDockerSetup(): void {
+  const script = currentPlatform().dockerSetupScript;
+  if (!script)
+    throw new Error(
+      'Use the native Docker runtime setup in scripts/dev/README.md for this platform.'
+    );
+  const result = spawnSync('bash', [script], {
+    cwd: workspaceRoot(),
+    stdio: 'inherit',
+  });
+  if (result.status !== 0)
+    throw new Error(
+      'Docker setup did not complete. Inspect the installer output and retry.'
+    );
 }

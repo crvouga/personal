@@ -1,3 +1,4 @@
+import { SOURCE_OPERATIONS } from './source-operations';
 import { T3_COMMANDS } from './t3/register';
 import type { CommandSpec } from './contracts';
 import { searchCommands } from './search';
@@ -21,7 +22,17 @@ function fleet(
 }
 
 export const COMMANDS: CommandSpec[] = [
-  ...['fleet-sync', 'fleet converge'].map((id) => ({
+  ...Object.keys(SOURCE_OPERATIONS).map((id) => ({
+    id,
+    title: id,
+    description: `Source-owned ${id} operations (personal ${id} --help)`,
+    group: 'Operations',
+    keywords: [id],
+    args: [id],
+    examples: [`personal ${id} --help`],
+    mutation: !['health', 'domains'].includes(id),
+  })),
+  ...['fleet-converge', 'fleet-sync', 'fleet converge'].map((id) => ({
     id,
     title: 'Synchronize the enrolled Ubuntu fleet',
     description:
@@ -32,6 +43,17 @@ export const COMMANDS: CommandSpec[] = [
     examples: [`personal ${id} --dry-run --json`],
     mutation: true,
   })),
+  {
+    id: 'fleet-health',
+    title: 'Check the declarative worker fleet',
+    description:
+      'Read-only canonical worker readiness, dependencies, services and authentication; lists every remaining gap.',
+    group: 'Fleet',
+    keywords: ['workers', 'readiness', 'health'],
+    args: ['fleet-health'],
+    examples: ['personal fleet-health --json'],
+    mutation: false,
+  },
   ...T3_COMMANDS.map(([id, description]) => ({
     id,
     title: description,

@@ -1,3 +1,5 @@
+import { fingerprint } from '../../fleet/src/fingerprint';
+import type { Fingerprint } from '../../fleet/src/types';
 import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +11,7 @@ import { runCommand } from '../../fleet/src/runner';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const destination = join(root, 'dist');
 let sourceRevision: string | null = null;
+let reference: Fingerprint | null = null;
 const version = process.env['PERSONAL_RELEASE_VERSION'] ?? manifest.version;
 stableVersion(version);
 
@@ -22,6 +25,7 @@ async function bundle(entry: string, name: string): Promise<void> {
     define: {
       PERSONAL_VERSION: JSON.stringify(version),
       PERSONAL_SOURCE_REVISION: JSON.stringify(sourceRevision),
+      PERSONAL_FLEET_REFERENCE: JSON.stringify(reference),
     },
   });
   if (!result.success || !result.outputs[0])
@@ -32,6 +36,12 @@ async function bundle(entry: string, name: string): Promise<void> {
 async function build(): Promise<void> {
   const metadata = await releaseMetadata();
   sourceRevision = !metadata.dirty ? (metadata.sourceCommit ?? null) : null;
+  reference = sourceRevision
+    ? {
+        ...(await fingerprint(join(root, '../..'), runCommand)),
+        head: sourceRevision,
+      }
+    : null;
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   await bundle('src/cli.ts', 'cli.mjs');

@@ -42,7 +42,7 @@ export function repairCatalog(): CommandOutcome {
       credentials: [
         'Use the existing password-manager / Bitwarden owner for human passwords and shared login items. Run bun run password-manager doctor and actions list on each machine; never synchronize its private state.',
         'Authenticate each computer independently with the intended identity. Never clone OAuth caches, browser cookies, keychains, SSH private keys or Vault sessions.',
-        'Access shared permitted API keys through this machine’s existing Vault/secret-store session. Prefer vault run --config dev -- COMMAND for process-scoped injection.',
+        'Access shared permitted API keys through this machine’s existing Vault/secret-store session. Prefer personal vault run --config dev -- COMMAND for process-scoped injection.',
         'The workstation owner can render its supported provider configuration from Vault with 0600 permissions. Missing provider keys and live provider access still require checks.',
         'Service roles, shared resources, Vault policies and infrastructure remain OpenTofu-owned. A login does not grant every account/team/resource permission.',
       ],

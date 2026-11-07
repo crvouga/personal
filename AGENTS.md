@@ -1,5 +1,14 @@
 # Agent Notes
 
+## Single CLI ownership
+
+`personal` (published as `@crvouga/personal`) is the only repository-owned user CLI.
+Add domains and commands to `packages/personal-cli`; packages may implement private
+adapters/workers but must not declare another executable, installer, launcher or
+independent user command interface. Root task scripts are aliases or build/test
+and bootstrap tasks, not additional CLI products. Third-party tools retain their
+upstream CLIs. Keep command discovery and interactive routing in the shared registry.
+
 ## Monorepo
 
 Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pkgs/*` names. Install at the root with `bun install`.
@@ -12,7 +21,7 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
 - `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
 - `packages/workstation`: portable local machine configuration. Read its `AGENTS.md` before editing it. Install with `bun run personal:install`; converge local configuration with `personal workstation sync`.
-- `packages/fleet`: canonical developer membership, controller-driven Ubuntu synchronization and diagnostics. Read its `README.md`, `AGENTS.md` and `docs/ubuntu-sync.md` release gates. Public `fleet-sync` / `fleet converge` targets the enrolled fleet from one controller; legacy `fleet sync` stays plan-only without `--apply --yes`. The new flow uses one interactive approval or unattended `--apply --yes`. Private connection overrides are not cloud inventory. Never copy identities, bypass SSH trust, or install node pull schedules; delegate configuration to Workstation and the shared toolchain.
+- `packages/fleet`: canonical developer membership, controller-driven Ubuntu synchronization and diagnostics. Read its `README.md`, `AGENTS.md` and `docs/ubuntu-sync.md` release gates. Public `fleet-converge` (aliases `fleet-sync` / `fleet converge`) targets the enrolled fleet from one controller; `fleet-health` audits mandatory worker policy without mutations; legacy `fleet sync` stays plan-only without `--apply --yes`. The new flow uses one interactive approval or unattended `--apply --yes`. Private connection overrides are not cloud inventory. Never copy identities, bypass SSH trust, or install node pull schedules; delegate configuration to Workstation and the shared toolchain.
 - `packages/personal-cli`: private source workspace for the public `@crvouga/personal` Node/npm CLI. Read its `README.md`, `AGENTS.md` and `releasing.md`. `bun run personal` prints help; `--interactive` opts into the command palette. `index --json` (alias `commands --json`) and `agent --json` are the noninteractive contracts. CI publishes only after Check; `personal:publish:bootstrap` is plan-only unless `--apply --yes`. Never publish the workspace or include a roster/credentials.
 
 ## Shared authentication relay

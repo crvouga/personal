@@ -8,13 +8,15 @@ export type Capability =
   | 'codex'
   | 'claude'
   | 'services'
-  | 'workstation';
+  | 'workstation'
+  | 'worker';
 
 export interface FleetNode {
   id: string;
   ssh: string;
   workspace: string;
   tailscaleId?: string;
+  t3EnvironmentId?: string;
   bootstrapViaSsh?: boolean;
   runtime?: string;
   required: Capability[];
@@ -26,6 +28,8 @@ export interface FleetConfig {
 }
 
 export interface Check {
+  /** Explicitly out-of-scope checks do not affect required readiness. */
+  required?: boolean;
   /** Measured enclosing phase duration; omitted when not observed. */
   phaseDurationMs?: number;
   id: string;

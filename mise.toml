@@ -70,8 +70,17 @@ COPILOT_AUTO_UPDATE = "false"
 
 [vars]
 # Official native Ubuntu server distribution; scripts/dev/native-t3.ts owns installation.
-t3_version = "0.1.7"
-t3_linux_x64_sha256 = "c089892bf7922e2e73c6f44a5d1ea125c99f70e378c18361cbbed2fba1920e6c"
-t3_linux_arm64_sha256 = "5a528e23af394cc6f359036d3cb8441fda14129d477630fc6c53e4f4a1025bc8"
+t3_version = "0.1.8-nightly.20261106.4262"
+t3_linux_x64_sha256 = "5df94ca15c4f68f749fa5540fbb9d5ca879ca8750ac43dd2704f6a18899ed6d5"
+t3_linux_arm64_sha256 = "0649615c4a294eee40bc753c8668e4a83c5c3620794f2163758f8dc48a39b880"
 # Official AWS v2 Windows MSI, same version as tools.aws; checked before execution.
 aws_windows_msi_sha256 = "c7857d5981e68396852e8b7eca0b1772f1c99b34d4938075857d45ec9c232113"
+# Docker Desktop supplies the macOS engine, Compose and Buildx as one vendor bundle.
+# Official release/checksums: https://docs.docker.com/desktop/release-notes/#4980
+docker_desktop_version = "4.98.0"
+docker_desktop_build = "245422"
+docker_desktop_arm64_sha256 = "9c6f13ce4edda2abf20d801552b6acb96acd3d64b3e91b50c4484353802758b5"
+docker_desktop_amd64_sha256 = "96b53f9a4a807b6be6207d18f360b9778ff481e1d94b5027bdf1ae2a22d837cb"
+
+# Minimal remote development baseline; versions are resolved exclusively by tools + mise.lock.
+worker_tools = "bun,node,gh,python,uv,docker-cli,vault,jq,codex,claude,aqua:anomalyco/opencode,gemini,copilot"

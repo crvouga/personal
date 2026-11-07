@@ -1,3 +1,6 @@
+import { workerTools } from './worker-tools';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 /** Used by both OS bootstraps, personal workstation tools sync and personal workstation update. No workspace dependencies. */
 import { setupStatus, setupFailureCode, type SetupPhase } from './setup-status';
 import { spawnSync } from 'node:child_process';
@@ -22,15 +25,22 @@ function run(args: string[]): void {
 }
 
 export async function syncTools(
-  observe: (phase: SetupPhase) => void = () => {}
+  observe: (phase: SetupPhase) => void = () => {},
+  worker = false
 ): Promise<void> {
   observe('managed-config');
   const dir = globalConfigDir();
   assertManagedConfig(dir);
   observe('mise');
-  run(['mise', 'install', '--locked']);
+  const config = Bun.TOML.parse(
+    readFileSync(join(workspaceRoot, 'mise.toml'), 'utf8')
+  ) as { tools: Record<string, unknown>; vars: { worker_tools: unknown } };
+  const selected = worker
+    ? Object.keys(workerTools(config.tools, config.vars.worker_tools))
+    : [];
+  run(['mise', 'install', '--locked', ...selected]);
   observe('aws');
-  await installNativeAws();
+  if (!worker) await installNativeAws();
   observe('t3');
   await installNativeT3();
   observe('global-config');
@@ -48,7 +58,7 @@ if (import.meta.main) {
     await syncTools((current) => {
       phase = current;
       report(phase, 'running');
-    });
+    }, process.argv.includes('--worker'));
     if (!process.argv.includes('--tools-only')) {
       phase = 'dependencies';
       report(phase, 'running');

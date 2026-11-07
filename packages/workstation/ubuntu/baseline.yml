@@ -47,6 +47,10 @@
     - name: Inspect installed packages
       ansible.builtin.package_facts:
         manager: apt
+    - name: Preserve Docker installations owned by a different distribution
+      ansible.builtin.assert:
+        that: "'docker-ce' not in ansible_facts.packages and 'containerd.io' not in ansible_facts.packages"
+        fail_msg: DOCKER_OWNER_CONFLICT; migrate the existing Docker owner explicitly before applying the Ubuntu-native baseline.
     - name: Inspect existing service ownership
       ansible.builtin.service_facts:
     - name: Wait for legitimate package transactions before inspecting dpkg
@@ -74,6 +78,9 @@
         fail_msg: APT_STATE_BROKEN; inspect dpkg --audit and use reviewed package recovery. Never remove package lock files.
   tasks:
     - ansible.builtin.import_tasks: tasks/packages.yml
+    - ansible.builtin.import_tasks: tasks/docker.yml
     - ansible.builtin.import_tasks: tasks/power.yml
     - ansible.builtin.import_tasks: tasks/user.yml
     - ansible.builtin.import_tasks: tasks/ssh.yml
+    - ansible.builtin.import_tasks: tasks/credentials.yml
+      when: development_source is defined

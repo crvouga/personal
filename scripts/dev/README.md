@@ -220,7 +220,11 @@ The manifest installs the **Docker client**. Containers also require a local or
 remote Docker engine, Compose v2 and Buildx plugins. These cannot be installed as
 one identical unprivileged binary on all OSes.
 
-- **macOS:** install/start Docker Desktop from https://docs.docker.com/desktop/setup/install/mac-install/.
+- **macOS:** run `personal workstation tools docker-setup` to install the pinned,
+  checksum-verified Docker Desktop bundle from this repository and open it.
+  Complete its first-run agreement/setup in the app. Repeated invocation reuses
+  an existing installation. The shared mise Docker client remains in use.
+  Vendor installation documentation: Docker Desktop from https://docs.docker.com/desktop/setup/install/mac-install/.
 - **Windows:** install/start Docker Desktop from https://docs.docker.com/desktop/setup/install/windows-install/.
   `winget install --exact --id Docker.DockerDesktop` is the package-manager route.
   Enable its WSL2 backend/virtualization prerequisites and finish any reboot.
@@ -348,3 +352,28 @@ Repeated approved setup reuses an observed matching mise executable and preserve
 unchanged managed configuration/lockfile timestamps. It still asks mise and the
 frozen dependency owner to inspect actual installations; a previous success marker
 is not a reason to skip drift inspection.
+
+### T3 project actions
+
+Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
+Actions: `warm`, `sync`, `update`, `net-fix`, `net-check`, `net-fix-check`,
+`portfolio`, `fleet-converge`, `fleet-health`, `fleet-repair`. Fleet convergence
+selects the current checkout HEAD as its exact revision and retains its approval
+flow; extra arguments such as `--dry-run` are forwarded. Health uses explicit
+`--managed` scope (canonical fleet plus controller), reporting excluded service
+hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+locked tools and converging dependencies for the current branch. `warm` performs
+only that setup. No global `ws` or `personal` launcher is required. Setup may
+install tools on first use; application logins (including Vault for portfolio)
+remain per-machine prerequisites. Configuration actions affect the current machine.
+
+### Minimal worker profile
+
+Controller-driven remote bootstrap passes `--worker` to the shared setup owner.
+It installs the `vars.worker_tools` subset from `mise.toml`, with versions and
+artifacts taken from the same `mise.lock`; native T3 and Ubuntu Docker/service
+policy remain source-pinned. `bun scripts/dev/doctor.ts --worker --docker --json`
+checks that profile. It does not require unrelated cloud CLIs on workers.
+The source-owned `worker-auth.ts` timer renews the worker's existing Vault token
+and can restore the declared GitHub account from its authorized Vault service
+credential, without copying another machine's login directory.
