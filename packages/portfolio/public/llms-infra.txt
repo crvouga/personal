@@ -1893,7 +1893,7 @@ the specified real evidence; mocked transport tests cannot substitute for VM or
 separate-client acceptance. Newly found defects should have one focused issue with
 a reproduction and stable code, linked to the relevant gate.
 
-Canary promotion gates distinguish configuration failure from external acceptance. A failed configuration blocks promotion; missing pairing or monitoring evidence remains an unsuccessful readiness result but does not prevent independent configuration on other enrolled nodes. Neither condition advances a fully verified success receipt.
+Canary promotion gates distinguish configuration failure from external acceptance. A failed configuration blocks promotion; missing pairing or monitoring evidence remains an unsuccessful readiness result but does not prevent independent configuration on other enrolled nodes. Native T3 outcomes that need an operator maintenance window (an active listener outside the managed unit, a different running release, a pending policy restart) are reported as failures but likewise do not block other nodes; routine sync never kills active T3 work to clear them. Neither condition advances a fully verified success receipt.
 
 The managed native T3 service uses a stock Tailscale Serve HTTPS route on port
 443 to its loopback port 3773. The controller configures and independently reads

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { synchronizeController } from './controller-sync';
+import { blocksPromotion, synchronizeController } from './controller-sync';
 import { parseDefinition } from './definition';
 import source from '../definition.json';
 import type { FleetNode, Runner } from './types';
@@ -217,4 +217,23 @@ test('missing monitoring or client pairing remains incomplete without blocking i
   expect(result.nodes.every((node) => node.appliedRevision === null)).toBe(
     true
   );
+});
+
+test('maintenance-class T3 outcomes and external acceptance never block promotion; configuration failures do', () => {
+  const failing = (id: string, summary: string) =>
+    blocksPromotion({ id, status: 'fail', summary });
+  expect(failing('t3:service', 'T3_LISTENER_CONFLICT')).toBe(false);
+  expect(failing('t3:service', 'T3_MAINTENANCE_REQUIRED')).toBe(false);
+  expect(failing('t3:service', 'T3_SERVICE_INSTALLATION_FAILED')).toBe(true);
+  expect(
+    failing('ubuntu:boot-policy', 'UBUNTU_MAINTENANCE_REBOOT_PENDING')
+  ).toBe(false);
+  expect(failing('beszel:enrollment', 'BESZEL_ACCOUNT_REQUIRED')).toBe(false);
+  expect(failing('ubuntu:baseline', 'UBUNTU_BASELINE_INCOMPLETE')).toBe(true);
+  expect(
+    failing('workstation:installation', 'WORKSTATION_INSTALLATION_FAILED')
+  ).toBe(true);
+  expect(
+    blocksPromotion({ id: 'ubuntu:baseline', status: 'pass', summary: 'ok' })
+  ).toBe(false);
 });

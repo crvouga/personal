@@ -309,12 +309,25 @@ function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
  * external account, dashboard or client pairing must not stop independent OS
  * configuration on other nodes. Actual deployment failures stop promotion.
  */
-function blocksPromotion(check: Check): boolean {
+export function blocksPromotion(check: Check): boolean {
   if (check.status === 'pass') return false;
+  if (check.id === 't3:service' && T3_MAINTENANCE.has(check.summary))
+    return false;
   return !/^(worker:|beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
     check.id
   );
 }
+
+/** Native T3 outcomes that need an operator maintenance window (an active
+ * listener or running release must never be killed by routine sync). They are
+ * reported as failures but do not block independent OS policy on other nodes.
+ */
+const T3_MAINTENANCE = new Set([
+  'T3_LISTENER_CONFLICT',
+  'T3_ACTIVE_LISTENER_MIGRATION_REQUIRED',
+  'T3_MAINTENANCE_REQUIRED',
+  'T3_POLICY_RESTART_PENDING',
+]);
 
 function notifyProgress(
   notify: ((node: string, phase: string) => void) | undefined,
