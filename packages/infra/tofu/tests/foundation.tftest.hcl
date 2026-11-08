@@ -158,3 +158,15 @@ run "local_proxy_public_route" {
     error_message = "Tunnel traffic must reach the proxy inside its Compose network."
   }
 }
+
+run "dashboard_public_route" {
+  command = plan
+  assert {
+    condition     = cloudflare_dns_record.local_tunnel["beszel"].name == "beszel.chrisvouga.dev" && cloudflare_dns_record.local_tunnel["beszel"].proxied
+    error_message = "The dashboard hostname must use Cloudflare HTTPS to the managed tunnel."
+  }
+  assert {
+    condition     = cloudflare_zero_trust_tunnel_cloudflared_config.additional["beszel"].config.ingress[0].service == "http://hub:8090"
+    error_message = "Tunnel traffic must reach the Beszel hub inside its Compose network."
+  }
+}

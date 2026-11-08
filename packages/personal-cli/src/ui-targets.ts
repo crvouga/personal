@@ -47,7 +47,7 @@ export async function chooseTargets(
 async function availableNodes(session: Session): Promise<Choice[]> {
   const outcome = await execute(
     session,
-    ['fleet', 'nodes'],
+    ['fleet-nodes'],
     'Reading local roster (no SSH)'
   );
   if (!successful(outcome)) {
@@ -72,17 +72,16 @@ async function missingRoster(
   action: string
 ): Promise<string[] | undefined> {
   session.display.panel(
-    'Fleet setup needed',
+    'Roster needed',
     [
-      'No usable roster nodes. Return to Fleet setup / add node to register an existing computer.',
-      'Fleet init creates an EXAMPLE only; saving it requires --apply --yes. Edit its aliases and paths before use.',
-      'Controller-only doctor works without a roster or SSH. No login, host-key change or repair is automatic.',
+      'No usable roster nodes. Run fleet-node-add to register an existing computer.',
+      'Controller-only status works without a roster or SSH. No login, host-key change or repair is automatic.',
     ].join('\n')
   );
   if (action !== 'doctor') return undefined;
   const choice = await session.prompts.select('Continue without a roster?', [
     { name: 'Run controller-only diagnostics', value: 'local' },
-    { name: 'Back to palette / Fleet setup', value: 'back' },
+    { name: 'Back to palette', value: 'back' },
   ]);
   return choice === 'local' ? ['--local'] : undefined;
 }

@@ -26,7 +26,7 @@ files are preserved. Auth-relay and remote-cache runtime environments are exclud
 from copying: their launchers load the selected Vault configuration or explicitly selected fixtures instead.
 Turborepo's dev command passes the local environment through;
 dev tasks are uncached. The remote cache retains its existing Vault setup task.
-Portfolio's dev task loads its GitHub token through `personal vault run` automatically,
+Portfolio's dev task loads its GitHub token through `personal infra-vault run` automatically,
 defaulting to `dev` unless `VAULT_CONFIG` is explicitly set. Run `vault login`
 first if your local Vault session has expired.
 

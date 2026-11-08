@@ -104,7 +104,36 @@ def prepare_source(repo, target, commit):
         git(worktree, "rev-parse", "--absolute-git-dir").decode().strip()
     )
     (metadata / "index").chmod(0o644)
+    restore_repository_ownership(repo, metadata)
     return worktree
+
+
+def restore_repository_ownership(repo, metadata):
+    """Worktree creation under sudo writes into the source repository's .git
+    (worktrees/<sha>/*, config for sparse checkout). Hand those files back to the
+    repository owner so its user can keep running git and read-only audits."""
+    owner = pathlib.Path(repo).stat()
+    if owner.st_uid == 0:
+        return
+    common = pathlib.Path(
+        git(repo, "rev-parse", "--git-common-dir").decode().strip()
+    )
+    if not common.is_absolute():
+        common = pathlib.Path(repo) / common
+    # The worktrees directory itself is created by the first `git worktree add`.
+    paths = [common / "config", metadata.parent, metadata]
+    for base in paths:
+        if not base.exists():
+            continue
+        targets = [base]
+        if base.is_dir() and base != metadata.parent:
+            targets.extend(base.rglob("*"))
+        for path in targets:
+            if path.is_symlink():
+                continue
+            os.chown(path, owner.st_uid, owner.st_gid)
+            mode = path.stat().st_mode & 0o777
+            path.chmod(mode | (0o755 if path.is_dir() else 0o644))
 
 
 def link_path(path, destination):
@@ -215,6 +244,9 @@ def main():
         return
     if os.geteuid() != 0:
         parser.error("Run the installation command with sudo")
+    # Callers (fleet bootstrap) may run with umask 077; deployment code and the
+    # source repository metadata written here must stay readable for audits.
+    os.umask(0o022)
     if target.is_symlink():
         parser.error("Installation root must not be a symlink")
     for directory in [

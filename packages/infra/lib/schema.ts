@@ -168,6 +168,8 @@ export type VaultTokenSpec = {
   readonly name: string;
   readonly policy: string;
   readonly period: string;
+  /** KV configs that receive the token through its sink; both when omitted. */
+  readonly configs?: readonly string[];
   readonly sink: string;
 };
 

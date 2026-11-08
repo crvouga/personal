@@ -24,12 +24,17 @@ export async function consumerHelp(
         'Consumer default/help command did not return help.'
       );
   }
-  const index = await mustRun([node, cli, 'index', '--json'], directory, env, {
-    stage: 'consumer-command',
-  });
+  const index = await mustRun(
+    [node, cli, 'commands', '--json'],
+    directory,
+    env,
+    { stage: 'consumer-command' }
+  );
   const data = JSON.parse(index);
   if (
     data.defaultCommand !== 'help' ||
+    typeof data.releasedAt !== 'string' ||
+    typeof data.agent?.invocation !== 'string' ||
     !data.commands.every(
       (entry: { help?: string; execution?: unknown }) =>
         entry.help && entry.execution

@@ -11,7 +11,7 @@ export async function addNode(session: Session): Promise<void> {
 
 function showIntro(session: Session): void {
   session.display.panel(
-    'Fleet setup / add node',
+    'fleet-node-add',
     [
       'Register an EXISTING computer in your local secret-free roster.',
       'Use a previously verified SSH alias. This wizard never connects, provisions, logs in or changes host keys.',
@@ -50,8 +50,7 @@ async function registerNode(session: Session): Promise<void> {
     }))
   );
   const args = [
-    'fleet',
-    'add',
+    'fleet-node-add',
     '--id',
     id,
     '--ssh',
@@ -83,7 +82,7 @@ async function registerNode(session: Session): Promise<void> {
     mutation: true,
   });
   session.display.write(
-    'Next: fleet validate, then fleet onboard for operator-owned SSH / authentication guidance.'
+    'Next: fleet-nodes --onboard --node ID for operator-owned SSH / authentication guidance, then fleet-status.'
   );
 }
 

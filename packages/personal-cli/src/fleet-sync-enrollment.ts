@@ -27,7 +27,7 @@ export async function enrollController(
       ? []
       : enrolledRoster(canonical, await loadConfig(path)).nodes;
   const nodes: FleetNode[] = canonical.nodes
-    .filter((node) => node.os === 'linux')
+    .filter((node) => node.os !== 'windows')
     .map((node) => ({
       id: node.id,
       ssh: node.ssh,

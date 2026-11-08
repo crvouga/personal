@@ -1,0 +1,28 @@
+---
+- name: Inspect existing designated-user sudo policy ownership
+  ansible.builtin.stat:
+    path: '/etc/sudoers.d/personal-fleet-{{ development_user }}'
+  register: sudo_owned_file
+- name: Read existing designated-user sudo policy for ownership validation
+  ansible.builtin.slurp:
+    src: '/etc/sudoers.d/personal-fleet-{{ development_user }}'
+  when: sudo_owned_file.stat.exists
+  register: sudo_previous
+  no_log: true
+- name: Preserve conflicting sudo policy until a reviewed migration
+  ansible.builtin.assert:
+    that:
+      - not sudo_owned_file.stat.islnk | default(false)
+      - "not sudo_owned_file.stat.exists or (sudo_previous.content | b64decode).startswith('# Managed by personal Fleet: designated development user')"
+    fail_msg: SUDOERS_OWNERSHIP_CONFLICT; preserve and review the existing fragment before adoption.
+- name: Validate and install designated-user sudo policy
+  ansible.builtin.copy:
+    dest: '/etc/sudoers.d/personal-fleet-{{ development_user }}'
+    content: |
+      # Managed by personal Fleet: designated development user
+      {{ development_user }} ALL=(ALL:ALL) NOPASSWD: ALL
+    owner: root
+    group: wheel
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+    backup: true

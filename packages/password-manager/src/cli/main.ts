@@ -11,7 +11,7 @@ import { demo } from '../application/demo.ts';
 import { registerAuth } from './auth.ts';
 import { registerRun } from './run.ts';
 const program = new Command()
-  .name('personal password-manager')
+  .name('personal infra-password-manager')
   .description('Private, resumable account discovery and Bitwarden maintenance')
   .option('--json', 'Stable JSON output (also the current default)')
   .option('--non-interactive', 'Never prompt or wait for a user')

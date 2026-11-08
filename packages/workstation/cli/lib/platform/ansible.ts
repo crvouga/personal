@@ -1,11 +1,34 @@
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import macos from '../../../macos/policy.json';
 import type {
   Runner,
   CommandOptions,
   CommandResult,
 } from '../../../../fleet/src/types';
+
+/** Ubuntu provides ansible-core through APT; macOS runs the pinned release through
+ * uv's isolated tool runner so no global Python environment is modified.
+ */
+export function ansibleCommand(
+  path = process.env['PATH'] ?? '',
+  exists: (candidate: string) => boolean = existsSync
+): string[] {
+  const found = path
+    .split(delimiter)
+    .filter(Boolean)
+    .some((directory) => exists(join(directory, 'ansible-playbook')));
+  return found
+    ? ['ansible-playbook']
+    : [
+        'uvx',
+        '--from',
+        `ansible-core==${macos.ansibleCore}`,
+        'ansible-playbook',
+      ];
+}
 
 /** Ansible resolves @file paths before opening them; @/dev/stdin is not portable
  * across versions when stdin is a pipe. Keep runtime variables in a private,
@@ -24,7 +47,7 @@ export async function runAnsible(
     await writeFile(path, options.input, { mode: 0o600, flag: 'wx' });
     const { input: _input, ...commandOptions } = options;
     return await run(
-      ['ansible-playbook', playbook, '--extra-vars', '@' + path],
+      [...ansibleCommand(), playbook, '--extra-vars', '@' + path],
       commandOptions
     );
   } finally {

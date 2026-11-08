@@ -8,7 +8,9 @@ const root = join(import.meta.dir, '..');
 test('published guide inputs include the fleet flow and honest acceptance status', () => {
   const guide = renderLlmsTxt();
   expect(guide).toContain('npx @crvouga/personal fleet-sync');
-  expect(guide).toContain('# Ubuntu developer fleet: controller operation');
+  expect(guide).toContain(
+    '# Developer fleet: controller operation (Ubuntu, with macOS best effort)'
+  );
   expect(guide).toContain('not yet a completed or published fleet');
   expect(guide).toContain('homelab, not cloud infrastructure');
 });

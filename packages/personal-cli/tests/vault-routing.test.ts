@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runCommand } from '../../fleet/src/runner';
 
-test('personal vault preserves caller project directory while loading its source-owned domain', async () => {
+test('personal infra-vault preserves caller project directory while loading its source-owned domain', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'personal-vault-'));
   const root = resolve(import.meta.dir, '../../..');
   try {
@@ -14,7 +14,7 @@ test('personal vault preserves caller project directory while loading its source
         join(root, 'packages/personal-cli/src/cli.ts'),
         '--workspace',
         root,
-        'vault',
+        'infra-vault',
         'setup',
         '--project',
         'fixture',
@@ -38,7 +38,7 @@ test('workspace flags belonging to the injected child survive the owner routing 
     stripOwnerWorkspace([
       '--workspace',
       '/repo',
-      'vault',
+      'infra-vault',
       'run',
       '--',
       'node',
@@ -46,5 +46,13 @@ test('workspace flags belonging to the injected child survive the owner routing 
       '--workspace',
       '/child',
     ])
-  ).toEqual(['vault', 'run', '--', 'node', 'tool', '--workspace', '/child']);
+  ).toEqual([
+    'infra-vault',
+    'run',
+    '--',
+    'node',
+    'tool',
+    '--workspace',
+    '/child',
+  ]);
 });

@@ -1,229 +1,128 @@
 # Personal CLI
 
-The worker fleet has two primary commands:
+`personal` (published as **`@crvouga/personal`**) is the one user command for this
+repository. Every command is flat and prefixed by its domain:
+
+| Prefix        | Scope                                                            | Needs the checkout |
+| ------------- | ---------------------------------------------------------------- | ------------------ |
+| `fleet-*`     | Developer computers: status, discovery, sync, repair, roster     | Only for repairs   |
+| `t3-*`        | Declared T3 provider instances on this machine                   | No                 |
+| `infra-*`     | Platform operations: health, domains, Vault, CLIProxy, passwords | Yes                |
+| `workstation` | This machine's tools, agent profiles and launcher                | Yes                |
+| `commands`    | Command catalog plus the agent usage/safety contract             | No                 |
 
 ```sh
-npx @crvouga/personal fleet-converge
-npx @crvouga/personal fleet-health
+npx --yes @crvouga/personal              # help, including the release build timestamp
+npx --yes @crvouga/personal --version    # 0.1.7 (released 2026-11-07T18:02:11.000Z)
+npx --yes @crvouga/personal commands --json
 ```
 
-Converge applies one approved immutable revision to every declared Ubuntu worker
-over verified SSH. The first enrollment binds existing hosts; routine execution
-never requests a worker password or interactive sudo. Use `--apply --yes` for an
-unattended approved run, `--dry-run` to inspect, and `--json` for agent output.
-Health is read-only and reports every remaining required gap; optional desktop
-configuration does not weaken or override mandatory worker policy. The public
-release carries its desired input hashes, so worker health needs no checkout on
-the controller. Source-backed workstation operations still need their checkout.
+Requires Node **22.13+ on the 22.x line, or 23.5+**. Bare invocation prints help,
+including on a TTY; `--interactive` opens the searchable palette; `--json` and
+`--non-interactive` never prompt. Pin an exact version in automation.
 
-Worker membership, mandatory services and singleton ownership live in
-`packages/fleet/definition.json`; versions and the minimal tool profile live in
-`mise.toml`/`mise.lock`; Ubuntu services, packages and power policy are owned by
-Workstation's Ansible files. Private connection overrides cannot waive those
-requirements. See [the fleet contract](../fleet/docs/worker-contract.md).
-
-Start with `personal` for help; it never opens a menu implicitly.
+## Fleet
 
 ```sh
-personal
-personal index --json
-personal agent --json
-personal t3-apply --help
+personal fleet-status                    # this controller + every roster node (read-only)
+personal fleet-status --local            # this computer only; no roster or SSH
+personal fleet-status --tailnet          # every visible Tailscale computer
+personal fleet-status --workers          # canonical worker fleet audit
+personal fleet-discover                  # Tailscale computers, including offline
+personal fleet-sync --dry-run            # plan the enrolled Ubuntu fleet push
+personal fleet-sync --apply --yes        # unattended approved push
+personal fleet-node-sync                 # reconcile this node; applies by default
+personal fleet-repair                    # preview owner-managed repairs
+personal fleet-repair --list             # repair catalog and native login commands
+personal fleet-nodes [--onboard|--schema]
+personal fleet-node-add --id ID --ssh ALIAS --path /checkout [--apply --yes]
 ```
 
-The index includes per-command help, mutation defaults, preview instructions and
-required authorization. `--json` changes output format; it does not prevent writes.
-`commands` remains an alias-compatible name for `index`. Use `personal --interactive`
-only when you want the terminal menu.
+`fleet-status` is always read-only. It checks SSH, authentication, T3, VS Code
+and dependency drift from this controller; a missing roster fails explicitly and
+directed SSH success is not all-pairs connectivity. `--tailnet` reads the signed-in
+Tailscale daemon, excludes iOS/Android/tvOS, and fails coverage for offline,
+unregistered or unverified computers. `--workers` audits the canonical fleet in
+`packages/fleet/definition.json` against the published input hashes, verifies the
+centralized Beszel dashboard (hub reachable, each node registered, connected and
+reporting fresh samples) and lists every remaining gap; it needs no checkout on
+the controller. Its report carries `dashboardUrl`.
 
-Use the installed `personal` executable for routine work. `npx @crvouga/personal`
-is the same CLI when it is not installed.
+`fleet-sync` pushes one approved immutable revision to every enrolled Ubuntu
+worker (and, best effort, macOS 14+ nodes) over verified SSH with one interactive
+approval or `--apply --yes`. Machine policy is Ansible: never sleep, no automatic
+logout, always-on Tailscale/SSH/Docker/Beszel, the dashboard hub and agents, and
+each node's own credential renewal. It never requests a worker password or
+interactive sudo after enrollment. `--schedule`
+manages the controller-only schedule. Read the
+[controller runbook](../fleet/docs/ubuntu-sync.md); full Ubuntu acceptance is still
+incomplete and fails closed.
+
+`fleet-node-sync` reconciles locked tools, installs the `personal` launcher, upserts
+the Codex proxy profile and reconciles declared T3 instances on this machine. It
+applies on invocation; `--dry-run` previews. `--revision FULL_SHA` pins a reviewed
+commit; `--id` overrides the hostname-derived node ID.
+
+`fleet-repair` inspects the visible tailnet (or `--local` / `--node`) and previews
+allowlisted owner actions: `workspace` (mise/shared setup with frozen dependencies),
+`workstation` (`personal:install --yes`) and `providers` (strict Vault-backed
+provider sync). Apply with the reviewed `--plan-hash` plus `--apply --yes`; a changed
+plan is rejected and fresh diagnostics follow. `--script` emits a reviewable POSIX
+script instead. Logins, host trust and resource permissions stay operator steps.
+
+The roster is local and secret-free: `--config`, `PERSONAL_FLEET_CONFIG`, the
+closest `.fleet.local.json`, then `~/.config/personal/fleet.json`. `fleet-node-add`
+previews until `--apply --yes`, writes 0600 with a lock, never overwrites other
+entries and refuses symlinks. Controller checkout resolution: `--workspace`,
+`PERSONAL_WORKSPACE`, closest `mise.toml`, then the current directory.
+
+## T3
 
 ```sh
-personal fleet-node-sync
-personal fleet-status
-personal fleet-discover
-```
-
-`fleet-node-sync` reconciles locked tools, installs the public launcher, removes
-owned legacy `ws` launchers, upserts the Codex proxy profile, and reconciles declared
-T3 provider instances. It applies by invocation; `--dry-run` previews. Run in the
-personal checkout or use `--workspace PATH`. Node ID defaults to hostname; `--id`
-overrides it. Revision defaults to checkout HEAD; `--revision FULL_SHA` pins it.
-
-```sh
-personal t3-plan --json
-personal t3-apply
-personal t3-status
-personal t3-cleanup --dry-run
-personal t3-import --instance EXISTING_ID
+personal t3-status                       # exit 1 on drift
+personal t3-apply --dry-run --json       # plan; copy planHash
+personal t3-apply --plan-hash HASH       # reconcile declared instances
+personal t3-apply --import INSTANCE_ID   # adopt an existing instance into ownership
+personal t3-cleanup --dry-run            # preview removal of owned instances only
 ```
 
 Tracked `packages/workstation/agents/t3.json` is desired state. Apply creates and
 updates declared instances and removes previously owned instances absent from the
-definition. Cleanup removes only owned instances. Import is explicit ownership of
-an existing instance. `--plan-hash HASH` rejects stale plans. Secrets and unrelated
-settings are omitted from reports and preserved in the configuration.
+definition. Secrets and unrelated settings are preserved. The reconciler runs on
+Node without Bun or live credentials; native Windows preserves settings but
+managed proxy execution requires macOS/Linux/WSL.
 
-All former workstation commands now use `personal workstation …`; there is no `ws`
-package executable. The source installer migrates recognized legacy launchers.
-Native Windows should use the npm executable; proxy adapter execution requires
-macOS/Linux/WSL. Pairing and provider authentication remain per-machine prerequisites.
-
-Read the [node/T3 reconciliation runbook](../workstation/agents/setup.md) for state,
-concurrency, recovery, rollout and precise ownership boundaries. The public package
-needs a local checkout and its shared toolchain for workstation operations; the T3
-reconciler itself runs on Node without Bun or access to live credentials.
-
-## One CLI
-
-`personal` is the only repository-owned user CLI. Private package adapters are
-implementation details, never separately installed executables. Existing Bun task
-aliases forward to `personal`. Source-backed domains include `workstation`,
-`password-manager`, `cliproxy`, `health`, `health-fix` and `domains`; inspect each
-with `personal DOMAIN --help`. They need the checkout and shared toolchain and
-preserve the owning domain's output and authorization semantics. The published
-package delegates these operations to the selected checkout rather than bundling
-private services or credentials.
-
-## Detailed command reference
-
-Public npm distribution: **`@crvouga/personal`**, executable **`personal`**.
-The source workspace `@pkgs/personal-cli` stays private; its build bundles the
-private fleet library into a standalone Node application. No Bun, repository
-checkout, npm login or global installation is needed just to open the application.
-Requires Node **22.13+ on the 22.x line, or 23.5+** with npm.
+## Infra and workstation
 
 ```sh
-npx --yes @crvouga/personal
+personal infra-health [--drift]          # read-only platform report
+personal infra-health --fix              # guided fixers through OpenTofu or CI
+personal infra-domains
+personal infra-vault run --config dev -- COMMAND
+personal infra-cliproxy status
+personal infra-password-manager doctor
+personal workstation doctor --json --non-interactive
 ```
 
-With `personal --interactive`, the terminal application has a flat searchable command palette sorted A–Z with group prefixes,
-descriptions, target selection, progress indicators, result summaries, searchable
-node/status/check drill-downs, remedies, retry/back navigation, and an add-node
-wizard. It shows the equivalent noninteractive command before running anything.
-Ctrl+C exits; `NO_COLOR` and narrow terminals are supported. It never clears the
-terminal or automatically repairs machines. This is a command console, not an AI
-chat service; no model key or chat subscription is required.
+These forward to their owning implementation in the checkout, keep the owner's
+output and authorization semantics, and stream native output. Use `--workspace`
+or `PERSONAL_WORKSPACE` to select the checkout. Inspect `personal DOMAIN --help`.
 
-## For people and agents
+## For agents
 
-```sh
-npx --yes @crvouga/personal@latest commands --json --search ssh
-npx --yes @crvouga/personal@latest agent --json
-npx --yes @crvouga/personal@latest fleet doctor --local --json
-npx --yes @crvouga/personal@latest fleet doctor --all --json
-npx --yes @crvouga/personal@latest fleet doctor --node dev-linux --json
-```
+`personal commands --json` returns one versioned document with every command,
+its help pointer, mutation default, preview command, the global flags, the release
+version and build timestamp, and an `agent` section documenting invocation, exit
+codes, safety boundaries and reproducible examples. `personal --json` returns the
+same document. Exit codes: **0** success/preview, **1** failed operation or check,
+**2** invalid usage/config, **130** cancelled. `--strict` fails warnings and skips.
+JSON errors never contain raw subprocess output, environment variables,
+authentication responses or exception messages.
 
-Pin an **exact released version** instead of `latest` for automation. Direct
-commands, `--json`, `--non-interactive` and redirected input never open prompts.
-No arguments prints help in every environment, including a terminal. `personal --json` or `personal index --json` prints the structured command index. The menu requires `personal --interactive`. JSON is one versioned
-document on stdout; interactive chrome and progress use stderr. Exit codes:
-**0** success/preview, **1** failed operation/check, **2** invalid usage/config,
-**130** cancellation. `--strict` makes warnings and skips fail too.
-
-`commands --json` exposes names, descriptions, categories, keywords, examples and
-global flags; `agent --json` documents the output/safety contract; `fleet schema`
-exposes the roster schema. JSON error messages never contain raw subprocess
-output, environment variables, authentication responses or exception messages.
-
-## Check every Tailscale computer
-
-```sh
-npx --yes @crvouga/personal@latest fleet discover --json
-npx --yes @crvouga/personal@latest fleet health --json
-```
-
-`discover` reads the signed-in local Tailscale daemon, includes offline computers
-and excludes iOS, Android and tvOS devices. `health` checks every visible computer,
-including this controller. It pings online peers, checks registered computers over
-fresh verified SSH sessions, compares checkout/toolchain input hashes, checks each
-pinned tool version and Docker runtime, and runs the existing read-only `personal workstation doctor`
-for managed links, PATH and workstation configuration.
-
-`personal fleet health --managed --json` explicitly limits diagnostics to the
-canonical developer fleet plus the controller. It reports excluded unmanaged
-peers and fails on missing canonical registrations. The default full-tailnet
-command is unchanged. The T3 Health project script selects this managed scope.
-
-Register remote computers with their existing SSH aliases and actual checkout paths.
-DNS names, Tailscale addresses and resolved SSH aliases are matched exactly. Missing,
-ambiguous, offline or no-longer-visible registrations produce explicit failures;
-the command never guesses a username/path or silently reduces the checked fleet.
-`fleet nodes` before registration shows an empty list and setup guidance.
-
-Authentication checks cover Codex, Claude Code, GitHub, Vault, T3, Railway, Vercel,
-Cloudflare, AWS's active profile and npm. Their status/identity commands run on each
-computer as its SSH user; browser login on another computer does not authenticate
-that session. Credential values and account responses are withheld. Codex/Claude
-status reports do not prove quotas, model access or a live billable request.
-Gemini, Copilot and OpenCode provider access are explicitly **unverified** until a
-supported noninteractive adapter can verify them; saved keys alone never count.
-
-Health uses strict coverage: required warnings, unverified checks and failures
-return exit **1**. Explicitly out-of-scope checks remain visible and neutral. It cannot certify devices hidden by Tailscale ACLs, other accounts/tailnets,
-all-pairs connectivity, every application, or operator-only T3/VS Code connection
-flows. Those limits remain visible in the report. Per-node health probes default
-to five minutes, overridable with `--timeout`; concurrency is bounded to four.
-Commands only diagnose; they never log in, install tools, rewrite configuration,
-or repair machines automatically. Use `--workspace` to select the reference checkout.
-
-The palette lists all commands directly, for example **Fleet: Check all Tailscale
-computers**, **Fleet: Discover Tailscale computers** and **Session: Workspace / config**.
-Node lists and the first checks needing attention display immediately; detailed
-reports remain available without navigating category submenus.
-
-## Register actual computers
-
-Use the interactive **Fleet: Register a developer computer** action, or preview first:
-
-```sh
-personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --json
-personal fleet add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json
-personal fleet validate --json
-personal fleet onboard --node dev-linux --json
-personal fleet doctor --all --json
-```
-
-This registers an **existing** computer; it does not provision a host, enable SSH,
-accept a host key, log in, copy credentials, or edit SSH configuration. `--runtime`
-may specify an absolute Node/Bun executable on the remote machine. The default is
-`node` on the non-login SSH PATH. The bundled probe is streamed over SSH; the npm
-package need not be installed on remote nodes. Remote targets require POSIX
-shells; use WSL for Windows SSH nodes. Native Windows supports local commands.
-
-Roster resolution: `--config`, `PERSONAL_FLEET_CONFIG`, closest ancestor
-`.fleet.local.json`, then `~/.config/personal/fleet.json`. New rosters are saved
-with mode 0600 using a lock and atomic replacement; existing entries are preserved,
-duplicates fail, and symlink rosters are refused. Keep custom roster paths out of
-Git. `fleet init` previews **example data**, not discovered machines; creating the
-example also requires `--apply --yes`.
-
-Controller checkout: `--workspace`, `PERSONAL_WORKSPACE`, closest ancestor
-`mise.toml`, then the current directory. Opening the application requires no
-checkout, but repository/dependency/toolchain checks need your actual personal
-checkout. A missing checkout or roster is reported, never treated as healthy.
-
-Doctor checks the controller and all configured nodes by default. `--node` limits
-remote targets; `--local` skips remote connections and requires no roster. Its
-`coverage` explicitly distinguishes all-configured, selected and local checks.
-A roster is not discovery of every computer. Run from each intended controller:
-directed SSH success is not all-pairs connectivity. T3 peer/relay traversal and
-VS Code forwarding still need the operator tests in `fleet onboard`.
-
-## Sync is explicit
-
-```sh
-personal fleet sync --node dev-linux --json
-personal fleet sync --node dev-linux --apply --yes --json
-```
-
-Sync delegates to the existing mise/setup owner, with frozen dependencies. It
-does not replace workstation management or OpenTofu. `--pull` requests a
-fast-forward-only pull and refuses dirty/detached checkouts. Never run sync on an
-untrusted checkout: setup/dependency lifecycle scripts are executable code.
-`npx --yes` approves the npm download only, **not** application mutations.
+Mutations: `fleet-node-sync`, `t3-apply` and `t3-cleanup` apply on invocation and
+offer `--dry-run`; `fleet-sync` confirms interactively or with `--apply --yes`;
+`fleet-repair` and `fleet-node-add` preview until `--apply --yes`. `--json` changes
+output format only.
 
 ## Development and release
 
@@ -233,66 +132,11 @@ bun run personal --interactive           # optional interactive menu
 bun run --cwd packages/personal-cli tc
 bun run --cwd packages/personal-cli lint
 bun run --cwd packages/personal-cli test
-bun run personal:build
+bun run personal:build                   # embeds the version and build timestamp
+bun run --cwd packages/personal-cli smoke
 ```
 
-See [releasing.md](releasing.md) for automatic CI releases, credential sources,
-first-publish bootstrap, packed-consumer verification and recovery.
-
-## Preview and apply repairs
-
-```sh
-personal fleet repairs --json
-personal fleet repair --json                        # all visible Tailscale computers
-personal fleet repair --local --json                # this computer only
-personal fleet repair --node dev-linux --json       # selected registered computer
-personal fleet repair --local --repair workspace --json
-# Copy planHash from the reviewed preview; it rejects changed plans:
-personal fleet repair --local --repair workspace --plan-hash REVIEWED_SHA256 --apply --yes --json
-personal fleet repair --local --repair providers --apply --yes --json
-personal fleet repair --local --script              # emit a POSIX script; never execute it here
-```
-
-The flat palette includes **Fleet: Explore repairs and login commands** and
-**Fleet: Repair tools and configuration**. Applying from the palette carries the
-reviewed plan hash. Plan previews exit 0 even when `healthOk` is false: a valid
-plan is not a healthy computer. `--repair` selects from `workspace`, `workstation`
-and `providers`; omitted selection includes the eligible owner actions identified
-by the failed checks. Explicit selection also supports rerunning an owner action.
-
-`workspace` uses existing mise/shared setup and frozen dependencies. `workstation`
-uses `personal:install --yes` and can update launcher/PATH, managed links, notifications
-and provider configuration. `providers` uses the existing strict Vault-backed
-workstation provider sync. Each computer uses its own Vault authorization; the
-controller never transfers credential files, tokens, SSH agents or keychains.
-Native login recipes are operator steps and are commented in generated scripts.
-Use an intended Vault project/config for runtime access, for example
-`personal vault run --config dev -- personal fleet health --json`, only when those secrets
-are needed by that process.
-
-Only registered, successfully probed remote machines are eligible for automatic
-repairs. SSH host trust, unavailable computers, conflicting Git changes, native
-account approvals, service permissions and manual end-to-end tests stay explicit
-operator work. Unknown future checks also receive an operator step rather than
-being omitted. A successful repair command is followed by fresh checks; remaining
-failures, warnings or skips return exit 1. Reports separate `executionOk`,
-`healthOk`, completed owner commands, and remaining steps. Actions run serially;
-a failure stops later actions on that computer. Partial changes are possible.
-
-Generated scripts require a POSIX shell and are for review in the operator's own
-terminal. They use existing checkout tooling; they do not require a globally
-installed `personal` on remote machines. They are point-in-time scripts without
-CLI plan-hash enforcement. Prefer the guarded CLI apply path and obtain a fresh
-whole-tailnet health report afterward.
-
-See [fleet access and repair research](../fleet/docs/access-and-repair-research.md)
-for the comparison of mise, OpenBao, Bitwarden, 1Password, Tailscale SSH, chezmoi,
-Teleport, Ansible and Syncthing, plus existing password-manager onboarding and
-the distinction between shared service secrets and per-machine logins.
-
-## Ubuntu one-command synchronization
-
-See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
-`personal fleet-sync` and `personal fleet converge` share the guarded controller-driven
-flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
-apply does not claim machine readiness. Existing commands retain their semantics.
+The build records the release timestamp that `--version`, help, the palette header
+and `commands --json` print, so a reported problem can be matched to the exact
+build. See [releasing.md](releasing.md) for automatic CI releases, credential
+sources, first-publish bootstrap, packed-consumer verification and recovery.

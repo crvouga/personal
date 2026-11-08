@@ -15,7 +15,8 @@ export async function t3Command(
     : await deployment(settings.workspace);
   const workspace = deployed?.workspace ?? settings.workspace;
   const target = paths(options, workspace);
-  if (command === 't3-import') return importCommand(target, options);
+  if (command === 't3-apply' && options.import !== undefined)
+    return importCommand(target, options);
   const instances =
     command === 't3-cleanup'
       ? {}
@@ -26,10 +27,11 @@ export async function t3Command(
         );
   const apply = shouldApply(command, options);
   if (apply) requireSupportedPlatform(instances);
-  const data = await reconcileT3(target, instances, {
-    apply,
-    ...(options.planHash ? { planHash: options.planHash } : {}),
-  });
+  const data = await reconcileT3(
+    target,
+    instances,
+    reconcileOptions(apply, options)
+  );
   return {
     exitCode: outcomeCode(command, data),
     data: { command, ...data },
@@ -42,16 +44,23 @@ async function importCommand(
 ): Promise<CommandOutcome> {
   if (options.dryRun)
     throw new FleetUsageError(
-      't3-import is an explicit ownership operation; inspect t3-plan first.'
+      't3-apply --import adopts ownership and cannot be combined with --dry-run; inspect t3-apply --dry-run first.'
     );
-  if (
-    !options.instance ||
-    !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(options.instance)
-  )
+  if (!options.import || !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(options.import))
     throw new FleetUsageError(
-      't3-import requires --instance ID. Import authorizes management of that entire provider instance.'
+      't3-apply --import expects an instance ID. Import authorizes management of that entire provider instance.'
     );
-  return { exitCode: 0, data: await importT3(target, options.instance) };
+  return {
+    exitCode: 0,
+    data: { command: 't3-import', ...(await importT3(target, options.import)) },
+  };
+}
+
+function reconcileOptions(apply: boolean, options: T3Options) {
+  return {
+    apply,
+    ...(options.planHash ? { planHash: options.planHash } : {}),
+  };
 }
 
 function shouldApply(command: string, options: T3Options): boolean {

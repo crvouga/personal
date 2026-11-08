@@ -183,7 +183,7 @@ function missingMapping(
           : 'Computer is not registered with a verified SSH alias and checkout path; dependencies and authentication are unverified.',
         remedy: {
           action:
-            'Use Fleet: Register a developer computer with its existing SSH alias and actual checkout path, then rerun Fleet: Check all Tailscale computers.',
+            'Run fleet-node-add with its existing SSH alias and actual checkout path, then rerun fleet-status --tailnet.',
         },
       },
     ],

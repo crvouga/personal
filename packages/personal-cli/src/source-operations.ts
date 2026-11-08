@@ -5,14 +5,62 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type { Settings } from './settings';
 
-/** Private owners implement domains; personal is their only user entry point. */
-export const SOURCE_OPERATIONS: Record<string, string[]> = {
-  'password-manager': ['node', 'packages/password-manager/src/cli/main.ts'],
-  cliproxy: ['python3', '-B', 'packages/cliproxy-fleet/scripts/cli.py'],
-  health: ['bun', 'packages/infra/scripts/health.ts'],
-  'health-fix': ['bun', 'scripts/health-fix.ts'],
-  domains: ['bun', 'packages/infra/scripts/domains.ts'],
-  vault: ['bash', 'packages/vault-service/cli/bin/internal.sh'],
+interface SourceOperation {
+  title: string;
+  description: string;
+  keywords: string[];
+  mutation: boolean;
+  command: string[];
+  /** Optional flag that selects a second owner script, for example --fix. */
+  variant?: { flag: string; key: string; command: string[] };
+}
+
+/** Private owners implement infra-* domains; personal is their only user entry point. */
+export const SOURCE_OPERATIONS: Record<string, SourceOperation> = {
+  'infra-health': {
+    title: 'Platform health report',
+    description:
+      'Read-only report on whether the live platform matches the inventory. --fix walks each failure with a confirmed guided fixer.',
+    keywords: ['health', 'drift', 'dns', 'tls', 'vault', 'fix'],
+    mutation: false,
+    command: ['bun', 'packages/infra/scripts/health.ts'],
+    variant: {
+      flag: '--fix',
+      key: 'fix',
+      command: ['bun', 'scripts/health-fix.ts'],
+    },
+  },
+  'infra-domains': {
+    title: 'Domain inventory',
+    description: 'Read-only DNS and domain inventory operations.',
+    keywords: ['dns', 'domains', 'cloudflare'],
+    mutation: false,
+    command: ['bun', 'packages/infra/scripts/domains.ts'],
+  },
+  'infra-vault': {
+    title: 'Vault secret injection',
+    description:
+      'Authenticate to the shared OpenBao instance and run commands with secrets injected as environment variables.',
+    keywords: ['vault', 'openbao', 'secrets', 'run', 'login'],
+    mutation: true,
+    command: ['bash', 'packages/vault-service/cli/bin/internal.sh'],
+  },
+  'infra-cliproxy': {
+    title: 'CLIProxyAPI service',
+    description:
+      'Install, inspect, back up and recover the private CLIProxyAPI Compose service.',
+    keywords: ['cliproxy', 'codex', 'proxy', 'compose', 'backup'],
+    mutation: true,
+    command: ['python3', '-B', 'packages/cliproxy-fleet/scripts/cli.py'],
+  },
+  'infra-password-manager': {
+    title: 'Password manager maintenance',
+    description:
+      'Private, resumable account discovery and Bitwarden maintenance.',
+    keywords: ['bitwarden', 'passwords', 'accounts'],
+    mutation: true,
+    command: ['node', 'packages/password-manager/src/cli/main.ts'],
+  },
 };
 
 export function sourceOperation(args: string[]): string | undefined {
@@ -25,14 +73,21 @@ export async function forwardSourceOperation(
   args: string[],
   settings: Settings
 ): Promise<number> {
-  const [runtime, ...ownerArgs] = SOURCE_OPERATIONS[args[0]!]!;
+  const name = args[0]!;
+  const operation = SOURCE_OPERATIONS[name]!;
+  const rest = args.slice(1);
+  const variant =
+    operation.variant && rest.includes(operation.variant.flag)
+      ? operation.variant
+      : undefined;
+  const [runtime, ...ownerArgs] = variant?.command ?? operation.command;
   const resolved = ownerArgs.map((arg) =>
     arg.startsWith('packages/') || arg.startsWith('scripts/')
       ? join(settings.workspace, arg)
       : arg
   );
   const prelude =
-    args[0] === 'password-manager'
+    name === 'infra-password-manager'
       ? [
           '--import',
           createRequire(
@@ -40,9 +95,10 @@ export async function forwardSourceOperation(
           ).resolve('tsx'),
         ]
       : [];
+  const forwarded = variant ? rest.filter((arg) => arg !== variant.flag) : rest;
   return new Promise((resolve) => {
-    const child = spawn(runtime!, [...prelude, ...resolved, ...args.slice(1)], {
-      cwd: args[0] === 'vault' ? process.cwd() : settings.workspace,
+    const child = spawn(runtime!, [...prelude, ...resolved, ...forwarded], {
+      cwd: name === 'infra-vault' ? process.cwd() : settings.workspace,
       stdio: 'inherit',
     });
     child.on('error', () => {
@@ -60,19 +116,30 @@ export function registerSourceOperations(
   defaults: Settings,
   complete: (result: CommandOutcome) => void
 ): void {
-  for (const name of Object.keys(SOURCE_OPERATIONS)) {
-    program
+  for (const [name, operation] of Object.entries(SOURCE_OPERATIONS)) {
+    const command = program
       .command(`${name} [args...]`)
-      .description(
-        `Source-owned ${name} operations; requires the personal checkout`
-      )
+      .description(`${operation.title}; requires the personal checkout`)
       .allowUnknownOption()
-      .action(async (args: string[]) => {
-        const exitCode = await forwardSourceOperation(
-          [name, ...args],
-          defaults
-        );
-        complete({ exitCode, data: { version: 1, ok: exitCode === 0 } });
-      });
+      .addHelpText(
+        'after',
+        `\n${operation.description}\nArguments are forwarded to the owning implementation; run personal ${name} --help from the checkout for its full usage.`
+      );
+    if (operation.variant)
+      command.option(
+        operation.variant.flag,
+        'Run the interactive guided fixer instead of the read-only report'
+      );
+    command.action(async (args: string[], options: Record<string, unknown>) => {
+      const flags =
+        operation.variant && options[operation.variant.key]
+          ? [operation.variant.flag]
+          : [];
+      const exitCode = await forwardSourceOperation(
+        [name, ...flags, ...args],
+        defaults
+      );
+      complete({ exitCode, data: { version: 1, ok: exitCode === 0 } });
+    });
   }
 }

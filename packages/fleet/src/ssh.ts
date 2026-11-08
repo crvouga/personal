@@ -80,7 +80,7 @@ const FAILURES = [
     summary:
       'Remote workspace or Node/Bun runtime is missing from the non-login SSH environment.',
     action:
-      'Follow fleet onboard; configure absolute workspace/runtime paths. GUI terminals and SSH shells may have different PATHs.',
+      'Follow fleet-nodes --onboard; configure absolute workspace/runtime paths. GUI terminals and SSH shells may have different PATHs.',
   },
 ];
 

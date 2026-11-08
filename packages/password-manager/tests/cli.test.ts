@@ -58,7 +58,7 @@ void test('cold launcher reaches mise before Node/Bun and explains an absent man
 void test('safe example configuration is accepted by the production schema', () => {
   const result = spawnSync(
     process.execPath,
-    ['packages/personal-cli/bin.mjs', 'password-manager', '--help'],
+    ['packages/personal-cli/bin.mjs', 'infra-password-manager', '--help'],
     { cwd: root, encoding: 'utf8' }
   );
   assert.equal(result.status, 0);

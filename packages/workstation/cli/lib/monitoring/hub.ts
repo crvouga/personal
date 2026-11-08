@@ -2,7 +2,11 @@ import { runAnsible } from '../platform/ansible';
 import { resolve } from 'node:path';
 import { record } from '../../../../fleet/src/config';
 import type { Check, Runner } from '../../../../fleet/src/types';
-import { privateHub } from '../../../../fleet/src/monitoring/beszel';
+import {
+  PUBLIC_HUB_URL,
+  privateHub,
+} from '../../../../fleet/src/monitoring/beszel';
+import { resolveVaultConfig } from '../vault-config';
 
 export async function applyHub(
   root: string,
@@ -10,9 +14,14 @@ export async function applyHub(
   run: Runner
 ): Promise<Check[]> {
   const hub = privateHub(url);
+  const tunnel = await tunnelToken(run);
   const result = await runAnsible(run, 'hub.yml', {
     cwd: resolve(root, 'packages/workstation/monitoring'),
-    input: JSON.stringify({ beszel_hub_url: hub }),
+    input: JSON.stringify({
+      beszel_hub_url: hub,
+      beszel_public_url: PUBLIC_HUB_URL,
+      ...(tunnel ? { beszel_tunnel_token: tunnel } : {}),
+    }),
     timeoutMs: 300_000,
   });
   if (!result.ok)
@@ -64,7 +73,43 @@ export async function applyHub(
       summary:
         'Pinned hub is locally healthy and a private Serve route is configured; authentication and remote metrics are separate checks.',
     },
+    publicEndpointCheck(tunnel !== null),
   ];
+}
+
+function publicEndpointCheck(connected: boolean): Check {
+  return connected
+    ? {
+        id: 'beszel:public-endpoint',
+        status: 'pass',
+        summary: `Cloudflare connector for ${PUBLIC_HUB_URL} was started from the Vault credential.`,
+      }
+    : {
+        id: 'beszel:public-endpoint',
+        status: 'warn',
+        summary: 'BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE',
+        remedy: {
+          action: `Apply the OpenTofu foundation and vault roots, then ensure this node's worker token (policy beszel-hub-read) is logged in and rerun fleet-sync. The private dashboard is unaffected; ${PUBLIC_HUB_URL} stays offline until then.`,
+        },
+      };
+}
+
+/** The hub's own Vault login reads the isolated connector document. Null when
+ * the credential or this node's authorization is not provisioned yet.
+ */
+async function tunnelToken(run: Runner): Promise<string | null> {
+  const vault = resolveVaultConfig();
+  const read = await run([
+    'vault',
+    'kv',
+    'get',
+    `-address=${vault.addr}`,
+    `-mount=${vault.mount}`,
+    '-field=TUNNEL_TOKEN',
+    'beszel/tunnel',
+  ]);
+  const value = read.ok ? read.stdout.trim() : '';
+  return value.length > 0 ? value : null;
 }
 function failure(code: string, action: string): Check[] {
   return [

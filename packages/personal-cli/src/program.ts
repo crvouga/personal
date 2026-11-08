@@ -1,18 +1,20 @@
-import { registerSourceOperations } from './source-operations';
 import { Command, CommanderError } from 'commander';
 import { FleetUsageError } from '../../fleet/src/errors';
-import { commandCatalog } from './registry';
 import { indexedCommands } from './command-index';
 import { registerT3 } from './t3/register';
-import { workstationCommand } from './workstation';
-import { registerFleetSync } from './register-fleet-sync';
-import { registerFlatCommands } from './flat-commands';
-import { AGENT_GUIDE } from './agent-guide';
-import { executeFleet } from './fleet';
-import { resolveSettings } from './settings';
+import { registerSourceOperations } from './source-operations';
+import { registerWorkstation } from './workstation';
+import { registerFleet } from './register-fleet';
+import { agentGuide } from './agent-guide';
 import type { Settings } from './settings';
 import type { CliOptions } from './options';
 import type { CommandOutcome } from './contracts';
+
+export interface Release {
+  version: string;
+  /** ISO timestamp recorded when this distribution was built; null for source runs. */
+  releasedAt: string | null;
+}
 
 export const GLOBAL_OPTIONS = [
   {
@@ -27,66 +29,20 @@ export const GLOBAL_OPTIONS = [
   { flag: '--config <path>', description: 'Local, secret-free fleet roster' },
 ];
 
-function common(command: Command): Command {
-  return command
-    .option(
-      '--node <id>',
-      'Select an existing node; repeat for multiple nodes',
-      collect,
-      []
-    )
-    .option(
-      '--managed',
-      'Health: canonical developer fleet and controller; reports excluded peers'
-    )
-    .option('--local', 'Controller only; no roster or SSH required')
-    .option(
-      '--all',
-      'All targets: doctor uses the roster; repair uses the visible tailnet'
-    )
-    .option(
-      '--require <capabilities>',
-      'Controller capabilities, comma separated, or none'
-    )
-    .option('--timeout <ms>', 'Per-node deadline, 1000–1800000 milliseconds')
-    .option('--strict', 'Warnings and skipped checks also produce exit 1')
-    .option(
-      '--repair <ids>',
-      'Repair only: workspace,workstation,providers; comma separated'
-    )
-    .option(
-      '--plan-hash <sha256>',
-      'Repair only: require the reviewed plan to match current diagnostics'
-    )
-    .option(
-      '--script',
-      'Repair only: generate a reviewable POSIX script without executing it'
-    )
-    .option(
-      '--pull',
-      'Sync only: explicitly request a clean, fast-forward pull'
-    )
-    .option(
-      '--apply',
-      'Authorize the displayed roster/sync/repair mutation; requires --yes'
-    )
-    .option('--yes', 'Confirm an explicitly requested --apply operation');
-}
-
-function collect(value: string, previous: string[]): string[] {
-  return [...previous, value];
+export function releaseLabel(release: Release): string {
+  return release.releasedAt
+    ? `${release.version} (released ${release.releasedAt})`
+    : `${release.version} (unreleased source build)`;
 }
 
 function createProgram(
-  version: string,
+  release: Release,
   output: (text: string) => void
 ): Command {
   const program = new Command()
     .name('personal')
-    .description(
-      'Developer fleet and T3 reconciliation · help by default, structured for agents'
-    )
-    .version(version)
+    .description('Developer fleet, T3 and platform operations')
+    .version(releaseLabel(release))
     .exitOverride()
     .configureOutput({ writeOut: output, writeErr: () => undefined })
     .showSuggestionAfterError(false)
@@ -99,67 +55,36 @@ function createProgram(
     program.option(option.flag, option.description);
   program.addHelpText(
     'after',
-    '\nAgent discovery: personal index --json; personal agent --json; personal <command> --help.\nNo command prints help. Use --interactive explicitly for the terminal menu.\nMutations: fleet-node-sync, t3-apply, t3-cleanup and t3-import apply on invocation.\nUse --dry-run to preview sync/apply/cleanup; inspect t3-plan before importing.\nLegacy fleet writes require --apply --yes. --json does not make a command read-only.'
+    [
+      '',
+      `Release: ${releaseLabel(release)}`,
+      'Groups: fleet-* developer computers · t3-* T3 provider instances · infra-* platform operations from the checkout · workstation this machine.',
+      'Apply on invocation (--dry-run previews): fleet-node-sync, t3-apply, t3-cleanup. fleet-sync confirms interactively or with --apply --yes.',
+      'Preview until --apply --yes: fleet-repair, fleet-node-add. --json does not make a command read-only.',
+      'Agents: personal commands --json. Menu: personal --interactive.',
+    ].join('\n')
   );
   return program;
 }
 
-function fleetCommands(program: Command): Command[] {
-  const fleet = program
-    .command('fleet')
-    .description('Diagnose, explore and onboard developer computers');
-  const definitions = commandCatalog().filter(
-    (entry) =>
-      entry.group === 'Fleet' &&
-      entry.args[0] === 'fleet' &&
-      entry.id !== 'fleet doctor local' &&
-      entry.id !== 'fleet converge'
-  );
-  return definitions.map((entry) => {
-    const command = common(
-      fleet.command(entry.args[1]!).description(entry.description)
-    );
-    if (entry.args[1] === 'add')
-      command
-        .requiredOption('--id <name>', 'Unique lowercase node ID')
-        .requiredOption(
-          '--ssh <alias>',
-          'Existing OpenSSH alias; never writes SSH configuration'
-        )
-        .requiredOption(
-          '--path <path>',
-          'Absolute POSIX checkout path on the node'
-        )
-        .option(
-          '--runtime <path>',
-          'Optional absolute Node/Bun runtime; defaults to node on SSH PATH'
-        );
-    command.addHelpText(
-      'after',
-      `\nExample: ${entry.examples[0]}\nWrites require both --apply and --yes. Diagnostics never log in or repair automatically.`
-    );
-    return command;
-  });
-}
-
-function catalog(options: CliOptions, version: string): CommandOutcome {
+function catalog(options: CliOptions, release: Release): CommandOutcome {
   const commands = indexedCommands(options.search, options.group);
   return {
     exitCode: 0,
     data: {
       version: 1,
-      cliVersion: version,
+      cliVersion: release.version,
+      releasedAt: release.releasedAt,
       command: 'commands',
       ok: true,
       commands,
       globalOptions: GLOBAL_OPTIONS,
-      agentGuide: 'personal agent --json',
-      index: 'personal index --json',
       defaultCommand: 'help',
-      schema: 'personal fleet schema --json',
+      schema: 'personal fleet-nodes --schema --json',
+      agent: agentGuide(release),
     },
     text: [
-      'Personal command catalog',
+      `Personal command catalog · ${releaseLabel(release)}`,
       ...commands.map((entry) => `\n  ${entry.id}\n    ${entry.description}`),
       '\nUse personal <command> --help for options; personal --interactive opens the menu.',
     ].join('\n'),
@@ -169,56 +94,36 @@ function catalog(options: CliOptions, version: string): CommandOutcome {
 export async function execute(
   args: string[],
   defaults: Settings,
-  version: string
+  version: string | Release
 ): Promise<CommandOutcome> {
+  const release: Release =
+    typeof version === 'string' ? { version, releasedAt: null } : version;
   let outcome: CommandOutcome | undefined;
   let output = '';
-  const program = createProgram(version, (text) => {
+  const program = createProgram(release, (text) => {
     output += text;
   });
   const complete = (result: CommandOutcome) => {
     outcome = result;
   };
+  registerFleet(program, defaults, complete);
   registerT3(program, defaults, complete);
-  registerFlatCommands(program, defaults, complete);
   registerSourceOperations(program, defaults, complete);
   registerWorkstation(program, defaults, complete);
-  const commands = fleetCommands(program);
-  registerFleetSync(
-    program,
-    program.commands.find((command) => command.name() === 'fleet')!,
-    defaults,
-    (result) => {
-      outcome = result;
-    }
-  );
-  for (const command of commands)
-    command.action(async () => {
-      const options = command.optsWithGlobals<CliOptions>();
-      const settings = await resolveSettings({
-        ...defaults,
-        ...settingsOverrides(options),
-      });
-      outcome = await executeFleet(command.name(), options, settings);
-    });
   program
     .command('commands')
-    .alias('index')
-    .description('Search the complete command catalog')
+    .description('Search the command catalog and agent contract')
     .option('--search <text>', 'Filter names, descriptions and keywords')
-    .option('--group <name>', 'Filter category, for example Fleet or Reference')
+    .option(
+      '--group <name>',
+      'Filter group: Fleet, T3, Infra, Workstation, Reference'
+    )
     .action((_options, command: Command) => {
-      outcome = catalog(command.optsWithGlobals<CliOptions>(), version);
-    });
-  program
-    .command('agent')
-    .description('Machine-readable usage and safety contract')
-    .action(() => {
-      outcome = { exitCode: 0, data: AGENT_GUIDE };
+      outcome = catalog(command.optsWithGlobals<CliOptions>(), release);
     });
   program.action(() => {
     if (program.opts<CliOptions>().json)
-      outcome = catalog(program.opts<CliOptions>(), version);
+      outcome = catalog(program.opts<CliOptions>(), release);
     else program.help();
   });
   try {
@@ -233,13 +138,6 @@ export async function execute(
   } catch (error) {
     return commandError(error, output);
   }
-}
-
-function settingsOverrides(options: CliOptions): Partial<Settings> {
-  return {
-    ...(options.workspace ? { workspace: options.workspace } : {}),
-    ...(options.config ? { config: options.config } : {}),
-  };
 }
 
 function commandError(error: unknown, output: string): CommandOutcome {
@@ -265,30 +163,4 @@ function commandError(error: unknown, output: string): CommandOutcome {
             : 'Operation failed. Inspect configuration and permissions locally; raw errors are withheld to protect credentials.',
     },
   };
-}
-
-function registerWorkstation(
-  program: Command,
-  defaults: Settings,
-  complete: (outcome: CommandOutcome) => void
-): void {
-  program
-    .command('workstation [args...]')
-    .description(
-      'Local configuration, tools, agent profiles and launcher lifecycle'
-    )
-    .allowUnknownOption()
-    .addHelpText(
-      'after',
-      '\nDomains: tools, agents, opencode, openrouter, net.\nLocal operations: status, sync, doctor, cleanup, install, uninstall, update, vault.\nExamples: personal workstation tools check --json --non-interactive\n          personal workstation agents verify --node NODE --tool codex --profile proxy --json\nLeaf operations/help require the personal checkout and Bun. Use --workspace PATH or PERSONAL_WORKSPACE.\nInspect leaf --help for mutation controls; native agent launches stream native output.'
-    )
-    .action(async (args: string[], _options, command: Command) => {
-      if (args.length === 0) command.help();
-      const options = command.optsWithGlobals<CliOptions>();
-      const settings = await resolveSettings({
-        ...defaults,
-        ...settingsOverrides(options),
-      });
-      complete(await workstationCommand(args, settings));
-    });
 }

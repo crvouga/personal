@@ -6,6 +6,10 @@ import type { Settings } from './settings';
 export interface CliOptions extends Partial<Settings> {
   managed?: boolean;
   workers?: boolean;
+  tailnet?: boolean;
+  list?: boolean;
+  onboard?: boolean;
+  schema?: boolean;
   json?: boolean;
   nonInteractive?: boolean;
   interactive?: boolean;
@@ -20,7 +24,6 @@ export interface CliOptions extends Partial<Settings> {
   planHash?: string;
   apply?: boolean;
   yes?: boolean;
-  pull?: boolean;
   id?: string;
   ssh?: string;
   path?: string;
@@ -51,9 +54,12 @@ export function timeout(options: CliOptions): number {
   return value;
 }
 
+/** Validation runs on the internal action selected by fleet-* flags. */
 export function validateOptions(command: string, options: CliOptions): void {
-  if (options.managed && command !== 'health')
-    throw new FleetUsageError('--managed is only valid for fleet health.');
+  if (options.tailnet && options.workers)
+    throw new FleetUsageError('Choose --tailnet or --workers, not both.');
+  if (options.onboard && options.schema)
+    throw new FleetUsageError('Choose --onboard or --schema, not both.');
   validateMutation(command, options);
   validateRepair(command, options);
   validateScope(command, options);
@@ -63,50 +69,39 @@ export function validateOptions(command: string, options: CliOptions): void {
     options.require !== undefined
   )
     throw new FleetUsageError(
-      'Use declared roster requirements for tailnet health/repair; --require is supported for local repair and doctor.'
+      '--require is supported for roster status and local repair only; tailnet checks use declared roster requirements.'
     );
   if (options.timeout !== undefined) timeout(options);
 }
 
 function validateMutation(command: string, options: CliOptions): void {
-  if (options.apply && !['add', 'init', 'sync', 'repair'].includes(command))
+  if (options.apply && !['add', 'repair'].includes(command))
     throw new FleetUsageError(
-      '--apply is only valid for fleet add, init, sync or repair.'
+      '--apply is only valid for fleet-node-add and fleet-repair.'
     );
   if (options.apply && !options.yes)
     throw new FleetUsageError('Mutation requires both --apply and --yes.');
-  if (options.pull && command !== 'sync')
-    throw new FleetUsageError('--pull is only valid for fleet sync.');
 }
 
 function validateScope(command: string, options: CliOptions): void {
-  if (
-    ['discover', 'health'].includes(command) &&
-    (options.local || options.all || options.node?.length)
-  )
+  const selected = [options.local, options.all, options.node?.length].filter(
+    Boolean
+  );
+  if (['discover', 'health'].includes(command) && selected.length)
     throw new FleetUsageError(
-      'Tailscale discovery and health always cover all visible computers; scope filters are not supported.'
+      'Tailscale discovery, --tailnet and --workers always cover all visible computers; --local, --all and --node are not supported.'
     );
-  if (options.local && !['doctor', 'sync', 'repair'].includes(command))
-    throw new FleetUsageError(
-      '--local is only valid for fleet doctor, sync or repair.'
-    );
-  validateExclusive(options);
-  if (options.all && !['doctor', 'repair'].includes(command))
-    throw new FleetUsageError(
-      '--all is only valid for fleet doctor or repair; sync already targets all configured nodes by default.'
-    );
-}
-
-function validateExclusive(options: CliOptions): void {
-  const selected = [
-    options.local,
-    options.all,
-    Boolean(options.node?.length),
-  ].filter(Boolean);
   if (selected.length > 1)
     throw new FleetUsageError(
       'Choose --local, --all, or --node, not a combination.'
+    );
+  validateRosterScope(command, options);
+}
+
+function validateRosterScope(command: string, options: CliOptions): void {
+  if ((options.local || options.all) && !['doctor', 'repair'].includes(command))
+    throw new FleetUsageError(
+      '--local and --all are only valid for fleet-status and fleet-repair.'
     );
 }
 
@@ -118,31 +113,29 @@ function validateRepair(command: string, options: CliOptions): void {
     throw new FleetUsageError(
       '--plan-hash expects the SHA-256 value from a repair preview.'
     );
-  if (
-    (options.repair !== undefined ||
-      options.script ||
-      options.planHash !== undefined) &&
-    command !== 'repair'
-  )
+  const repairFlags =
+    options.repair !== undefined ||
+    options.script === true ||
+    options.planHash !== undefined;
+  if (repairFlags && command !== 'repair')
     throw new FleetUsageError(
-      '--repair and --script are only valid for fleet repair.'
+      '--repair, --script and --plan-hash are only valid for fleet-repair without --list.'
     );
   if (options.script && options.apply)
     throw new FleetUsageError(
       '--script only generates a preview; run a reviewed repair separately with --apply --yes.'
     );
-  validateCatalogScope(command, options);
+  validateCatalog(command, options);
 }
 
-function validateCatalogScope(command: string, options: CliOptions): void {
-  if (
-    command === 'repairs' &&
-    (options.local ||
-      options.node?.length ||
-      options.all ||
-      options.require !== undefined)
-  )
+function validateCatalog(command: string, options: CliOptions): void {
+  const filtered =
+    options.local ||
+    options.all ||
+    Boolean(options.node?.length) ||
+    options.require !== undefined;
+  if (command === 'repairs' && filtered)
     throw new FleetUsageError(
-      'fleet repairs is a static catalog and does not accept target or capability filters.'
+      'fleet-repair --list is a static catalog and does not accept target or capability filters.'
     );
 }

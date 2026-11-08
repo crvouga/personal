@@ -3,8 +3,7 @@
 Description=Personal Fleet Beszel agent
 Wants=network-online.target tailscaled.service
 After=network-online.target tailscaled.service
-StartLimitIntervalSec=300
-StartLimitBurst=5
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -20,7 +19,7 @@ Environment=SERVICE_PATTERNS=ssh.service,tailscaled.service,t3code.service,perso
 ExecStart=/usr/local/lib/personal-beszel/0.21.1/beszel-agent
 StateDirectory=beszel-agent
 StateDirectoryMode=0700
-Restart=on-failure
+Restart=always
 RestartSec=20
 TimeoutStopSec=20
 NoNewPrivileges=true

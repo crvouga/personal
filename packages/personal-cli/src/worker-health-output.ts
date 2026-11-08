@@ -3,11 +3,13 @@ import type { Report } from '../../fleet/src/types';
 /** The human command answers what remains; the JSON contract retains all evidence. */
 export function workerHealthText(
   report: Report,
-  scope: { computers: number; excludedUnmanaged: string[] }
+  scope: { computers: number; excludedUnmanaged: string[] },
+  dashboardUrl: string | null = null
 ): string {
   const lines = [
     `Fleet health: ${report.ok ? 'ready' : 'attention required'}`,
     `Scope: ${scope.computers} canonical workers; ${scope.excludedUnmanaged.length} other computers outside worker scope.`,
+    `Dashboard: ${dashboardUrl ?? 'unavailable; see the dashboard checks below'}`,
   ];
   for (const node of report.nodes) {
     if (

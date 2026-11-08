@@ -74,9 +74,9 @@ function failureMessage(data: unknown): string {
     return clean(data['error']);
   const messages: Record<string, string> = {
     invalid_usage:
-      'Configuration or arguments need attention. Use Fleet setup, validate, or session context.',
+      'Configuration or arguments need attention. Run fleet-nodes --schema to check the roster, or pass --config.',
     config_missing:
-      'No roster found. Add a node in Fleet setup, or run controller-only diagnostics.',
+      'No roster found. Run fleet-node-add, or run controller-only diagnostics with fleet-status --local.',
     operation_failed:
       'Operation failed safely. Check connectivity and configuration before retrying.',
   };
@@ -92,7 +92,7 @@ function showNodes(session: Session, data: Record<string, unknown>): void {
     : [];
   if (!nodes.length) {
     session.display.write(
-      'No computers registered yet. Choose Fleet: Register a developer computer to add one, or Fleet: Discover Tailscale computers.'
+      'No computers registered yet. Run fleet-node-add to add one, or fleet-discover to list Tailscale computers.'
     );
     return;
   }

@@ -20,12 +20,17 @@ export async function consumerT3(
   );
   const definition = join(directory, 't3-definition.json');
   await writeFile(definition, JSON.stringify({ version: 1, instances: {} }));
-  for (const command of ['t3-plan', 't3-apply', 't3-status', 't3-cleanup']) {
+  for (const command of [
+    ['t3-apply', '--dry-run'],
+    ['t3-apply'],
+    ['t3-status'],
+    ['t3-cleanup'],
+  ]) {
     const output = await mustRun(
       [
         node,
         cli,
-        command,
+        ...command,
         '--t3-home',
         base,
         '--definition',

@@ -27,7 +27,7 @@ export function requestedRepairs(
     ids.some((id) => !AUTOMATED_REPAIRS.includes(id as AutomatedRepair))
   )
     throw new FleetUsageError(
-      '--repair expects workspace,workstation,providers. Native logins require operator approval; inspect fleet repairs.'
+      '--repair expects workspace,workstation,providers. Native logins require operator approval; inspect fleet-repair --list.'
     );
   return [...new Set(ids)] as AutomatedRepair[];
 }
@@ -40,9 +40,9 @@ export function repairCatalog(): CommandOutcome {
       ok: true,
       recipes: REPAIR_RECIPES,
       credentials: [
-        'Use the existing password-manager / Bitwarden owner for human passwords and shared login items. Run bun run password-manager doctor and actions list on each machine; never synchronize its private state.',
+        'Use the existing password-manager / Bitwarden owner for human passwords and shared login items. Run personal infra-password-manager doctor and actions list on each machine; never synchronize its private state.',
         'Authenticate each computer independently with the intended identity. Never clone OAuth caches, browser cookies, keychains, SSH private keys or Vault sessions.',
-        'Access shared permitted API keys through this machine’s existing Vault/secret-store session. Prefer personal vault run --config dev -- COMMAND for process-scoped injection.',
+        'Access shared permitted API keys through this machine’s existing Vault/secret-store session. Prefer personal infra-vault run --config dev -- COMMAND for process-scoped injection.',
         'The workstation owner can render its supported provider configuration from Vault with 0600 permissions. Missing provider keys and live provider access still require checks.',
         'Service roles, shared resources, Vault policies and infrastructure remain OpenTofu-owned. A login does not grant every account/team/resource permission.',
       ],

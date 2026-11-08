@@ -21,7 +21,7 @@ beside this ledger. This ledger records decisions, delivery scope and acceptance
 - Resolve bw from a locked local npm dependency, never global PATH; isolated
   bw appdata. Playwright owns its matching Chromium; no extension required.
 - Existing schedules are remote platform maintenance, unsuitable for local
-  personal vault/mail. Use a local launchd agent/systemd user timer. No server,
+  personal infra-vault/mail. Use a local launchd agent/systemd user timer. No server,
   cloud resource, hosting inventory change or secret seeding is required.
 - Initial production targets: GitHub deterministic password form + independent
   password login, Google/Apple linked-sign-in read-only guided reviews; Railway,

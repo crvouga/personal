@@ -43,9 +43,7 @@ export function machineRoot(): string {
   return join(homedir(), '.local/share/personal/fleet/controller');
 }
 
-/** Public contract v2: whole enrolled fleet, controller push only.
- * Legacy `fleet sync` retains its original plan-only contract.
- */
+/** Public contract v2: whole enrolled fleet, controller push only. */
 export async function fleetSync(
   options: FleetSyncOptions,
   settings: Settings,

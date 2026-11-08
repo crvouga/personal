@@ -108,16 +108,3 @@ test('all configured nodes use the supplied standalone probe; selected scope lim
   ]);
   expect(targets).toHaveLength(1);
 });
-
-test('sync plan is read-only and neither bundles nor runs a subprocess', async () => {
-  const result = await executeFleet('sync', { local: true }, await fixture(), {
-    source: () => {
-      throw new Error('must not bundle');
-    },
-    run: () => {
-      throw new Error('must not execute');
-    },
-  });
-  expect(result.exitCode).toBe(0);
-  expect(result.data).toMatchObject({ applied: false, targets: ['local'] });
-});

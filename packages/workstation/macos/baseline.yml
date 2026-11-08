@@ -1,0 +1,34 @@
+---
+# macOS counterpart of ../ubuntu/baseline.yml: always-on power/session policy,
+# noninteractive sudo, Tailscale presence and this worker's own credential
+# renewal. Best effort: it uses only ansible.builtin modules and never resets
+# device identity, login sessions or application data.
+- name: Apply reviewed macOS development-machine policy
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars_files:
+    - policy.json
+  pre_tasks:
+    - name: Require a supported macOS release and an explicit non-root user
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Darwin'
+          - ansible_facts.distribution_major_version | int >= minimumMajorVersion
+          - development_user is match('^[a-z_][a-z0-9_.-]{0,31}$')
+          - development_user != 'root'
+          - development_home is match('^/Users/[^/]+$')
+        fail_msg: MACOS_BASELINE_MISMATCH; unsupported macOS release or user. No OS upgrade is performed.
+    - name: Require the designated account and home directory to exist
+      ansible.builtin.stat:
+        path: '{{ development_home }}'
+      register: home_dir
+      failed_when: not home_dir.stat.exists or not home_dir.stat.isdir
+  tasks:
+    - ansible.builtin.import_tasks: tasks/sudo.yml
+    - ansible.builtin.import_tasks: tasks/power.yml
+    - ansible.builtin.import_tasks: tasks/session.yml
+    - ansible.builtin.import_tasks: tasks/tailscale.yml
+    - ansible.builtin.import_tasks: tasks/credentials.yml
+      when: development_source is defined

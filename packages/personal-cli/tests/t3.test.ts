@@ -195,9 +195,10 @@ test('public T3 commands run offline against fixtures, including cleanup and dri
     config: join(files.dir, 'roster.json'),
   };
   const args = ['--t3-home', files.dir, '--definition', definition, '--json'];
-  expect((await execute(['t3-plan', ...args], defaults, 'test')).exitCode).toBe(
-    0
-  );
+  expect(
+    (await execute(['t3-apply', '--dry-run', ...args], defaults, 'test'))
+      .exitCode
+  ).toBe(0);
   expect(
     (await execute(['t3-apply', ...args], defaults, 'test')).exitCode
   ).toBe(0);

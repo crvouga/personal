@@ -128,7 +128,10 @@ function deployWithMonitoring(
     const result = await withProgress(node.id, ui.progress, () =>
       bootstrapRemote(node, payload, run)
     );
-    result.checks.push(...(await inspectBootstrap(node, run)));
+    const os =
+      parseDefinition(definition).nodes.find((entry) => entry.id === node.id)
+        ?.os ?? 'linux';
+    result.checks.push(...(await inspectBootstrap(node, run, os)));
     result.checks.push(...(await verifyT3Endpoint(node, run)));
     result.checks.push(await verifyT3Linked(node, run));
     if (

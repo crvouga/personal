@@ -8,7 +8,7 @@
     "test": "bun test src && node --import tsx --test tests/*.test.ts",
     "test:browser": "node --import tsx --test tests/browser/*.test.ts",
     "build": "tsc --noEmit",
-    "password-manager": "bun run ../../packages/personal-cli/src/cli.ts password-manager",
+    "password-manager": "bun run ../../packages/personal-cli/src/cli.ts infra-password-manager",
     "test:bootstrap": "node tests/bootstrap/run.mjs"
   },
   "dependencies": {

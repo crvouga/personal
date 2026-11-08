@@ -1,4 +1,4 @@
-# Ubuntu developer fleet: controller operation
+# Developer fleet: controller operation (Ubuntu, with macOS best effort)
 
 ## Release status
 
@@ -20,14 +20,19 @@ Real Beszel 0.21.1 binaries passed authenticated metrics, identity preservation 
 supported API backup/restore in an isolated loopback fixture; that is not live fleet evidence. Incomplete
 checks return nonzero; they do not advance a successful fleet receipt.
 
+Newest and still unverified against live machines: the macOS convergence path
+(`packages/workstation/macos`, launchd Beszel agent, fcntl remote lock), the Linux
+always-on service drop-ins, and dashboard evidence inside `fleet-status --workers`.
+They pass unit tests and Ansible syntax checks only; treat them as unaccepted
+until a disposable-machine run and a live controller run are recorded.
+
 ## One command, from the controller
 
 ```sh
 npx @crvouga/personal fleet-sync
 ```
 
-The canonical spelling is `personal fleet converge`. Both execute the same
-controller-push implementation:
+`personal fleet-sync` executes the controller-push implementation:
 
 ```text
 resolve enrolled fleet
@@ -38,14 +43,16 @@ resolve enrolled fleet
 → report every target, including offline and blocked nodes
 ```
 
-Bare invocation selects the canonical Ubuntu fleet. It does not mean “this
-computer,” and the controller is not implicitly a deployment target. Its own
-node is targeted only if explicitly declared in Fleet membership. macOS and
-Windows diagnostics remain available; the Ubuntu baseline does not apply to them.
+Bare invocation selects every canonical Linux and macOS node. It does not mean
+“this computer,” and the controller is not implicitly a deployment target. Its own
+node is targeted only if explicitly declared in Fleet membership. Ubuntu 26.04 is
+the accepted worker platform; a node declared `"os": "macOS"` runs the same phases
+best effort through `packages/workstation/macos` (see the platform matrix below).
+Windows machines stay declared for diagnostics and are never converged.
 `--node ID` filters troubleshooting/rollout. `--all` is an explicit spelling of the
 default. Neither flag authorizes managing arbitrary Tailscale peers.
 
-The **legacy `personal fleet sync` remains plan-only unless `--apply --yes`**.
+Roster-level workspace convergence lives in `personal fleet-repair --repair workspace`, which previews until `--apply --yes`.
 The new controller report is version **2**, deliberately replacing the unshipped
 local-first fleet-sync version 1 contract.
 
@@ -94,9 +101,10 @@ remaining parity gate. The interactive controller flow can request native sudo a
 - Controller approval: `~/.local/share/personal/fleet/controller/enrollment.json`.
   Controller deployment lock: adjacent `sync.lock` directory.
 - Remote source: `~/.local/share/personal/fleet/revisions/FULL_SHA`.
-  Remote `flock` file: `~/.local/share/personal/fleet/remote-operation.lock`.
+  Remote lock file: `~/.local/share/personal/fleet/remote-operation.lock`, held
+  with `flock` on Linux and the same descriptor through Python `fcntl` on macOS.
   Never repurpose a development checkout or reset dirty worktrees.
-- Workstation owns `ubuntu/` and `monitoring/`; mise manifests, locks and
+- Workstation owns `ubuntu/`, `macos/` and `monitoring/`; mise manifests, locks and
   `scripts/dev` own developer tools. CLIProxy deployment/auth/recovery stays with
   `packages/cliproxy-fleet`. Cloud resources, DNS, Vault policy and tailnet access
   policy stay with OpenTofu and are not modified by this command.
@@ -111,7 +119,7 @@ untracked configuration edits.
 
 ```sh
 personal fleet-sync --dry-run --json
-personal fleet converge --revision FULL_40_CHARACTER_SHA --dry-run --json
+personal fleet-sync --revision FULL_40_CHARACTER_SHA --dry-run --json
 personal fleet-sync --revision FULL_40_CHARACTER_SHA --apply --yes --non-interactive --json
 ```
 
@@ -139,6 +147,40 @@ refused configuration. JSON is one document on stdout, with no child process log
 These are distinct facts: configuration applied; local services healthy; fresh
 controller connection verified; authenticated IDE/T3 tool execution verified.
 Neither an HTTP 200 nor a successful installer establishes the last fact.
+
+## Machine policy by platform
+
+Every machine-level setting is declared in Ansible using only `ansible.builtin`
+modules, applied by `node-converge` after source bootstrap, and then measured
+independently. Bespoke TypeScript remains only where a native CLI or API has no
+declarative owner: T3 service lifecycle, Beszel enrollment tokens, provider
+verification and the CLIProxy singleton.
+
+| Policy                      | Linux (Ubuntu 26.04, accepted)                                                                   | macOS 14+ (best effort)                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Never sleep                 | systemd sleep targets masked; logind lid/idle policy; GNOME power plugin set to `nothing`        | `pmset -a sleep 0 disksleep 0 powernap 0 womp 1 autorestart 1` (unsupported keys skipped)          |
+| No automatic logout or lock | GNOME `lock-enabled false`, `idle-delay 0`; designated-user lingering                            | `AutoLogOutDelay 0`; designated user's screen saver `idleTime 0`                                   |
+| Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent   | launchd `KeepAlive` daemons for tailscaled (Homebrew formula) and the Beszel agent                 |
+| Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                  | Homebrew formula installed when missing, `tailscaled install-system-daemon`, native login required |
+| Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                      | pinned native binary, `/Library/LaunchDaemons/dev.chrisvouga.personal.beszel-agent.plist` as root  |
+| Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min | LaunchAgent `dev.chrisvouga.personal.worker-auth` with the same script every 10 minutes            |
+| Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                   | same fragment, group `wheel`                                                                       |
+| T3 worker service           | native `t3 service install`, user unit, bounded recovery timer, administrator policy             | out of scope (`t3:service` reported as not required); run `t3 service install` manually            |
+| Singleton gateway, hub      | `proxy.owner` and `monitoring.parent` must be Linux                                              | client only                                                                                        |
+
+Credential sync is deliberately indirect: no secret is copied between machines.
+OpenTofu issues each enrolled worker its own renewable periodic token
+(`vault.tokens` entries `fleet-worker-<node>`, policy `personal-read`, sunk into
+`secret/personal/prd` as `FLEET_WORKER_TOKEN_<NODE>`). After the vault root has
+applied, deliver each token once to its node over SSH stdin, never as an argument:
+
+```sh
+vault kv get -field=FLEET_WORKER_TOKEN_CHRIS_VOUGA_MS_A2 secret/personal/prd \
+  | ssh chris-vouga-ms-a2 'vault login -address=https://vault.chrisvouga.dev -no-print -'
+```
+
+From then on the node's `personal-worker-auth` timer renews that token and its
+GitHub login, and renders provider configuration from Vault through Workstation.
 
 ## Ubuntu and remote-work safety
 
@@ -241,28 +283,37 @@ Docker/Compose must currently be present on the hub; automatic Docker bootstrap
 is a remaining prerequisite gap. Existing different hub images require backup and
 explicit maintenance instead of an automatic restart during routine sync.
 
-The native agent runs as `beszel`, with persistent `/var/lib/beszel-agent`, bounded
-restart/resource limits and no incoming listener. It uses authenticated outbound
+The native Linux agent runs as `beszel`, with persistent `/var/lib/beszel-agent`,
+unconditional restart, bounded resource limits and no incoming listener. On macOS
+the same pinned binary runs as a root launchd daemon with `KeepAlive`; it is less
+sandboxed than the systemd unit and is best effort. It uses authenticated outbound
 WebSockets. The selected systemd services are SSH, Tailscale, T3 and controller
 sync where present. Journal access and Docker socket access are disabled by
 default. Do not expose all host journals or Docker root access merely to get a
 collector green. Unavailable service/sensor/GPU/disk-health data is unavailable,
 not healthy.
 
-First use needs the hub’s initial account setup. The controller then reads
-`BESZEL_FLEET_AUTH` from the existing Vault secret-store contract: a JSON object
-with `identity` and `password` for a normal Beszel account authorized for the fleet.
-No Vault value or policy is seeded by setup. Approve this dependency through the
-existing secret owner; never pass it on command arguments. Only per-node agent
+OpenTofu generates the enrollment credential: `BESZEL_FLEET_AUTH` in
+`secret/personal/prd` is the password of the normal (non-superuser) Beszel account
+`fleet-controller@chrisvouga.dev`. After the vault root has applied, create that
+account once on the hub with the generated password (hub superuser → Users →
+New record, or the PocketBase API) and grant it the fleet systems. A legacy JSON
+`{identity, password}` value is still accepted. No Vault policy is seeded by
+setup; never pass the credential on command arguments. Only per-node agent
 tokens cross SSH stdin. Supported systems/fingerprints APIs reuse canonical node
 records, preserve fingerprints, and reject duplicate names or conflicting hosts.
 The account credential remains on the controller. Revoke/rotate it in Beszel and
 the existing secret owner; do not erase agent state to force reenrollment.
 
-`fleet-sync --dry-run --json` reports `dashboardUrl` when the enrolled parent can
-be resolved. Open that private URL in a tailnet-connected browser. Fleet reports
-deployment/readiness; Beszel reports resource history. Hub outages do not stop
-SSH/T3 or erase last working machine configuration, but monitoring stays incomplete.
+`fleet-sync --dry-run --json` and `fleet-status --workers --json` report
+`dashboardUrl` when the enrolled parent can be resolved. Open that private URL in
+a tailnet-connected browser for CPU, memory, disk, network, temperature and
+service history of every node. `fleet-status --workers` also verifies the hub
+answers privately and that each canonical node is registered, connected and
+reporting fresh samples; a controller without a Vault session reports
+`beszel:access` as skipped, never as healthy. Fleet reports deployment/readiness;
+Beszel reports resource history. Hub outages do not stop SSH/T3 or erase last
+working machine configuration, but monitoring stays incomplete.
 
 Supported verification checks authenticated hub version, one canonical record,
 connection state, and a one-minute sample received within 180 seconds (with bounded
@@ -333,7 +384,7 @@ before replacing a singleton hub or proxy host.
 
 ## Agent and release instructions
 
-Inspect `personal index --json`, `personal agent --json`, this guide and
+Inspect `personal commands --json`, `personal commands --json`, this guide and
 `personal fleet-sync --help` first. Use the public controller flow and existing
 owners. Do not create a second installer/controller, run per-node pull schedules,
 substitute discovered peers, patch `/opt` deployment code, or bypass failed gates.
@@ -387,7 +438,7 @@ the specified real evidence; mocked transport tests cannot substitute for VM or
 separate-client acceptance. Newly found defects should have one focused issue with
 a reproduction and stable code, linked to the relevant gate.
 
-Canary promotion gates distinguish configuration failure from external acceptance. A failed configuration blocks promotion; missing pairing or monitoring evidence remains an unsuccessful readiness result but does not prevent independent configuration on other enrolled nodes. Neither condition advances a fully verified success receipt.
+Canary promotion gates distinguish configuration failure from external acceptance. A failed configuration blocks promotion; missing pairing or monitoring evidence remains an unsuccessful readiness result but does not prevent independent configuration on other enrolled nodes. Native T3 outcomes that need an operator maintenance window (an active listener outside the managed unit, a different running release, a pending policy restart) are reported as failures but likewise do not block other nodes; routine sync never kills active T3 work to clear them. Neither condition advances a fully verified success receipt.
 
 The managed native T3 service uses a stock Tailscale Serve HTTPS route on port
 443 to its loopback port 3773. The controller configures and independently reads
@@ -413,7 +464,7 @@ The current-controller provider preflight returned `PROVIDER_UNATTENDED_CREDENTI
 
 ### Checkout project actions
 
-`bash scripts/dev/project-action.sh fleet-converge` warms the shared toolchain
+`bash scripts/dev/project-action.sh fleet-sync` warms the shared toolchain
 and passes the current checkout HEAD as the exact revision to the existing approval
 flow. Extra arguments such as `--dry-run` are forwarded. The controller can bundle
 committed objects from this canonical local repository, including unpublished

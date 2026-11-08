@@ -23,7 +23,7 @@ function assertions(value: unknown): void {
 }
 
 test('tracked fleet assertions remain strings after YAML parsing', async () => {
-  for (const directory of ['ubuntu', 'monitoring']) {
+  for (const directory of ['ubuntu', 'macos', 'monitoring']) {
     const root = resolve(
       import.meta.dirname,
       '../packages/workstation',

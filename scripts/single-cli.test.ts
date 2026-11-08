@@ -3,11 +3,12 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = join(import.meta.dir, '..');
-test('personal owns the only user executable; private package manifests expose no bins', () => {
+test('personal owns the only user executable; other private package manifests expose no bins', () => {
   for (const name of readdirSync(join(root, 'packages'))) {
     const path = join(root, 'packages', name, 'package.json');
     if (!existsSync(path)) continue;
     const manifest = JSON.parse(readFileSync(path, 'utf8'));
+    if (name === 'personal-cli') continue;
     expect(manifest.bin, path).toBeUndefined();
   }
   const build = readFileSync(
@@ -15,6 +16,19 @@ test('personal owns the only user executable; private package manifests expose n
     'utf8'
   );
   expect(build).toContain("bin: { personal: './cli.mjs' }");
+});
+
+test('npx @crvouga/personal resolves to this checkout through the workspace link', () => {
+  const source = JSON.parse(
+    readFileSync(join(root, 'packages/personal-cli/package.json'), 'utf8')
+  );
+  expect(source.name).toBe('@crvouga/personal');
+  expect(source.private).toBe(true);
+  expect(source.bin).toEqual({ personal: './bin.mjs' });
+  const rootManifest = JSON.parse(
+    readFileSync(join(root, 'package.json'), 'utf8')
+  );
+  expect(rootManifest.devDependencies['@crvouga/personal']).toBe('workspace:*');
 });
 
 test('legacy domain tasks forward to personal rather than independent CLIs', () => {
@@ -46,5 +60,7 @@ test('custom Vault operations live behind personal, with no global copied wrappe
   const manifest = JSON.parse(
     readFileSync(join(root, 'packages/portfolio/package.json'), 'utf8')
   );
-  expect(manifest.scripts.dev).toContain('personal-cli/src/cli.ts vault run');
+  expect(manifest.scripts.dev).toContain(
+    'personal-cli/src/cli.ts infra-vault run'
+  );
 });

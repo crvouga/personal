@@ -24,9 +24,9 @@ async function directory(): Promise<string> {
 }
 
 test('CLI help/schema work without a roster or credentials', async () => {
-  for (const command of ['schema', 'nodes']) {
+  for (const args of [['fleet-nodes', '--schema'], ['fleet-nodes']]) {
     const result = await runCommand(
-      [process.execPath, cli, 'fleet', command, '--json'],
+      [process.execPath, cli, ...args, '--json'],
       { cwd: await directory() }
     );
     expect(result.ok).toBe(true);
@@ -35,14 +35,19 @@ test('CLI help/schema work without a roster or credentials', async () => {
   }
 });
 
-test('init previews only, creates exclusively, and never overwrites a roster', async () => {
+test('node registration previews only, writes exclusively, and never overwrites an entry', async () => {
   const root = await directory();
   const path = join(root, 'roster.json');
   const args = [
     process.execPath,
     cli,
-    'fleet',
-    'init',
+    'fleet-node-add',
+    '--id',
+    NODE.id,
+    '--ssh',
+    NODE.ssh,
+    '--path',
+    NODE.workspace,
     '--config',
     path,
     '--json',
@@ -57,14 +62,19 @@ test('init previews only, creates exclusively, and never overwrites a roster', a
   expect(await readFile(path, 'utf8')).toBe(contents);
 });
 
-test('sync preview and onboarding never attempt SSH/auth or silently apply', async () => {
+test('repair preview and onboarding never attempt SSH/auth or silently apply', async () => {
   const root = await directory();
   const config = join(root, 'roster.json');
   await runCommand([
     process.execPath,
     cli,
-    'fleet',
-    'init',
+    'fleet-node-add',
+    '--id',
+    NODE.id,
+    '--ssh',
+    NODE.ssh,
+    '--path',
+    NODE.workspace,
     '--config',
     config,
     '--apply',
@@ -73,20 +83,20 @@ test('sync preview and onboarding never attempt SSH/auth or silently apply', asy
   const preview = await runCommand([
     process.execPath,
     cli,
-    'fleet',
-    'sync',
+    'fleet-repair',
+    '--list',
     '--config',
     config,
     '--yes',
     '--json',
   ]);
   expect(preview.ok).toBe(true);
-  expect(JSON.parse(preview.stdout).applied).toBe(false);
+  expect(JSON.parse(preview.stdout).ok).toBe(true);
   const onboard = await runCommand([
     process.execPath,
     cli,
-    'fleet',
-    'onboard',
+    'fleet-nodes',
+    '--onboard',
     '--config',
     config,
     '--json',
@@ -101,7 +111,7 @@ test('usage errors are JSON and never echo arbitrary option values', async () =>
   const result = await runCommand([
     process.execPath,
     cli,
-    'fleet',
+    'fleet-status',
     '--unrecognized-secret=never-print-this',
   ]);
   expect(result.ok).toBe(false);

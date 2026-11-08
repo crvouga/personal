@@ -56,7 +56,7 @@ New sessions use the updated configuration. Running sessions are not restarted.
 ## T3 plan, apply, import and cleanup
 
 ```sh
-personal t3-plan --json
+personal t3-apply --dry-run --json
 personal t3-apply
 personal t3-status
 personal t3-cleanup --dry-run
@@ -70,7 +70,7 @@ A stale plan fails. A second apply with identical inputs performs no settings wr
 A provider instance becomes managed when created by personal, or explicitly imported:
 
 ```sh
-personal t3-import --instance personal_codex_proxy
+personal t3-apply --import personal_codex_proxy
 personal t3-apply
 ```
 

@@ -77,7 +77,7 @@ The "Verified, not just shipped" data follows the same rule — every number is 
 
 The Maintenance workflow's daily snapshot task runs both after `refresh-github` and lands all three files in the same `chore/github-insights-refresh` bot PR. Each refresh leaves its file untouched on failure and runs even when another failed, so a broken source turns the job red without freezing the rest.
 
-Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace's Turborepo TUI. The portfolio's `dev` task loads its credentials through `personal vault run` before starting Astro, including when invoked directly from this package. It defaults to the `dev` Vault configuration; `VAULT_CONFIG` can explicitly override it. Authenticate with `vault login` first. The launcher selects a free port starting at 4321 (or `PORTFOLIO_PORT`) and uses `--ignore-lock` so concurrent workspaces can run independently.
+Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace's Turborepo TUI. The portfolio's `dev` task loads its credentials through `personal infra-vault run` before starting Astro, including when invoked directly from this package. It defaults to the `dev` Vault configuration; `VAULT_CONFIG` can explicitly override it. Authenticate with `vault login` first. The launcher selects a free port starting at 4321 (or `PORTFOLIO_PORT`) and uses `--ignore-lock` so concurrent workspaces can run independently.
 
 ## Layout
 
@@ -190,7 +190,7 @@ bun run --filter @pkgs/portfolio assets:prune
 The Docker E2E is intentionally local-only:
 
 ```bash
-personal vault run --config dev -- bun run --filter @pkgs/portfolio test:docker
+personal infra-vault run --config dev -- bun run --filter @pkgs/portfolio test:docker
 ```
 
 ## Content

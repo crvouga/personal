@@ -387,3 +387,5 @@ record, retention rules or stored data.
 ## Local proxy public hostname
 
 Inventory `cloudflare.additional_tunnels.cli-proxy` declares the remotely configured tunnel for `cli-proxy.chrisvouga.dev`. Entries with `credential_path` opt into foundation-owned DNS/token outputs and an isolated vault-root document containing `TUNNEL_TOKEN`. This does not rewrite shared personal secrets. The connector is a pinned local runtime in `packages/cliproxy-fleet`, with API-key authentication enforced by the proxy. Cloud provisioning remains OpenTofu-only; see that package's stable HTTPS and recovery runbooks. The existing Tailscale Service remains available.
+
+Inventory `cloudflare.additional_tunnels.beszel` does the same for the fleet dashboard at `beszel.chrisvouga.dev`: tunnel, proxied DNS and the isolated `secret/beszel/tunnel` document. Only the hub node's worker token (policy `beszel-hub-read`) can read it; `packages/workstation/monitoring` starts the pinned connector next to the hub.

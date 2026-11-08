@@ -17,6 +17,7 @@ export interface CommandOutcome {
 
 export interface InteractiveOptions {
   version: string;
+  releasedAt: string | null;
   workspace: string;
   config: string;
   commands: CommandSpec[];

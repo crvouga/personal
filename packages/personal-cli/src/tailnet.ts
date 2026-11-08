@@ -1,6 +1,10 @@
 import { workerHealthText } from './worker-health-output';
 import { fleetReference } from './fleet-reference';
-import { managedHealthScope, appendControllerLinks } from './managed-health';
+import {
+  managedHealthScope,
+  appendControllerLinks,
+  appendDashboardEvidence,
+} from './managed-health';
 import { discoverTailnet } from '../../fleet/src/tailscale';
 import { tailnetHealth } from '../../fleet/src/tailnet-health';
 import {
@@ -55,6 +59,9 @@ export async function executeTailnet(
   );
   if (options.managed)
     await appendControllerLinks(nodes, registered, services.run);
+  const dashboard = options.workers
+    ? await appendDashboardEvidence(nodes, registered, tailnet)
+    : null;
   const report = makeReport('health', nodes);
   const exitCode = reportExitCode(report, true);
   const verified = exitCode === 0;
@@ -63,6 +70,7 @@ export async function executeTailnet(
     data: {
       ...report,
       ok: verified,
+      ...(options.workers ? { dashboardUrl: dashboard } : {}),
       coverage: {
         ...coverage,
         verified,
@@ -70,7 +78,7 @@ export async function executeTailnet(
       },
     },
     text: options.workers
-      ? workerHealthText({ ...report, ok: verified }, coverage)
+      ? workerHealthText({ ...report, ok: verified }, coverage, dashboard)
       : `${renderReport({ ...report, ok: verified })}\nCoverage: ${coverage.computers} visible computers; ${coverage.excludedMobile} mobile devices excluded.\n${coverage.limitation}`,
   };
 }

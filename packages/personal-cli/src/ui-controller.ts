@@ -35,7 +35,7 @@ export async function runInteractive(
 
 function showHeader(session: Session): void {
   session.display.panel(
-    `personal · ${clean(session.options.version)} · operator console`,
+    `personal · ${clean(session.options.version)} · ${session.options.releasedAt ? `released ${clean(session.options.releasedAt)}` : 'unreleased source build'}`,
     [
       'Your developer fleet, without the guesswork.',
       `Workspace: ${clean(session.workspace ?? session.options.workspace)}`,
@@ -79,8 +79,7 @@ async function dispatch(session: Session, choice: string): Promise<boolean> {
 async function openCommand(session: Session, id: string): Promise<void> {
   const command = session.options.commands.find((entry) => entry.id === id);
   if (!command) return;
-  if (command.args[0] === 'fleet' && command.args[1] === 'add')
-    await addNode(session);
+  if (command.id === 'fleet-node-add') await addNode(session);
   else await runCommand(session, command);
 }
 

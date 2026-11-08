@@ -478,7 +478,7 @@ Target macOS for the full experience, but keep commands platform-agnostic behind
 
 ## Secret integration
 
-Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `personal vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
+Secrets belong in the existing secret-store subsystem (Vault KV at `secret/data/personal/{dev|prd}`, client in `lib/vault-kv.ts`, and `personal infra-vault run` for application operations). Workstation tooling will consume that store later — for example, bootstrapping tools with API keys pulled from Vault.
 
 Ground rules:
 
@@ -527,13 +527,13 @@ The [complete setup runbook](agents/setup.md) covers `personal workstation agent
 [ownership and compatibility audit](agents/audit.md) lists sources, destinations,
 secret/runtime boundaries and unsupported integrations. `agents/registry.json`
 owns portable model defaults, explicit node overrides and the CLI Proxy reference.
-`personal workstation doctor` reports installed tools and drift for applied profiles. T3 provider instances are reconciled by `personal t3-plan`, `t3-apply`, `t3-status`
+`personal workstation doctor` reports installed tools and drift for applied profiles. T3 provider instances are reconciled by `personal t3-apply --dry-run`, `t3-apply`, `t3-status`
 and `t3-cleanup`. Only declared/explicitly imported instances are owned.
 
 ## Ubuntu one-command synchronization
 
 See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
-`personal fleet-sync` and `personal fleet converge` share the guarded controller-driven whole-fleet
+`personal fleet-sync` is the guarded controller-driven whole-fleet
 flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
 apply does not claim machine readiness. Existing commands retain their semantics.
 

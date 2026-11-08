@@ -6,10 +6,25 @@ native agent unit and local Ansible tasks here. Fleet owns membership, registrat
 and freshness evidence. `lock.json` pins Beszel 0.21.1 and both native architecture
 checksums. Never run an unpinned upstream installer alongside these services.
 
+`agent-darwin.yml` installs the same pinned binary on macOS nodes as a root launchd
+daemon with `KeepAlive`; `lock.json` carries the darwin checksums. It is best
+effort and less sandboxed than the Linux unit. The hub itself stays on Linux.
+
 The singleton host is selected in Fleet `definition.json`. Its dashboard is
 `https://<enrolled-hub-MagicDNS-name>:8443`, linked in the consolidated CLI result.
 The Compose port is loopback-only; Tailscale Serve provides private HTTPS. No
-Funnel or public listener is configured. On a fresh selected hub, Workstation installs the pinned native Ubuntu Docker engine and Compose from the reviewed snapshot. Existing engines retain their owner; incomplete third-party installations or missing Compose support require repair through that owner. No running engine is restarted merely to install monitoring. Native agents
+Funnel or inbound listener is configured. The same hub is also served at
+`https://beszel.chrisvouga.dev` through an outbound-only Cloudflare Tunnel: the
+inventory's `cloudflare.additional_tunnels.beszel` entry makes OpenTofu own the
+tunnel, its proxied DNS record and the isolated `secret/beszel/tunnel` Vault
+document (readable only by the hub node's `beszel-hub-read` worker token). The
+hub converge reads that document with the node's own login, writes it to a
+root-owned file and starts the pinned `cloudflared` Compose profile; until the
+credential exists the step warns (`BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE`) and the
+private dashboard is unaffected. Agents and the controller keep using the private
+URL; `fleet-status --workers` reports the public hostname as a warning-level
+`beszel:public-endpoint` check. The hub's own login still guards the public URL.
+On a fresh selected hub, Workstation installs the pinned native Ubuntu Docker engine and Compose from the reviewed snapshot. Existing engines retain their owner; incomplete third-party installations or missing Compose support require repair through that owner. No running engine is restarted merely to install monitoring. Native agents
 use outbound authenticated WebSockets, per-node tokens and persistent identity.
 They do not need inbound SSH monitoring ports, Docker socket access or journals.
 `SKIP_SYSTEMD_LOGS=true` deliberately excludes potentially sensitive service logs.
@@ -17,10 +32,11 @@ System services may be visible; user T3 service information is not certified by
 that fact. Missing sensors, SMART privileges, Docker stats and user-service metrics
 remain unavailable until their specific supported permissions are reviewed.
 
-Create the first hub account through its private stock UI. Controller enrollment
-uses a normal Beszel account authorized for fleet nodes, read from the existing
-Vault document as `BESZEL_FLEET_AUTH` (JSON `identity` and `password`). This does not
-authorize creating that secret or changing Vault policy. The controller's existing
+Create the first (superuser) hub account through its private stock UI. Controller
+enrollment uses the normal Beszel account `fleet-controller@chrisvouga.dev`, whose
+password OpenTofu generates as `BESZEL_FLEET_AUTH` in `secret/personal/prd`; create
+that user in the hub with the generated password and grant it the fleet systems.
+A legacy JSON `identity`/`password` value is still accepted. The controller's existing
 Vault credential must renew unattended. Superuser credentials are not distributed
 to nodes or needed for enrollment. Revocation produces action-required results.
 

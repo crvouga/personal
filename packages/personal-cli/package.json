@@ -1,8 +1,11 @@
 {
-  "name": "@pkgs/personal-cli",
+  "name": "@crvouga/personal",
   "version": "0.1.0",
   "private": true,
   "description": "Interactive, agent-friendly developer fleet command center",
+  "bin": {
+    "personal": "./bin.mjs"
+  },
   "scripts": {
     "dev": "bun src/cli.ts",
     "build": "bun scripts/build.ts",

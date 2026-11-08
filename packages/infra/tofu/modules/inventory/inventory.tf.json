@@ -780,6 +780,26 @@
                 "enabled": false
               }
             }
+          },
+          "beszel": {
+            "name": "beszel",
+            "hostname": "beszel.chrisvouga.dev",
+            "credential_path": "beszel/tunnel",
+            "config": {
+              "ingress": [
+                {
+                  "hostname": "beszel.chrisvouga.dev",
+                  "service": "http://hub:8090",
+                  "origin_request": {}
+                },
+                {
+                  "service": "http_status:404"
+                }
+              ],
+              "warp_routing": {
+                "enabled": false
+              }
+            }
           }
         },
         "redirect_ruleset_name": "Redirect rules ruleset"
@@ -1309,6 +1329,10 @@
           {
             "name": "dev-read",
             "file": "packages/vault-service/config/policies/dev-read.hcl"
+          },
+          {
+            "name": "beszel-hub-read",
+            "file": "packages/vault-service/config/policies/beszel-hub-read.hcl"
           }
         ],
         "auth": {
@@ -1347,9 +1371,30 @@
             "policy": "personal-read",
             "period": "768h",
             "sink": "vault_kv.VAULT_TOKEN"
+          },
+          {
+            "name": "fleet-worker-chris-vouga-ms-a2",
+            "policy": "beszel-hub-read",
+            "period": "768h",
+            "configs": ["prd"],
+            "sink": "vault_kv.FLEET_WORKER_TOKEN_CHRIS_VOUGA_MS_A2"
+          },
+          {
+            "name": "fleet-worker-chris-vouga-mac-studio",
+            "policy": "personal-read",
+            "period": "768h",
+            "configs": ["prd"],
+            "sink": "vault_kv.FLEET_WORKER_TOKEN_CHRIS_VOUGA_MAC_STUDIO"
           }
         ],
         "kv_keys": [
+          {
+            "name": "BESZEL_FLEET_AUTH",
+            "configs": ["prd"],
+            "used_by": ["fleet-monitoring"],
+            "required": true,
+            "generated": true
+          },
           {
             "name": "FLEET_CONTROLLER_ADMIN_TOKEN",
             "configs": ["prd"],

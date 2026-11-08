@@ -69,7 +69,7 @@ export async function verifyT3Policy(
       : 'T3_POLICY_RESTART_PENDING',
     remedy: {
       action:
-        'During approved maintenance restart the native T3 service, then rerun fleet sync. Routine sync preserves active turns.',
+        'During approved maintenance restart the native T3 service, then rerun fleet-sync. Routine sync preserves active turns.',
     },
   };
 }

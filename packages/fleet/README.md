@@ -10,35 +10,37 @@ the new controller-driven public command and its outstanding full-machine gates.
 
 ## Worker contract
 
-Use `npx @crvouga/personal fleet-converge` to reconcile all declared workers and
-`npx @crvouga/personal fleet-health` to inspect remaining gaps. See
+Use `npx @crvouga/personal fleet-sync` to reconcile all declared workers and
+`npx @crvouga/personal fleet-status --workers` to inspect remaining gaps. See
 [worker-contract.md](docs/worker-contract.md) for bootstrap, ownership and the exact
-scope of readiness. Legacy nested diagnostics remain available for troubleshooting.
+scope of readiness. `fleet-status` without flags diagnoses the local roster.
+Ubuntu 26.04 is the accepted worker platform; macOS 14+ nodes converge best effort
+through `packages/workstation/macos`. Machine policy (never sleep, no automatic
+logout, always-on Tailscale/SSH/Docker/Beszel, per-node credential renewal) is
+declared in Ansible and measured by `fleet-status --workers`, which also verifies
+the centralized Beszel dashboard. See the
+[platform matrix](docs/ubuntu-sync.md#machine-policy-by-platform).
 
 ## Quick start
 
 Run from the repository root after `bun install --frozen-lockfile`:
 
 ```sh
-bun run fleet help
-bun run fleet init                        # preview only
-bun run fleet init --apply --yes          # create .fleet.local.json (0600)
-# Edit the starter roster with real aliases/paths and required capabilities.
-bun run fleet validate --json             # no network/authentication
-bun run fleet onboard --node dev-linux --json
-bun run fleet doctor --json               # controller + all roster nodes
-bun run fleet doctor --node dev-linux --json
-bun run fleet doctor --local --json       # no roster/SSH needed
-bun run fleet sync --node dev-linux       # plan only; no changes
-bun run fleet sync --node dev-linux --apply --yes --json
-bun run fleet sync --node dev-linux --pull --apply --yes --json
+personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --json
+personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json
+personal fleet-nodes --json                        # validate the roster; no network
+personal fleet-nodes --onboard --node dev-linux --json
+personal fleet-status --json                       # controller + all roster nodes
+personal fleet-status --node dev-linux --json
+personal fleet-status --local --json               # no roster/SSH needed
+personal fleet-repair --node dev-linux --repair workspace --json   # plan only
+personal fleet-repair --node dev-linux --repair workspace --apply --yes --json
 ```
 
 This private package exposes a TypeScript API from `@pkgs/fleet`; the public
-executable is `personal`. No global install is needed for the
-root `bun run fleet` command. `help`, `schema`,
-`init` preview, `validate`, `nodes`, `onboard` and sync previews do not contact
-nodes or auth services. Doctor never opens a login flow.
+executable is `personal` (`bun run personal` from the checkout). Schema, roster
+listing, onboarding and repair previews do not contact nodes or auth services.
+Status never opens a login flow.
 
 ## Roster
 
@@ -80,7 +82,7 @@ changes that reference/local sync target. Nodes are compared to **that checkout*
 including uncommitted lockfile edits, not an implicitly fetched origin/main.
 Controller capabilities default to all five; headless controllers can pass
 `--require github,vault,t3,toolchain` or `--require none`. This does not override
-remote nodes' required lists. Run `fleet schema` for editor/agent validation.
+remote nodes' required lists. Run `fleet-nodes --schema` for editor/agent validation.
 
 ## Evidence and diagnosis
 
@@ -125,7 +127,7 @@ need normal repository validation. A green install is not a healthy fleet.
    fingerprint out of band. Never expose public SSH or copy private keys/auth
    folders. Cloud provisioning remains an OpenTofu task.
 3. Configure the controller's SSH alias, append the node to the local roster,
-   then run `fleet validate` and `fleet onboard --node ID --json`. Onboarding
+   then run `fleet-nodes` and `fleet-nodes --onboard --node ID --json`. Onboarding
    emits a ready-to-edit SSH stanza, VS Code settings and ordered instructions;
    it does not overwrite user config. Test `ssh ALIAS` manually first.
 4. Ensure noninteractive shell startup is quiet and Node (or explicit Bun runtime) is reachable. Fleet
@@ -192,7 +194,7 @@ exception strings. Fleet never prompts; --non-interactive is accepted.
 
 No telemetry or report file is written automatically. Reports still contain
 aliases/hashes: review before sharing publicly. For monitoring, schedule read-only
-`bun run fleet doctor --json` in your existing task runner and alert on exit 1/2;
+`personal fleet-status --json` in your existing task runner and alert on exit 1/2;
 do not schedule automatic sync/repairs. `bun run health` remains the separate
 single read-only **cloud platform** report.
 
@@ -208,11 +210,11 @@ Tests inject results/use temporary fixtures; they do not contact nodes, login or
 change global config. The transport smoke test runs the bundled probe locally
 against a temporary checkout, not an SSH server.
 
-## Tailscale fleet health in the public CLI
+## Tailscale fleet-status --tailnet in the public CLI
 
-`personal fleet discover --json` lists computers visible to the local signed-in
+`personal fleet-discover --json` lists computers visible to the local signed-in
 Tailscale daemon, including offline devices, while explicitly excluding iOS,
-Android and tvOS. `personal fleet health --json` checks them all and reports
+Android and tvOS. `personal fleet-status --tailnet --json` checks them all and reports
 unregistered/ambiguous computers and registered nodes missing from the inventory.
 Register actual SSH aliases and checkout paths; the checker does not guess them.
 Existing verified-host-key SSH policy and bounded probes apply. Tailscale daemon
@@ -230,8 +232,8 @@ authorization. Warnings/skips fail the strict whole-tailnet health coverage gate
 
 ## Repair planning and shared access
 
-The public CLI exposes `personal fleet repairs` (static catalog) and
-`personal fleet repair` (read-only inspection/plan by default). The repair library
+The public CLI exposes `personal fleet-repair --list` (static catalog) and
+`personal fleet-repair` (read-only inspection/plan by default). The repair library
 in this package only executes allowlisted existing owner commands. Native
 account logins and unknown/manual checks always remain operator steps.
 
@@ -244,23 +246,22 @@ installation never substitutes for authentication or resource authorization.
 
 The workstation owner reads permitted shared provider keys from each machine's
 existing Vault session. For process-scoped shared secret access, use the existing
-`personal vault run --config dev -- COMMAND` workflow on that machine with its intended
+`personal infra-vault run --config dev -- COMMAND` workflow on that machine with its intended
 project/config. Infrastructure, access policy and secret seeding remain owned by
 OpenTofu. No OAuth/session/keychain/SSH credential transfer is implemented.
 
 See the [public CLI repair runbook](../personal-cli/README.md#preview-and-apply-repairs)
 and [market research and access recommendations](docs/access-and-repair-research.md).
-The new commands are in the public `personal` entry point; legacy `bun run fleet`
-continues to provide its existing diagnostics/onboarding/sync commands.
+All commands are in the public `personal` entry point.
 
 ## Reviewed workstation configuration rollout
 
-`bun run fleet configure --node ID --revision FULL_SHA --tool codex --profile proxy`
-previews selected targets. Add `--apply --yes` after review. `--local` supports
-local configuration, including native Windows; remote nodes retain POSIX-only SSH.
-The [setup runbook](../workstation/agents/setup.md#reviewed-rollout-and-rollback)
-covers canaries, offline/partial failures, per-node receipts and rollback. This
-command delegates rendering to personal workstation and installation to existing mise/bootstrap.
-It never resets the developer checkout or transfers credentials. Doctor delegates
-managed-profile drift evidence to ws; historical rollout receipts alone are not a
-live readiness assertion.
+`personal fleet-node-sync --revision FULL_SHA --dry-run` previews this node's
+reviewed configuration; without `--dry-run` it applies. `personal fleet-sync
+--revision FULL_SHA` rolls the same reviewed revision out to the enrolled fleet
+after approval. The [setup runbook](../workstation/agents/setup.md#reviewed-rollout-and-rollback)
+covers canaries, offline/partial failures, per-node receipts and rollback. Both
+delegate rendering to personal workstation and installation to existing mise/bootstrap.
+They never reset the developer checkout or transfer credentials. Status delegates
+managed-profile drift evidence to the workstation owner; historical rollout receipts
+alone are not a live readiness assertion.

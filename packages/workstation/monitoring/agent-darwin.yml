@@ -1,0 +1,131 @@
+---
+# macOS counterpart of agent.yml: pinned native Beszel agent as an always-on
+# launchd system daemon. Credentials arrive through private stdin variables.
+- name: Converge the native Beszel agent on macOS without replacing runtime identity
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../macos/policy.json
+  vars:
+    beszel_lock: "{{ lookup('ansible.builtin.file', 'lock.json') | from_json }}"
+    beszel_arch: "{{ {'arm64': 'darwin-arm64', 'x86_64': 'darwin-amd64'}.get(ansible_facts.architecture, 'unsupported') }}"
+    beszel_root: '/usr/local/lib/personal-beszel/{{ beszel_lock.version }}'
+    beszel_plist: '/Library/LaunchDaemons/{{ beszelDaemon }}.plist'
+  tasks:
+    - name: Require supported platform and private hub policy
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Darwin'
+          - beszel_arch in beszel_lock.agents
+          - beszel_node is match('^[a-z][a-z0-9-]{0,62}$')
+          - beszel_hub_url is match('^https://[a-z0-9.-]+\.ts\.net:8443$')
+    - name: Inspect existing daemon ownership
+      ansible.builtin.stat:
+        path: '{{ beszel_plist }}'
+      register: existing_plist
+    - name: Read existing daemon ownership marker
+      ansible.builtin.slurp:
+        src: '{{ beszel_plist }}'
+      register: existing_daemon
+      when: existing_plist.stat.exists
+    - name: Require explicit adoption of any previously unmanaged daemon
+      ansible.builtin.assert:
+        that:
+          - "not existing_plist.stat.exists or 'Managed by personal Fleet: packages/workstation/monitoring' in (existing_daemon.content | default('') | b64decode)"
+        fail_msg: Unmanaged Beszel daemon exists. Review a source-controlled migration before replacing it.
+    - name: Create restricted configuration, version and state directories
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        owner: root
+        group: wheel
+        mode: '{{ item.mode }}'
+      loop:
+        - { path: /etc/personal-beszel, mode: '0750' }
+        - { path: '{{ beszel_root }}', mode: '0755' }
+        - { path: /var/lib/beszel-agent, mode: '0700' }
+    - name: Deliver node-specific credentials through private variables, never command arguments
+      ansible.builtin.copy:
+        dest: '/etc/personal-beszel/{{ item.name }}'
+        content: '{{ item.value }}'
+        owner: root
+        group: wheel
+        mode: '0600'
+      loop:
+        - { name: hub-key, value: '{{ beszel_public_key }}' }
+        - { name: agent-token, value: '{{ beszel_agent_token }}' }
+      no_log: true
+      notify: Restart agent
+    - name: Download pinned native artifact with checksum verification
+      ansible.builtin.get_url:
+        url: 'https://github.com/henrygd/beszel/releases/download/v{{ beszel_lock.version }}/beszel-agent_{{ beszel_arch | replace("-", "_") }}.tar.gz'
+        dest: '{{ beszel_root }}/agent.tar.gz'
+        checksum: 'sha256:{{ beszel_lock.agents[beszel_arch] }}'
+        mode: '0644'
+        timeout: 60
+    - name: Extract the pinned executable and repair file drift
+      ansible.builtin.unarchive:
+        src: '{{ beszel_root }}/agent.tar.gz'
+        dest: '{{ beszel_root }}'
+        remote_src: true
+      notify: Restart agent
+    - name: Install the source-owned always-on launchd daemon
+      ansible.builtin.copy:
+        dest: '{{ beszel_plist }}'
+        owner: root
+        group: wheel
+        mode: '0644'
+        backup: true
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!-- Managed by personal Fleet: packages/workstation/monitoring -->
+          <plist version="1.0"><dict>
+            <key>Label</key><string>{{ beszelDaemon }}</string>
+            <key>ProgramArguments</key><array>
+              <string>{{ beszel_root }}/beszel-agent</string>
+            </array>
+            <key>EnvironmentVariables</key><dict>
+              <key>HUB_URL</key><string>{{ beszel_hub_url }}</string>
+              <key>SYSTEM_NAME</key><string>{{ beszel_node }}</string>
+              <key>DATA_DIR</key><string>/var/lib/beszel-agent</string>
+              <key>KEY_FILE</key><string>/etc/personal-beszel/hub-key</string>
+              <key>TOKEN_FILE</key><string>/etc/personal-beszel/agent-token</string>
+              <key>DISABLE_SSH</key><string>true</string>
+            </dict>
+            <key>RunAtLoad</key><true/>
+            <key>KeepAlive</key><true/>
+            <key>ThrottleInterval</key><integer>20</integer>
+            <key>Umask</key><integer>63</integer>
+            <key>StandardOutPath</key><string>/var/lib/beszel-agent/agent.log</string>
+            <key>StandardErrorPath</key><string>/var/lib/beszel-agent/agent.log</string>
+          </dict></plist>
+      register: daemon_plist
+      notify: Restart agent
+    - name: Inspect whether the daemon is loaded
+      ansible.builtin.command:
+        argv: [/bin/launchctl, print, 'system/{{ beszelDaemon }}']
+      changed_when: false
+      failed_when: false
+      register: daemon_loaded
+    - name: Load the daemon at boot and now
+      ansible.builtin.command:
+        argv: [/bin/launchctl, bootstrap, system, '{{ beszel_plist }}']
+      when: daemon_loaded.rc != 0
+      changed_when: true
+    - name: Complete any required agent restart before verification
+      ansible.builtin.meta: flush_handlers
+    - name: Independently check daemon postcondition
+      ansible.builtin.command:
+        argv: [/bin/launchctl, print, 'system/{{ beszelDaemon }}']
+      changed_when: false
+      register: daemon_state
+      failed_when: "'state = running' not in daemon_state.stdout"
+  handlers:
+    - name: Restart agent
+      ansible.builtin.command:
+        argv: [/bin/launchctl, kickstart, -k, 'system/{{ beszelDaemon }}']
+      failed_when: false
+      changed_when: true

@@ -2,12 +2,7 @@ import { SOURCE_OPERATIONS } from './source-operations';
 import { commandCatalog } from './registry';
 import type { CommandSpec } from './contracts';
 
-const APPLIES = new Set([
-  'fleet-node-sync',
-  't3-apply',
-  't3-cleanup',
-  't3-import',
-]);
+const APPLIES = new Set(['fleet-node-sync', 't3-apply', 't3-cleanup']);
 
 /** Additive machine-readable discovery; the registry also drives the menu. */
 export function indexedCommands(search = '', group?: string) {
@@ -26,14 +21,14 @@ function execution(entry: CommandSpec) {
       requirements: ['Personal checkout and shared toolchain'],
       note: 'Streams the owner protocol. JSON and mutation flags depend on the leaf operation.',
     };
-  if (['fleet-converge', 'fleet-sync', 'fleet converge'].includes(entry.id))
+  if (entry.id === 'fleet-sync')
     return {
       default: 'interactive-confirmation-or-action-required',
       authorization: 'interactive-confirmation or --apply --yes',
-      preview: `personal ${entry.id} --dry-run --json`,
+      preview: 'personal fleet-sync --dry-run --json',
       scope:
         'enrolled Ubuntu fleet over verified SSH; controller is not an implicit target',
-      note: 'JSON/noninteractive never prompt. Legacy fleet sync stays plan-only. Full Ubuntu acceptance is not yet implemented.',
+      note: 'JSON/noninteractive never prompt. Full Ubuntu acceptance is not yet implemented.',
     };
   if (entry.id === 'workstation')
     return {
@@ -46,12 +41,11 @@ function execution(entry: CommandSpec) {
     return {
       default: 'apply',
       authorization: 'command-invocation',
-      preview:
-        entry.id === 't3-import'
-          ? 'personal t3-plan --json'
-          : `personal ${entry.id} --dry-run --json`,
-      requiredOptions: entry.id === 't3-import' ? ['--instance ID'] : [],
-      note: 'JSON selects output format; it does not prevent writes.',
+      preview: `personal ${entry.id} --dry-run --json`,
+      note:
+        entry.id === 't3-apply'
+          ? '--import ID adopts an existing instance without reconciling. JSON selects output format; it does not prevent writes.'
+          : 'JSON selects output format; it does not prevent writes.',
     };
   if (entry.mutation)
     return {
