@@ -21,10 +21,11 @@ System services may be visible; user T3 service information is not certified by
 that fact. Missing sensors, SMART privileges, Docker stats and user-service metrics
 remain unavailable until their specific supported permissions are reviewed.
 
-Create the first hub account through its private stock UI. Controller enrollment
-uses a normal Beszel account authorized for fleet nodes, read from the existing
-Vault document as `BESZEL_FLEET_AUTH` (JSON `identity` and `password`). This does not
-authorize creating that secret or changing Vault policy. The controller's existing
+Create the first (superuser) hub account through its private stock UI. Controller
+enrollment uses the normal Beszel account `fleet-controller@chrisvouga.dev`, whose
+password OpenTofu generates as `BESZEL_FLEET_AUTH` in `secret/personal/prd`; create
+that user in the hub with the generated password and grant it the fleet systems.
+A legacy JSON `identity`/`password` value is still accepted. The controller's existing
 Vault credential must renew unattended. Superuser credentials are not distributed
 to nodes or needed for enrollment. Revocation produces action-required results.
 

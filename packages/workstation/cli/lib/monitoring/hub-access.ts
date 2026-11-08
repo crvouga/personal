@@ -5,6 +5,37 @@ import { privateHub } from '../../../../fleet/src/monitoring/beszel';
 import type { HubRequest } from '../../../../fleet/src/monitoring/enroll';
 import { record } from '../../../../fleet/src/config';
 
+/** The normal (non-superuser) Beszel account the controller enrolls nodes with.
+ * OpenTofu generates its password as BESZEL_FLEET_AUTH; the account itself is
+ * created once in the hub with that password (see the monitoring runbook).
+ */
+export const BESZEL_FLEET_IDENTITY = 'fleet-controller@chrisvouga.dev';
+
+/** Accept the OpenTofu-generated password, or a legacy JSON identity/password pair. */
+export function fleetCredentials(secret: string): {
+  identity: string;
+  password: string;
+} {
+  const value = secret.trim();
+  if (!value) throw new Error('BESZEL_ACCOUNT_INVALID');
+  if (value.startsWith('{')) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new Error('BESZEL_ACCOUNT_INVALID');
+    }
+    if (
+      !record(parsed) ||
+      typeof parsed['identity'] !== 'string' ||
+      typeof parsed['password'] !== 'string'
+    )
+      throw new Error('BESZEL_ACCOUNT_INVALID');
+    return { identity: parsed['identity'], password: parsed['password'] };
+  }
+  return { identity: BESZEL_FLEET_IDENTITY, password: value };
+}
+
 /** Read existing Vault authorization only. This never creates credentials or
  * changes Vault policy. The normal Beszel account must have fleet-node access.
  */
@@ -19,18 +50,12 @@ export async function hubAccess(
   });
   const secret = await store.getOptional('BESZEL_FLEET_AUTH');
   if (!secret) throw new Error('BESZEL_ACCOUNT_REQUIRED');
-  const credentials: unknown = JSON.parse(secret.readSecretValue());
-  if (
-    !record(credentials) ||
-    typeof credentials['identity'] !== 'string' ||
-    typeof credentials['password'] !== 'string'
-  )
-    throw new Error('BESZEL_ACCOUNT_INVALID');
+  const credentials = fleetCredentials(secret.readSecretValue());
   const login = await call(
     url,
     '/api/collections/users/auth-with-password',
     '',
-    { identity: credentials['identity'], password: credentials['password'] }
+    credentials
   );
   if (
     !record(login) ||

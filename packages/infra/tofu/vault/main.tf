@@ -89,15 +89,31 @@ resource "vault_generic_endpoint" "admin" {
   }
 }
 
-resource "vault_token" "runtime" {
-  policies          = [one(local.vault.tokens).policy]
-  display_name      = one(local.vault.tokens).name
-  period            = one(local.vault.tokens).period
+# Every declared periodic token: the application runtime token plus one
+# renewable identity per enrolled fleet worker. Each is sunk into the KV
+# documents it names; workers renew their own token on a schedule.
+moved {
+  from = vault_token.runtime
+  to   = vault_token.managed["personal-runtime"]
+}
+resource "vault_token" "managed" {
+  for_each          = { for token in local.vault.tokens : token.name => token }
+  policies          = [each.value.policy]
+  display_name      = each.key
+  period            = each.value.period
   renewable         = true
   no_default_policy = true
   no_parent         = true
   depends_on        = [vault_policy.this]
   lifecycle { prevent_destroy = true }
+}
+locals {
+  token_sinks = {
+    for config in local.vault.kv.configs : config => {
+      for token in local.vault.tokens : trimprefix(token.sink, "vault_kv.") => vault_token.managed[token.name].client_token
+      if startswith(token.sink, "vault_kv.") && contains(try(token.configs, local.vault.kv.configs), config)
+    }
+  }
 }
 
 moved {
@@ -149,10 +165,12 @@ locals {
         S3_BUCKET                = data.terraform_remote_state.foundation.outputs.buckets[config == "dev" ? "development" : "production"]
         S3_ACCESS_KEY_ID         = data.terraform_remote_state.foundation.outputs.r2_access_key_id
         S3_SECRET_ACCESS_KEY     = data.terraform_remote_state.foundation.outputs.r2_secret_access_key
-        VAULT_TOKEN              = vault_token.runtime.client_token
-        CLOUDFLARE_ACCOUNT_ID    = var.cloudflare_account_id
-        "9ROUTER_TUNNEL_TOKEN"   = data.terraform_remote_state.foundation.outputs.router_token
-        DATABASE_URL             = data.terraform_remote_state.foundation.outputs.database_url
+      },
+      local.token_sinks[config],
+      {
+        CLOUDFLARE_ACCOUNT_ID  = var.cloudflare_account_id
+        "9ROUTER_TUNNEL_TOKEN" = data.terraform_remote_state.foundation.outputs.router_token
+        DATABASE_URL           = data.terraform_remote_state.foundation.outputs.database_url
       }
     )
   }

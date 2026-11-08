@@ -691,6 +691,7 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 
 | Key | Configs | Used by | Required |
 | --- | --- | --- | --- |
+| `BESZEL_FLEET_AUTH` | prd | fleet-monitoring | yes |
 | `FLEET_CONTROLLER_ADMIN_TOKEN` | prd | fleet-api | yes |
 | `ZOOMIES_ENCRYPTION_KEY` | prd | zoomies | yes |
 | `ZOOMIES_BOOTSTRAP_TOKEN` | prd | zoomies, zoomies-setup | yes |
@@ -1636,8 +1637,18 @@ verification and the CLIProxy singleton.
 | Singleton gateway, hub      | `proxy.owner` and `monitoring.parent` must be Linux                                              | client only                                                                                        |
 
 Credential sync is deliberately indirect: no secret is copied between machines.
-Each node authenticates to Vault once with its own identity, renews that token
-on a schedule, and renders provider configuration from Vault through Workstation.
+OpenTofu issues each enrolled worker its own renewable periodic token
+(`vault.tokens` entries `fleet-worker-<node>`, policy `personal-read`, sunk into
+`secret/personal/prd` as `FLEET_WORKER_TOKEN_<NODE>`). After the vault root has
+applied, deliver each token once to its node over SSH stdin, never as an argument:
+
+```sh
+vault kv get -field=FLEET_WORKER_TOKEN_CHRIS_VOUGA_MS_A2 secret/personal/prd \
+  | ssh chris-vouga-ms-a2 'vault login -address=https://vault.chrisvouga.dev -no-print -'
+```
+
+From then on the node's `personal-worker-auth` timer renews that token and its
+GitHub login, and renders provider configuration from Vault through Workstation.
 
 ## Ubuntu and remote-work safety
 
@@ -1750,11 +1761,13 @@ default. Do not expose all host journals or Docker root access merely to get a
 collector green. Unavailable service/sensor/GPU/disk-health data is unavailable,
 not healthy.
 
-First use needs the hub’s initial account setup. The controller then reads
-`BESZEL_FLEET_AUTH` from the existing Vault secret-store contract: a JSON object
-with `identity` and `password` for a normal Beszel account authorized for the fleet.
-No Vault value or policy is seeded by setup. Approve this dependency through the
-existing secret owner; never pass it on command arguments. Only per-node agent
+OpenTofu generates the enrollment credential: `BESZEL_FLEET_AUTH` in
+`secret/personal/prd` is the password of the normal (non-superuser) Beszel account
+`fleet-controller@chrisvouga.dev`. After the vault root has applied, create that
+account once on the hub with the generated password (hub superuser → Users →
+New record, or the PocketBase API) and grant it the fleet systems. A legacy JSON
+`{identity, password}` value is still accepted. No Vault policy is seeded by
+setup; never pass the credential on command arguments. Only per-node agent
 tokens cross SSH stdin. Supported systems/fingerprints APIs reuse canonical node
 records, preserve fingerprints, and reject duplicate names or conflicting hosts.
 The account credential remains on the controller. Revoke/rotate it in Beszel and
