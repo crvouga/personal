@@ -1,5 +1,4 @@
 import { localCheckoutRevision } from '../../fleet/src/machine/local-source';
-import { record } from '../../fleet/src/config';
 import canonicalDefinition from '../../fleet/definition.json';
 import { parseDefinition } from '../../fleet/src/definition';
 import { controllerFailure } from '../../fleet/src/controller-failure';
@@ -8,7 +7,6 @@ import { controllerSchedule, type ScheduleAction } from './fleet-sync-schedule';
 import { enrollController } from './fleet-sync-enrollment';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { confirm } from '@inquirer/prompts';
 import {
   readEnrollment,
   isRevision,
@@ -35,7 +33,7 @@ export interface FleetSyncOptions {
   node?: string[];
   all?: boolean;
   schedule?: ScheduleAction;
-  /** Internal: set only after the interactive consolidated approval. */
+  /** Internal: set for interactive terminal runs (sudo enrollment prompts). */
   interactiveAuthorization?: boolean;
   expectedPlanFingerprint?: string;
 }
@@ -77,8 +75,14 @@ export async function fleetSync(
   if (options.schedule)
     return scheduleRequest(options, revision, settings, run);
   const request = { ...options, revision };
-  if (mayPrompt(options)) await approve(request, settings, run);
-  if (!request.apply) return previewRequest(request, settings, run);
+  if (request.dryRun) return selected(request, settings, run);
+  // Applies without a confirmation prompt; --dry-run is the preview.
+  request.apply = true;
+  request.yes = true;
+  if (interactive(options)) {
+    await enrollController(settings.config, run);
+    request.interactiveAuthorization = true;
+  }
   return withMachineLock(root, async () => {
     const approval = {
       ...state,
@@ -106,24 +110,6 @@ export async function fleetSync(
     throw error;
   });
 }
-async function previewRequest(
-  request: FleetSyncOptions,
-  settings: Settings,
-  run: Runner
-): Promise<CommandOutcome> {
-  const result = await selected(request, settings, run);
-  if (request.dryRun) return result;
-  return {
-    ...result,
-    exitCode: 1,
-    data: {
-      ...(result.data as object),
-      ok: false,
-      actionRequired:
-        'FLEET_APPLY_CONFIRMATION_REQUIRED: rerun interactively or with --apply --yes.',
-    },
-  };
-}
 function actionRequired(code: string, remedy: string): CommandOutcome {
   const report = controllerFailure(
     parseDefinition(canonicalDefinition),
@@ -146,12 +132,8 @@ function validate(options: FleetSyncOptions): void {
     throw new FleetUsageError(
       '--dry-run cannot be combined with apply confirmation.'
     );
-  if (Boolean(options.apply) !== Boolean(options.yes))
-    throw new FleetUsageError(
-      'Unattended changes require both --apply and --yes.'
-    );
 }
-function mayPrompt(options: FleetSyncOptions): boolean {
+function interactive(options: FleetSyncOptions): boolean {
   return (
     ![
       options.dryRun,
@@ -204,38 +186,6 @@ async function scheduleRequest(
       run
     )
   );
-}
-
-async function approve(
-  request: FleetSyncOptions & { revision: string },
-  settings: Settings,
-  run: Runner
-): Promise<void> {
-  const revision = request.revision;
-
-  await enrollController(settings.config, run);
-  process.stderr.write(
-    `Controller fleet synchronization\nApproved source: ${revision}\nScope: every enrolled Ubuntu node, over verified SSH. Effects: managed tooling, services, power policy, designated-user passwordless sudo, shared provider clients and monitoring. This user and its agents will be able to administer the node. Controller source preparation and remote changes require approval.\n`
-  );
-  const plan = await selected(
-    { ...request, apply: false, yes: false, dryRun: true },
-    settings,
-    run
-  );
-  process.stderr.write(`${plan.text ?? JSON.stringify(plan.data)}\n`);
-  if (!record(plan.data) || typeof plan.data['planFingerprint'] !== 'string')
-    return;
-  if (
-    await confirm({
-      message: 'Apply this revision to the enrolled fleet?',
-      default: false,
-    })
-  ) {
-    request.apply = true;
-    request.yes = true;
-    request.interactiveAuthorization = true;
-    request.expectedPlanFingerprint = plan.data['planFingerprint'];
-  }
 }
 
 function validateSchedule(schedule: unknown): void {

@@ -1,4 +1,5 @@
 import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
+import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import type { Check, NodeReport, Runner } from '../../fleet/src/types';
 import definition from '../../fleet/definition.json';
 import { enrolledRoster, parseDefinition } from '../../fleet/src/definition';
@@ -219,6 +220,8 @@ export async function appendControllerLinks(
       (entry) =>
         entry.node === machine?.network?.tailscaleName || entry.node === node.id
     );
-    if (report) report.checks.push(await verifyT3Linked(node, run));
+    if (!report) continue;
+    report.checks.push(...(await verifyT3Endpoint(node, run)));
+    report.checks.push(await verifyT3Linked(node, run));
   }
 }

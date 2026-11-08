@@ -1,5 +1,14 @@
 import type { ControllerReport } from '../../fleet/src/controller-sync';
 import type { Check } from '../../fleet/src/types';
+const T3_HEALTH = [
+  't3:service',
+  't3:policy',
+  't3:private-route',
+  'worker:t3-recovery',
+  'worker:t3-health',
+  'worker:service-recovery',
+];
+const T3_CONNECTED = ['t3:controller-endpoint', 't3:paired-access'];
 export function controllerText(report: ControllerReport): string {
   const lines = [
     `Approved revision: ${report.desiredRevision ?? 'not selected'}`,
@@ -9,13 +18,13 @@ export function controllerText(report: ControllerReport): string {
         (check) =>
           `${check.id}: ${check.summary}${check.remedy ? ` — ${check.remedy.action}` : ''}`
       ),
-    'Node | Tailscale | SSH | Ubuntu/config | T3 service | T3 paired | Gateway | Beszel | Outcome | Applied revision',
+    'Node | Tailscale | SSH | Ubuntu/config | T3 healthy | T3 connected | Gateway | Beszel | Outcome | Applied revision',
     '--- | --- | --- | --- | --- | --- | --- | --- | --- | ---',
   ];
   for (const node of report.nodes) {
     const outcome = nodeOutcome(node.checks, report.applied);
     lines.push(
-      `${node.node} | ${node.reachability} | ${group(node.checks, ['ssh:'])} | ${group(node.checks, ['ubuntu:baseline', 'configuration:apply'])} | ${group(node.checks, ['t3:service'])} | ${group(node.checks, ['t3:end-to-end'])} | ${group(node.checks, ['provider:', 'proxy:'])} | ${group(node.checks, ['beszel:'])} | ${outcome} | ${node.appliedRevision ?? 'unverified'}`
+      `${node.node} | ${node.reachability} | ${group(node.checks, ['ssh:'])} | ${group(node.checks, ['ubuntu:baseline', 'configuration:apply'])} | ${group(node.checks, T3_HEALTH)} | ${group(node.checks, T3_CONNECTED)} | ${group(node.checks, ['provider:', 'proxy:'])} | ${group(node.checks, ['beszel:'])} | ${outcome} | ${node.appliedRevision ?? 'unverified'}`
     );
     for (const check of node.checks.filter((check) => check.status !== 'pass'))
       lines.push(

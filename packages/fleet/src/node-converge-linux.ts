@@ -5,6 +5,7 @@ import {
   verifyT3Policy,
 } from '../../workstation/cli/lib/platform/t3-policy';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
+import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
 import { convergeProxy } from './proxy-converge';
 import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
@@ -57,6 +58,11 @@ export async function convergeLinux(
   checks.push(
     ...(await attempt('ubuntu:boot-policy', () =>
       verifyUbuntuBoot(userInfo().username, run)
+    ))
+  );
+  checks.push(
+    ...(await attempt('ubuntu:resource-safety', () =>
+      verifyResourceSafety(userInfo().homedir, run)
     ))
   );
   checks.push(...(await t3AfterBaseline(root, node, baseline, run)));
@@ -180,6 +186,7 @@ async function enableWorkerRecovery(
       cwd: root,
       timeoutMs: 60_000,
       input: JSON.stringify({
+        development_source: root,
         development_user: user.username,
         development_uid: user.uid,
         development_home: user.homedir,
@@ -191,7 +198,7 @@ async function enableWorkerRecovery(
       id: 'worker:service-recovery',
       status: result.ok ? 'pass' : 'fail',
       summary: result.ok
-        ? 'Bounded T3 recovery enabled only after verifying ownership of the native worker service.'
+        ? 'T3 recovery enabled: a stopped service is started and an unresponsive one restarted after three failed one-minute health checks.'
         : 'WORKER_RECOVERY_SETUP_FAILED',
     },
   ];

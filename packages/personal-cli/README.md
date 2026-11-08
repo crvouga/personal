@@ -30,7 +30,7 @@ personal fleet-status --tailnet          # every visible Tailscale computer
 personal fleet-status --workers          # canonical worker fleet audit
 personal fleet-discover                  # Tailscale computers, including offline
 personal fleet-sync --dry-run            # plan the enrolled Ubuntu fleet push
-personal fleet-sync --apply --yes        # unattended approved push
+personal fleet-sync                      # push to the enrolled fleet; no prompt
 personal fleet-node-sync                 # reconcile this node; applies by default
 personal fleet-repair                    # preview owner-managed repairs
 personal fleet-repair --list             # repair catalog and native login commands
@@ -119,8 +119,8 @@ same document. Exit codes: **0** success/preview, **1** failed operation or chec
 JSON errors never contain raw subprocess output, environment variables,
 authentication responses or exception messages.
 
-Mutations: `fleet-node-sync`, `t3-apply` and `t3-cleanup` apply on invocation and
-offer `--dry-run`; `fleet-sync` confirms interactively or with `--apply --yes`;
+Mutations: `fleet-sync`, `fleet-node-sync`, `t3-apply` and `t3-cleanup` apply on
+invocation and offer `--dry-run`;
 `fleet-repair` and `fleet-node-add` preview until `--apply --yes`. `--json` changes
 output format only.
 

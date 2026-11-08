@@ -1,6 +1,7 @@
 import { powerRecoveryCheck } from './power-recovery';
 import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
+import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { verifyDarwinMachine } from '../../workstation/cli/lib/platform/darwin-verify';
 import policy from '../../workstation/ubuntu/policy.json';
 import { userInfo } from 'node:os';
@@ -73,6 +74,7 @@ export async function workerHostChecks(
   }
   checks.push(...(await recoveryChecks(run)));
   checks.push(...(await verifyUbuntuBoot(user, run)));
+  checks.push(...(await verifyResourceSafety(userInfo().homedir, run)));
   return checks;
 }
 
@@ -95,6 +97,7 @@ async function recoveryChecks(run: Runner): Promise<Check[]> {
       'T3 runs as an enabled user service with automatic crash recovery.'
     )
   );
+  checks.push(await t3HealthCheck(run));
   const renewal = await run([
     'systemctl',
     '--user',
@@ -123,4 +126,34 @@ async function recoveryChecks(run: Runner): Promise<Check[]> {
   );
   checks.push(await powerRecoveryCheck(run));
   return checks;
+}
+
+/** The server answers its local API now, not merely that a process exists. */
+async function t3HealthCheck(run: Runner): Promise<Check> {
+  const probe = await run(
+    [
+      'curl',
+      '--fail',
+      '--silent',
+      '--max-time',
+      '10',
+      'http://127.0.0.1:3773/.well-known/t3/environment',
+    ],
+    { timeoutMs: 15_000 }
+  );
+  let identified = false;
+  try {
+    const value: unknown = JSON.parse(probe.stdout);
+    identified =
+      typeof value === 'object' &&
+      value !== null &&
+      typeof (value as Record<string, unknown>)['environmentId'] === 'string';
+  } catch {
+    /* Raw responses are never reported. */
+  }
+  return check(
+    't3-health',
+    probe.ok && identified,
+    'T3 local API answers with its environment identity within 10 seconds.'
+  );
 }

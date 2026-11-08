@@ -3,7 +3,7 @@ import type { Release } from './program';
 const SAFETY = [
   'No arguments prints help, including on a TTY. --json returns this document. The menu requires --interactive; --json and --non-interactive never prompt.',
   'Diagnostics, onboarding instructions, schema, catalogs, scripts and repair previews are read-only.',
-  'fleet-node-sync, t3-apply and t3-cleanup apply by invocation; --dry-run previews. t3-apply --import ID explicitly adopts ownership. --json never implies a dry run. fleet-node-add and fleet-repair require --apply --yes.',
+  'fleet-sync, fleet-node-sync, t3-apply and t3-cleanup apply by invocation; --dry-run previews. t3-apply --import ID explicitly adopts ownership. --json never implies a dry run. fleet-node-add and fleet-repair require --apply --yes.',
   'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
   'A healthy controller does not prove another machine can connect to it. Run fleet-status from each intended controller.',
   'fleet-repair executes only allowlisted owner actions, then reruns diagnostics. Native logins, host trust and resource permissions remain explicit operator steps. Pass the reviewed planHash as --plan-hash to reject a changed plan.',
@@ -76,7 +76,7 @@ export function agentGuide(release: Release) {
     fleetSync: {
       command: 'personal fleet-sync',
       preview: 'personal fleet-sync --dry-run --json',
-      approval: 'Interactive confirmation or --apply --yes',
+      approval: 'Applies on invocation without a prompt; --dry-run previews',
       scope:
         'Whole enrolled Ubuntu fleet over verified SSH; --node filters diagnostics/rollout',
       state: '~/.local/share/personal/fleet/controller/enrollment.json',

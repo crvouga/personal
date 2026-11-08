@@ -5,12 +5,13 @@
     owner: '{{ development_user }}'
     mode: '0600'
     content: |
+      # Managed by personal fleet-sync: packages/workstation/ubuntu/t3-health.sh
       [Unit]
-      Description=Recover the declared worker T3 service after a stopped or failed run
+      Description=Keep the worker T3 service running and responsive
       [Service]
       Type=oneshot
-      ExecStart=/usr/bin/systemctl --user start t3code.service
-      TimeoutStartSec=60
+      ExecStart=/bin/sh {{ development_source }}/packages/workstation/ubuntu/t3-health.sh
+      TimeoutStartSec=90
 - name: Declare persistent service recovery checks
   ansible.builtin.copy:
     dest: '{{ development_home }}/.config/systemd/user/personal-worker-recovery.timer'
@@ -18,10 +19,10 @@
     mode: '0600'
     content: |
       [Unit]
-      Description=Retry the worker T3 service within its native restart budget
+      Description=Check the worker T3 service every minute
       [Timer]
       OnBootSec=1min
-      OnUnitActiveSec=5min
+      OnUnitActiveSec=1min
       Persistent=true
       [Install]
       WantedBy=timers.target

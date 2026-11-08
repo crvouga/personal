@@ -1,7 +1,8 @@
 import { runAnsible } from './ansible';
 import { desired } from '../../../../personal-cli/src/t3/desired';
 import policy from '../../../ubuntu/t3/policy.json';
-import { resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
+import { rename, rm, symlink } from 'node:fs/promises';
 import type { Runner, Check } from '../../../../fleet/src/types';
 
 export async function stageT3Policy(
@@ -12,7 +13,7 @@ export async function stageT3Policy(
 ): Promise<Check> {
   const instances = await desired(
     resolve(root, 'packages/workstation/agents/t3.json'),
-    root,
+    await stableWorkspace(root),
     node
   );
   const document = {
@@ -72,4 +73,20 @@ export async function verifyT3Policy(
         'During approved maintenance restart the native T3 service, then rerun fleet-sync. Routine sync preserves active turns.',
     },
   };
+}
+
+/** Fleet revisions live at .../fleet/revisions/<sha>. Point .../fleet/current at
+ * the applied revision and reference it from the policy, so the policy (and the
+ * T3 restart it needs) changes only when provider settings change, not on every
+ * new commit. Other checkouts are used as-is.
+ */
+export async function stableWorkspace(root: string): Promise<string> {
+  const revisions = dirname(resolve(root));
+  if (basename(revisions) !== 'revisions') return root;
+  const current = join(dirname(revisions), 'current');
+  const staged = `${current}.${process.pid}`;
+  await rm(staged, { force: true });
+  await symlink(join('revisions', basename(resolve(root))), staged);
+  await rename(staged, current);
+  return current;
 }
