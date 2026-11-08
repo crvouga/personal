@@ -46,5 +46,7 @@ test('custom Vault operations live behind personal, with no global copied wrappe
   const manifest = JSON.parse(
     readFileSync(join(root, 'packages/portfolio/package.json'), 'utf8')
   );
-  expect(manifest.scripts.dev).toContain('personal-cli/src/cli.ts vault run');
+  expect(manifest.scripts.dev).toContain(
+    'personal-cli/src/cli.ts infra-vault run'
+  );
 });

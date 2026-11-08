@@ -28,7 +28,7 @@ export async function managedProbeTarget(
             'The declared immutable worker revision has not been deployed. Developer checkout diagnostics follow separately.',
           remedy: {
             action:
-              'Run fleet-converge for this exact release/revision; developer branches and dirty work are never reset.',
+              'Run fleet-sync for this exact release/revision; developer branches and dirty work are never reset.',
           },
         },
       ],

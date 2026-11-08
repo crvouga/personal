@@ -19,7 +19,7 @@ export async function readRoster(path: string): Promise<FleetConfig | null> {
     if (record(error) && error['code'] === 'ENOENT') return null;
     if (error instanceof FleetUsageError) throw error;
     throw new FleetUsageError(
-      'Cannot read a valid roster. Use fleet schema or choose --config PATH.'
+      'Cannot read a valid roster. Use fleet-nodes --schema or choose --config PATH.'
     );
   }
 }
@@ -27,7 +27,7 @@ export async function readRoster(path: string): Promise<FleetConfig | null> {
 export function nodeFromOptions(options: CliOptions): FleetNode {
   if (!options.id || !options.ssh || !options.path)
     throw new FleetUsageError(
-      'fleet add requires --id NAME --ssh ALIAS --path /absolute/checkout.'
+      'fleet-node-add requires --id NAME --ssh ALIAS --path /absolute/checkout.'
     );
   const node = {
     id: options.id,

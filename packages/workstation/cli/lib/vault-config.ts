@@ -64,7 +64,11 @@ function yamlVault(fromDir: string): Partial<VaultConfig> | null {
 
 /** Resolve Vault coordinates: env > `.vault.yaml` (found upward) > defaults. */
 export function resolveVaultConfig(
-  fromDir: string = import.meta.dir
+  // Bun exposes import.meta.dir; the fleet probe runs this code as a Node ESM
+  // stream where it is undefined, so fall back to the working directory.
+  fromDir: string = typeof import.meta.dir === 'string'
+    ? import.meta.dir
+    : process.cwd()
 ): VaultConfig {
   return { ...envVault(), ...yamlVault(fromDir) };
 }

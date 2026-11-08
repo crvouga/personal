@@ -159,7 +159,7 @@ Verify the released consumer independently:
 
 ```sh
 npx --yes @crvouga/personal@latest commands --json
-npx --yes @crvouga/personal@latest fleet doctor --all --json
+npx --yes @crvouga/personal@latest fleet-status --json
 ```
 
 Do not claim release or green CI based on local checks. Deployment of the CI
@@ -172,5 +172,4 @@ The Ubuntu fleet-sync flow is not yet a complete machine-convergence release.
 Read `../fleet/docs/ubuntu-sync.md` before publication. The package build embeds
 an automatically approvable source SHA only for a clean checkout; dirty builds
 retain provenance metadata but require an explicit reviewed revision. The anonymous
-consumer smoke covers both `fleet-sync` and `fleet converge` previews without a
-checkout. Passing those checks is not Ubuntu/service/provider acceptance.
+consumer smoke covers the `fleet-sync` preview without a checkout. Passing those checks is not Ubuntu/service/provider acceptance.

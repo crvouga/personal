@@ -34,7 +34,7 @@ test('project convergence selects exact HEAD and forwards preview without adding
     });
     const result = spawnSync(
       'bash',
-      ['scripts/dev/project-action.sh', 'fleet-converge', '--dry-run'],
+      ['scripts/dev/project-action.sh', 'fleet-sync', '--dry-run'],
       {
         cwd: root,
         encoding: 'utf8',
@@ -52,7 +52,7 @@ test('project convergence selects exact HEAD and forwards preview without adding
       'bun',
       'run',
       'personal',
-      'fleet-converge',
+      'fleet-sync',
       '--revision',
       sha,
       '--dry-run',

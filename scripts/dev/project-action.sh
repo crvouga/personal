@@ -6,7 +6,7 @@ cd "$root"
 action=${1:-warm}
 if [[ $# -gt 0 ]]; then shift; fi
 case "$action" in
-warm | sync | update | net-fix | net-check | net-fix-check | portfolio | fleet-converge | fleet-health | fleet-repair) ;;
+warm | sync | update | net-fix | net-check | net-fix-check | portfolio | fleet-sync | fleet-converge | fleet-health | fleet-repair) ;;
 *)
   echo "Unknown project action: $action" >&2
   exit 2
@@ -30,7 +30,8 @@ net-fix-check)
   run_personal workstation net check
   ;;
 portfolio) mise exec -- bun run portfolio ;;
-fleet-converge) run_personal fleet-converge --revision "$(git rev-parse HEAD)" "$@" ;;
-fleet-health) run_personal fleet-health "$@" ;;
-fleet-repair) run_personal fleet repair --json "$@" ;;
+# fleet-converge and fleet-health remain accepted action names for existing T3 project configuration.
+fleet-sync | fleet-converge) run_personal fleet-sync --revision "$(git rev-parse HEAD)" "$@" ;;
+fleet-health) run_personal fleet-status --workers "$@" ;;
+fleet-repair) run_personal fleet-repair --json "$@" ;;
 esac

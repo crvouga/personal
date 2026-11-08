@@ -4,6 +4,7 @@ import { validCheck, cleanCheck } from '../protocol';
 import { record } from '../config';
 import { isRevision } from '../machine/state';
 import type { AgentEnrollment } from './enroll';
+import { remoteLockPrelude } from '../remote-lock';
 
 /** Only node-specific agent credentials cross SSH; hub account credentials stay
  * on the controller. The installed source and remote operation lock are reused.
@@ -32,7 +33,7 @@ export async function installRemoteAgent(
       ],
     })
   );
-  const command = `cd ${root} && exec 9>"$HOME/.local/share/personal/fleet/remote-operation.lock" && { flock -n 9 || { printf '%s\\n' ${locked}; exit 0; }; } && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/workstation/cli/lib/monitoring/apply.ts')}`;
+  const command = `cd ${root} && { ${remoteLockPrelude()} || { printf '%s\\n' ${locked}; exit 0; }; } && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/workstation/cli/lib/monitoring/apply.ts')}`;
   const result = await run([...sshArgs(node), command], {
     input: JSON.stringify({ ...enrollment, node: node.id, revision }),
     timeoutMs: 360_000,

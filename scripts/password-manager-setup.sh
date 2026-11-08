@@ -15,4 +15,4 @@ ACTION
 fi
 mise install --locked node bun
 mise exec -- bun install --frozen-lockfile
-exec mise exec -- bun run personal password-manager setup "$@"
+exec mise exec -- bun run personal infra-password-manager setup "$@"

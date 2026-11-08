@@ -41,9 +41,7 @@ function createProgram(
 ): Command {
   const program = new Command()
     .name('personal')
-    .description(
-      `Developer fleet, T3 and platform operations · release ${releaseLabel(release)}`
-    )
+    .description('Developer fleet, T3 and platform operations')
     .version(releaseLabel(release))
     .exitOverride()
     .configureOutput({ writeOut: output, writeErr: () => undefined })
@@ -59,6 +57,7 @@ function createProgram(
     'after',
     [
       '',
+      `Release: ${releaseLabel(release)}`,
       'Groups: fleet-* developer computers · t3-* T3 provider instances · infra-* platform operations from the checkout · workstation this machine.',
       'Apply on invocation (--dry-run previews): fleet-node-sync, t3-apply, t3-cleanup. fleet-sync confirms interactively or with --apply --yes.',
       'Preview until --apply --yes: fleet-repair, fleet-node-add. --json does not make a command read-only.',
@@ -115,7 +114,10 @@ export async function execute(
     .command('commands')
     .description('Search the command catalog and agent contract')
     .option('--search <text>', 'Filter names, descriptions and keywords')
-    .option('--group <name>', 'Filter group: Fleet, T3, Infra, Workstation, Reference')
+    .option(
+      '--group <name>',
+      'Filter group: Fleet, T3, Infra, Workstation, Reference'
+    )
     .action((_options, command: Command) => {
       outcome = catalog(command.optsWithGlobals<CliOptions>(), release);
     });

@@ -34,6 +34,10 @@
   ansible.builtin.stat:
     path: /usr/share/glib-2.0/schemas/org.gnome.desktop.screensaver.gschema.xml
   register: gnome_schema
+- name: Check whether the GNOME power plugin schema is installed
+  ansible.builtin.stat:
+    path: /usr/share/glib-2.0/schemas/org.gnome.settings-daemon.plugins.power.gschema.xml
+  register: gnome_power_schema
 - name: Ensure user configuration directory exists
   ansible.builtin.file:
     path: '{{ development_home }}/.config'
@@ -57,19 +61,40 @@
   environment:
     HOME: '{{ development_home }}'
     XDG_CONFIG_HOME: '{{ development_home }}/.config'
-  loop:
-    - {
-        schema: org.gnome.desktop.screensaver,
-        key: lock-enabled,
-        value: 'false',
-        observed: 'false',
-      }
-    - {
-        schema: org.gnome.desktop.session,
-        key: idle-delay,
-        value: '0',
-        observed: 'uint32 0',
-      }
+  loop: '{{ gnome_session_settings + (gnome_power_settings if gnome_power_schema.stat.exists else []) }}'
+  vars:
+    gnome_session_settings:
+      - {
+          schema: org.gnome.desktop.screensaver,
+          key: lock-enabled,
+          value: 'false',
+          observed: 'false',
+        }
+      - {
+          schema: org.gnome.desktop.session,
+          key: idle-delay,
+          value: '0',
+          observed: 'uint32 0',
+        }
+    gnome_power_settings:
+      - {
+          schema: org.gnome.settings-daemon.plugins.power,
+          key: sleep-inactive-ac-type,
+          value: 'nothing',
+          observed: "'nothing'",
+        }
+      - {
+          schema: org.gnome.settings-daemon.plugins.power,
+          key: sleep-inactive-battery-type,
+          value: 'nothing',
+          observed: "'nothing'",
+        }
+      - {
+          schema: org.gnome.settings-daemon.plugins.power,
+          key: idle-dim,
+          value: 'false',
+          observed: 'false',
+        }
   when: gnome_schema.stat.exists
   changed_when: false
   register: gnome_settings

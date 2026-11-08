@@ -46,6 +46,7 @@ function harness(
   };
   const options = {
     version: '1.2.3',
+    releasedAt: '2026-01-02T03:04:05.000Z',
     workspace: '/workspace',
     config: '/fleet.json',
     commands: COMMANDS,
@@ -58,16 +59,16 @@ function harness(
 }
 
 test('local command shortcut does not ask for remote targets', async () => {
-  const fixture = harness({ search: ['command:fleet doctor local', 'exit'] });
+  const fixture = harness({ search: ['command:fleet-status --local', 'exit'] });
   await runInteractive(fixture.options, fixture.prompts, fixture.display);
-  expect(fixture.calls).toEqual([['fleet', 'doctor', '--local']]);
+  expect(fixture.calls).toEqual([['fleet-status', '--local']]);
   expect(fixture.questions).not.toContain('Choose target scope');
   expect(fixture.writes.join('\n')).toContain('--json');
 });
 
 test('add-node wizard cannot mutate without explicit approval', async () => {
   const fixture = harness({
-    search: ['command:fleet add', 'exit'],
+    search: ['command:fleet-node-add', 'exit'],
     input: ['dev-one', 'dev-one', '/home/dev/workspace', ''],
     confirm: [false],
   });
@@ -78,15 +79,14 @@ test('add-node wizard cannot mutate without explicit approval', async () => {
 
 test('confirmed wizard invokes the same explicit agent-friendly command', async () => {
   const fixture = harness({
-    search: ['command:fleet add', 'exit'],
+    search: ['command:fleet-node-add', 'exit'],
     input: ['dev-one', 'dev-one', '/home/dev/workspace', '/usr/bin/node'],
     confirm: [true],
   });
   await runInteractive(fixture.options, fixture.prompts, fixture.display);
   expect(fixture.calls).toHaveLength(1);
   expect(fixture.calls[0]).toEqual([
-    'fleet',
-    'add',
+    'fleet-node-add',
     '--id',
     'dev-one',
     '--ssh',
@@ -164,14 +164,14 @@ test('palette is flat, sorted A–Z, searchable, and has one entry per command',
   ).toHaveLength(COMMANDS.length);
   expect(
     paletteChoices(fixture, 'nodes').some(
-      (choice) => choice.value === 'command:fleet nodes'
+      (choice) => choice.value === 'command:fleet-nodes'
     )
   ).toBe(true);
 });
 
 test('repair approval carries the reviewed plan hash into the exact apply command', async () => {
   const fixture = harness({
-    search: ['command:fleet repair', 'exit'],
+    search: ['command:fleet-repair', 'exit'],
     select: ['local', 'apply', 'back'],
     confirm: [true],
   });
@@ -192,10 +192,9 @@ test('repair approval carries the reviewed plan hash into the exact apply comman
   };
   await runInteractive(fixture.options, fixture.prompts, fixture.display);
   expect(fixture.calls).toEqual([
-    ['fleet', 'repair', '--local'],
+    ['fleet-repair', '--local'],
     [
-      'fleet',
-      'repair',
+      'fleet-repair',
       '--local',
       '--plan-hash',
       'b'.repeat(64),

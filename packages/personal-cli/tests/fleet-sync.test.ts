@@ -3,18 +3,12 @@ import { execute } from '../src/program';
 
 const settings = { workspace: '/no-checkout', config: '/no-roster' };
 const revision = 'a'.repeat(40);
-test('fleet-sync and fleet converge have identical controller scope and enrollment failures', async () => {
+test('fleet-sync reports controller scope and enrollment failures without writes', async () => {
   const flat = await execute(
     ['fleet-sync', '--revision', revision, '--dry-run', '--json'],
     settings,
     '0.1.0'
   );
-  const nested = await execute(
-    ['fleet', 'converge', '--revision', revision, '--dry-run', '--json'],
-    settings,
-    '0.1.0'
-  );
-  expect(flat).toEqual(nested);
   expect(flat.exitCode).toBe(1);
   expect(flat.data).toMatchObject({
     command: 'fleet-sync',
@@ -52,20 +46,18 @@ test('remote selection requires a roster and never substitutes tailnet discovery
     expect(result.exitCode).toBe(1);
   }
 });
-test('both command help pages expose safety flags without a checkout', async () => {
-  for (const command of [['fleet-sync'], ['fleet', 'converge']]) {
-    const result = await execute([...command, '--help'], settings, '0.1.0');
-    expect(result.exitCode).toBe(0);
-    for (const flag of [
-      '--dry-run',
-      '--node',
-      '--all',
-      '--apply',
-      '--yes',
-      '--revision',
-    ])
-      expect(result.text).toContain(flag);
-  }
+test('the fleet-sync help page exposes safety flags without a checkout', async () => {
+  const result = await execute(['fleet-sync', '--help'], settings, '0.1.0');
+  expect(result.exitCode).toBe(0);
+  for (const flag of [
+    '--dry-run',
+    '--node',
+    '--all',
+    '--apply',
+    '--yes',
+    '--revision',
+  ])
+    expect(result.text).toContain(flag);
 });
 test('stale approved connection bindings fail before source preparation or SSH', async () => {
   const { selected } = await import('../src/fleet-sync-remote');

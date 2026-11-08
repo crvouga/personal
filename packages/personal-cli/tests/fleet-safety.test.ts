@@ -13,17 +13,20 @@ test('the sole public parser preserves fleet defaults and preview authorization'
 });
 test.each(
   [
-    ['sync', '--apply'],
-    ['doctor', '--apply', '--yes'],
-    ['doctor', '--pull'],
-    ['doctor', '--local', '--node', 'dev-one'],
-    ['doctor', '--timeout', 'Infinity'],
-    ['doctor', '--timeout', '0'],
-    ['doctor', '--require', 'made-up'],
-    ['unknown'],
+    ['fleet-repair', '--apply'],
+    ['fleet-status', '--apply', '--yes'],
+    ['fleet-status', '--pull'],
+    ['fleet-status', '--local', '--node', 'dev-one'],
+    ['fleet-status', '--timeout', 'Infinity'],
+    ['fleet-status', '--timeout', '0'],
+    ['fleet-status', '--require', 'made-up'],
+    ['fleet-status', '--tailnet', '--require', 'none'],
+    ['fleet-discover', '--local'],
+    ['fleet-unknown'],
+    ['fleet', 'doctor'],
   ].map((args) => ({ args }))
 )('the public fleet parser rejects unsafe options %j', async ({ args }) => {
-  expect(
-    (await execute(['fleet', ...args, '--json'], settings, 'test')).exitCode
-  ).toBe(2);
+  expect((await execute([...args, '--json'], settings, 'test')).exitCode).toBe(
+    2
+  );
 });

@@ -1,7 +1,9 @@
 import { powerRecoveryCheck } from './power-recovery';
 import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
+import { verifyDarwinMachine } from '../../workstation/cli/lib/platform/darwin-verify';
 import policy from '../../workstation/ubuntu/policy.json';
+import { userInfo } from 'node:os';
 import type { Check, Runner } from './types';
 
 function check(id: string, ok: boolean, summary: string): Check {
@@ -13,7 +15,7 @@ function check(id: string, ok: boolean, summary: string): Check {
       ? {
           remedy: {
             action:
-              'Apply the approved fleet-converge revision over verified SSH, then rerun fleet-health. No password prompt or state reset is attempted by health.',
+              'Apply the approved fleet-sync revision over verified SSH, then rerun fleet-status --workers. No password prompt or state reset is attempted by health.',
           },
         }
       : {}),
@@ -22,8 +24,11 @@ function check(id: string, ok: boolean, summary: string): Check {
 /** Measured runtime evidence, independent of installer receipts. */
 export async function workerHostChecks(
   user: string,
-  run: Runner
+  run: Runner,
+  platform: NodeJS.Platform = process.platform
 ): Promise<Check[]> {
+  if (platform === 'darwin')
+    return verifyDarwinMachine({ name: user, uid: userInfo().uid }, run);
   const audit = await auditUbuntu(run);
   const checks = [
     check(
@@ -44,13 +49,25 @@ export async function workerHostChecks(
       )
     ),
   ];
-  for (const name of ['ssh', 'tailscaled', 'docker']) {
-    const enabled = await run(['systemctl', 'is-enabled', `${name}.service`]);
+  for (const name of policy.alwaysOnServices) {
+    const unit = await run([
+      'systemctl',
+      'show',
+      `${name}.service`,
+      '--property=UnitFileState,ActiveState,Restart',
+    ]);
+    const active =
+      name === 'beszel-agent'
+        ? /^ActiveState=active$/m.test(unit.stdout)
+        : audit.services[name] === true;
     checks.push(
       check(
         `service:${name}`,
-        audit.services[name] === true && enabled.ok,
-        'Required system service is active and enabled for boot.'
+        unit.ok &&
+          active &&
+          /^UnitFileState=enabled$/m.test(unit.stdout) &&
+          /^Restart=always$/m.test(unit.stdout),
+        'Required system service is active, enabled for boot and restarts unconditionally.'
       )
     );
   }

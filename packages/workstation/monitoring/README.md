@@ -6,6 +6,10 @@ native agent unit and local Ansible tasks here. Fleet owns membership, registrat
 and freshness evidence. `lock.json` pins Beszel 0.21.1 and both native architecture
 checksums. Never run an unpinned upstream installer alongside these services.
 
+`agent-darwin.yml` installs the same pinned binary on macOS nodes as a root launchd
+daemon with `KeepAlive`; `lock.json` carries the darwin checksums. It is best
+effort and less sandboxed than the Linux unit. The hub itself stays on Linux.
+
 The singleton host is selected in Fleet `definition.json`. Its dashboard is
 `https://<enrolled-hub-MagicDNS-name>:8443`, linked in the consolidated CLI result.
 The Compose port is loopback-only; Tailscale Serve provides private HTTPS. No

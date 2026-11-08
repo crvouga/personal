@@ -18,7 +18,7 @@ For human passwords and shared login items, first use the repository's existing
 integration. `bun run password-manager doctor` reports that owner's readiness;
 `bun run password-manager actions list` exposes pending onboarding. Native CLI
 sign-in approvals remain separate. No Bitwarden migration, rotation, account
-change or private-state synchronization is part of fleet repair.
+change or private-state synchronization is part of fleet-repair.
 
 This provides consistent tools, shared configuration and permitted service access
 without making one computer's credential files the source of truth. It also gives
@@ -48,7 +48,7 @@ There are three different workflows to support:
    approval remains an operator action. The CLI returns commands and comments
    them in generated scripts; it does not execute login flows automatically.
 2. **Shared permitted API keys.** The existing Vault/secret-store can inject
-   secrets for a child process using `personal vault run --config dev -- COMMAND`.
+   secrets for a child process using `personal infra-vault run --config dev -- COMMAND`.
    Run it on the machine that needs the access, after authorizing that machine.
    Select the intended project/config. Only already-managed keys are available;
    a missing key or insufficient policy is not repaired by creating another one.
@@ -98,8 +98,8 @@ model prompt or billable inference request is used as a login test.
 
 ## Repair implementation
 
-`personal fleet repairs --json` lists owners, effects and operator commands.
-`personal fleet repair` inspects all visible Tailscale computers and previews
+`personal fleet-repair --list --json` lists owners, effects and operator commands.
+`personal fleet-repair` inspects all visible Tailscale computers and previews
 repairs; `--local` and repeated `--node` intentionally select a smaller scope.
 Unregistered, offline, ambiguous or unprobed machines remain blocked/manual.
 

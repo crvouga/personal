@@ -2,10 +2,7 @@ import { shellQuote } from './ssh';
 import { syncPlan } from './sync';
 import type { FleetNode } from './types';
 
-export function onboarding(
-  node: FleetNode,
-  launcher = 'personal'
-): object {
+export function onboarding(node: FleetNode, launcher = 'personal'): object {
   return {
     version: 1,
     node: node.id,

@@ -95,9 +95,7 @@ export async function forwardSourceOperation(
           ).resolve('tsx'),
         ]
       : [];
-  const forwarded = variant
-    ? rest.filter((arg) => arg !== variant.flag)
-    : rest;
+  const forwarded = variant ? rest.filter((arg) => arg !== variant.flag) : rest;
   return new Promise((resolve) => {
     const child = spawn(runtime!, [...prelude, ...resolved, ...forwarded], {
       cwd: name === 'infra-vault' ? process.cwd() : settings.workspace,

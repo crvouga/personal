@@ -5,7 +5,7 @@ set -euo pipefail
 WRAPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SECRET_STORE_CLI_ROOT="$(cd "${WRAPPER_DIR}/.." && pwd)"
 if [ ! -f "${SECRET_STORE_CLI_ROOT}/lib/vault-auth.sh" ]; then
-  echo "ERROR: personal vault requires its source checkout and shared toolchain." >&2
+  echo "ERROR: personal infra-vault requires its source checkout and shared toolchain." >&2
   exit 1
 fi
 
@@ -38,14 +38,14 @@ case "$subcommand" in
     ;;
   -h|--help|help)
     cat <<EOF
-personal vault — secret injection for self-hosted OpenBao.
+personal infra-vault — secret injection for self-hosted OpenBao.
 
 Usage:
-  personal vault run [OPTIONS] -- <command> [args...]   Run command with secrets injected
-  personal vault setup [OPTIONS]                        Write .vault.yaml in current directory
-  personal vault <command> ...                          Pass through to Vault CLI
+  personal infra-vault run [OPTIONS] -- <command> [args...]   Run command with secrets injected
+  personal infra-vault setup [OPTIONS]                        Write .vault.yaml in current directory
+  personal infra-vault <command> ...                          Pass through to Vault CLI
 
-Run 'personal vault run --help' or 'personal vault setup --help' for details.
+Run 'personal infra-vault run --help' or 'personal infra-vault setup --help' for details.
 EOF
     ;;
   *)

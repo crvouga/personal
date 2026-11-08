@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "cli": "bun ../personal-cli/src/cli.ts cliproxy",
+    "cli": "bun ../personal-cli/src/cli.ts infra-cliproxy",
     "lint": "python3 -B scripts/check.py",
     "test": "python3 -B -m unittest discover -s tests -p \"test_*.py\""
   }

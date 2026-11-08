@@ -37,7 +37,7 @@ export async function dependencyCheck(
 ): Promise<Check> {
   const remedy = {
     action:
-      'Review fleet sync, then explicitly apply a frozen toolchain/dependency sync.',
+      'Review personal fleet-repair --repair workspace, then explicitly apply a frozen toolchain/dependency sync.',
   };
   try {
     const receipt: unknown = JSON.parse(
@@ -113,7 +113,7 @@ function compare(
       : {
           remedy: {
             action:
-              'Reconcile branches/lockfiles; review fleet sync --pull. Never reset a working tree.',
+              'Reconcile branches/lockfiles; review personal fleet-sync for the approved revision. Never reset a working tree.',
           },
         }),
   };

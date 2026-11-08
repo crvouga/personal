@@ -357,11 +357,12 @@ without pulling or touching project dependencies; `personal workstation tools ch
 them. Sync is explicit; Git commits do not silently update other machines.
 
 For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
-`bun run fleet init` previews a local SSH-alias roster, `bun run fleet onboard`
-generates per-node connection/auth/editor steps, and `bun run fleet doctor --json`
-diagnoses SSH, authentication, T3 Connect settings/API and checkout/lockfile drift.
-`bun run fleet sync` previews convergence through this same setup script; applying
-requires `--apply --yes`. No credentials are copied or cloud resources provisioned;
+`personal fleet-node-add` registers an existing SSH alias in a local roster,
+`personal fleet-nodes --onboard` generates per-node connection/auth/editor steps,
+and `personal fleet-status --json` diagnoses SSH, authentication, T3 Connect
+settings/API and checkout/lockfile drift. `personal fleet-repair --repair workspace`
+previews convergence through this same setup script; applying requires
+`--apply --yes`. No credentials are copied or cloud resources provisioned;
 VS Code/T3 end-to-end tests remain explicit operator steps.
 
 Bootstrap each node once using the same reviewed checkout revision, then check
@@ -369,9 +370,9 @@ tool discovery through its actual SSH alias (not just an interactive terminal):
 
 ```sh
 ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
-bun run fleet doctor --json
-bun run fleet sync
-bun run fleet sync --apply --yes
+personal fleet-status --json
+personal fleet-repair --repair workspace
+personal fleet-repair --repair workspace --apply --yes
 ```
 
 Review the sync plan before applying. SSH must already work and nodes must be in
@@ -417,7 +418,7 @@ architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
 Workstation uses that absolute executable with T3's native `service install`
 interface, with user lingering supplied by the Ubuntu baseline. This does not
 replace an existing desktop launcher or copy `~/.t3` runtime state. A conflicting
-launcher/service version requires reviewed maintenance; routine fleet sync never
+launcher/service version requires reviewed maintenance; routine fleet-sync never
 restarts active turns to promote a new pin. The disposable Ubuntu acceptance test
 covers repeat service installation, crash recovery and reboot without desktop
 login. Private routing and paired execution require separate evidence.
@@ -438,11 +439,11 @@ is not a reason to skip drift inspection.
 
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
 Actions: `warm`, `sync`, `update`, `net-fix`, `net-check`, `net-fix-check`,
-`portfolio`, `fleet-converge`, `fleet-health`, `fleet-repair`. Fleet convergence
-selects the current checkout HEAD as its exact revision and retains its approval
-flow; extra arguments such as `--dry-run` are forwarded. Health uses explicit
-`--managed` scope (canonical fleet plus controller), reporting excluded service
-hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+`portfolio`, `fleet-sync` (also accepted as `fleet-converge`), `fleet-health`,
+`fleet-repair`. Fleet convergence selects the current checkout HEAD as its exact
+revision and retains its approval flow; extra arguments such as `--dry-run` are
+forwarded. `fleet-health` runs `personal fleet-status --workers`, the canonical
+worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)
@@ -574,7 +575,7 @@ New sessions use the updated configuration. Running sessions are not restarted.
 ## T3 plan, apply, import and cleanup
 
 ```sh
-personal t3-plan --json
+personal t3-apply --dry-run --json
 personal t3-apply
 personal t3-status
 personal t3-cleanup --dry-run
@@ -588,7 +589,7 @@ A stale plan fails. A second apply with identical inputs performs no settings wr
 A provider instance becomes managed when created by personal, or explicitly imported:
 
 ```sh
-personal t3-import --instance personal_codex_proxy
+personal t3-apply --import personal_codex_proxy
 personal t3-apply
 ```
 
@@ -648,14 +649,15 @@ Use `personal commands --json` to discover the complete interface.
 ### Portable developer fleet CLI
 
 `npx --yes @crvouga/personal` opens a searchable terminal command center without
-a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`,
-`agent --json`, or `fleet doctor --local --json`. Pin an exact published version
+a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`
+or `fleet-status --local --json`. Commands are flat and prefixed by domain
+(`fleet-*`, `t3-*`, `infra-*`, `workstation`). Pin an exact published version
 in automation. See [`packages/personal-cli/README.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/README.md) and
 [`packages/personal-cli/releasing.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/releasing.md) for installation, onboarding and CI publishing.
 
-`fleet doctor --all --json` checks the controller and every node in the local,
+`fleet-status --json` checks the controller and every node in the local,
 secret-free roster. Missing rosters and credentials never count as a pass.
-Register actual SSH aliases and checkout paths with `fleet add`; preview before
+Register actual SSH aliases and checkout paths with `fleet-node-add`; preview before
 `--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic
 repairs. Shared mise/workstation remain the toolchain owners; cloud resources
 remain exclusively OpenTofu-owned.
@@ -746,7 +748,7 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `AUTH_MANAGER_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev |  |
 | `MOVIEFINDER_AUTH_SECRET` | dev, prd | moviefinder | yes |
 
-### Local dev — `personal vault run`
+### Local dev — `personal infra-vault run`
 
 The human installs the wrapper once per machine (from a `crvouga/personal` checkout; needs the `vault` or `bao` CLI and `jq`):
 
@@ -755,7 +757,7 @@ packages/vault-service/scripts/install-cli.sh   # → shared personal CLI instal
 vault login --method=userpass username=crvouga
 ```
 
-In your project, commit a `.vault.yaml` (coordinates only, no secrets — safe to commit). `personal vault setup --project personal --config dev` writes it:
+In your project, commit a `.vault.yaml` (coordinates only, no secrets — safe to commit). `personal infra-vault setup --project personal --config dev` writes it:
 
 ```yaml
 addr: https://vault.chrisvouga.dev
@@ -767,14 +769,14 @@ config: dev
 Then wrap commands:
 
 ```bash
-personal vault run -- bun run dev                  # injects every field as env vars
-personal vault run --config prd -- <cmd>           # override config
-personal vault run --dry-run -- <cmd>              # list injected var names only
+personal infra-vault run -- bun run dev                  # injects every field as env vars
+personal infra-vault run --config prd -- <cmd>           # override config
+personal infra-vault run --dry-run -- <cmd>              # list injected var names only
 vault kv get secret/personal/dev          # inspect (human only)
 bun run infra:vault plan  # update the OpenTofu secrets input, then review/apply
 ```
 
-Put `personal vault run -- …` inside `package.json` scripts rather than asking developers to export variables. List the needed env var **names** (never values) in `.env.example`, and gitignore `.env*` except `.env.example`.
+Put `personal infra-vault run -- …` inside `package.json` scripts rather than asking developers to export variables. List the needed env var **names** (never values) in `.env.example`, and gitignore `.env*` except `.env.example`.
 
 ### CI (GitHub Actions) — OIDC, no stored token
 
@@ -805,7 +807,7 @@ steps:
 
 ### App runtime — read token + HTTP
 
-Processes that cannot be wrapped in `personal vault run` (servers loading secrets at boot, Workers) use a long-lived read-only token supplied as the platform secret `VAULT_TOKEN` (policy `personal-read`, period 768h; the human mints it). Pass `VAULT_ADDR=https://vault.chrisvouga.dev`, `VAULT_PROJECT=personal`, `VAULT_CONFIG=prd` as plain env.
+Processes that cannot be wrapped in `personal infra-vault run` (servers loading secrets at boot, Workers) use a long-lived read-only token supplied as the platform secret `VAULT_TOKEN` (policy `personal-read`, period 768h; the human mints it). Pass `VAULT_ADDR=https://vault.chrisvouga.dev`, `VAULT_PROJECT=personal`, `VAULT_CONFIG=prd` as plain env.
 
 ```ts
 const res = await fetch(
@@ -838,12 +840,12 @@ The application database contract is the secret env var `DATABASE_URL` in Vault 
 Load the development URL through the same `.vault.yaml` contract as §1:
 
 ```bash
-personal vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select 1"'
-personal vault run -- bun run dev
-personal vault run -- bun run db:migrate       # only after the app's schema is allocated
+personal infra-vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select 1"'
+personal infra-vault run -- bun run dev
+personal infra-vault run -- bun run db:migrate       # only after the app's schema is allocated
 ```
 
-The quoting in the `psql` example is intentional: the child shell expands `DATABASE_URL` after `personal vault run` injects it. A command such as `personal vault run -- psql "$DATABASE_URL"` expands too early and usually passes an empty value.
+The quoting in the `psql` example is intentional: the child shell expands `DATABASE_URL` after `personal infra-vault run` injects it. A command such as `personal infra-vault run -- psql "$DATABASE_URL"` expands too early and usually passes an empty value.
 
 Minimal Node/Bun shape (use the project's existing PostgreSQL library if it has one):
 
@@ -873,7 +875,7 @@ Do not add an unconditional custom `ssl` object: many clients let it override TL
 Verify without exposing connection details:
 
 ```bash
-personal vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | grep -qx 1'
+personal infra-vault run -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atqc "select 1" | grep -qx 1'
 ```
 
 ---
@@ -1338,11 +1340,11 @@ The dependency-free [Bun agent client](https://github.com/crvouga/personal/blob/
 curl -fsS https://raw.githubusercontent.com/crvouga/personal/main/packages/auth-relay/agent.ts -o auth-relay-agent.ts
 
 # List only the fields that would be injected; no values.
-personal vault run --path secret/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
+personal infra-vault run --path secret/auth-relay-agents/my-app-dev/dev --dry-run -- bun auth-relay-agent.ts --help
 
 # A fingerprint is public; it can be supplied to the operator without revealing the token.
-personal vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts fingerprint
-personal vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts list --origin https://auth-dev.chrisvouga.dev
+personal infra-vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts fingerprint
+personal infra-vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts list --origin https://auth-dev.chrisvouga.dev
 ```
 
 Commit a **public** `auth-registration.json`. The helper defaults to a one-hour lease capped at the grant expiry; optionally set an explicit future `expiresAt` or `--ttl-seconds` within the grant and environment limits:
@@ -1358,9 +1360,9 @@ Commit a **public** `auth-registration.json`. The helper defaults to a one-hour 
 ```
 
 ```bash
-personal vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts register --origin https://auth-dev.chrisvouga.dev --file auth-registration.json
+personal infra-vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts register --origin https://auth-dev.chrisvouga.dev --file auth-registration.json
 # Teardown: use the public client id from the registration result.
-personal vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts revoke --origin https://auth-dev.chrisvouga.dev --id app-<UUID>
+personal infra-vault run --path secret/auth-relay-agents/my-app-dev/dev -- bun auth-relay-agent.ts revoke --origin https://auth-dev.chrisvouga.dev --id app-<UUID>
 ```
 
 For changing ports, supply `--callback http://localhost:<actual-port>/auth/callback` after the server binds; this overrides the single callback without editing the file. `--ttl-seconds 3600` requests a fresh one-hour lease capped at grant expiry.
@@ -1425,8 +1427,8 @@ Before reporting success, verify discovery, registration readback, fresh login a
 
 | Symptom                                        | Meaning / fix                                                                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `personal vault run`: `No value found at secret/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
-| `personal vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
+| `personal infra-vault run`: `No value found at secret/…` | KV empty, or wrong project/config in `.vault.yaml` — tell the human                                                            |
+| `personal infra-vault run`: permission denied / 403           | Token expired — the human runs `vault login …`                                                                                 |
 | Vault HTTP 503                                 | Sealed (restart in progress) — wait and retry; the human can run `gh workflow run deploy.yml -R crvouga/personal -f action=unseal` |
 | OIDC: audience error                           | Missing `jwtGithubAudience: https://vault.chrisvouga.dev`                                                                                     |
 | OIDC: role / bound claim error                 | Repository or optional ref claim does not match the declared role — see §1 CI                                                 |
@@ -1463,7 +1465,7 @@ Hosting requests are issues titled `[hosting] <id> — …` (`gh issue list -R c
 
 ## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
 
-# Ubuntu developer fleet: controller operation
+# Developer fleet: controller operation (Ubuntu, with macOS best effort)
 
 ## Release status
 
@@ -1485,14 +1487,19 @@ Real Beszel 0.21.1 binaries passed authenticated metrics, identity preservation 
 supported API backup/restore in an isolated loopback fixture; that is not live fleet evidence. Incomplete
 checks return nonzero; they do not advance a successful fleet receipt.
 
+Newest and still unverified against live machines: the macOS convergence path
+(`packages/workstation/macos`, launchd Beszel agent, fcntl remote lock), the Linux
+always-on service drop-ins, and dashboard evidence inside `fleet-status --workers`.
+They pass unit tests and Ansible syntax checks only; treat them as unaccepted
+until a disposable-machine run and a live controller run are recorded.
+
 ## One command, from the controller
 
 ```sh
 npx @crvouga/personal fleet-sync
 ```
 
-The canonical spelling is `personal fleet converge`. Both execute the same
-controller-push implementation:
+`personal fleet-sync` executes the controller-push implementation:
 
 ```text
 resolve enrolled fleet
@@ -1503,14 +1510,16 @@ resolve enrolled fleet
 → report every target, including offline and blocked nodes
 ```
 
-Bare invocation selects the canonical Ubuntu fleet. It does not mean “this
-computer,” and the controller is not implicitly a deployment target. Its own
-node is targeted only if explicitly declared in Fleet membership. macOS and
-Windows diagnostics remain available; the Ubuntu baseline does not apply to them.
+Bare invocation selects every canonical Linux and macOS node. It does not mean
+“this computer,” and the controller is not implicitly a deployment target. Its own
+node is targeted only if explicitly declared in Fleet membership. Ubuntu 26.04 is
+the accepted worker platform; a node declared `"os": "macOS"` runs the same phases
+best effort through `packages/workstation/macos` (see the platform matrix below).
+Windows machines stay declared for diagnostics and are never converged.
 `--node ID` filters troubleshooting/rollout. `--all` is an explicit spelling of the
 default. Neither flag authorizes managing arbitrary Tailscale peers.
 
-The **legacy `personal fleet sync` remains plan-only unless `--apply --yes`**.
+Roster-level workspace convergence lives in `personal fleet-repair --repair workspace`, which previews until `--apply --yes`.
 The new controller report is version **2**, deliberately replacing the unshipped
 local-first fleet-sync version 1 contract.
 
@@ -1559,9 +1568,10 @@ remaining parity gate. The interactive controller flow can request native sudo a
 - Controller approval: `~/.local/share/personal/fleet/controller/enrollment.json`.
   Controller deployment lock: adjacent `sync.lock` directory.
 - Remote source: `~/.local/share/personal/fleet/revisions/FULL_SHA`.
-  Remote `flock` file: `~/.local/share/personal/fleet/remote-operation.lock`.
+  Remote lock file: `~/.local/share/personal/fleet/remote-operation.lock`, held
+  with `flock` on Linux and the same descriptor through Python `fcntl` on macOS.
   Never repurpose a development checkout or reset dirty worktrees.
-- Workstation owns `ubuntu/` and `monitoring/`; mise manifests, locks and
+- Workstation owns `ubuntu/`, `macos/` and `monitoring/`; mise manifests, locks and
   `scripts/dev` own developer tools. CLIProxy deployment/auth/recovery stays with
   `packages/cliproxy-fleet`. Cloud resources, DNS, Vault policy and tailnet access
   policy stay with OpenTofu and are not modified by this command.
@@ -1576,7 +1586,7 @@ untracked configuration edits.
 
 ```sh
 personal fleet-sync --dry-run --json
-personal fleet converge --revision FULL_40_CHARACTER_SHA --dry-run --json
+personal fleet-sync --revision FULL_40_CHARACTER_SHA --dry-run --json
 personal fleet-sync --revision FULL_40_CHARACTER_SHA --apply --yes --non-interactive --json
 ```
 
@@ -1604,6 +1614,30 @@ refused configuration. JSON is one document on stdout, with no child process log
 These are distinct facts: configuration applied; local services healthy; fresh
 controller connection verified; authenticated IDE/T3 tool execution verified.
 Neither an HTTP 200 nor a successful installer establishes the last fact.
+
+## Machine policy by platform
+
+Every machine-level setting is declared in Ansible using only `ansible.builtin`
+modules, applied by `node-converge` after source bootstrap, and then measured
+independently. Bespoke TypeScript remains only where a native CLI or API has no
+declarative owner: T3 service lifecycle, Beszel enrollment tokens, provider
+verification and the CLIProxy singleton.
+
+| Policy                      | Linux (Ubuntu 26.04, accepted)                                                                   | macOS 14+ (best effort)                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Never sleep                 | systemd sleep targets masked; logind lid/idle policy; GNOME power plugin set to `nothing`        | `pmset -a sleep 0 disksleep 0 powernap 0 womp 1 autorestart 1` (unsupported keys skipped)          |
+| No automatic logout or lock | GNOME `lock-enabled false`, `idle-delay 0`; designated-user lingering                            | `AutoLogOutDelay 0`; designated user's screen saver `idleTime 0`                                   |
+| Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent   | launchd `KeepAlive` daemons for tailscaled (Homebrew formula) and the Beszel agent                 |
+| Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                  | Homebrew formula installed when missing, `tailscaled install-system-daemon`, native login required |
+| Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                      | pinned native binary, `/Library/LaunchDaemons/dev.chrisvouga.personal.beszel-agent.plist` as root  |
+| Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min | LaunchAgent `dev.chrisvouga.personal.worker-auth` with the same script every 10 minutes            |
+| Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                   | same fragment, group `wheel`                                                                       |
+| T3 worker service           | native `t3 service install`, user unit, bounded recovery timer, administrator policy             | out of scope (`t3:service` reported as not required); run `t3 service install` manually            |
+| Singleton gateway, hub      | `proxy.owner` and `monitoring.parent` must be Linux                                              | client only                                                                                        |
+
+Credential sync is deliberately indirect: no secret is copied between machines.
+Each node authenticates to Vault once with its own identity, renews that token
+on a schedule, and renders provider configuration from Vault through Workstation.
 
 ## Ubuntu and remote-work safety
 
@@ -1706,8 +1740,10 @@ Docker/Compose must currently be present on the hub; automatic Docker bootstrap
 is a remaining prerequisite gap. Existing different hub images require backup and
 explicit maintenance instead of an automatic restart during routine sync.
 
-The native agent runs as `beszel`, with persistent `/var/lib/beszel-agent`, bounded
-restart/resource limits and no incoming listener. It uses authenticated outbound
+The native Linux agent runs as `beszel`, with persistent `/var/lib/beszel-agent`,
+unconditional restart, bounded resource limits and no incoming listener. On macOS
+the same pinned binary runs as a root launchd daemon with `KeepAlive`; it is less
+sandboxed than the systemd unit and is best effort. It uses authenticated outbound
 WebSockets. The selected systemd services are SSH, Tailscale, T3 and controller
 sync where present. Journal access and Docker socket access are disabled by
 default. Do not expose all host journals or Docker root access merely to get a
@@ -1724,10 +1760,15 @@ records, preserve fingerprints, and reject duplicate names or conflicting hosts.
 The account credential remains on the controller. Revoke/rotate it in Beszel and
 the existing secret owner; do not erase agent state to force reenrollment.
 
-`fleet-sync --dry-run --json` reports `dashboardUrl` when the enrolled parent can
-be resolved. Open that private URL in a tailnet-connected browser. Fleet reports
-deployment/readiness; Beszel reports resource history. Hub outages do not stop
-SSH/T3 or erase last working machine configuration, but monitoring stays incomplete.
+`fleet-sync --dry-run --json` and `fleet-status --workers --json` report
+`dashboardUrl` when the enrolled parent can be resolved. Open that private URL in
+a tailnet-connected browser for CPU, memory, disk, network, temperature and
+service history of every node. `fleet-status --workers` also verifies the hub
+answers privately and that each canonical node is registered, connected and
+reporting fresh samples; a controller without a Vault session reports
+`beszel:access` as skipped, never as healthy. Fleet reports deployment/readiness;
+Beszel reports resource history. Hub outages do not stop SSH/T3 or erase last
+working machine configuration, but monitoring stays incomplete.
 
 Supported verification checks authenticated hub version, one canonical record,
 connection state, and a one-minute sample received within 180 seconds (with bounded
@@ -1798,7 +1839,7 @@ before replacing a singleton hub or proxy host.
 
 ## Agent and release instructions
 
-Inspect `personal index --json`, `personal agent --json`, this guide and
+Inspect `personal commands --json`, `personal commands --json`, this guide and
 `personal fleet-sync --help` first. Use the public controller flow and existing
 owners. Do not create a second installer/controller, run per-node pull schedules,
 substitute discovered peers, patch `/opt` deployment code, or bypass failed gates.
@@ -1878,7 +1919,7 @@ The current-controller provider preflight returned `PROVIDER_UNATTENDED_CREDENTI
 
 ### Checkout project actions
 
-`bash scripts/dev/project-action.sh fleet-converge` warms the shared toolchain
+`bash scripts/dev/project-action.sh fleet-sync` warms the shared toolchain
 and passes the current checkout HEAD as the exact revision to the existing approval
 flow. Extra arguments such as `--dry-run` are forwarded. The controller can bundle
 committed objects from this canonical local repository, including unpublished

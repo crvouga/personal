@@ -4,7 +4,6 @@ import { FleetUsageError } from '../../fleet/src/errors';
 import { onboarding } from '../../fleet/src/onboard';
 import {
   makeReport,
-  mapBounded,
   renderReport,
   reportExitCode,
 } from '../../fleet/src/report';

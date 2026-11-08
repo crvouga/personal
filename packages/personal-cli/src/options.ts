@@ -84,29 +84,24 @@ function validateMutation(command: string, options: CliOptions): void {
 }
 
 function validateScope(command: string, options: CliOptions): void {
-  if (
-    ['discover', 'health'].includes(command) &&
-    (options.local || options.all || options.node?.length)
-  )
+  const selected = [options.local, options.all, options.node?.length].filter(
+    Boolean
+  );
+  if (['discover', 'health'].includes(command) && selected.length)
     throw new FleetUsageError(
       'Tailscale discovery, --tailnet and --workers always cover all visible computers; --local, --all and --node are not supported.'
     );
-  if (options.local && !['doctor', 'repair'].includes(command))
-    throw new FleetUsageError(
-      '--local is only valid for fleet-status and fleet-repair.'
-    );
-  const selected = [
-    options.local,
-    options.all,
-    Boolean(options.node?.length),
-  ].filter(Boolean);
   if (selected.length > 1)
     throw new FleetUsageError(
       'Choose --local, --all, or --node, not a combination.'
     );
-  if (options.all && !['doctor', 'repair'].includes(command))
+  validateRosterScope(command, options);
+}
+
+function validateRosterScope(command: string, options: CliOptions): void {
+  if ((options.local || options.all) && !['doctor', 'repair'].includes(command))
     throw new FleetUsageError(
-      '--all is only valid for fleet-status and fleet-repair.'
+      '--local and --all are only valid for fleet-status and fleet-repair.'
     );
 }
 
@@ -118,12 +113,11 @@ function validateRepair(command: string, options: CliOptions): void {
     throw new FleetUsageError(
       '--plan-hash expects the SHA-256 value from a repair preview.'
     );
-  if (
-    (options.repair !== undefined ||
-      options.script ||
-      options.planHash !== undefined) &&
-    command !== 'repair'
-  )
+  const repairFlags =
+    options.repair !== undefined ||
+    options.script === true ||
+    options.planHash !== undefined;
+  if (repairFlags && command !== 'repair')
     throw new FleetUsageError(
       '--repair, --script and --plan-hash are only valid for fleet-repair without --list.'
     );
@@ -131,13 +125,16 @@ function validateRepair(command: string, options: CliOptions): void {
     throw new FleetUsageError(
       '--script only generates a preview; run a reviewed repair separately with --apply --yes.'
     );
-  if (
-    command === 'repairs' &&
-    (options.local ||
-      options.node?.length ||
-      options.all ||
-      options.require !== undefined)
-  )
+  validateCatalog(command, options);
+}
+
+function validateCatalog(command: string, options: CliOptions): void {
+  const filtered =
+    options.local ||
+    options.all ||
+    Boolean(options.node?.length) ||
+    options.require !== undefined;
+  if (command === 'repairs' && filtered)
     throw new FleetUsageError(
       'fleet-repair --list is a static catalog and does not accept target or capability filters.'
     );

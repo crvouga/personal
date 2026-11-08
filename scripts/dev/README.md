@@ -276,11 +276,12 @@ without pulling or touching project dependencies; `personal workstation tools ch
 them. Sync is explicit; Git commits do not silently update other machines.
 
 For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
-`bun run fleet init` previews a local SSH-alias roster, `bun run fleet onboard`
-generates per-node connection/auth/editor steps, and `bun run fleet doctor --json`
-diagnoses SSH, authentication, T3 Connect settings/API and checkout/lockfile drift.
-`bun run fleet sync` previews convergence through this same setup script; applying
-requires `--apply --yes`. No credentials are copied or cloud resources provisioned;
+`personal fleet-node-add` registers an existing SSH alias in a local roster,
+`personal fleet-nodes --onboard` generates per-node connection/auth/editor steps,
+and `personal fleet-status --json` diagnoses SSH, authentication, T3 Connect
+settings/API and checkout/lockfile drift. `personal fleet-repair --repair workspace`
+previews convergence through this same setup script; applying requires
+`--apply --yes`. No credentials are copied or cloud resources provisioned;
 VS Code/T3 end-to-end tests remain explicit operator steps.
 
 Bootstrap each node once using the same reviewed checkout revision, then check
@@ -288,9 +289,9 @@ tool discovery through its actual SSH alias (not just an interactive terminal):
 
 ```sh
 ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
-bun run fleet doctor --json
-bun run fleet sync
-bun run fleet sync --apply --yes
+personal fleet-status --json
+personal fleet-repair --repair workspace
+personal fleet-repair --repair workspace --apply --yes
 ```
 
 Review the sync plan before applying. SSH must already work and nodes must be in
@@ -336,7 +337,7 @@ architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
 Workstation uses that absolute executable with T3's native `service install`
 interface, with user lingering supplied by the Ubuntu baseline. This does not
 replace an existing desktop launcher or copy `~/.t3` runtime state. A conflicting
-launcher/service version requires reviewed maintenance; routine fleet sync never
+launcher/service version requires reviewed maintenance; routine fleet-sync never
 restarts active turns to promote a new pin. The disposable Ubuntu acceptance test
 covers repeat service installation, crash recovery and reboot without desktop
 login. Private routing and paired execution require separate evidence.
@@ -357,11 +358,11 @@ is not a reason to skip drift inspection.
 
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
 Actions: `warm`, `sync`, `update`, `net-fix`, `net-check`, `net-fix-check`,
-`portfolio`, `fleet-converge`, `fleet-health`, `fleet-repair`. Fleet convergence
-selects the current checkout HEAD as its exact revision and retains its approval
-flow; extra arguments such as `--dry-run` are forwarded. Health uses explicit
-`--managed` scope (canonical fleet plus controller), reporting excluded service
-hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+`portfolio`, `fleet-sync` (also accepted as `fleet-converge`), `fleet-health`,
+`fleet-repair`. Fleet convergence selects the current checkout HEAD as its exact
+revision and retains its approval flow; extra arguments such as `--dry-run` are
+forwarded. `fleet-health` runs `personal fleet-status --workers`, the canonical
+worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)

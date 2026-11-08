@@ -26,8 +26,7 @@ function isRepair(args: string[]): boolean {
 function targetAction(args: string[]): string | undefined {
   if (isRepair(args)) return 'repair';
   if (args[0] === 'fleet-status' && args.length === 1) return 'doctor';
-  if (args[0] === 'fleet-nodes' && args.includes('--onboard'))
-    return 'onboard';
+  if (args[0] === 'fleet-nodes' && args.includes('--onboard')) return 'onboard';
   return undefined;
 }
 

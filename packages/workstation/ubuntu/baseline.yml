@@ -79,6 +79,7 @@
   tasks:
     - ansible.builtin.import_tasks: tasks/packages.yml
     - ansible.builtin.import_tasks: tasks/docker.yml
+    - ansible.builtin.import_tasks: tasks/services.yml
     - ansible.builtin.import_tasks: tasks/power.yml
     - ansible.builtin.import_tasks: tasks/user.yml
     - ansible.builtin.import_tasks: tasks/ssh.yml

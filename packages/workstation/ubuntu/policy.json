@@ -22,5 +22,6 @@
   "minimumFreeDiskMiB": 4096,
   "minimumFreeInodes": 10000,
   "serviceStartLimitBurst": 5,
-  "serviceStartLimitIntervalSeconds": 300
+  "serviceStartLimitIntervalSeconds": 300,
+  "alwaysOnServices": ["ssh", "tailscaled", "docker", "beszel-agent"]
 }

@@ -1,0 +1,49 @@
+---
+- name: Inspect system automatic logout policy
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/defaults
+      - read
+      - /Library/Preferences/.GlobalPreferences
+      - com.apple.autologout.AutoLogOutDelay
+  changed_when: false
+  failed_when: false
+  register: autologout
+- name: Disable automatic logout after inactivity
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/defaults
+      - write
+      - /Library/Preferences/.GlobalPreferences
+      - com.apple.autologout.AutoLogOutDelay
+      - -int
+      - '{{ autoLogOutDelay }}'
+  when: autologout.rc == 0 and autologout.stdout | trim != autoLogOutDelay | string
+  changed_when: true
+- name: Inspect the designated user's screen saver idle time
+  become: true
+  become_user: '{{ development_user }}'
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/defaults
+      - -currentHost
+      - read
+      - com.apple.screensaver
+      - idleTime
+  changed_when: false
+  failed_when: false
+  register: screensaver_idle
+- name: Keep the designated user's session from idling into the screen saver
+  become: true
+  become_user: '{{ development_user }}'
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/defaults
+      - -currentHost
+      - write
+      - com.apple.screensaver
+      - idleTime
+      - -int
+      - '{{ screensaverIdleTime }}'
+  when: screensaver_idle.rc != 0 or screensaver_idle.stdout | trim != screensaverIdleTime | string
+  changed_when: true

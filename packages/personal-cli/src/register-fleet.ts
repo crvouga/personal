@@ -9,6 +9,12 @@ import { syncNode, type NodeSyncOptions } from './node-sync';
 
 type Complete = (outcome: CommandOutcome) => void;
 
+interface Registration {
+  program: Command;
+  defaults: Settings;
+  complete: Complete;
+}
+
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
@@ -17,10 +23,7 @@ function targetOptions(command: Command): Command {
   return command
     .option('--node <id>', 'Select a registered node; repeatable', collect, [])
     .option('--local', 'This controller only; no roster or SSH required')
-    .option(
-      '--timeout <ms>',
-      'Per-node deadline, 1000–1800000 milliseconds'
-    );
+    .option('--timeout <ms>', 'Per-node deadline, 1000–1800000 milliseconds');
 }
 
 function withSettings(defaults: Settings, options: CliOptions) {
@@ -43,11 +46,9 @@ function fleetAction(name: string, options: CliOptions): string {
 }
 
 function register(
-  program: Command,
+  { program, defaults, complete }: Registration,
   name: string,
-  description: string,
-  defaults: Settings,
-  complete: Complete
+  description: string
 ): Command {
   return program
     .command(name)
@@ -65,14 +66,12 @@ function register(
     });
 }
 
-function registerStatus(program: Command, defaults: Settings, complete: Complete) {
+function registerStatus(registration: Registration) {
   targetOptions(
     register(
-      program,
+      registration,
       'fleet-status',
-      'Check this computer and registered nodes without changing them',
-      defaults,
-      complete
+      'Check this computer and registered nodes without changing them'
     )
   )
     .option('--all', 'Explicit spelling of the default roster scope')
@@ -95,14 +94,12 @@ function registerStatus(program: Command, defaults: Settings, complete: Complete
     );
 }
 
-function registerRepair(program: Command, defaults: Settings, complete: Complete) {
+function registerRepair(registration: Registration) {
   targetOptions(
     register(
-      program,
+      registration,
       'fleet-repair',
-      'Preview owner-managed repairs; --apply --yes executes them',
-      defaults,
-      complete
+      'Preview owner-managed repairs; --apply --yes executes them'
     )
   )
     .option('--list', 'Print the static repair and login catalog instead')
@@ -111,12 +108,18 @@ function registerRepair(program: Command, defaults: Settings, complete: Complete
       '--require <capabilities>',
       'Local only: controller capabilities, comma separated, or none'
     )
-    .option('--repair <ids>', 'workspace,workstation,providers; comma separated')
+    .option(
+      '--repair <ids>',
+      'workspace,workstation,providers; comma separated'
+    )
     .option(
       '--plan-hash <sha256>',
       'Require the reviewed plan to match current diagnostics'
     )
-    .option('--script', 'Generate a reviewable POSIX script without executing it')
+    .option(
+      '--script',
+      'Generate a reviewable POSIX script without executing it'
+    )
     .option('--strict', 'Warnings and skipped checks also produce exit 1')
     .option('--apply', 'Authorize the displayed repair plan; requires --yes')
     .option('--yes', 'Confirm an explicitly requested --apply operation')
@@ -126,23 +129,22 @@ function registerRepair(program: Command, defaults: Settings, complete: Complete
     );
 }
 
-function registerNodes(program: Command, defaults: Settings, complete: Complete) {
+function registerNodes(registration: Registration) {
   register(
-    program,
+    registration,
     'fleet-nodes',
-    'List registered developer computers; --onboard and --schema add guidance',
-    defaults,
-    complete
+    'List registered developer computers; --onboard and --schema add guidance'
   )
     .option('--node <id>', 'Select a registered node; repeatable', collect, [])
-    .option('--onboard', 'Per-node SSH, VS Code and authentication instructions')
+    .option(
+      '--onboard',
+      'Per-node SSH, VS Code and authentication instructions'
+    )
     .option('--schema', 'Print the versioned roster JSON schema');
   register(
-    program,
+    registration,
     'fleet-node-add',
-    'Register an existing computer in the local roster; writes need --apply --yes',
-    defaults,
-    complete
+    'Register an existing computer in the local roster; writes need --apply --yes'
   )
     .requiredOption('--id <name>', 'Unique lowercase node ID')
     .requiredOption(
@@ -162,7 +164,7 @@ function registerNodes(program: Command, defaults: Settings, complete: Complete)
     .option('--yes', 'Confirm an explicitly requested --apply operation');
 }
 
-function registerSync(program: Command, defaults: Settings, complete: Complete) {
+function registerSync({ program, defaults, complete }: Registration) {
   program
     .command('fleet-sync')
     .description(
@@ -172,7 +174,12 @@ function registerSync(program: Command, defaults: Settings, complete: Complete) 
       '--revision <sha>',
       'Approve an exact source commit; defaults to published release or current canonical checkout'
     )
-    .option('--node <id>', 'Explicit enrolled remote target; repeatable', collect, [])
+    .option(
+      '--node <id>',
+      'Explicit enrolled remote target; repeatable',
+      collect,
+      []
+    )
     .option(
       '--all',
       'Explicit spelling of the default enrolled fleet scope; never discovered peers'
@@ -203,7 +210,10 @@ function registerSync(program: Command, defaults: Settings, complete: Complete) 
     .description(
       'Reconcile this node’s locked tools, launcher, Codex proxy profile and T3 instances; applies by default'
     )
-    .option('--id <name>', 'Stable node name; defaults to this machine hostname')
+    .option(
+      '--id <name>',
+      'Stable node name; defaults to this machine hostname'
+    )
     .option('--revision <sha>', 'Reviewed commit; defaults to checkout HEAD')
     .option('--dry-run', 'Preview without changing this node')
     .option('--t3-home <path>', 'T3 base directory')
@@ -211,9 +221,7 @@ function registerSync(program: Command, defaults: Settings, complete: Complete) 
       const options = command.optsWithGlobals<
         NodeSyncOptions & Partial<Settings>
       >();
-      complete(
-        await syncNode(options, await withSettings(defaults, options))
-      );
+      complete(await syncNode(options, await withSettings(defaults, options)));
     });
 }
 
@@ -222,15 +230,14 @@ export function registerFleet(
   defaults: Settings,
   complete: Complete
 ): void {
-  registerStatus(program, defaults, complete);
+  const registration = { program, defaults, complete };
+  registerStatus(registration);
   register(
-    program,
+    registration,
     'fleet-discover',
-    'List computers visible through Tailscale, including offline devices',
-    defaults,
-    complete
+    'List computers visible through Tailscale, including offline devices'
   );
-  registerSync(program, defaults, complete);
-  registerRepair(program, defaults, complete);
-  registerNodes(program, defaults, complete);
+  registerSync(registration);
+  registerRepair(registration);
+  registerNodes(registration);
 }

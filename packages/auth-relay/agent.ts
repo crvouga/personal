@@ -32,7 +32,7 @@ function credential(args: string[]): string {
   const token = process.env[key];
   if (!token || !/^[A-Za-z0-9_-]{43,256}$/.test(token))
     throw new Error(
-      'Missing or invalid agent credential. Inject the named field with personal vault run; never pass its value as an argument.'
+      'Missing or invalid agent credential. Inject the named field with personal infra-vault run; never pass its value as an argument.'
     );
   return token;
 }
@@ -180,7 +180,7 @@ const help = `Auth relay agent client (Bun; no dependencies)
   register --origin URL --file registration.json [--token-env FIELD]
            [--callback URL] [--ttl-seconds N]
   revoke --origin URL --id app-UUID [--token-env FIELD]
-Credentials: inject AUTH_RELAY_AGENT_TOKEN (or FIELD) using personal vault run.
+Credentials: inject AUTH_RELAY_AGENT_TOKEN (or FIELD) using personal infra-vault run.
 Register reconciles project/environment/instance, retains the client ID and uses
 the current revision. No write or one-time code is automatically retried.
 Without expiresAt, register requests one hour, capped at the approved grant expiry.

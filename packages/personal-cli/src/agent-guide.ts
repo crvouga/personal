@@ -1,5 +1,33 @@
 import type { Release } from './program';
 
+const SAFETY = [
+  'No arguments prints help, including on a TTY. --json returns this document. The menu requires --interactive; --json and --non-interactive never prompt.',
+  'Diagnostics, onboarding instructions, schema, catalogs, scripts and repair previews are read-only.',
+  'fleet-node-sync, t3-apply and t3-cleanup apply by invocation; --dry-run previews. t3-apply --import ID explicitly adopts ownership. --json never implies a dry run. fleet-node-add and fleet-repair require --apply --yes.',
+  'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
+  'A healthy controller does not prove another machine can connect to it. Run fleet-status from each intended controller.',
+  'fleet-repair executes only allowlisted owner actions, then reruns diagnostics. Native logins, host trust and resource permissions remain explicit operator steps. Pass the reviewed planHash as --plan-hash to reject a changed plan.',
+  'Shared provider keys are fetched through each machine’s existing Vault authorization by workstation tooling. Never copy machine-local login caches.',
+  'Use exact npm versions for automation. The application never self-updates.',
+];
+
+const EXAMPLES = [
+  'personal fleet-node-sync',
+  'personal fleet-status',
+  'personal t3-status',
+  'personal fleet-status --local --workspace /path/to/personal --json',
+  'personal fleet-status --json --strict --timeout 120000',
+  'personal fleet-status --tailnet --json',
+  'personal fleet-status --workers --json',
+  'personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --require github,t3,toolchain --json',
+  'personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json',
+  'personal fleet-status --node dev-linux --json',
+  'personal fleet-repair --list --json',
+  'personal fleet-repair --json',
+  'personal fleet-repair --local --repair workspace --json',
+  'personal fleet-repair --local --repair workspace --plan-hash <reviewed-sha256> --apply --yes --json',
+];
+
 export function agentGuide(release: Release) {
   return {
     version: 1,
@@ -18,7 +46,8 @@ export function agentGuide(release: Release) {
       't3-*': 'Declared T3 provider instances: t3-status, t3-apply, t3-cleanup',
       'infra-*':
         'Platform operations run from the personal checkout: infra-health, infra-domains, infra-vault, infra-cliproxy, infra-password-manager',
-      workstation: 'This machine’s tools, agent profiles and launcher lifecycle',
+      workstation:
+        'This machine’s tools, agent profiles and launcher lifecycle',
     },
     configuration: {
       workspace:
@@ -43,16 +72,7 @@ export function agentGuide(release: Release) {
       coverage:
         'Default fleet-status tests the controller and all configured nodes. --local tests only this controller; --tailnet and --workers cover Tailscale computers. A missing roster fails explicitly. T3/VS Code end-to-end checks remain manual.',
     },
-    safety: [
-      'No arguments prints help, including on a TTY. --json returns this document. The menu requires --interactive; --json and --non-interactive never prompt.',
-      'Diagnostics, onboarding instructions, schema, catalogs, scripts and repair previews are read-only.',
-      'fleet-node-sync, t3-apply and t3-cleanup apply by invocation; --dry-run previews. t3-apply --import ID explicitly adopts ownership. --json never implies a dry run. fleet-node-add and fleet-repair require --apply --yes.',
-      'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
-      'A healthy controller does not prove another machine can connect to it. Run fleet-status from each intended controller.',
-      'fleet-repair executes only allowlisted owner actions, then reruns diagnostics. Native logins, host trust and resource permissions remain explicit operator steps. Pass the reviewed planHash as --plan-hash to reject a changed plan.',
-      'Shared provider keys are fetched through each machine’s existing Vault authorization by workstation tooling. Never copy machine-local login caches.',
-      'Use exact npm versions for automation. The application never self-updates.',
-    ],
+    safety: SAFETY,
     fleetSync: {
       command: 'personal fleet-sync',
       preview: 'personal fleet-sync --dry-run --json',
@@ -73,21 +93,6 @@ export function agentGuide(release: Release) {
       concurrency:
         'Exclusive personal lock with optimistic external T3 file updates; avoid concurrent Settings edits.',
     },
-    examples: [
-      'personal fleet-node-sync',
-      'personal fleet-status',
-      'personal t3-status',
-      'personal fleet-status --local --workspace /path/to/personal --json',
-      'personal fleet-status --json --strict --timeout 120000',
-      'personal fleet-status --tailnet --json',
-      'personal fleet-status --workers --json',
-      'personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --require github,t3,toolchain --json',
-      'personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json',
-      'personal fleet-status --node dev-linux --json',
-      'personal fleet-repair --list --json',
-      'personal fleet-repair --json',
-      'personal fleet-repair --local --repair workspace --json',
-      'personal fleet-repair --local --repair workspace --plan-hash <reviewed-sha256> --apply --yes --json',
-    ],
+    examples: EXAMPLES,
   };
 }

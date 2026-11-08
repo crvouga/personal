@@ -3,7 +3,13 @@ import type { Check, FleetNode, NodeReport, Runner } from './types';
 import { discoverTailnet, type TailnetComputer } from './tailscale';
 import { matchComputers } from './tailnet-matching';
 import { sshArgs, sshFailure } from './ssh';
-import type { FleetDefinition } from './definition';
+import type { FleetDefinition, MachineDefinition } from './definition';
+import {
+  convergeable,
+  evaluatePlatform,
+  PLATFORM_PROBE,
+  type MachinePlatform,
+} from './machine/platform';
 
 export interface ControllerNode extends NodeReport {
   reachability: 'online' | 'offline' | 'missing' | 'conflict' | 'unknown';
@@ -32,17 +38,14 @@ export type DeployNode = (
 /** Minimal read-only POSIX inspection requires no workspace, Node, Bun or Git. */
 export async function inspectBootstrap(
   node: FleetNode,
-  run: Runner
+  run: Runner,
+  os: MachinePlatform = 'linux'
 ): Promise<Check[]> {
-  const result = await run(
-    [
-      ...sshArgs(node),
-      'sh -c \'test -r /etc/os-release && . /etc/os-release && printf "%s\\n%s\\n" "$ID" "$VERSION_ID" && uname -m\'',
-    ],
-    { timeoutMs: 20_000 }
-  );
+  const result = await run([...sshArgs(node), PLATFORM_PROBE], {
+    timeoutMs: 20_000,
+  });
   if (!result.ok) return [sshFailure(result)];
-  const supported = /^ubuntu\n26\.04\n(x86_64|aarch64)\s*$/.test(result.stdout);
+  const baseline = evaluatePlatform(os, result.stdout);
   return [
     {
       id: 'ssh:fresh-session',
@@ -51,14 +54,12 @@ export async function inspectBootstrap(
         'Fresh host-key-verified SSH session succeeded without remote developer prerequisites.',
     },
     {
-      id: 'ubuntu:release',
-      status: supported ? 'pass' : 'fail',
-      summary: supported
-        ? 'Ubuntu 26.04 and supported CPU architecture observed.'
-        : 'UBUNTU_BASELINE_MISMATCH',
+      id: baseline.id,
+      status: baseline.supported ? 'pass' : 'fail',
+      summary: baseline.summary,
       remedy: {
         action:
-          'Review the release/architecture migration in source. No distribution upgrade or downgrade is performed.',
+          'Review the release/architecture migration in source. No operating-system upgrade or downgrade is performed.',
       },
     },
   ];
@@ -101,16 +102,14 @@ export async function synchronizeController(
       (peer) => !peer.self && !matches.get(peer.id)?.length
     ).length,
   };
-  for (const machine of input.definition.nodes.filter(
-    (node) => node.os === 'linux'
-  )) {
+  for (const machine of input.definition.nodes.filter(convergeable)) {
     input.progress?.(
       machine.id,
       'Inspecting enrolled identity and fresh SSH access'
     );
     report.nodes.push(
       await inspectControllerNode(
-        machine.id,
+        machine,
         {
           nodes: input.nodes,
           revision: input.revision,
@@ -207,7 +206,7 @@ function connectionState(
   return peer.online ? 'online' : 'offline';
 }
 async function inspectControllerNode(
-  id: string,
+  machine: MachineDefinition,
   context: {
     nodes: FleetNode[];
     revision: string;
@@ -217,6 +216,7 @@ async function inspectControllerNode(
   run: Runner
 ): Promise<ControllerNode> {
   const { nodes, revision, computers, matches } = context;
+  const id = machine.id;
   const started = Date.now();
   const node = nodes.find((entry) => entry.id === id);
   const peers = computers.filter((peer) =>
@@ -247,7 +247,7 @@ async function inspectControllerNode(
       },
     });
   else {
-    checks.push(...(await inspectBootstrap(node, run)));
+    checks.push(...(await inspectBootstrap(node, run, machine.os)));
     checks.push(...identityChecks(node, peer));
   }
   if (!peer || !peer.online)

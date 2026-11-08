@@ -3,13 +3,13 @@
 The public `personal` CLI owns two primary operations:
 
 ```sh
-npx @crvouga/personal fleet-converge
-npx @crvouga/personal fleet-health
+npx @crvouga/personal fleet-sync
+npx @crvouga/personal fleet-status --workers
 ```
 
 The controller needs Node/npm, Git, SSH, Tailscale, and its own authorized T3 link.
-Initially each Ubuntu 26.04 worker needs a designated non-root account, trusted
-SSH access and administrator authorization. Standard Ubuntu cloud-image users
+Initially each Ubuntu 26.04 worker (or best-effort macOS 14+ node) needs a
+designated non-root account, trusted SSH access and administrator authorization. Standard Ubuntu cloud-image users
 already commonly have noninteractive sudo; otherwise establish the repository's
 `authorize-sudo.sh` policy once during administrator enrollment. Routine commands
 never ask for or store an SSH/sudo password. Unknown host keys, a different device
@@ -29,7 +29,9 @@ HEAD. Private rosters contain connection paths and identities, not weaker policy
 | One gateway host                   | Canonical `proxy.owner`; existing CLIProxy ownership/audit/recovery code rejects unexpected client-node hosts and missing singleton state                                |
 | T3 connected and persistent        | Pinned native binary, service enabled/active with restart policy, bounded recovery timer, private endpoint, controller link matched to SSH-observed environment identity |
 | No idle sleep and session survival | systemd sleep masks, logind policy, designated-user lingering; running policy and boot timing checked, not inferred from files alone                                     |
-| Recovery after power loss          | Required boot services and recovery timers; recognized firmware restore-after-AC settings inspected when exposed                                                         |
+| Recovery after power loss          | Required boot services and recovery timers; recognized firmware restore-after-AC settings inspected when exposed; macOS `autorestart` where supported                    |
+| Always-on services                 | `Restart=always` drop-ins for ssh, tailscaled, docker and beszel-agent (launchd `KeepAlive` on macOS); health requires the running unit to report that policy            |
+| Central dashboard                  | Pinned Beszel hub on `monitoring.parent`, every node enrolled with its own token; health verifies hub reachability, registration, connection and fresh samples           |
 | No routine password prompts        | Verified BatchMode SSH, `sudo -n`, source-owned NOPASSWD policy; missing initial authorization is a failure                                                              |
 | Keep service authorization alive   | Native service credentials stay per-node; Vault self-renewal timer and GitHub recovery from authorized Vault credentials; expiring T3 links are reported before expiry   |
 
