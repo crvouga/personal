@@ -1,5 +1,11 @@
 import { expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -56,4 +62,27 @@ test('ensureLink is idempotent; conflicts throw without overwriting', () => {
   expect(status.state).toBe('conflict-not-symlink');
   expect(() => ensureLink(victim)).toThrow();
   expect(conflictMessage(status)).toContain('personal workstation sync');
+});
+
+test('a link into a previous fleet revision is re-pointed, unrelated targets stay conflicts', () => {
+  const home = mkdtempSync(join(tmpdir(), 'ws-rev-'));
+  const revisions = join(home, '.local/share/personal/fleet/revisions');
+  const previous = join(revisions, 'a'.repeat(40), 'packages/workstation');
+  const current = join(revisions, 'b'.repeat(40), 'packages/workstation');
+  for (const root of [previous, current]) {
+    mkdirSync(join(root, 'opencode/plugins'), { recursive: true });
+    writeFileSync(join(root, 'opencode/plugins/notifications.ts'), '');
+  }
+  const platform = new TmpPlatform(mkdtempSync(join(tmpdir(), 'ws-home-')));
+  const [plugin] = managedLinks(current, platform);
+  if (plugin === undefined) throw new Error('expected a managed link');
+  mkdirSync(dirname(plugin.link), { recursive: true });
+  symlinkSync(join(previous, 'opencode/plugins/notifications.ts'), plugin.link);
+  expect(describeLink(plugin).state).toBe('stale-revision');
+  expect(ensureLink(plugin)).toBe('updated');
+  expect(describeLink(plugin).state).toBe('ok');
+  unlinkSync(plugin.link);
+  symlinkSync(join(home, 'elsewhere/notifications.ts'), plugin.link);
+  expect(describeLink(plugin).state).toBe('conflict-wrong-target');
+  expect(() => ensureLink(plugin)).toThrow('Conflict');
 });

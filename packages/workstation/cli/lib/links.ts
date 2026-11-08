@@ -17,11 +17,13 @@ export type ManagedLink = {
   link: string;
 };
 
-export type LinkState = 'created' | 'unchanged';
+export type LinkState = 'created' | 'updated' | 'unchanged';
 
 export type LinkStatus =
   | { state: 'ok'; link: ManagedLink }
   | { state: 'missing'; link: ManagedLink }
+  /** Points at the same file inside an earlier fleet revision deployment. */
+  | { state: 'stale-revision'; link: ManagedLink; current: string }
   | { state: 'conflict-not-symlink'; link: ManagedLink }
   | { state: 'conflict-wrong-target'; link: ManagedLink; current: string };
 
@@ -66,11 +68,30 @@ export function describeLink(managed: ManagedLink): LinkStatus {
     current = '<unreadable>';
   }
   if (current === managed.target) return { state: 'ok', link: managed };
+  if (staleRevisionTarget(current, managed.target))
+    return { state: 'stale-revision', link: managed, current };
   return {
     state: 'conflict-wrong-target',
     link: managed,
     current: current ?? '<unreadable>',
   };
+}
+
+const REVISION_ROOT =
+  /^(.*\/\.local\/share\/personal\/fleet\/revisions\/)[0-9a-f]{40}(\/packages\/workstation\/.+)$/;
+
+/** fleet-sync deploys each approved revision to its own directory; a link into a
+ * previous revision of the same managed file is ours to move, not a conflict.
+ */
+export function staleRevisionTarget(current: string, target: string): boolean {
+  const previous = REVISION_ROOT.exec(current);
+  const desired = REVISION_ROOT.exec(target);
+  return (
+    previous !== null &&
+    desired !== null &&
+    previous[1] === desired[1] &&
+    previous[2] === desired[2]
+  );
 }
 
 export function conflictMessage(status: LinkStatus): string {
@@ -98,6 +119,11 @@ export function ensureLink(managed: ManagedLink): LinkState {
     mkdirSync(dirname(managed.link), { recursive: true });
     symlinkSync(managed.target, managed.link);
     return 'created';
+  }
+  if (status.state === 'stale-revision') {
+    unlinkSync(managed.link);
+    symlinkSync(managed.target, managed.link);
+    return 'updated';
   }
   throw new Error(conflictMessage(status));
 }
