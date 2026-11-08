@@ -10,7 +10,7 @@ const result = spawnSync(
   process.execPath,
   [
     'packages/personal-cli/bin.mjs',
-    'password-manager',
+    'infra-password-manager',
     '--state-dir',
     '/private/password-manager',
     '--non-interactive',
@@ -57,7 +57,7 @@ const repeated = spawnSync(
   process.execPath,
   [
     'packages/personal-cli/bin.mjs',
-    'password-manager',
+    'infra-password-manager',
     '--state-dir',
     '/private/password-manager',
     '--non-interactive',

@@ -73,21 +73,25 @@ export async function applyHub(
       summary:
         'Pinned hub is locally healthy and a private Serve route is configured; authentication and remote metrics are separate checks.',
     },
-    tunnel
-      ? {
-          id: 'beszel:public-endpoint',
-          status: 'pass',
-          summary: `Cloudflare connector for ${PUBLIC_HUB_URL} was started from the Vault credential.`,
-        }
-      : {
-          id: 'beszel:public-endpoint',
-          status: 'warn',
-          summary: 'BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE',
-          remedy: {
-            action: `Apply the OpenTofu foundation and vault roots, then ensure this node's worker token (policy beszel-hub-read) is logged in and rerun fleet-sync. The private dashboard is unaffected; ${PUBLIC_HUB_URL} stays offline until then.`,
-          },
-        },
+    publicEndpointCheck(tunnel !== null),
   ];
+}
+
+function publicEndpointCheck(connected: boolean): Check {
+  return connected
+    ? {
+        id: 'beszel:public-endpoint',
+        status: 'pass',
+        summary: `Cloudflare connector for ${PUBLIC_HUB_URL} was started from the Vault credential.`,
+      }
+    : {
+        id: 'beszel:public-endpoint',
+        status: 'warn',
+        summary: 'BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE',
+        remedy: {
+          action: `Apply the OpenTofu foundation and vault roots, then ensure this node's worker token (policy beszel-hub-read) is logged in and rerun fleet-sync. The private dashboard is unaffected; ${PUBLIC_HUB_URL} stays offline until then.`,
+        },
+      };
 }
 
 /** The hub's own Vault login reads the isolated connector document. Null when

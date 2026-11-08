@@ -35,7 +35,7 @@ export function scheduleDefinition(input: {
   const args = [
     process.execPath,
     input.cli,
-    'password-manager',
+    'infra-password-manager',
     '--state-dir',
     input.directory,
     '--non-interactive',
