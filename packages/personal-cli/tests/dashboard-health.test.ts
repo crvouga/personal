@@ -48,6 +48,7 @@ test('every canonical worker gets registration, connection and freshness evidenc
   const dashboard = reports.find((report) => report.node === 'dashboard')!;
   expect(dashboard.checks).toEqual([
     expect.objectContaining({ id: 'beszel:hub', status: 'pass' }),
+    expect.objectContaining({ id: 'beszel:public-endpoint', status: 'pass' }),
   ]);
   for (const node of definition.nodes) {
     const report = reports.find(
@@ -76,6 +77,7 @@ test('an unreachable hub or missing controller Vault session is reported, never 
   const dashboard = reports.find((report) => report.node === 'dashboard')!;
   expect(dashboard.checks.map((check) => [check.id, check.status])).toEqual([
     ['beszel:hub', 'fail'],
+    ['beszel:public-endpoint', 'warn'],
     ['beszel:access', 'skip'],
   ]);
   expect(JSON.stringify(reports)).not.toContain('private connection detail');

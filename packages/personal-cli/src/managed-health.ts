@@ -5,6 +5,7 @@ import { enrolledRoster, parseDefinition } from '../../fleet/src/definition';
 import type { Tailnet } from '../../fleet/src/tailscale';
 import type { FleetNode } from '../../fleet/src/types';
 import {
+  PUBLIC_HUB_URL,
   verifyBeszel,
   type BeszelRequest,
 } from '../../fleet/src/monitoring/beszel';
@@ -55,7 +56,9 @@ export async function appendDashboardEvidence(
     );
     return null;
   }
-  dashboard.checks.push(await hubReachable(hub, options.fetcher ?? fetch));
+  const fetcher = options.fetcher ?? fetch;
+  dashboard.checks.push(await hubReachable(hub, fetcher));
+  dashboard.checks.push(await publicEndpoint(fetcher));
   await nodeEvidence(reports, dashboard, hub, options.access ?? hubAccess);
   return hub;
 }
@@ -119,6 +122,34 @@ async function hubReachable(
     'BESZEL_HUB_UNREACHABLE',
     `The private dashboard did not answer at ${hub}/api/health. Run personal fleet-sync for the monitoring parent; the hub is a pinned Compose service behind Tailscale Serve.`
   );
+}
+
+/** The Cloudflare hostname is convenience access; the private hub stays canonical,
+ * so an offline connector warns instead of failing the audit.
+ */
+async function publicEndpoint(fetcher: typeof fetch): Promise<Check> {
+  try {
+    const response = await fetcher(`${PUBLIC_HUB_URL}/api/health`, {
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.ok)
+      return {
+        id: 'beszel:public-endpoint',
+        status: 'pass',
+        summary: `Dashboard answers publicly at ${PUBLIC_HUB_URL}.`,
+      };
+  } catch {
+    /* Connection details are not evidence; fall through. */
+  }
+  return {
+    id: 'beszel:public-endpoint',
+    status: 'warn',
+    summary: 'BESZEL_PUBLIC_ENDPOINT_OFFLINE',
+    remedy: {
+      action: `${PUBLIC_HUB_URL} did not answer. Apply the OpenTofu foundation and vault roots, then run fleet-sync so the monitoring parent starts its Cloudflare connector. The private dashboard is unaffected.`,
+    },
+  };
 }
 
 function fail(id: string, summary: string, action: string): Check {

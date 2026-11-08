@@ -7,7 +7,7 @@ services:
     ports:
       - '127.0.0.1:8090:8090'
     environment:
-      APP_URL: '${BESZEL_HUB_URL:?private HTTPS hub URL required}'
+      APP_URL: '${BESZEL_APP_URL:-${BESZEL_HUB_URL:?private HTTPS hub URL required}}'
       DISABLE_SSH: 'true'
       CHECK_UPDATES: 'false'
     volumes:
@@ -21,3 +21,33 @@ services:
     cpus: 1.0
     pids_limit: 128
     stop_grace_period: 30s
+  # Outbound-only Cloudflare Tunnel for the public dashboard hostname. The
+  # connector token is delivered from Vault to a root-owned file by hub.yml.
+  cloudflared:
+    profiles: [public-endpoint]
+    image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+    user: '1000:1000'
+    restart: unless-stopped
+    command:
+      [
+        'tunnel',
+        '--no-autoupdate',
+        'run',
+        '--token-file',
+        '/run/secrets/tunnel-token',
+      ]
+    volumes:
+      - /var/lib/personal-beszel-tunnel/token:/run/secrets/tunnel-token:ro
+    depends_on:
+      - hub
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    logging:
+      driver: local
+      options:
+        max-size: '5m'
+        max-file: '2'

@@ -44,6 +44,27 @@
         owner: root
         group: root
         mode: '0700'
+    - name: Deliver the public dashboard connector credential
+      when: beszel_tunnel_token | default('') | length > 0
+      block:
+        - name: Validate the public dashboard URL
+          ansible.builtin.assert:
+            that: beszel_public_url is match('^https://[a-z0-9.-]+\.chrisvouga\.dev$')
+        - name: Create the root-owned connector credential directory
+          ansible.builtin.file:
+            path: /var/lib/personal-beszel-tunnel
+            state: directory
+            owner: root
+            group: root
+            mode: '0700'
+        - name: Write the connector token for the unprivileged container user
+          ansible.builtin.copy:
+            dest: /var/lib/personal-beszel-tunnel/token
+            content: '{{ beszel_tunnel_token }}'
+            owner: '1000'
+            group: '1000'
+            mode: '0400'
+          no_log: true
     - name: Start pinned stock Compose service
       ansible.builtin.command:
         argv:
@@ -59,8 +80,30 @@
           ]
       environment:
         BESZEL_HUB_URL: '{{ beszel_hub_url }}'
+        BESZEL_APP_URL: '{{ beszel_public_url | default(beszel_hub_url) }}'
       register: hub_apply
       changed_when: "'Started' in hub_apply.stderr or 'Created' in hub_apply.stderr or 'Recreated' in hub_apply.stderr"
+    - name: Start the public connector when its credential is present
+      ansible.builtin.command:
+        argv:
+          [
+            docker,
+            compose,
+            '-f',
+            '{{ playbook_dir }}/compose.yml',
+            --profile,
+            public-endpoint,
+            up,
+            '-d',
+            '--pull',
+            missing,
+          ]
+      environment:
+        BESZEL_HUB_URL: '{{ beszel_hub_url }}'
+        BESZEL_APP_URL: '{{ beszel_public_url | default(beszel_hub_url) }}'
+      when: beszel_tunnel_token | default('') | length > 0
+      register: tunnel_apply
+      changed_when: "'Started' in tunnel_apply.stderr or 'Created' in tunnel_apply.stderr or 'Recreated' in tunnel_apply.stderr"
     - name: Independently verify the local hub health endpoint
       ansible.builtin.uri:
         url: http://127.0.0.1:8090/api/health

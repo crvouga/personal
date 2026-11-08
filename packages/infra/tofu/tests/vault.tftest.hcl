@@ -82,7 +82,7 @@ override_data {
       r2_access_key_id     = "r2-key"
       r2_secret_access_key = "r2-secret"
       router_token         = "router-token"
-      local_tunnel_tokens  = { cli-proxy = "local-connector-token" }
+      local_tunnel_tokens  = { cli-proxy = "local-connector-token", beszel = "beszel-connector-token" }
       database_url         = "postgres://owner:secret@db.example.net/app?sslmode=require"
       auth_console_database = {
         production    = "postgres://console-prd:secret@db.example.net/app?sslmode=verify-full"
@@ -301,5 +301,17 @@ run "isolated_local_tunnel_credential" {
   assert {
     condition     = vault_kv_secret_v2.local_tunnel["cli-proxy"].name == "cliproxy-fleet/tunnel" && jsondecode(vault_kv_secret_v2.local_tunnel["cli-proxy"].data_json).TUNNEL_TOKEN == "local-connector-token"
     error_message = "Local connector credentials must use their isolated document and foundation-owned token."
+  }
+}
+
+run "hub_tunnel_credential_is_readable_only_by_the_hub_token" {
+  command = plan
+  assert {
+    condition     = vault_kv_secret_v2.local_tunnel["beszel"].name == "beszel/tunnel" && jsondecode(vault_kv_secret_v2.local_tunnel["beszel"].data_json).TUNNEL_TOKEN == "beszel-connector-token"
+    error_message = "The dashboard connector credential must use its isolated document."
+  }
+  assert {
+    condition     = vault_token.managed["fleet-worker-chris-vouga-ms-a2"].policies == toset(["beszel-hub-read"])
+    error_message = "Only the hub node's worker token may read the dashboard connector credential."
   }
 }

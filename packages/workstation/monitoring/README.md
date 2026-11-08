@@ -13,7 +13,18 @@ effort and less sandboxed than the Linux unit. The hub itself stays on Linux.
 The singleton host is selected in Fleet `definition.json`. Its dashboard is
 `https://<enrolled-hub-MagicDNS-name>:8443`, linked in the consolidated CLI result.
 The Compose port is loopback-only; Tailscale Serve provides private HTTPS. No
-Funnel or public listener is configured. On a fresh selected hub, Workstation installs the pinned native Ubuntu Docker engine and Compose from the reviewed snapshot. Existing engines retain their owner; incomplete third-party installations or missing Compose support require repair through that owner. No running engine is restarted merely to install monitoring. Native agents
+Funnel or inbound listener is configured. The same hub is also served at
+`https://beszel.chrisvouga.dev` through an outbound-only Cloudflare Tunnel: the
+inventory's `cloudflare.additional_tunnels.beszel` entry makes OpenTofu own the
+tunnel, its proxied DNS record and the isolated `secret/beszel/tunnel` Vault
+document (readable only by the hub node's `beszel-hub-read` worker token). The
+hub converge reads that document with the node's own login, writes it to a
+root-owned file and starts the pinned `cloudflared` Compose profile; until the
+credential exists the step warns (`BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE`) and the
+private dashboard is unaffected. Agents and the controller keep using the private
+URL; `fleet-status --workers` reports the public hostname as a warning-level
+`beszel:public-endpoint` check. The hub's own login still guards the public URL.
+On a fresh selected hub, Workstation installs the pinned native Ubuntu Docker engine and Compose from the reviewed snapshot. Existing engines retain their owner; incomplete third-party installations or missing Compose support require repair through that owner. No running engine is restarted merely to install monitoring. Native agents
 use outbound authenticated WebSockets, per-node tokens and persistent identity.
 They do not need inbound SSH monitoring ports, Docker socket access or journals.
 `SKIP_SYSTEMD_LOGS=true` deliberately excludes potentially sensitive service logs.
