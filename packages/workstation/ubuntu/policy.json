@@ -23,5 +23,21 @@
   "minimumFreeInodes": 10000,
   "serviceStartLimitBurst": 5,
   "serviceStartLimitIntervalSeconds": 300,
-  "alwaysOnServices": ["ssh", "tailscaled", "docker", "beszel-agent"]
+  "alwaysOnServices": ["ssh", "tailscaled", "docker", "beszel-agent"],
+  "resourceSafety": {
+    "swapFileMiB": 8192,
+    "userMemoryMax": "90%",
+    "agentMemoryMax": "30%",
+    "agentSwapMax": "2G",
+    "journalMaxUse": "1G",
+    "journalKeepFree": "4G",
+    "tmpMaxSize": "25%",
+    "tmpAge": "2d",
+    "varTmpAge": "14d",
+    "diskGuardFloorMiB": 3072,
+    "diskGuardWriteMiB": 32,
+    "diskGuardIntervalSeconds": 5,
+    "dockerLogMaxSize": "50m",
+    "dockerLogMaxFiles": "3"
+  }
 }

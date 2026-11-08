@@ -16,7 +16,8 @@ Use `npx @crvouga/personal fleet-sync` to reconcile all declared workers and
 scope of readiness. `fleet-status` without flags diagnoses the local roster.
 Ubuntu 26.04 is the accepted worker platform; macOS 14+ nodes converge best effort
 through `packages/workstation/macos`. Machine policy (never sleep, no automatic
-logout, always-on Tailscale/SSH/Docker/Beszel, per-node credential renewal) is
+logout, always-on Tailscale/SSH/Docker/Beszel, memory and disk safety, per-node
+credential renewal) is
 declared in Ansible and measured by `fleet-status --workers`, which also verifies
 the centralized Beszel dashboard. See the
 [platform matrix](docs/ubuntu-sync.md#machine-policy-by-platform).

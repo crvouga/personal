@@ -5,6 +5,7 @@ import {
   verifyT3Policy,
 } from '../../workstation/cli/lib/platform/t3-policy';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
+import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
 import { convergeProxy } from './proxy-converge';
 import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
@@ -57,6 +58,11 @@ export async function convergeLinux(
   checks.push(
     ...(await attempt('ubuntu:boot-policy', () =>
       verifyUbuntuBoot(userInfo().username, run)
+    ))
+  );
+  checks.push(
+    ...(await attempt('ubuntu:resource-safety', () =>
+      verifyResourceSafety(userInfo().homedir, run)
     ))
   );
   checks.push(...(await t3AfterBaseline(root, node, baseline, run)));

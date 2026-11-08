@@ -1,6 +1,7 @@
 import { powerRecoveryCheck } from './power-recovery';
 import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
+import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { verifyDarwinMachine } from '../../workstation/cli/lib/platform/darwin-verify';
 import policy from '../../workstation/ubuntu/policy.json';
 import { userInfo } from 'node:os';
@@ -73,6 +74,7 @@ export async function workerHostChecks(
   }
   checks.push(...(await recoveryChecks(run)));
   checks.push(...(await verifyUbuntuBoot(user, run)));
+  checks.push(...(await verifyResourceSafety(userInfo().homedir, run)));
   return checks;
 }
 

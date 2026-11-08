@@ -25,6 +25,8 @@
         that:
           - ansible_facts.getent_passwd[development_user][1] | int == development_uid | int
           - ansible_facts.getent_passwd[development_user][4] == development_home
+    # Memory and disk safety must land even when the disk is nearly full.
+    - ansible.builtin.import_tasks: tasks/resources.yml
     - name: Inspect capacity before package and service changes
       ansible.builtin.command:
         argv:
