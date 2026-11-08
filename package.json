@@ -81,6 +81,7 @@
   "devDependencies": {
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
+    "@crvouga/personal": "workspace:*",
     "@inquirer/prompts": "catalog:",
     "@opencode-ai/plugin": "1.18.29",
     "@types/bun": "catalog:",
