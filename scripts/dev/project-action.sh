@@ -6,7 +6,7 @@ cd "$root"
 action=${1:-warm}
 if [[ $# -gt 0 ]]; then shift; fi
 case "$action" in
-warm | sync | update | net-fix | net-check | net-fix-check | portfolio | fleet-sync | fleet-converge | fleet-health | fleet-repair) ;;
+warm | portfolio | workstation-sync | workstation-update | workstation-net-fix | workstation-net-check | workstation-net-fix-check | fleet-sync | fleet-status | fleet-repair) ;;
 *)
   echo "Unknown project action: $action" >&2
   exit 2
@@ -21,17 +21,17 @@ run_personal() {
 }
 case "$action" in
 warm) ;;
-sync) run_personal workstation sync ;;
-update) run_personal workstation update ;;
-net-fix) run_personal workstation net fix ;;
-net-check) run_personal workstation net check ;;
-net-fix-check)
+workstation-sync) run_personal workstation sync ;;
+workstation-update) run_personal workstation update ;;
+workstation-net-fix) run_personal workstation net fix ;;
+workstation-net-check) run_personal workstation net check ;;
+workstation-net-fix-check)
   run_personal workstation net fix
   run_personal workstation net check
   ;;
 portfolio) mise exec -- bun run portfolio ;;
-# fleet-converge and fleet-health remain accepted action names for existing T3 project configuration.
-fleet-sync | fleet-converge) run_personal fleet-sync --revision "$(git rev-parse HEAD)" "$@" ;;
-fleet-health) run_personal fleet-status --workers "$@" ;;
+# Fleet and workstation actions are named exactly like the personal command they run.
+fleet-sync) run_personal fleet-sync --revision "$(git rev-parse HEAD)" "$@" ;;
+fleet-status) run_personal fleet-status --workers "$@" ;;
 fleet-repair) run_personal fleet-repair --json "$@" ;;
 esac

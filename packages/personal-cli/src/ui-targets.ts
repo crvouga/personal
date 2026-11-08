@@ -72,16 +72,16 @@ async function missingRoster(
   action: string
 ): Promise<string[] | undefined> {
   session.display.panel(
-    'Fleet setup needed',
+    'Roster needed',
     [
-      'No usable roster nodes. Return to Fleet: Register a developer computer to register an existing computer.',
+      'No usable roster nodes. Run fleet-node-add to register an existing computer.',
       'Controller-only status works without a roster or SSH. No login, host-key change or repair is automatic.',
     ].join('\n')
   );
   if (action !== 'doctor') return undefined;
   const choice = await session.prompts.select('Continue without a roster?', [
     { name: 'Run controller-only diagnostics', value: 'local' },
-    { name: 'Back to palette / Fleet setup', value: 'back' },
+    { name: 'Back to palette', value: 'back' },
   ]);
   return choice === 'local' ? ['--local'] : undefined;
 }

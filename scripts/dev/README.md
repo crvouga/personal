@@ -357,12 +357,15 @@ is not a reason to skip drift inspection.
 ### T3 project actions
 
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
-Actions: `warm`, `sync`, `update`, `net-fix`, `net-check`, `net-fix-check`,
-`portfolio`, `fleet-sync` (also accepted as `fleet-converge`), `fleet-health`,
-`fleet-repair`. Fleet convergence selects the current checkout HEAD as its exact
-revision and retains its approval flow; extra arguments such as `--dry-run` are
-forwarded. `fleet-health` runs `personal fleet-status --workers`, the canonical
-worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+Actions are named exactly like the `personal` command they run, so a T3 script
+label reads the same as the CLI: `warm`, `portfolio`, `workstation-sync`,
+`workstation-update`, `workstation-net-fix`, `workstation-net-check`,
+`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`. Label
+each T3 script `Domain: Command words` (`Fleet: Sync`, `Fleet: Status`,
+`Workstation: Net check`). `fleet-sync` selects the current checkout HEAD as its
+exact revision and retains its approval flow; extra arguments such as `--dry-run`
+are forwarded. `fleet-status` runs `personal fleet-status --workers`, the
+canonical worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)

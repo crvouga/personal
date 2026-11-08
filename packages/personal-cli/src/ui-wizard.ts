@@ -11,7 +11,7 @@ export async function addNode(session: Session): Promise<void> {
 
 function showIntro(session: Session): void {
   session.display.panel(
-    'Fleet setup / add node',
+    'fleet-node-add',
     [
       'Register an EXISTING computer in your local secret-free roster.',
       'Use a previously verified SSH alias. This wizard never connects, provisions, logs in or changes host keys.',

@@ -61,3 +61,21 @@ test('project convergence selects exact HEAD and forwards preview without adding
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('project actions are named exactly like the personal commands they run', async () => {
+  const { COMMANDS } = await import('../packages/personal-cli/src/registry');
+  const ids = new Set(COMMANDS.map((command) => command.id.split(' ')[0]));
+  const script = readFileSync(join(import.meta.dir, 'dev/project-action.sh'));
+  const list = /^warm \|.*\) ;;$/m.exec(script.toString())?.[0] ?? '';
+  const actions = list.replace(/\) ;;$/, '').split(' | ');
+  expect(actions.length).toBeGreaterThan(3);
+  for (const action of actions) {
+    if (action === 'warm' || action === 'portfolio') continue;
+    const domain = action.startsWith('workstation-') ? 'workstation' : action;
+    expect(ids.has(domain), action).toBe(true);
+  }
+  expect(script.toString()).not.toMatch(/fleet-converge|fleet-health/);
+  const readme = readFileSync(join(import.meta.dir, 'dev/README.md'), 'utf8');
+  for (const action of actions) expect(readme).toContain(`\`${action}\``);
+  expect(readme).not.toMatch(/fleet-converge|fleet-health/);
+});
