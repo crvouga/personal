@@ -1591,14 +1591,15 @@ untracked configuration edits.
 ```sh
 personal fleet-sync --dry-run --json
 personal fleet-sync --revision FULL_40_CHARACTER_SHA --dry-run --json
-personal fleet-sync --revision FULL_40_CHARACTER_SHA --apply --yes --non-interactive --json
+personal fleet-sync --revision FULL_40_CHARACTER_SHA --non-interactive --json
 ```
 
 Preview can query Tailscale and establish read-only SSH sessions. It never enrolls,
 authenticates to a provider, installs, creates pairing material, schedules work or
 writes configuration. JSON/noninteractive modes never prompt or open a browser.
-Unattended writes require **both** `--apply --yes`. Interactive use presents one
-fleet-wide apply confirmation, separate from initial trust/enrollment.
+`fleet-sync` applies on invocation with no confirmation prompt; use `--dry-run`
+to preview. `--apply --yes` is still accepted for existing scripts. Initial
+trust/enrollment of new connections still asks separately.
 
 Select one full lowercase commit SHA. Approval is saved on the controller and
 retained throughout the run. New package versions do not silently replace saved
@@ -1627,17 +1628,20 @@ independently. Bespoke TypeScript remains only where a native CLI or API has no
 declarative owner: T3 service lifecycle, Beszel enrollment tokens, provider
 verification and the CLIProxy singleton.
 
-| Policy                      | Linux (Ubuntu 26.04, accepted)                                                                   | macOS 14+ (best effort)                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Never sleep                 | systemd sleep targets masked; logind lid/idle policy; GNOME power plugin set to `nothing`        | `pmset -a sleep 0 disksleep 0 powernap 0 womp 1 autorestart 1` (unsupported keys skipped)          |
-| No automatic logout or lock | GNOME `lock-enabled false`, `idle-delay 0`; designated-user lingering                            | `AutoLogOutDelay 0`; designated user's screen saver `idleTime 0`                                   |
-| Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent   | launchd `KeepAlive` daemons for tailscaled (Homebrew formula) and the Beszel agent                 |
-| Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                  | Homebrew formula installed when missing, `tailscaled install-system-daemon`, native login required |
-| Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                      | pinned native binary, `/Library/LaunchDaemons/dev.chrisvouga.personal.beszel-agent.plist` as root  |
-| Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min | LaunchAgent `dev.chrisvouga.personal.worker-auth` with the same script every 10 minutes            |
-| Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                   | same fragment, group `wheel`                                                                       |
-| T3 worker service           | native `t3 service install`, user unit, bounded recovery timer, administrator policy             | out of scope (`t3:service` reported as not required); run `t3 service install` manually            |
-| Singleton gateway, hub      | `proxy.owner` and `monitoring.parent` must be Linux                                              | client only                                                                                        |
+| Policy                      | Linux (Ubuntu 26.04, accepted)                                                                                                                                                                               | macOS 14+ (best effort)                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Never sleep                 | systemd sleep targets masked; logind lid/idle policy; GNOME power plugin set to `nothing`                                                                                                                    | `pmset -a sleep 0 disksleep 0 powernap 0 womp 1 autorestart 1` (unsupported keys skipped)          |
+| No automatic logout or lock | GNOME `lock-enabled false`, `idle-delay 0`; designated-user lingering                                                                                                                                        | `AutoLogOutDelay 0`; designated user's screen saver `idleTime 0`                                   |
+| Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent                                                                                                               | launchd `KeepAlive` daemons for tailscaled (Homebrew formula) and the Beszel agent                 |
+| T3 health and connection    | `fleet-sync` and `fleet-status --workers` require `worker:t3-health` (local API answers), `t3:controller-endpoint` (controller HTTPS over Tailscale) and `t3:paired-access` (controller T3 link reachable)   | not converged                                                                                      |
+| Memory safety               | `systemd-oomd` (swap 90%, pressure 60%); `user.slice` `MemoryMax=90%`; each `t3code-*.scope` agent `MemoryMax=30%`, `OOMPolicy=continue`; swap file when none                                                | not converged (native memory compressor)                                                           |
+| Disk safety                 | `personal-fleet-disk-guard` kills only the top user-cgroup writer below 3 GiB free, never deletes files; journal 1G; `/tmp` 25% of RAM, aged 2d hourly; Docker log rotation                                  | not converged                                                                                      |
+| Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                                                                                                                              | Homebrew formula installed when missing, `tailscaled install-system-daemon`, native login required |
+| Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                                                                                                                                  | pinned native binary, `/Library/LaunchDaemons/dev.chrisvouga.personal.beszel-agent.plist` as root  |
+| Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min                                                                                                             | LaunchAgent `dev.chrisvouga.personal.worker-auth` with the same script every 10 minutes            |
+| Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                                                                                                                               | same fragment, group `wheel`                                                                       |
+| T3 worker service           | native `t3 service install`, user unit `Restart=always`; `personal-worker-recovery` checks every minute, starts a stopped service and restarts one whose local API missed three checks; administrator policy | out of scope (`t3:service` reported as not required); run `t3 service install` manually            |
+| Singleton gateway, hub      | `proxy.owner` and `monitoring.parent` must be Linux                                                                                                                                                          | client only                                                                                        |
 
 Credential sync is deliberately indirect: no secret is copied between machines.
 OpenTofu issues each enrolled worker its own renewable periodic token

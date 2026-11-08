@@ -120,14 +120,15 @@ untracked configuration edits.
 ```sh
 personal fleet-sync --dry-run --json
 personal fleet-sync --revision FULL_40_CHARACTER_SHA --dry-run --json
-personal fleet-sync --revision FULL_40_CHARACTER_SHA --apply --yes --non-interactive --json
+personal fleet-sync --revision FULL_40_CHARACTER_SHA --non-interactive --json
 ```
 
 Preview can query Tailscale and establish read-only SSH sessions. It never enrolls,
 authenticates to a provider, installs, creates pairing material, schedules work or
 writes configuration. JSON/noninteractive modes never prompt or open a browser.
-Unattended writes require **both** `--apply --yes`. Interactive use presents one
-fleet-wide apply confirmation, separate from initial trust/enrollment.
+`fleet-sync` applies on invocation with no confirmation prompt; use `--dry-run`
+to preview. `--apply --yes` is still accepted for existing scripts. Initial
+trust/enrollment of new connections still asks separately.
 
 Select one full lowercase commit SHA. Approval is saved on the controller and
 retained throughout the run. New package versions do not silently replace saved

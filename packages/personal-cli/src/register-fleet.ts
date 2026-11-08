@@ -188,8 +188,11 @@ function registerSync({ program, defaults, complete }: Registration) {
       '--dry-run',
       'Read-only plan; no authentication, enrollment, installation or scheduling'
     )
-    .option('--apply', 'Authorize changes; unattended use requires --yes')
-    .option('--yes', 'Confirm --apply')
+    .option(
+      '--apply',
+      'Accepted for compatibility; fleet-sync applies by default (schedule writes still need --apply --yes)'
+    )
+    .option('--yes', 'Accepted for compatibility with --apply')
     .option(
       '--schedule <action>',
       'Controller-only schedule: enable, pause, resume, disable, status'
