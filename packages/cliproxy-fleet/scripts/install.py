@@ -120,12 +120,13 @@ def restore_repository_ownership(repo, metadata):
     )
     if not common.is_absolute():
         common = pathlib.Path(repo) / common
-    paths = [common / "config", metadata]
+    # The worktrees directory itself is created by the first `git worktree add`.
+    paths = [common / "config", metadata.parent, metadata]
     for base in paths:
         if not base.exists():
             continue
         targets = [base]
-        if base.is_dir():
+        if base.is_dir() and base != metadata.parent:
             targets.extend(base.rglob("*"))
         for path in targets:
             if path.is_symlink():
