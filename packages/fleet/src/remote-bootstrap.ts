@@ -44,27 +44,44 @@ export async function prepareBootstrap(
     run
   );
   if (!script || !sudoScript) return null;
+  return bundleRevision(
+    { root, source, revision },
+    { script, authorizeSudo: sudoScript },
+    run
+  );
+}
+
+/** git bundle refuses a bare commit id ("empty bundle"); bundle a temporary ref
+ * that names the approved revision and remove it afterwards.
+ */
+async function bundleRevision(
+  {
+    root,
+    source,
+    revision,
+  }: { root: string; source: string; revision: string },
+  scripts: { script: string; authorizeSudo: string },
+  run: Runner
+): Promise<BootstrapPayload | null> {
   const path = join(root, `transfer-${randomUUID()}.bundle`);
+  const ref = `refs/personal-fleet/${revision}`;
   try {
-    if (
-      !(
-        await run(['git', 'bundle', 'create', path, revision], {
-          cwd: source,
-          timeoutMs: 120_000,
-        })
-      ).ok
-    )
+    if (!(await run(['git', 'update-ref', ref, revision], { cwd: source })).ok)
       return null;
-    if ((await stat(path)).size > 512 * 1024 * 1024) return null;
+    const bundled = await run(['git', 'bundle', 'create', path, ref], {
+      cwd: source,
+      timeoutMs: 120_000,
+    });
+    if (!bundled.ok || (await stat(path)).size > 512 * 1024 * 1024) return null;
     const bundle = await readFile(path);
     return {
       revision,
-      script,
-      authorizeSudo: sudoScript,
+      ...scripts,
       bundle: bundle.toString('base64'),
       digest: createHash('sha256').update(bundle).digest('hex'),
     };
   } finally {
+    await run(['git', 'update-ref', '-d', ref], { cwd: source });
     await unlink(path).catch(() => undefined);
   }
 }
