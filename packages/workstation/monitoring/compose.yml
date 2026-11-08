@@ -10,6 +10,8 @@ services:
       APP_URL: '${BESZEL_APP_URL:-${BESZEL_HUB_URL:?private HTTPS hub URL required}}'
       DISABLE_SSH: 'true'
       CHECK_UPDATES: 'false'
+      # Single-operator private hub: fleet-registered systems are visible to every login.
+      SHARE_ALL_SYSTEMS: 'true'
     volumes:
       - /var/lib/personal-beszel:/beszel_data
     logging:

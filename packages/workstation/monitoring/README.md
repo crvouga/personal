@@ -36,6 +36,8 @@ Create the first (superuser) hub account through its private stock UI. Controlle
 enrollment uses the normal Beszel account `fleet-controller@chrisvouga.dev`, whose
 password OpenTofu generates as `BESZEL_FLEET_AUTH` in `secret/personal/prd`; create
 that user in the hub with the generated password and grant it the fleet systems.
+The hub runs with `SHARE_ALL_SYSTEMS=true`, so systems that account registers are
+visible to every hub login.
 A legacy JSON `identity`/`password` value is still accepted. The controller's existing
 Vault credential must renew unattended. Superuser credentials are not distributed
 to nodes or needed for enrollment. Revocation produces action-required results.

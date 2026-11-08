@@ -301,7 +301,9 @@ OpenTofu generates the enrollment credential: `BESZEL_FLEET_AUTH` in
 `secret/personal/prd` is the password of the normal (non-superuser) Beszel account
 `fleet-controller@chrisvouga.dev`. After the vault root has applied, create that
 account once on the hub with the generated password (hub superuser → Users →
-New record, or the PocketBase API) and grant it the fleet systems. A legacy JSON
+New record, or the PocketBase API) and grant it the fleet systems.
+The hub runs with `SHARE_ALL_SYSTEMS=true`, so systems that account registers are
+visible to every hub login. A legacy JSON
 `{identity, password}` value is still accepted. No Vault policy is seeded by
 setup; never pass the credential on command arguments. Only per-node agent
 tokens cross SSH stdin. Supported systems/fingerprints APIs reuse canonical node
