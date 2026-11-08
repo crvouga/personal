@@ -46,13 +46,16 @@ const agentsBounded: Probe = async (run) =>
         'T3 agent scopes have no per-agent memory limit. Reapply fleet-sync; new agents pick it up without restarts.',
       ];
 
-const swapActive: Probe = async (run) =>
-  (await run(['swapon', '--show=NAME', '--noheadings'])).stdout.trim()
+const swapActive: Probe = async (run) => {
+  // /proc/swaps, not swapon: /usr/sbin is not on the remote worker PATH.
+  const swaps = await run(['cat', '/proc/swaps']);
+  return swaps.ok && swaps.stdout.trim().split('\n').length > 1
     ? undefined
     : [
         'SWAP_MISSING',
         'No swap is active. Reapply fleet-sync with enough free disk for the swap file.',
       ];
+};
 
 const diskAboveFloor =
   (path: string): Probe =>

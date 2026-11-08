@@ -13,7 +13,10 @@ const healthy: Runner = async (args) => {
   if (args.includes('user.slice')) return result('MemoryMax=29720510464\n');
   if (args.includes('-.slice')) return result('ManagedOOMSwap=kill\n');
   if (args[0] === 'test') return result('');
-  if (args[0] === 'swapon') return result('/swap.img\n');
+  if (args[0] === 'cat')
+    return result(
+      'Filename Type Size Used Priority\n/swap.img file 8388604 0 -2\n'
+    );
   if (args[0] === 'df') return result('Avail\n107374182400\n');
   throw new Error('Unexpected command ' + args.join(' '));
 };
@@ -44,7 +47,7 @@ test('uncapped user memory fails', async () => {
 });
 test('no swap fails', async () => {
   const checks = await verify((args) =>
-    args[0] === 'swapon' ? result('') : undefined
+    args[0] === 'cat' ? result('Filename Type Size Used Priority\n') : undefined
   );
   expect(checks[0]?.summary).toBe('SWAP_MISSING');
 });
