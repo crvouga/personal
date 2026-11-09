@@ -81,9 +81,10 @@ async function t3Checks(
   run: Runner,
   managerChecksLinks = false
 ): Promise<Check[]> {
-  const config = await run(['t3', 'status', '--json']);
+  const t3 = await t3Executable(run);
+  const config = await run([t3, 'status', '--json']);
   const checks: Check[] = [t3Settings(config)];
-  const live = await run(['t3', 'environment', 'list', '--json']);
+  const live = await run([t3, 'environment', 'list', '--json']);
   checks.push({
     id: 't3:api',
     status: live.ok ? 'pass' : 'fail',
@@ -107,6 +108,22 @@ async function t3Checks(
         'Relay traversal and remote peer authorization require an operator connection test; local settings are not proof.',
     });
   return checks;
+}
+
+/** Workers run only the T3 desktop app, so no `t3` launcher need be on PATH.
+ * Fall back to the newest pinned native CLI the shared installer verified.
+ */
+async function t3Executable(run: Runner): Promise<string> {
+  const found = await run(
+    [
+      'sh',
+      '-c',
+      'command -v t3 || ls -d "$HOME"/.local/share/personal/tools/t3-*/t3 2>/dev/null | sort -V | tail -n 1',
+    ],
+    { timeoutMs: 5000 }
+  );
+  const path = found.ok ? (found.stdout.trim().split('\n').pop() ?? '') : '';
+  return /^\/[\x21-\x7e]+$/.test(path) ? path : 't3';
 }
 
 function t3Settings(config: CommandResult): Check {
