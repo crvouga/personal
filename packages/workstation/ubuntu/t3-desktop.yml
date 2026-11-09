@@ -3,11 +3,30 @@
 # on 127.0.0.1:3773. GDM logs the designated user in automatically and the user
 # unit starts the app with the graphical session, so the UI is on screen and the
 # server is up after every boot. Starting or migrating is left to fleet-sync.
+#
+# The upstream .deb declares libxss1, which Ubuntu 26.04 no longer ships and the
+# binary does not link. Instead of patching the package or leaving apt with an
+# unmet dependency, the verified package payload is unpacked to its own path and
+# its real runtime libraries and bundled AppArmor profile are installed.
 - name: Install the pinned T3 Code desktop app and start it with the session
   hosts: localhost
   connection: local
   become: true
   gather_facts: false
+  vars:
+    t3_desktop_dir: /opt/T3 Code (Nightly)
+    # The package's Depends without libxss1 (see above).
+    t3_desktop_libraries:
+      - libasound2t64
+      - libatspi2.0-0t64
+      - libgbm1
+      - libgtk-3-0t64
+      - libnotify4
+      - libnss3
+      - libsecret-1-0
+      - libuuid1
+      - libxtst6
+      - xdg-utils
   tasks:
     - name: Create the package cache
       ansible.builtin.file:
@@ -23,10 +42,91 @@
         checksum: 'sha256:{{ t3_desktop_sha256 }}'
         mode: '0644'
         timeout: 300
-    - name: Install the pinned desktop package
+    - name: Install the desktop runtime libraries
       ansible.builtin.apt:
-        deb: '/var/cache/personal-fleet/{{ t3_desktop_name }}'
+        name: '{{ t3_desktop_libraries }}'
+        state: present
         lock_timeout: 120
+    - name: Read the unpacked app version
+      ansible.builtin.command:
+        argv: [cat, '{{ t3_desktop_dir }}/.personal-fleet-version']
+      register: t3_desktop_installed
+      changed_when: false
+      failed_when: false
+    - name: Unpack the pinned app when its version differs
+      when: t3_desktop_installed.stdout | default('') != t3_desktop_name
+      block:
+        - name: Clear the staging directory
+          ansible.builtin.file:
+            path: /opt/.t3code-staging
+            state: absent
+        - name: Unpack the verified package payload
+          ansible.builtin.command:
+            argv:
+              - dpkg-deb
+              - -x
+              - '/var/cache/personal-fleet/{{ t3_desktop_name }}'
+              - /opt/.t3code-staging
+          changed_when: true
+        - name: Record the unpacked package
+          ansible.builtin.copy:
+            dest: '/opt/.t3code-staging{{ t3_desktop_dir }}/.personal-fleet-version'
+            content: '{{ t3_desktop_name }}'
+            mode: '0644'
+        - name: Remove the copy kept from the previous update
+          ansible.builtin.file:
+            path: '{{ t3_desktop_dir }}.previous'
+            state: absent
+        - name: Inspect the current app directory
+          ansible.builtin.stat:
+            path: '{{ t3_desktop_dir }}'
+          register: t3_desktop_current
+        - name: Keep the current app until the next update (a running app keeps its files)
+          ansible.builtin.command:
+            argv:
+              [mv, -T, '{{ t3_desktop_dir }}', '{{ t3_desktop_dir }}.previous']
+          when: t3_desktop_current.stat.exists
+          changed_when: true
+        - name: Move the pinned app into place
+          ansible.builtin.command:
+            argv:
+              - mv
+              - -T
+              - '/opt/.t3code-staging{{ t3_desktop_dir }}'
+              - '{{ t3_desktop_dir }}'
+          changed_when: true
+        - name: Add the launcher entry and icon
+          ansible.builtin.copy:
+            src: '/opt/.t3code-staging/usr/share/{{ item }}'
+            dest: '/usr/share/{{ item }}'
+            remote_src: true
+            mode: '0644'
+          loop:
+            - applications/t3code.desktop
+            - icons/hicolor/512x512/apps/t3code.png
+        - name: Remove the staging directory
+          ansible.builtin.file:
+            path: /opt/.t3code-staging
+            state: absent
+    - name: Install the AppArmor profile the package ships
+      ansible.builtin.copy:
+        src: '{{ t3_desktop_dir }}/resources/apparmor-profile'
+        dest: /etc/apparmor.d/t3code
+        remote_src: true
+        mode: '0644'
+      register: t3_desktop_apparmor
+    - name: Load the AppArmor profile so the app sandbox can start
+      ansible.builtin.command:
+        argv:
+          [
+            apparmor_parser,
+            --replace,
+            --write-cache,
+            --skip-read-cache,
+            /etc/apparmor.d/t3code,
+          ]
+      when: t3_desktop_apparmor.changed
+      changed_when: true
     - name: Inspect the GDM configuration
       ansible.builtin.stat:
         path: /etc/gdm3/custom.conf
@@ -64,7 +164,7 @@
           Type=simple
           WorkingDirectory=%h
           Environment=T3CODE_HOME=%h/.t3
-          ExecStart="/opt/T3 Code (Nightly)/t3code"
+          ExecStart="{{ t3_desktop_dir }}/t3code"
           KillMode=mixed
           Restart=always
           RestartSec=5
