@@ -27,7 +27,7 @@
       "codex": "gpt-6.1-sol",
       "claude": "claude-sonnet-4-6",
       "opencode": "gpt-6.1-sol",
-      "gemini": "gemini-2.5-flash"
+      "gemini": "gemini-3-flash"
     },
     "routes": {
       "claude": {
@@ -41,7 +41,7 @@
         "harness": "opencode"
       },
       "gemini": {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3-flash",
         "native": "gemini",
         "harness": "opencode"
       },

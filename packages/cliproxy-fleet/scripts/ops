@@ -256,7 +256,7 @@ try:
     elif command == "apply":
         operation_lock = lock()
         candidate = pathlib.Path(sys.argv[2]).resolve()
-        run([str(root / "scripts/validate-config"), str(candidate)])
+        run([str(root / "scripts/validate-config"), str(candidate), "--require-fill-first"])
         staging(candidate)
         shutil.copy2(
             root / "state/runtime/config.yaml",

@@ -46,6 +46,7 @@
       "worker"
     ],
     "githubLogin": "crvouga",
+    "vaultUser": "crvouga",
     "toolchain": "mise.lock",
     "agentProfile": "proxy",
     "unattendedSudo": true,

@@ -4,7 +4,7 @@ import { select } from './registry';
 
 test('native Gemini uses generateContent rather than an OpenAI inference request', () => {
   const request = inferenceRequest(select('devbox', 'gemini', 'proxy'));
-  expect(request.path).toBe('/v1beta/models/gemini-2.5-flash:generateContent');
+  expect(request.path).toBe('/v1beta/models/gemini-3-flash:generateContent');
   expect(request.body).toEqual({
     contents: [{ role: 'user', parts: [{ text: 'Reply OK.' }] }],
     generationConfig: { maxOutputTokens: 16 },

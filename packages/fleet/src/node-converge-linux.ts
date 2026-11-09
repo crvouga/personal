@@ -9,7 +9,7 @@ import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resourc
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
 import { convergeProxy } from './proxy-converge';
 import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
-import { managedT3 } from '../../../scripts/dev/native-t3';
+import { managedT3, managedT3Desktop } from '../../../scripts/dev/native-t3';
 import { convergeT3Service } from '../../workstation/cli/lib/platform/t3-service';
 import { userInfo } from 'node:os';
 import { resolve } from 'node:path';
@@ -139,10 +139,15 @@ async function convergeT3(
   run: Runner
 ): Promise<Check[]> {
   const artifact = managedT3();
-  const checks = await convergeT3Service(artifact, run, async () => {
-    const staged = await stageT3Policy(root, artifact.path, run, node);
-    return staged.status === 'pass' ? [] : [staged];
-  });
+  const checks = await convergeT3Service(
+    artifact,
+    run,
+    async () => {
+      const staged = await stageT3Policy(root, artifact.path, run, node);
+      return staged.status === 'pass' ? [] : [staged];
+    },
+    () => installT3Desktop(root, run)
+  );
   if (checks.every((check) => check.status === 'pass'))
     checks.push(await verifyT3Policy(artifact.path, run));
   const serviceReady = checks.some(
@@ -151,6 +156,29 @@ async function convergeT3(
   if (serviceReady) checks.push(...(await convergeT3Route(run)));
   if (serviceReady) checks.push(...(await enableWorkerRecovery(root, run)));
   return checks;
+}
+
+async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
+  const user = userInfo();
+  const desktop = managedT3Desktop();
+  const result = await runAnsible(
+    run,
+    resolve(root, 'packages/workstation/ubuntu/t3-desktop.yml'),
+    {
+      cwd: root,
+      timeoutMs: 600_000,
+      input: JSON.stringify({
+        development_source: root,
+        development_user: user.username,
+        development_uid: user.uid,
+        development_home: user.homedir,
+        t3_desktop_url: desktop.url,
+        t3_desktop_name: desktop.name,
+        t3_desktop_sha256: desktop.sha256,
+      }),
+    }
+  );
+  return result.ok;
 }
 
 async function t3AfterBaseline(
@@ -198,7 +226,7 @@ async function enableWorkerRecovery(
       id: 'worker:service-recovery',
       status: result.ok ? 'pass' : 'fail',
       summary: result.ok
-        ? 'T3 recovery enabled: a stopped service is started and an unresponsive one restarted after three failed one-minute health checks.'
+        ? 'T3 recovery enabled: a stopped desktop app is started and an unresponsive one restarted after three failed one-minute health checks.'
         : 'WORKER_RECOVERY_SETUP_FAILED',
     },
   ];

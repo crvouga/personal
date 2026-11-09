@@ -128,3 +128,14 @@ def fresh(value, seconds, now=None):
     age = (now - timestamp(value)).total_seconds()
     if not -300 <= age <= seconds:
         raise ValueError("Cloud status is stale or future-dated")
+
+
+def client_key(token):
+    """Read only the client API key; independent of the backup fields in settings()."""
+    status, body = request(VAULT_URL + "/v1/secret/data/personal/prd", {"X-Vault-Token": token})
+    if status != 200:
+        raise ValueError("Vault read failed")
+    value = json.loads(body)["data"]["data"].get("CLIPROXY_FLEET_CLIENT_API_KEY")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Vault has no client API key")
+    return value.strip()

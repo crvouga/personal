@@ -48,8 +48,16 @@ export const SOURCE_OPERATIONS: Record<string, SourceOperation> = {
   'infra-cliproxy': {
     title: 'CLIProxyAPI service',
     description:
-      'Install, inspect, back up and recover the private CLIProxyAPI Compose service.',
-    keywords: ['cliproxy', 'codex', 'proxy', 'compose', 'backup'],
+      'Install, inspect, back up, recover and validate model health (model-health, model-suite) of the CLIProxyAPI service.',
+    keywords: [
+      'cliproxy',
+      'codex',
+      'proxy',
+      'compose',
+      'backup',
+      'models',
+      'health',
+    ],
     mutation: true,
     command: ['python3', '-B', 'packages/cliproxy-fleet/scripts/cli.py'],
   },

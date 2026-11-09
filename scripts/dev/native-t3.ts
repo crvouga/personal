@@ -19,7 +19,38 @@ interface Configuration {
     t3_version: string;
     t3_linux_x64_sha256: string;
     t3_linux_arm64_sha256: string;
+    t3_desktop_amd64_sha256: string;
+    t3_desktop_arm64_sha256: string;
   };
+}
+/** Pinned desktop .deb for Ubuntu workers. The GUI app is the worker's only T3
+ * process and embeds the server; the CLI tarball stays for policy commands. */
+export function desktopT3Artifact(config: Configuration, architecture: string) {
+  const deb = { x64: 'amd64', arm64: 'arm64' }[architecture];
+  if (!deb) throw new Error('Unsupported T3 architecture.');
+  const version = config.vars.t3_version;
+  const sha256 =
+    deb === 'amd64'
+      ? config.vars.t3_desktop_amd64_sha256
+      : config.vars.t3_desktop_arm64_sha256;
+  if (
+    !/^\d+\.\d+\.\d+(?:-nightly\.\d{8}\.\d+)?$/.test(version) ||
+    !/^[a-f0-9]{64}$/.test(sha256)
+  )
+    throw new Error('Invalid T3 desktop pin.');
+  const name = `T3-Code-${version}-${deb}.deb`;
+  return {
+    version,
+    sha256,
+    name,
+    url: `https://github.com/pingdotgg/t3code/releases/download/v${version}/${name}`,
+  };
+}
+export function managedT3Desktop() {
+  const config = Bun.TOML.parse(
+    readFileSync(join(workspaceRoot, 'mise.toml'), 'utf8')
+  ) as Configuration;
+  return desktopT3Artifact(config, process.arch);
 }
 export function nativeT3Artifact(config: Configuration, architecture: string) {
   if (!['x64', 'arm64'].includes(architecture))

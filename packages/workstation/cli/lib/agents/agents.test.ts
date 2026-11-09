@@ -47,7 +47,7 @@ describe('agent configuration ownership', () => {
       })
     ).toBe('reviewed-model');
     expect(() => select('../escape', 'codex', 'direct')).toThrow();
-    expect(select('node', 'gemini', 'proxy').model).toBe('gemini-2.5-flash');
+    expect(select('node', 'gemini', 'proxy').model).toBe('gemini-3-flash');
     expect(
       render(select('node', 'gemini', 'proxy'))['.gemini/settings.json']
     ).toContain('gateway');

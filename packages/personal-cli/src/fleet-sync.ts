@@ -5,6 +5,7 @@ import { controllerFailure } from '../../fleet/src/controller-failure';
 import { controllerText } from './fleet-sync-output';
 import { controllerSchedule, type ScheduleAction } from './fleet-sync-schedule';
 import { enrollController } from './fleet-sync-enrollment';
+import { authorizeController } from './fleet-sync-vault';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -81,6 +82,8 @@ export async function fleetSync(
   request.yes = true;
   if (interactive(options)) {
     await enrollController(settings.config, run);
+    // Needed to hand each node its own Vault token; nodes report any gap.
+    await authorizeController({ interactive: true }, run);
     request.interactiveAuthorization = true;
   }
   return withMachineLock(root, async () => {

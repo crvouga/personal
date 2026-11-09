@@ -84,11 +84,15 @@ async function call(
     redirect: 'error',
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok)
-    throw new Error(
-      response.status === 401 || response.status === 403
-        ? 'BESZEL_AUTH_REQUIRED'
-        : 'BESZEL_API_UNAVAILABLE'
-    );
+  if (!response.ok) throw new Error(failure(response.status, path));
   return response.json() as Promise<unknown>;
+}
+
+/** PocketBase answers a rejected password login with 400, not 401. */
+export function failure(status: number, path: string): string {
+  if (status === 400 && path.endsWith('/auth-with-password'))
+    return 'BESZEL_ACCOUNT_REQUIRED';
+  return status === 401 || status === 403
+    ? 'BESZEL_AUTH_REQUIRED'
+    : 'BESZEL_API_UNAVAILABLE';
 }

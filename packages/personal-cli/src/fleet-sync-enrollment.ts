@@ -4,7 +4,6 @@ import { loadConfig } from '../../fleet/src/config';
 import { enrolledRoster } from '../../fleet/src/definition';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { dirname } from 'node:path';
-import { confirm } from '@inquirer/prompts';
 import definition from '../../fleet/definition.json';
 import { parseDefinition } from '../../fleet/src/definition';
 import { discoverTailnet } from '../../fleet/src/tailscale';
@@ -57,17 +56,11 @@ export async function enrollController(
   }
   const merged = mergeEnrollment(saved, enrolled);
   if (JSON.stringify(merged) === JSON.stringify(saved)) return;
+  // Only canonical nodes reached over host-key-verified SSH get here, so
+  // enrollment needs no extra confirmation; the list is still shown.
   process.stderr.write(
-    `Verified SSH connections available for canonical targets:\n${enrolled.map((node) => `  ${node.id} → ${node.ssh}; device ${enrollmentIdentity(node)}`).join('\n')}\nMissing targets remain visible and are never replaced by discovered peers.\n`
+    `Enrolling verified SSH connections for canonical targets:\n${enrolled.map((node) => `  ${node.id} → ${node.ssh}; device ${enrollmentIdentity(node)}`).join('\n')}\nMissing targets remain visible and are never replaced by discovered peers.\n`
   );
-  if (
-    !(await confirm({
-      message:
-        'Enroll these verified connections as this controller’s private overrides?',
-      default: false,
-    }))
-  )
-    return;
   await ensurePrivateRoot(dirname(path));
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await persistEnrollment(path, original, merged);

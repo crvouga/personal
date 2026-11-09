@@ -84,7 +84,7 @@ async function recoveryChecks(run: Runner): Promise<Check[]> {
     'systemctl',
     '--user',
     'show',
-    't3code.service',
+    't3code-desktop.service',
     '--property=ActiveState,UnitFileState,Restart',
   ]);
   checks.push(
@@ -94,7 +94,7 @@ async function recoveryChecks(run: Runner): Promise<Check[]> {
         /^ActiveState=active$/m.test(t3.stdout) &&
         /^UnitFileState=enabled$/m.test(t3.stdout) &&
         /^Restart=(always|on-failure)$/m.test(t3.stdout),
-      'T3 runs as an enabled user service with automatic crash recovery.'
+      'The T3 desktop app runs as an enabled session service with automatic crash recovery.'
     )
   );
   checks.push(await t3HealthCheck(run));

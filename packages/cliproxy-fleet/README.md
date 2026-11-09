@@ -127,7 +127,7 @@ bun run cliproxy inference messages EXACT_CLAUDE_MODEL_ID
 
 Codex uses the upstream device-code flow. Remote callback flows may require the documented dashboard callback flow or temporary SSH loopback forwarding; callback ports are not exposed by default. This pinned version has no generic Gemini CLI login flag; use its supported dashboard/API-key integration. Provider rules still govern permissible account use.
 
-Routing uses round robin, session affinity, cooldowns and bounded retries across eligible accounts for the requested model. Automatic preview-model switching is disabled; no hidden cross-model/provider aliases are configured. Usage statistics are enabled but are not a durable billing ledger. Available quota details depend on the provider.
+Routing is **fill-first** (`routing.strategy: fill-first`): one account serves until its quota is exhausted and it cools down, then the next account, with session affinity keeping a session on its account while available and bounded retries across eligible accounts for the requested model. `cliproxy apply` requires this policy and the host monitor reports drift; see [Multi-account routing](docs/model-health.md#multi-account-routing-fill-first) for applying it to a running proxy. Automatic preview-model switching is disabled. No model aliases are configured: clients use the upstream model ids exactly as `/v1/models` lists them. [`models.json`](models.json) declares the model ids that are health-checked (`claude-opus-5-5`, `claude-sonnet-5-5`, `gpt-6-astra`, `gpt-6.1-sol`), and the checks fail loudly when one is not served. Usage statistics are enabled but are not a durable billing ledger. Available quota details depend on the provider.
 
 ## Fleet clients: macOS, Ubuntu and Windows/WSL
 
@@ -178,7 +178,7 @@ On a replacement machine, prepare the tracked installation, log into Vault, reco
 
 The `CLI proxy health` GitHub Actions workflow runs at minutes 7, 22, 37 and 52 of each hour and supports manual dispatch. It uses the existing read-only GitHub OIDC Vault role, with a short-lived token rather than a stored workstation/admin credential. From a GitHub-hosted runner it checks public endpoint authentication, available models, dashboard availability, a cloud checkpoint no more than 45 minutes old, and the last successful GC no more than nine days old. GC status is included in subsequent encrypted checkpoints. A failed workflow is visible independently of this workstation and uses GitHub's existing notification settings; it is not a guaranteed paging service, and schedules can be delayed by GitHub.
 
-The monitor does not run inference, attempt management logins, access provider credential files, prune storage, change cloud infrastructure, or restart the workstation. Management authorization remains covered by explicit verification; repeated failed management logins can trigger upstream IP bans, so they are excluded from scheduled monitoring. Its Restic client permits only read operations and uses no remote locks, so a killed runner cannot leave a lock blocking backups. Concurrent pruning can cause a transient read failure; subsequent scheduled runs retry. HTTPS redirects are rejected to prevent forwarding credentials to another origin.
+The `CLI proxy health` workflow also runs the declarative model checks described in [Model validation and health checks](docs/model-health.md): a free readiness check every 15 minutes, a light two-request-per-model inference check hourly, a comprehensive nightly suite and an offline pull-request contract job, with per-model status, capability coverage, JSON/Markdown reports, an agent brief and a tracking issue. The local five-minute monitor does not run inference, attempt management logins, access provider credential files, prune storage, change cloud infrastructure, or restart the workstation. Management authorization remains covered by explicit verification; repeated failed management logins can trigger upstream IP bans, so they are excluded from scheduled monitoring. Its Restic client permits only read operations and uses no remote locks, so a killed runner cannot leave a lock blocking backups. Concurrent pruning can cause a transient read failure; subsequent scheduled runs retry. HTTPS redirects are rejected to prevent forwarding credentials to another origin.
 
 With an existing private Vault token, one command prepares a complete offline replacement cache:
 
@@ -196,6 +196,8 @@ The parent directory must exist and the destination must not exist (even an empt
 bun run --filter @pkgs/cliproxy-fleet lint
 bun run --filter @pkgs/cliproxy-fleet test
 ```
+
+Model validation, Cursor-style protocol compatibility and per-model health commands (`bun run cliproxy model-health`, `bun run cliproxy model-suite`, offline `--target mock`) are documented in [docs/model-health.md](docs/model-health.md); their deterministic tests run in the same offline test command.
 
 Explicit integration checks are also versioned: `python3 -B packages/cliproxy-fleet/tests/live.py --codex --recovery --restore`. They read the existing deployment/Vault login, spend a small number of provider tokens and restore only into a temporary offline directory. Add `--opencode` when the locked OpenCode CLI is installed; no tool is installed automatically.
 
