@@ -6,7 +6,7 @@ import { join } from 'node:path';
 const script = join(import.meta.dir, 't3-health.sh');
 
 /** Runs the watchdog with fake systemctl/curl that record what was called. */
-function fixture(active: boolean, healthy: boolean) {
+function fixture(active: boolean, healthy: boolean, legacy = false) {
   const dir = mkdtempSync(join(tmpdir(), 't3-health-'));
   const log = join(dir, 'calls');
   writeFileSync(log, '');
@@ -17,7 +17,10 @@ function fixture(active: boolean, healthy: boolean) {
     );
     chmodSync(join(dir, name), 0o755);
   };
-  fake('systemctl', `case "$*" in *is-active*) exit ${active ? 0 : 3};; esac`);
+  fake(
+    'systemctl',
+    `case "$*" in *"is-active --quiet t3code.service") exit ${legacy ? 0 : 3};; *is-active*) exit ${active ? 0 : 3};; esac`
+  );
   fake('curl', `exit ${healthy ? 0 : 28}`);
   const run = () =>
     Bun.spawnSync(['/bin/sh', script], {
@@ -46,4 +49,9 @@ test('an unresponsive service is restarted only after three failed checks', () =
   expect(t3.calls()).toContain(
     'systemctl --user restart t3code-desktop.service'
   );
+});
+test('nothing is started while the headless server still runs', () => {
+  const t3 = fixture(false, false, true);
+  expect(t3.run()).toBe(0);
+  expect(t3.calls()).not.toMatch(/ (start|restart) /);
 });

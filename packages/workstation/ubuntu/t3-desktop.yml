@@ -175,6 +175,9 @@
           ManagedOOMPreference=avoid
           [Install]
           WantedBy=graphical-session.target
+    # Repoint recovery now: a timer still running an older revision's script
+    # would restart the headless server right after its approved migration.
+    - ansible.builtin.import_tasks: tasks/recovery.yml
     - name: Enable the desktop app for every graphical login
       become: true
       become_user: '{{ development_user }}'

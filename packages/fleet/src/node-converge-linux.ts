@@ -168,6 +168,7 @@ async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
       cwd: root,
       timeoutMs: 600_000,
       input: JSON.stringify({
+        development_source: root,
         development_user: user.username,
         development_uid: user.uid,
         development_home: user.homedir,
