@@ -3,7 +3,8 @@ import { homedir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { runAnsible } from '../platform/ansible';
 import { failure, inspectRoute, publicEndpointCheck, tunnelToken } from './hub';
-import { fleetAccount } from './hub-access';
+import { BESZEL_PUBLIC_VIEWER_IDENTITY, fleetAccount } from './hub-access';
+import { ensurePublicViewer, type HubLogin } from './hub-viewer';
 import type { FleetDefinition } from '../../../../fleet/src/definition';
 import { hostId, hubUrl } from '../../../../fleet/src/topology';
 import {
@@ -49,7 +50,9 @@ export interface ManagerHubOptions {
   home?: string;
   tailscale?: string | null;
   /** Fleet login for a fresh hub; defaults to the manager's Vault session. */
-  account?: () => Promise<{ identity: string; password: string } | null>;
+  account?: () => Promise<HubLogin | null>;
+  /** Ensures the read-only AUTO_LOGIN user; defaults to the loopback hub API. */
+  viewer?: (login: HubLogin | null) => Promise<Check>;
 }
 
 /** Converges the singleton Beszel hub locally on the manager: pinned Compose
@@ -71,19 +74,7 @@ export async function convergeManagerHub(
   const account = await (options.account ?? fleetAccount)();
   const result = await runAnsible(run, 'hub-darwin.yml', {
     cwd: resolve(root, 'packages/workstation/monitoring'),
-    input: JSON.stringify({
-      beszel_hub_url: hub,
-      beszel_public_url: PUBLIC_HUB_URL,
-      beszel_data_dir: paths.data,
-      beszel_tunnel_dir: paths.tunnel,
-      ...(tunnel ? { beszel_tunnel_token: tunnel } : {}),
-      ...(account
-        ? {
-            beszel_fleet_identity: account.identity,
-            beszel_fleet_password: account.password,
-          }
-        : {}),
-    }),
+    input: JSON.stringify(hubVariables(hub, paths, tunnel, account)),
     timeoutMs: 300_000,
   });
   if (!result.ok)
@@ -106,7 +97,37 @@ export async function convergeManagerHub(
       summary: `Pinned hub on the manager is healthy locally and at ${hub}; authentication and agent metrics are separate checks.`,
     },
     publicEndpointCheck(tunnel !== null),
+    await ensureViewer(options, account),
   ];
+}
+
+function hubVariables(
+  hub: string,
+  paths: { data: string; tunnel: string },
+  tunnel: string | null,
+  account: HubLogin | null
+): Record<string, string> {
+  return {
+    beszel_hub_url: hub,
+    beszel_public_url: PUBLIC_HUB_URL,
+    beszel_auto_login: BESZEL_PUBLIC_VIEWER_IDENTITY,
+    beszel_data_dir: paths.data,
+    beszel_tunnel_dir: paths.tunnel,
+    ...(tunnel ? { beszel_tunnel_token: tunnel } : {}),
+    ...(account
+      ? {
+          beszel_fleet_identity: account.identity,
+          beszel_fleet_password: account.password,
+        }
+      : {}),
+  };
+}
+
+function ensureViewer(
+  options: ManagerHubOptions,
+  account: HubLogin | null
+): Promise<Check> {
+  return (options.viewer ?? ensurePublicViewer)(account);
 }
 
 /** Runs only on the manager, and only with Docker Desktop's engine up. */

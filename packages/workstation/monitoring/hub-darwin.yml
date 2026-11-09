@@ -18,6 +18,7 @@
       BESZEL_HUB_URL: '{{ beszel_hub_url }}'
       BESZEL_APP_URL: '{{ beszel_public_url | default(beszel_hub_url) }}'
       BESZEL_DATA_DIR: '{{ beszel_data_dir }}'
+      BESZEL_AUTO_LOGIN: '{{ beszel_auto_login | default("") }}'
       BESZEL_TUNNEL_TOKEN_FILE: '{{ beszel_tunnel_dir }}/token'
   tasks:
     - name: Require the macOS manager and private dashboard policy

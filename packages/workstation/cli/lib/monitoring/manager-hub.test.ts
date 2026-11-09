@@ -8,7 +8,7 @@ import {
   tailscaleCommand,
 } from './manager-hub';
 import { loadDefinition } from '../../../../fleet/src/definition';
-import type { CommandResult, Runner } from '../../../../fleet/src/types';
+import type { Check, CommandResult, Runner } from '../../../../fleet/src/types';
 
 const root = resolve(import.meta.dir, '../../../../..');
 const definition = loadDefinition(
@@ -88,6 +88,11 @@ const options = {
   home: '/Users/chrisvouga',
   tailscale: CLI,
   account: async () => null,
+  viewer: async (): Promise<Check> => ({
+    id: 'beszel:public-viewer',
+    status: 'pass',
+    summary: 'viewer',
+  }),
 };
 
 test('the manager hub converges locally with a per-user data dir and private route', async () => {
@@ -96,10 +101,12 @@ test('the manager hub converges locally with a per-user data dir and private rou
   expect(checks.map((check) => [check.id, check.status])).toEqual([
     ['beszel:hub', 'pass'],
     ['beszel:public-endpoint', 'pass'],
+    ['beszel:public-viewer', 'pass'],
   ]);
   expect(variables[0]).toEqual({
     beszel_hub_url: HUB,
     beszel_public_url: 'https://beszel.chrisvouga.dev',
+    beszel_auto_login: 'public-viewer@chrisvouga.dev',
     beszel_data_dir:
       '/Users/chrisvouga/Library/Application Support/personal-beszel',
     beszel_tunnel_dir:
