@@ -751,6 +751,10 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `AUTH_MANAGER_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev |  |
 | `AUTH_MANAGER_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev |  |
 | `MOVIEFINDER_AUTH_SECRET` | dev, prd | moviefinder | yes |
+| `CLIPROXY_FLEET_CLIENT_API_KEY` | prd | cliproxy-fleet, fleet-agents | yes |
+| `CLIPROXY_FLEET_MANAGEMENT_KEY` | prd | cliproxy-fleet | yes |
+| `CLIPROXY_FLEET_RESTIC_PASSWORD` | prd | cliproxy-fleet | yes |
+| `TAILSCALE_API_TOKEN` | prd | cliproxy-fleet | yes |
 
 ### Local dev — `personal infra-vault run`
 

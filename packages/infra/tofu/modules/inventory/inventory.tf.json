@@ -1719,6 +1719,30 @@
             "used_by": ["moviefinder"],
             "required": true,
             "generated": true
+          },
+          {
+            "name": "CLIPROXY_FLEET_CLIENT_API_KEY",
+            "configs": ["prd"],
+            "used_by": ["cliproxy-fleet", "fleet-agents"],
+            "required": true
+          },
+          {
+            "name": "CLIPROXY_FLEET_MANAGEMENT_KEY",
+            "configs": ["prd"],
+            "used_by": ["cliproxy-fleet"],
+            "required": true
+          },
+          {
+            "name": "CLIPROXY_FLEET_RESTIC_PASSWORD",
+            "configs": ["prd"],
+            "used_by": ["cliproxy-fleet"],
+            "required": true
+          },
+          {
+            "name": "TAILSCALE_API_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["cliproxy-fleet"],
+            "required": true
           }
         ]
       },
