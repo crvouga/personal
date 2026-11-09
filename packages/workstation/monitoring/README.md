@@ -56,8 +56,18 @@ token file and starts the pinned `cloudflared` Compose profile. Until the
 credential is readable the step warns (`BESZEL_TUNNEL_CREDENTIAL_UNAVAILABLE`)
 and the private dashboard is unaffected. Agents and the manager keep using the
 private URL; `fleet-status --workers` reports the public hostname as a
-warning-level `beszel:public-endpoint` check. The hub's own login still guards
-the public URL.
+warning-level `beszel:public-endpoint` check.
+
+The dashboard needs no login: the hub runs with `AUTO_LOGIN` set to the
+read-only user `public-viewer@chrisvouga.dev`, so every visitor (public or
+tailnet) is signed in as that account and cannot change systems, alerts or
+settings. Each hub converge (`fleet-sync`) creates that user through the hub's
+loopback API using the fleet admin login from Vault (random unused password,
+never printed), re-reads it to prove the role, and demotes it to read-only if it
+ever had another role (`beszel:public-viewer`). If the admin login is
+unavailable the step warns and the hub shows its normal login page; create the
+user by hand (Settings > Users, role **Read-only**) as a fallback. Never point
+`AUTO_LOGIN` at an admin account. The fleet admin login is still needed to change anything.
 
 Native agents use outbound authenticated WebSockets, per-node tokens and
 persistent identity. They do not need inbound SSH monitoring ports, Docker socket

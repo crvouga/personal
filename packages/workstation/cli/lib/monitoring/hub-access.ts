@@ -11,6 +11,13 @@ import { record } from '../../../../fleet/src/config';
  */
 export const BESZEL_FLEET_IDENTITY = 'fleet-manager@chrisvouga.dev';
 
+/** Read-only Beszel user the hub signs every visitor in as (AUTO_LOGIN), so the
+ * dashboard needs no login. Create it once in the hub (Settings > Users, role
+ * "Read-only"); it holds no secret and must never be an admin. If the account
+ * does not exist the hub simply shows its normal login page.
+ */
+export const BESZEL_PUBLIC_VIEWER_IDENTITY = 'public-viewer@chrisvouga.dev';
+
 /** Accept the OpenTofu-generated password, or a legacy JSON identity/password pair. */
 export function fleetCredentials(secret: string): {
   identity: string;
