@@ -539,8 +539,10 @@ apply does not claim machine readiness. Existing commands retain their semantics
 
 Ubuntu fleet services and power/sudo policy live in `ubuntu/`; pinned Beszel hub
 and native agent configuration live in [`monitoring/`](monitoring/README.md).
-The shared toolchain installs verified native T3 artifacts; Workstation invokes
-its supported `t3 service install` lifecycle and preserves runtime state. See the
+The shared toolchain installs the verified T3 CLI; on workers Workstation
+installs the pinned T3 Code desktop app (`ubuntu/t3-desktop.yml`), which is the
+only T3 process: it starts with the GDM auto-login session, shows its UI and
+serves the API. Runtime state in `~/.t3` is preserved. See the
 [controller runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
 
 Docker runtime setup on macOS is exposed through

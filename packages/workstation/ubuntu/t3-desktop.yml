@@ -1,0 +1,87 @@
+---
+# The worker's only T3 process: the pinned desktop app, which embeds the server
+# on 127.0.0.1:3773. GDM logs the designated user in automatically and the user
+# unit starts the app with the graphical session, so the UI is on screen and the
+# server is up after every boot. Starting or migrating is left to fleet-sync.
+- name: Install the pinned T3 Code desktop app and start it with the session
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create the package cache
+      ansible.builtin.file:
+        path: /var/cache/personal-fleet
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Download the pinned desktop package
+      ansible.builtin.get_url:
+        url: '{{ t3_desktop_url }}'
+        dest: '/var/cache/personal-fleet/{{ t3_desktop_name }}'
+        checksum: 'sha256:{{ t3_desktop_sha256 }}'
+        mode: '0644'
+        timeout: 300
+    - name: Install the pinned desktop package
+      ansible.builtin.apt:
+        deb: '/var/cache/personal-fleet/{{ t3_desktop_name }}'
+        lock_timeout: 120
+    - name: Inspect the GDM configuration
+      ansible.builtin.stat:
+        path: /etc/gdm3/custom.conf
+      register: gdm_config
+    - name: Log the designated user in automatically
+      ansible.builtin.lineinfile:
+        path: /etc/gdm3/custom.conf
+        regexp: '^#?\s*{{ item.key }}\s*='
+        line: '{{ item.key }} = {{ item.value }}'
+        insertafter: '^\[daemon\]'
+      loop:
+        - { key: AutomaticLoginEnable, value: 'true' }
+        - { key: AutomaticLogin, value: '{{ development_user }}' }
+      when: gdm_config.stat.exists
+    - name: Create the user unit directory
+      ansible.builtin.file:
+        path: '{{ development_home }}/.config/systemd/user'
+        state: directory
+        owner: '{{ development_user }}'
+        mode: '0700'
+    - name: Declare the desktop app as a session service
+      ansible.builtin.copy:
+        dest: '{{ development_home }}/.config/systemd/user/t3code-desktop.service'
+        owner: '{{ development_user }}'
+        mode: '0600'
+        content: |
+          # Managed by personal fleet-sync: packages/workstation/ubuntu/t3-desktop.yml
+          [Unit]
+          Description=T3 Code desktop (UI and server)
+          PartOf=graphical-session.target
+          After=graphical-session.target
+          StartLimitIntervalSec=300
+          StartLimitBurst=5
+          [Service]
+          Type=simple
+          WorkingDirectory=%h
+          Environment=T3CODE_HOME=%h/.t3
+          ExecStart="/opt/T3 Code (Nightly)/t3code"
+          KillMode=mixed
+          Restart=always
+          RestartSec=5
+          CPUWeight=1000
+          IOWeight=1000
+          MemoryLow=1536M
+          OOMScoreAdjust=100
+          ManagedOOMPreference=avoid
+          [Install]
+          WantedBy=graphical-session.target
+    - name: Enable the desktop app for every graphical login
+      become: true
+      become_user: '{{ development_user }}'
+      environment:
+        XDG_RUNTIME_DIR: '/run/user/{{ development_uid }}'
+      ansible.builtin.systemd_service:
+        scope: user
+        name: t3code-desktop.service
+        daemon_reload: true
+        enabled: true

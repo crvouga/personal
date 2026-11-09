@@ -334,13 +334,17 @@ setup; fetching a public guide alone does not authorize installs or logins.
 The shared setup owner verifies the Linux T3 release archive against the
 architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
 `t3_linux_*_sha256`). Artifacts live under `~/.local/share/personal/tools/`.
-Workstation uses that absolute executable with T3's native `service install`
-interface, with user lingering supplied by the Ubuntu baseline. This does not
-replace an existing desktop launcher or copy `~/.t3` runtime state. A conflicting
-launcher/service version requires reviewed maintenance; routine fleet-sync never
-restarts active turns to promote a new pin. The disposable Ubuntu acceptance test
-covers repeat service installation, crash recovery and reboot without desktop
-login. Private routing and paired execution require separate evidence.
+Workstation uses that absolute executable for policy commands. The worker's
+only running T3 is the T3 Code desktop app, installed from the same release's
+`.deb` (pinned by `t3_desktop_*_sha256`, computed from the release assets since
+upstream `SHA256SUMS` omits packages) and started by the `t3code-desktop.service`
+user unit in the GDM auto-login session. It shares `~/.t3` with the former
+headless service, so environment identity and pairing are kept. A conflicting
+launcher version or a still-running headless service requires reviewed
+maintenance; routine fleet-sync never restarts active turns to promote a new
+pin. The disposable Ubuntu VM test still exercises the former headless service
+and does not cover the desktop session. Private routing and paired execution
+require separate evidence.
 
 Normal Ubuntu fleet setup is controller-led:
 `npx @crvouga/personal fleet-sync`. See the

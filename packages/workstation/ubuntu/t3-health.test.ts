@@ -30,7 +30,7 @@ function fixture(active: boolean, healthy: boolean) {
 test('a stopped service is started', () => {
   const t3 = fixture(false, false);
   expect(t3.run()).toBe(0);
-  expect(t3.calls()).toContain('systemctl --user start t3code.service');
+  expect(t3.calls()).toContain('systemctl --user start t3code-desktop.service');
 });
 test('a healthy service is left alone', () => {
   const t3 = fixture(true, true);
@@ -43,5 +43,7 @@ test('an unresponsive service is restarted only after three failed checks', () =
   t3.run();
   expect(t3.calls()).not.toContain('restart');
   t3.run();
-  expect(t3.calls()).toContain('systemctl --user restart t3code.service');
+  expect(t3.calls()).toContain(
+    'systemctl --user restart t3code-desktop.service'
+  );
 });

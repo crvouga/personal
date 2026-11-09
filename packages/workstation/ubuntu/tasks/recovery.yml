@@ -1,5 +1,5 @@
 ---
-- name: Declare bounded recovery of the owned worker T3 service
+- name: Declare bounded recovery of the worker T3 desktop app
   ansible.builtin.copy:
     dest: '{{ development_home }}/.config/systemd/user/personal-worker-recovery.service'
     owner: '{{ development_user }}'
@@ -7,7 +7,7 @@
     content: |
       # Managed by personal fleet-sync: packages/workstation/ubuntu/t3-health.sh
       [Unit]
-      Description=Keep the worker T3 service running and responsive
+      Description=Keep the worker T3 desktop app running and responsive
       [Service]
       Type=oneshot
       ExecStart=/bin/sh {{ development_source }}/packages/workstation/ubuntu/t3-health.sh
@@ -19,7 +19,7 @@
     mode: '0600'
     content: |
       [Unit]
-      Description=Check the worker T3 service every minute
+      Description=Check the worker T3 desktop app every minute
       [Timer]
       OnBootSec=1min
       OnUnitActiveSec=1min

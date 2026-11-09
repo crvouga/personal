@@ -1,6 +1,9 @@
 import type { FleetNode, Runner, Check } from '../../fleet/src/types';
 import { discoverTailnet } from '../../fleet/src/tailscale';
-import { hubAccess } from '../../workstation/cli/lib/monitoring/hub-access';
+import {
+  BESZEL_FLEET_IDENTITY,
+  hubAccess,
+} from '../../workstation/cli/lib/monitoring/hub-access';
 import { enrollBeszel } from '../../fleet/src/monitoring/enroll';
 import { verifyBeszel } from '../../fleet/src/monitoring/beszel';
 import { installRemoteAgent } from '../../fleet/src/monitoring/remote';
@@ -57,7 +60,9 @@ function unavailable(code: string): Check[] {
       summary: code,
       remedy: {
         action:
-          'Verify the selected private hub is running and the controller has BESZEL_FLEET_AUTH through existing Vault authorization. The normal hub account must access these systems. Inspect duplicate registration/host conflicts before retry; no token or raw response is printed.',
+          code === 'BESZEL_ACCOUNT_REQUIRED'
+            ? `The hub rejected the fleet login. Once, as the hub superuser, create the normal users record ${BESZEL_FLEET_IDENTITY} (verified) whose password is the BESZEL_FLEET_AUTH Vault value, then rerun fleet-sync. Never paste the password on a command line.`
+            : 'Verify the selected private hub is running and the controller has BESZEL_FLEET_AUTH through existing Vault authorization. The normal hub account must access these systems. Inspect duplicate registration/host conflicts before retry; no token or raw response is printed.',
       },
     },
   ];

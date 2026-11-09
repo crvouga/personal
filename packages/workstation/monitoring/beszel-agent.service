@@ -15,7 +15,7 @@ Environment=KEY_FILE=/etc/personal-beszel/hub-key
 Environment=TOKEN_FILE=/etc/personal-beszel/agent-token
 Environment=DISABLE_SSH=true
 Environment=SKIP_SYSTEMD_LOGS=true
-Environment=SERVICE_PATTERNS=ssh.service,tailscaled.service,t3code.service,personal-fleet-sync.service
+Environment=SERVICE_PATTERNS=ssh.service,tailscaled.service,t3code-desktop.service,personal-fleet-sync.service
 ExecStart=/usr/local/lib/personal-beszel/0.21.1/beszel-agent
 StateDirectory=beszel-agent
 StateDirectoryMode=0700
