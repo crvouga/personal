@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 import modelhealth_support as support
-from modelhealth import findings, schema
+from modelhealth import cli, findings, schema
 
 OPUS, SONNET, ASTRA, SOL = support.MODEL_IDS
 SCHEMA = json.loads((support.PACKAGE / "docs/model-health-report.schema.json").read_text())
@@ -110,6 +110,24 @@ class RateLimitBackoff(unittest.TestCase):
             self.assertEqual(emulator.requests, 8)
             fourth_state = json.loads(pathlib.Path(state).read_text())
             self.assertIsNone(fourth_state["models"][SOL]["rate_limited_at"])  # cleared once a probe succeeds
+
+    def test_quota_exhaustion_is_reported_but_never_fails_the_gate(self):
+        with tempfile.TemporaryDirectory() as directory, support.served() as (emulator, base):
+            state = str(pathlib.Path(directory) / "state.json")
+            emulator.fault(model_status={SOL: 429})
+            first = support.run(emulator, base, "light", state_path=state, clock=lambda: "2026-01-01T00:00:00+00:00")
+            paused = support.run(emulator, base, "light", state_path=state, clock=lambda: "2026-01-01T00:10:00+00:00")
+        for report in (first, paused):
+            self.assertEqual(support.model(report, SOL)["status"], "unhealthy")  # the model itself is still reported honestly
+            self.assertEqual((report["summary"]["status"], report["summary"]["rate_limited"]), ("healthy", [SOL]))
+            self.assertEqual(report["summary"]["findings"]["operator"], 1)
+            self.assertEqual(cli.exit_code(report["summary"]["status"], "degraded", False), 0)
+
+    def test_a_real_failure_still_fails_next_to_a_rate_limited_model(self):
+        with support.served() as (emulator, base):
+            emulator.fault(model_status={SOL: 429, SONNET: 503})
+            report = support.run(emulator, base, "light")
+        self.assertEqual((report["summary"]["status"], report["summary"]["rate_limited"]), ("unhealthy", [SOL]))
 
     def test_force_probe_overrides_the_pause(self):
         with tempfile.TemporaryDirectory() as directory, support.served() as (emulator, base):
