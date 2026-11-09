@@ -3,22 +3,23 @@ import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';
 import { authorizeVault } from './fleet-sync-vault';
-import { controllerFailure } from '../../fleet/src/controller-failure';
-import { controllerText } from './fleet-sync-output';
+import { managerFailure } from '../../fleet/src/manager-failure';
+import { managerText } from './fleet-sync-output';
 import { synchronizeMonitoring } from './fleet-sync-monitoring';
+import { convergeManager } from './fleet-sync-manager';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { loadConfig, selectNodes } from '../../fleet/src/config';
 import { parseDefinition, enrolledRoster } from '../../fleet/src/definition';
 import definition from '../../fleet/definition.json';
-import { synchronizeController } from '../../fleet/src/controller-sync';
-import { inspectBootstrap } from '../../fleet/src/controller-sync';
+import { synchronizeManager } from '../../fleet/src/manager-sync';
+import { inspectBootstrap } from '../../fleet/src/manager-sync';
 import {
   prepareBootstrap,
   bootstrapRemote,
 } from '../../fleet/src/remote-bootstrap';
 import { machineRoot } from './fleet-sync';
-import type { Runner, FleetNode } from '../../fleet/src/types';
-import type { DeployNode } from '../../fleet/src/controller-sync';
+import type { Runner } from '../../fleet/src/types';
+import type { DeployNode } from '../../fleet/src/manager-sync';
 import type { FleetSyncOptions } from './fleet-sync';
 import type { Settings } from './settings';
 import type { CommandOutcome } from './contracts';
@@ -49,13 +50,13 @@ export async function selected(
     options.expectedPlanFingerprint &&
     options.expectedPlanFingerprint !== planFingerprint
   ) {
-    const report = controllerFailure(
+    const report = managerFailure(
       scoped,
       options.revision,
       'FLEET_PLAN_STALE',
-      'Controller connection bindings or target policy changed after approval. Inspect a fresh plan and approve it; no source preparation or node mutation occurred.'
+      'Manager connection bindings or target policy changed after approval. Inspect a fresh plan and approve it; no source preparation or node mutation occurred.'
     );
-    return { exitCode: 1, data: report, text: controllerText(report) };
+    return { exitCode: 1, data: report, text: managerText(report) };
   }
   const payload = options.apply
     ? await prepareBootstrap(machineRoot(), options.revision, run, {
@@ -63,27 +64,33 @@ export async function selected(
         checkout: settings.workspace,
       })
     : null;
-  const report = await synchronizeController(
+  const report = await synchronizeManager(
     {
       definition: scoped,
       nodes,
       revision: options.revision,
       apply: Boolean(options.apply),
-      canary: canonical.proxy.owner,
+      // The manager converges first; the first declared worker is the canary.
+      ...(canonical.workers[0] ? { canary: canonical.workers[0].id } : {}),
       progress: ui.notify,
+      manager: () =>
+        convergeManager(
+          canonical,
+          {
+            revision: options.revision!,
+            apply: Boolean(options.apply),
+            workspace: settings.workspace,
+          },
+          run
+        ),
     },
     run,
-    deployWithMonitoring(
-      payload,
-      roster.nodes.find((entry) => entry.id === canonical.monitoring.parent),
-      run,
-      ui
-    )
+    deployWithMonitoring(payload, canonical, run, ui)
   );
   return {
     exitCode: report.ok ? 0 : 1,
     data: { ...report, planFingerprint },
-    text: controllerText(report),
+    text: managerText(report),
   };
 }
 
@@ -91,18 +98,18 @@ function enrollmentRequired(
   canonical: ReturnType<typeof parseDefinition>,
   revision: string
 ): CommandOutcome {
-  const report = controllerFailure(
+  const report = managerFailure(
     canonical,
     revision,
-    'FLEET_CONTROLLER_ENROLLMENT_REQUIRED',
-    'Create or migrate private controller connection overrides for the canonical fleet. Resolve conflicting IDs/SSH aliases; discovery cannot authorize membership.'
+    'FLEET_MANAGER_ENROLLMENT_REQUIRED',
+    'Create or migrate private manager connection overrides for the canonical fleet. Resolve conflicting IDs/SSH aliases; discovery cannot authorize membership.'
   );
-  return { exitCode: 1, data: report, text: controllerText(report) };
+  return { exitCode: 1, data: report, text: managerText(report) };
 }
 
 function deployWithMonitoring(
   payload: Awaited<ReturnType<typeof prepareBootstrap>>,
-  hub: FleetNode | undefined,
+  canonical: ReturnType<typeof parseDefinition>,
   run: Runner,
   ui: { progress: boolean; interactiveAuthorization: boolean }
 ): DeployNode {
@@ -117,7 +124,7 @@ function deployWithMonitoring(
             summary: 'FLEET_APPROVED_BOOTSTRAP_UNAVAILABLE',
             remedy: {
               action:
-                'Install Git on the controller and verify the approved source contains the tracked remote bootstrap and matches this package’s canonical fleet definition. Use the matching package release after a membership change. No controller credentials are forwarded.',
+                'Install Git on the manager and verify the approved source contains the tracked remote bootstrap and matches this package’s canonical fleet definition. Use the matching package release after a membership change. No manager credentials are forwarded.',
             },
           },
         ],
@@ -136,10 +143,8 @@ function deployWithMonitoring(
     result.checks.push(
       ...(before.length ? before : await authorizeVault(node, vault, run))
     );
-    const os =
-      parseDefinition(definition).nodes.find((entry) => entry.id === node.id)
-        ?.os ?? 'linux';
-    result.checks.push(...(await inspectBootstrap(node, run, os)));
+    // Workers are Linux by definition.
+    result.checks.push(...(await inspectBootstrap(node, run, 'linux')));
     result.checks.push(...(await verifyT3Endpoint(node, run)));
     result.checks.push(await verifyT3Linked(node, run));
     if (
@@ -152,7 +157,7 @@ function deployWithMonitoring(
       );
       result.checks.push(
         ...(await withProgress(node.id, ui.progress, () =>
-          synchronizeMonitoring(node, hub, revision, run)
+          synchronizeMonitoring(node, canonical, revision, run)
         ))
       );
     }
@@ -193,7 +198,7 @@ function scopeDefinition(
   return ids?.length
     ? {
         ...canonical,
-        nodes: canonical.nodes.filter((node) => ids.includes(node.id)),
+        workers: canonical.workers.filter((node) => ids.includes(node.id)),
       }
     : canonical;
 }

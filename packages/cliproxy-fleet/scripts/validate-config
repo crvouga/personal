@@ -3,6 +3,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import pathlib, sys, yaml, os
 
 arguments = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -10,7 +15,7 @@ require_fill_first = "--require-fill-first" in sys.argv[1:]
 p = (
     pathlib.Path(arguments[0])
     if arguments
-    else pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
+    else cliproxy_host.default_root()
     / "state/runtime/config.yaml"
 )
 try:

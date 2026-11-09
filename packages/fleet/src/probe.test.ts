@@ -25,7 +25,7 @@ afterEach(async () => {
   );
 });
 
-test('compares controller reference revision and shared input hashes', async () => {
+test('compares manager reference revision and shared input hashes', async () => {
   const root = await fixture();
   const current = await fingerprint(root, gitRunner);
   expect(current.head).toBe(HEAD);

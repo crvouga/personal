@@ -1,13 +1,14 @@
 import { localCheckoutRevision } from '../../fleet/src/machine/local-source';
 import canonicalDefinition from '../../fleet/definition.json';
 import { parseDefinition } from '../../fleet/src/definition';
-import { controllerFailure } from '../../fleet/src/controller-failure';
-import { controllerText } from './fleet-sync-output';
-import { controllerSchedule, type ScheduleAction } from './fleet-sync-schedule';
-import { enrollController } from './fleet-sync-enrollment';
-import { authorizeController } from './fleet-sync-vault';
+import { managerFailure } from '../../fleet/src/manager-failure';
+import { managerText } from './fleet-sync-output';
+import { managerSchedule, type ScheduleAction } from './fleet-sync-schedule';
+import { enrollManager } from './fleet-sync-enrollment';
+import { authorizeManager } from './fleet-sync-vault';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { existsSync, renameSync } from 'node:fs';
 import {
   readEnrollment,
   isRevision,
@@ -39,10 +40,14 @@ export interface FleetSyncOptions {
   expectedPlanFingerprint?: string;
 }
 export function machineRoot(): string {
-  return join(homedir(), '.local/share/personal/fleet/controller');
+  const root = join(homedir(), '.local/share/personal/fleet/manager');
+  // One-time move from the pre-topology name; keeps the approved revision.
+  const legacy = join(homedir(), '.local/share/personal/fleet/controller');
+  if (!existsSync(root) && existsSync(legacy)) renameSync(legacy, root);
+  return root;
 }
 
-/** Public contract v2: whole enrolled fleet, controller push only. */
+/** Public contract v3: the manager converges itself, then every enrolled worker. */
 export async function fleetSync(
   options: FleetSyncOptions,
   settings: Settings,
@@ -50,7 +55,7 @@ export async function fleetSync(
 ): Promise<CommandOutcome> {
   validate(options);
   if (options.schedule === 'status')
-    return controllerSchedule(
+    return managerSchedule(
       {
         action: 'status',
         revision: '',
@@ -81,16 +86,16 @@ export async function fleetSync(
   request.apply = true;
   request.yes = true;
   if (interactive(options)) {
-    await enrollController(settings.config, run);
+    await enrollManager(settings.config, run);
     // Needed to hand each node its own Vault token; nodes report any gap.
-    await authorizeController({ interactive: true }, run);
+    await authorizeManager({ interactive: true }, run);
     request.interactiveAuthorization = true;
   }
   return withMachineLock(root, async () => {
     const approval = {
       ...state,
       version: 1 as const,
-      id: 'controller',
+      id: 'manager',
       approvedRevision: revision,
     };
     await saveEnrollment(root, approval);
@@ -107,20 +112,20 @@ export async function fleetSync(
   }).catch((error: unknown) => {
     if (error instanceof FleetLockError)
       return actionRequired(
-        'FLEET_CONTROLLER_LOCKED',
-        'Another controller run or interrupted lock exists. Inspect controller and remote processes before removing an abandoned sync.lock; never steal active package-manager locks.'
+        'FLEET_MANAGER_LOCKED',
+        'Another manager run or interrupted lock exists. Inspect manager and remote processes before removing an abandoned sync.lock; never steal active package-manager locks.'
       );
     throw error;
   });
 }
 function actionRequired(code: string, remedy: string): CommandOutcome {
-  const report = controllerFailure(
+  const report = managerFailure(
     parseDefinition(canonicalDefinition),
     null,
     code,
     remedy
   );
-  return { exitCode: 1, data: report, text: controllerText(report) };
+  return { exitCode: 1, data: report, text: managerText(report) };
 }
 
 function validate(options: FleetSyncOptions): void {
@@ -169,7 +174,7 @@ async function scheduleRequest(
       'No schedule changed. Inspect --schedule status; scheduling writes require --apply --yes.'
     );
   if (!options.apply || !options.yes)
-    return controllerSchedule(
+    return managerSchedule(
       {
         action: options.schedule!,
         revision,
@@ -179,7 +184,7 @@ async function scheduleRequest(
       run
     );
   return withMachineLock(root, () =>
-    controllerSchedule(
+    managerSchedule(
       {
         action: options.schedule!,
         revision,
@@ -198,7 +203,7 @@ function validateSchedule(schedule: unknown): void {
       String(schedule)
     )
   )
-    throw new FleetUsageError('Unknown controller schedule action.');
+    throw new FleetUsageError('Unknown manager schedule action.');
 }
 
 async function selectedRevision(

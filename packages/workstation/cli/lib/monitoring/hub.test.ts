@@ -48,13 +48,17 @@ test('raw TCP and another application on the dashboard port require migration', 
     )
   ).toBe(true);
 });
-test('a successful Serve command without observed routing cannot pass readiness', async () => {
-  const { applyHub } = await import('./hub');
-  let observations = 0;
-  const checks = await applyHub('/fixture', hub, async (args) => {
-    if (args.join(' ') === 'tailscale serve status --json') observations++;
-    return { ok: true, stdout: '{}', stderr: '', reason: 'exit' };
-  });
-  expect(observations).toBe(2);
-  expect(checks[0]?.summary).toBe('BESZEL_PRIVATE_ROUTE_UNVERIFIED');
+test('a missing tunnel credential is a warning that names the manager Vault session', async () => {
+  const { publicEndpointCheck, tunnelToken } = await import('./hub');
+  const token = await tunnelToken(async () => ({
+    ok: false,
+    stdout: '',
+    stderr: 'permission denied',
+    reason: 'exit',
+  }));
+  expect(token).toBeNull();
+  const check = publicEndpointCheck(false);
+  expect(check.status).toBe('warn');
+  expect(check.remedy?.action).toContain("manager's Vault session");
+  expect(check.remedy?.action).not.toContain('beszel-hub-read');
 });

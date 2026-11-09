@@ -23,7 +23,7 @@ export async function authCheck(
     return toolchainChecks(
       root,
       run,
-      definition.nodes.some((node) => node.id === nodeId)
+      definition.workers.some((node) => node.id === nodeId)
     );
   return basicAuth(capability, run, root);
 }
@@ -79,7 +79,7 @@ async function basicAuth(
 
 async function t3Checks(
   run: Runner,
-  controllerChecksLinks = false
+  managerChecksLinks = false
 ): Promise<Check[]> {
   const config = await run(['t3', 'status', '--json']);
   const checks: Check[] = [t3Settings(config)];
@@ -99,7 +99,7 @@ async function t3Checks(
         }
       : {}),
   });
-  if (!controllerChecksLinks)
+  if (!managerChecksLinks)
     checks.push({
       id: 't3:end-to-end',
       status: 'skip',

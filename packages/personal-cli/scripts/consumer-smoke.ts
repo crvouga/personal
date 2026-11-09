@@ -103,7 +103,7 @@ async function exercise(
       'standalone JSON command must work without a checkout'
     );
   }
-  await exerciseController(cli, node, directory, env);
+  await exerciseManager(cli, node, directory, env);
   const version = await mustRun([node, cli, '--version'], directory, env, {
     stage: 'consumer-command',
   });
@@ -184,7 +184,7 @@ async function exerciseProbe(
   );
 }
 
-async function exerciseController(
+async function exerciseManager(
   cli: string,
   node: string,
   directory: string,
@@ -205,9 +205,9 @@ async function exerciseController(
   const report = JSON.parse(result.stdout);
   assert(
     !result.ok &&
-      report.version === 2 &&
-      report.execution === 'controller-push' &&
+      report.version === 3 &&
+      report.execution === 'manager-push' &&
       report.applied === false,
-    'clean npm consumer must report missing controller enrollment without writes'
+    'clean npm consumer must report missing manager enrollment without writes'
   );
 }

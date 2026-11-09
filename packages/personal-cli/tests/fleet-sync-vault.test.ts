@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import {
-  authorizeController,
+  authorizeManager,
   authorizeVault,
   remote,
   workerTokenField,
@@ -117,25 +117,25 @@ test('interactive sync falls back to a password login on the node terminal', asy
   expect(attached[0]?.at(-1)).toContain("'-method=userpass'");
 });
 
-test('controller login prompts only when interactive and not logged in', async () => {
+test('manager login prompts only when interactive and not logged in', async () => {
   let prompts = 0;
   const attach = () => {
     prompts += 1;
     return true;
   };
   expect(
-    await authorizeController(
+    await authorizeManager(
       { interactive: true },
       runner([[/lookup/, [result(true)]]]).run,
       attach
     )
   ).toBe(true);
   expect(
-    await authorizeController({ interactive: false }, runner([]).run, attach)
+    await authorizeManager({ interactive: false }, runner([]).run, attach)
   ).toBe(false);
   expect(prompts).toBe(0);
   expect(
-    await authorizeController(
+    await authorizeManager(
       { interactive: true },
       runner([[/lookup/, [result(false), result(true)]]]).run,
       attach

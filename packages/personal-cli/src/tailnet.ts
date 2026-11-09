@@ -2,7 +2,7 @@ import { workerHealthText } from './worker-health-output';
 import { fleetReference } from './fleet-reference';
 import {
   managedHealthScope,
-  appendControllerLinks,
+  appendManagerLinks,
   appendDashboardEvidence,
 } from './managed-health';
 import { discoverTailnet } from '../../fleet/src/tailscale';
@@ -50,7 +50,7 @@ export async function executeTailnet(
     registered,
     {
       ...(options.workers ? { reference: fleetReference() } : {}),
-      includeControllerReport: options.workers !== true,
+      includeManagerReport: options.workers !== true,
       root: settings.workspace,
       timeoutMs: timeout({ ...options, timeout: options.timeout ?? '300000' }),
       source: services.source,
@@ -58,9 +58,9 @@ export async function executeTailnet(
     services.run
   );
   if (options.managed)
-    await appendControllerLinks(nodes, registered, services.run);
+    await appendManagerLinks(nodes, registered, services.run);
   const dashboard = options.workers
-    ? await appendDashboardEvidence(nodes, registered, tailnet)
+    ? await appendDashboardEvidence(nodes, tailnet)
     : null;
   const report = makeReport('health', nodes);
   const exitCode = reportExitCode(report, true);
@@ -101,13 +101,13 @@ async function healthContext(
     scope: options.workers
       ? 'canonical-workers'
       : options.managed
-        ? 'canonical-fleet-and-controller'
+        ? 'canonical-fleet-and-manager'
         : 'tailscale-visible-computers',
     excludedUnmanaged: managed === null ? [] : managed.excluded,
     computers: tailnet.computers.length,
     excludedMobile: tailnet.excludedMobile,
     limitation:
-      'This controller can inspect only devices visible to its Tailscale account/ACLs. Other tailnets, hidden devices and all-pairs connectivity are not verified.',
+      'This manager can inspect only devices visible to its Tailscale account/ACLs. Other tailnets, hidden devices and all-pairs connectivity are not verified.',
   };
   return {
     tailnet,

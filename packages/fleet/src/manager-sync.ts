@@ -4,6 +4,7 @@ import { discoverTailnet, type TailnetComputer } from './tailscale';
 import { matchComputers } from './tailnet-matching';
 import { sshArgs, sshFailure } from './ssh';
 import type { FleetDefinition, MachineDefinition } from './definition';
+import { hubUrl } from './topology';
 import {
   convergeable,
   evaluatePlatform,
@@ -11,22 +12,24 @@ import {
   type MachinePlatform,
 } from './machine/platform';
 
-export interface ControllerNode extends NodeReport {
+export interface ManagerNode extends NodeReport {
+  /** The singleton manager converges locally; workers over SSH. */
+  role?: 'manager' | 'worker';
   reachability: 'online' | 'offline' | 'missing' | 'conflict' | 'unknown';
   desiredRevision: string | null;
   appliedRevision: string | null;
   durationMs: number;
   diagnostics?: Diagnostic[];
 }
-export interface ControllerReport {
-  version: 2;
+export interface ManagerReport {
+  version: 3;
   command: 'fleet-sync';
-  execution: 'controller-push';
+  execution: 'manager-push';
   ok: boolean;
   applied: boolean;
   desiredRevision: string | null;
   checks: Check[];
-  nodes: ControllerNode[];
+  nodes: ManagerNode[];
   candidates: number;
   dashboardUrl: string | null;
 }
@@ -68,7 +71,7 @@ export async function inspectBootstrap(
 /** One invocation, one immutable revision. Serial application bounds pressure and
  * lets a failed declared canary stop promotion; diagnostics still cover all nodes.
  */
-export async function synchronizeController(
+export async function synchronizeManager(
   input: {
     definition: FleetDefinition;
     nodes: FleetNode[];
@@ -76,39 +79,42 @@ export async function synchronizeController(
     apply: boolean;
     canary?: string;
     progress?: (node: string, phase: string) => void;
+    /** Converges the manager locally before any worker; omitted in tests. */
+    manager?: () => Promise<ManagerNode>;
   },
   run: Runner,
   deploy: DeployNode
-): Promise<ControllerReport> {
+): Promise<ManagerReport> {
   const tailnet = await discoverTailnet(run);
   const matches = await matchComputers(input.nodes, tailnet.computers, run);
-  const hubNode = input.nodes.find(
-    (node) => node.id === input.definition.monitoring.parent
-  );
-  const hubPeer = tailnet.computers.find(
-    (peer) => peer.id === hubNode?.tailscaleId
-  );
-  const report: ControllerReport = {
-    version: 2,
+  const report: ManagerReport = {
+    version: 3,
     command: 'fleet-sync',
-    execution: 'controller-push',
+    execution: 'manager-push',
     ok: false,
     applied: false,
     desiredRevision: input.revision,
     checks: tailnet.checks,
-    dashboardUrl: hubPeer ? `https://${hubPeer.dns}:8443` : null,
+    dashboardUrl: hubUrl(input.definition),
     nodes: [],
     candidates: tailnet.computers.filter(
       (peer) => !peer.self && !matches.get(peer.id)?.length
     ).length,
   };
-  for (const machine of input.definition.nodes.filter(convergeable)) {
+  if (input.manager) {
+    input.progress?.(
+      input.definition.manager.id,
+      'Converging the manager and its singleton services locally'
+    );
+    report.nodes.push(await input.manager());
+  }
+  for (const machine of input.definition.workers.filter(convergeable)) {
     input.progress?.(
       machine.id,
       'Inspecting enrolled identity and fresh SSH access'
     );
     report.nodes.push(
-      await inspectControllerNode(
+      await inspectManagerNode(
         machine,
         {
           nodes: input.nodes,
@@ -133,7 +139,7 @@ export async function synchronizeController(
   return report;
 }
 async function applyNodes(
-  report: ControllerReport,
+  report: ManagerReport,
   input: {
     nodes: FleetNode[];
     revision: string;
@@ -142,9 +148,12 @@ async function applyNodes(
   },
   deploy: DeployNode
 ): Promise<void> {
-  const ordered = [...report.nodes].sort(
-    (a, b) => Number(b.node === input.canary) - Number(a.node === input.canary)
-  );
+  const ordered = report.nodes
+    .filter((node) => node.role !== 'manager')
+    .sort(
+      (a, b) =>
+        Number(b.node === input.canary) - Number(a.node === input.canary)
+    );
   let blocked = report.checks.some((c) => c.status !== 'pass');
   for (const result of ordered) {
     if (!mayDeploy(result, input.nodes)) {
@@ -185,7 +194,7 @@ async function applyNodes(
         summary: 'FLEET_REMOTE_OPERATION_FAILED',
         remedy: {
           action:
-            'Inspect the remote operation lock before retrying. A disconnected controller does not establish that installation stopped.',
+            'Inspect the remote operation lock before retrying. A disconnected manager does not establish that installation stopped.',
         },
       });
     }
@@ -200,12 +209,12 @@ async function applyNodes(
 function connectionState(
   conflict: boolean,
   peer: TailnetComputer | undefined
-): ControllerNode['reachability'] {
+): ManagerNode['reachability'] {
   if (conflict) return 'conflict';
   if (!peer) return 'missing';
   return peer.online ? 'online' : 'offline';
 }
-async function inspectControllerNode(
+async function inspectManagerNode(
   machine: MachineDefinition,
   context: {
     nodes: FleetNode[];
@@ -214,7 +223,7 @@ async function inspectControllerNode(
     matches: Map<string, FleetNode[]>;
   },
   run: Runner
-): Promise<ControllerNode> {
+): Promise<ManagerNode> {
   const { nodes, revision, computers, matches } = context;
   const id = machine.id;
   const started = Date.now();
@@ -233,7 +242,7 @@ async function inspectControllerNode(
       summary: 'FLEET_CONNECTION_REQUIRED',
       remedy: {
         action:
-          'Add this canonical node’s reviewed SSH alias and managed workspace path to the private controller overrides. Do not substitute a discovered peer.',
+          'Add this canonical node’s reviewed SSH alias and managed workspace path to the private manager overrides. Do not substitute a discovered peer.',
       },
     });
   else if (conflict)
@@ -262,6 +271,7 @@ async function inspectControllerNode(
     });
   return {
     node: id,
+    role: 'worker',
     checks,
     desiredRevision: revision,
     appliedRevision: null,
@@ -290,7 +300,7 @@ function identityChecks(
   return checks;
 }
 
-function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
+function mayDeploy(result: ManagerNode, nodes: FleetNode[]): boolean {
   const allowBootstrap =
     nodes.find((node) => node.id === result.node)?.bootstrapViaSsh === true;
   return result.checks.every(

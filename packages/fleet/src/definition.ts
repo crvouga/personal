@@ -15,19 +15,31 @@ export interface MachineDefinition {
     t3Port: number;
   };
 }
+/** The singleton manager: the human's machine. It runs fleet-sync and hosts
+ * every singleton service; it is never converged over SSH. */
+export interface ManagerDefinition {
+  id: string;
+  os: 'macOS';
+  network: { tailscaleName: string; user: string };
+  neverSleepOnPower: true;
+}
 export interface FleetDefinition {
-  version: 2;
+  version: 3;
+  manager: ManagerDefinition;
+  /** Stateless, replaceable Linux boxes; clients of the manager's services. */
+  workers: MachineDefinition[];
+  services: {
+    proxy: { endpoint: 'https://cli-proxy.chrisvouga.dev' };
+    monitoring: { hubPort: 8443 };
+  };
   worker?: WorkerPolicy;
-  nodes: MachineDefinition[];
-  proxy: { owner: string; endpoint: 'https://cli-proxy.chrisvouga.dev' };
-  monitoring: { parent: string };
   ubuntu: { release: '26.04'; architectures: ['amd64', 'arm64'] };
 }
 const ID = /^[a-z][a-z0-9-]{0,62}$/;
 const HOST = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}$/;
 function fail(): never {
   throw new FleetUsageError(
-    'Invalid Fleet definition. Check version 2, unique node IDs, singleton owners, and network metadata in packages/fleet/definition.json.'
+    'Invalid Fleet definition. Check version 3, one macOS manager, unique Linux worker IDs, singleton services and network metadata in packages/fleet/definition.json.'
   );
 }
 function keys(value: Record<string, unknown>, allowed: string[]): boolean {
@@ -58,76 +70,101 @@ function validPort(value: unknown): boolean {
     Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 65535
   );
 }
-function node(value: unknown): MachineDefinition {
+function worker(value: unknown): MachineDefinition {
   if (!record(value) || !keys(value, ['id', 'ssh', 'os', 'network']))
     return fail();
   if (typeof value['id'] !== 'string' || !ID.test(value['id'])) return fail();
   if (typeof value['ssh'] !== 'string' || !HOST.test(value['ssh']))
     return fail();
-  if (!['linux', 'macOS', 'windows'].includes(String(value['os'])))
-    return fail();
+  // Workers are the Linux boxes; any other platform is not a worker.
+  if (value['os'] !== 'linux') return fail();
   return {
     id: value['id'],
     ssh: value['ssh'],
-    os: value['os'] as MachineDefinition['os'],
+    os: 'linux',
     ...(value['network'] ? { network: network(value['network']) } : {}),
   };
+}
+function manager(value: unknown): ManagerDefinition {
+  if (
+    !record(value) ||
+    !keys(value, ['id', 'os', 'network', 'neverSleepOnPower']) ||
+    typeof value['id'] !== 'string' ||
+    !ID.test(value['id']) ||
+    value['os'] !== 'macOS' ||
+    value['neverSleepOnPower'] !== true
+  )
+    return fail();
+  return {
+    id: value['id'],
+    os: 'macOS',
+    network: managerNetwork(value['network']),
+    neverSleepOnPower: true,
+  };
+}
+function managerNetwork(value: unknown): ManagerDefinition['network'] {
+  if (
+    !record(value) ||
+    !keys(value, ['tailscaleName', 'user']) ||
+    typeof value['tailscaleName'] !== 'string' ||
+    !HOST.test(value['tailscaleName']) ||
+    typeof value['user'] !== 'string' ||
+    !/^[a-z_][a-z0-9_.-]{0,31}$/.test(value['user'])
+  )
+    return fail();
+  return { tailscaleName: value['tailscaleName'], user: value['user'] };
 }
 export function parseDefinition(value: unknown): FleetDefinition {
   if (
     !record(value) ||
-    value['version'] !== 2 ||
+    value['version'] !== 3 ||
     !keys(value, [
       '$schema',
       'version',
-      'nodes',
-      'proxy',
-      'monitoring',
+      'manager',
+      'workers',
+      'services',
       'ubuntu',
       'worker',
     ])
   )
     return fail();
-  if (!Array.isArray(value['nodes']) || value['nodes'].length > 64)
+  if (!Array.isArray(value['workers']) || value['workers'].length > 64)
     return fail();
-  const nodes = value['nodes'].map(node);
-  if (
-    !nodes.length ||
-    new Set(nodes.map((entry) => entry.id)).size !== nodes.length
-  )
-    return fail();
-  const { proxy, monitoring } = owners(value, nodes);
-  const ubuntu = baseline(value['ubuntu']);
+  const lead = manager(value['manager']);
+  const workers = value['workers'].map(worker);
+  const ids = [lead.id, ...workers.map((entry) => entry.id)];
+  if (new Set(ids).size !== ids.length) return fail();
   return {
-    version: 2,
-    nodes,
-    proxy,
-    monitoring,
-    ubuntu,
+    version: 3,
+    manager: lead,
+    workers,
+    services: services(value['services']),
+    ubuntu: baseline(value['ubuntu']),
     ...(value['worker'] === undefined
       ? {}
       : { worker: parseWorkerPolicy(value['worker']) }),
   };
 }
-function owners(
-  value: Record<string, unknown>,
-  nodes: MachineDefinition[]
-): Pick<FleetDefinition, 'proxy' | 'monitoring'> {
-  const proxy = value['proxy'];
-  const monitoring = value['monitoring'];
+/** Singleton services name no host: they always run on the manager. */
+function services(value: unknown): FleetDefinition['services'] {
+  if (!record(value) || !keys(value, ['proxy', 'monitoring'])) return fail();
+  const { proxy, monitoring } = value;
   if (
     !record(proxy) ||
-    !keys(proxy, ['owner', 'endpoint']) ||
+    !keys(proxy, ['endpoint']) ||
     proxy['endpoint'] !== 'https://cli-proxy.chrisvouga.dev'
   )
     return fail();
-  if (!record(monitoring) || !keys(monitoring, ['parent'])) return fail();
-  for (const id of [proxy['owner'], monitoring['parent']])
-    if (!nodes.some((entry) => entry.id === id && entry.os === 'linux'))
-      return fail();
+  if (
+    !record(monitoring) ||
+    !keys(monitoring, ['hubPort']) ||
+    monitoring['hubPort'] !== 8443
+  )
+    return fail();
   return {
-    proxy: proxy as FleetDefinition['proxy'],
-    monitoring: monitoring as FleetDefinition['monitoring'],
+    proxy: { endpoint: 'https://cli-proxy.chrisvouga.dev' },
+    monitoring: { hubPort: 8443 },
   };
 }
 function baseline(ubuntu: unknown): FleetDefinition['ubuntu'] {
@@ -148,17 +185,17 @@ export function loadDefinition(path: string): FleetDefinition {
     return fail();
   }
 }
-/** Local v1 roster supplies paths/requirements only for explicitly enrolled nodes. */
+/** Local v1 roster supplies paths/requirements only for explicitly enrolled workers. */
 export function enrolledRoster(
   definition: FleetDefinition,
   overrides: unknown
 ): FleetConfig {
   const roster = parseConfig(overrides);
   for (const node of roster.nodes) {
-    const declared = definition.nodes.find((entry) => entry.id === node.id);
+    const declared = definition.workers.find((entry) => entry.id === node.id);
     if (!declared)
       throw new FleetUsageError(
-        'Roster contains a node missing from the reviewed Fleet definition. Add its portable definition in Git before rollout.'
+        'Roster contains a node that is not a declared worker. Add the worker to packages/fleet/definition.json in Git before rollout; the manager is never a roster node.'
       );
     if (declared.ssh !== node.ssh)
       throw new FleetUsageError(

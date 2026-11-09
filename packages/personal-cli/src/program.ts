@@ -24,7 +24,7 @@ export const GLOBAL_OPTIONS = [
   { flag: '--non-interactive', description: 'Never open interactive prompts' },
   {
     flag: '--workspace <path>',
-    description: 'Existing controller checkout; does not clone or change it',
+    description: 'Existing manager checkout; does not clone or change it',
   },
   { flag: '--config <path>', description: 'Local, secret-free fleet roster' },
 ];

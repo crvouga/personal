@@ -5,7 +5,7 @@ const SAFETY = [
   'Diagnostics, onboarding instructions, schema, catalogs, scripts and repair previews are read-only.',
   'fleet-sync, fleet-node-sync, t3-apply and t3-cleanup apply by invocation; --dry-run previews. t3-apply --import ID explicitly adopts ownership. --json never implies a dry run. fleet-node-add and fleet-repair require --apply --yes.',
   'Do not copy credentials, forward SSH agents, bypass host keys, provision infrastructure or execute unreviewed remedies.',
-  'A healthy controller does not prove another machine can connect to it. Run fleet-status from each intended controller.',
+  'A healthy manager does not prove another machine can connect to it. Run fleet-status from each intended manager.',
   'fleet-repair executes only allowlisted owner actions, then reruns diagnostics. Native logins, host trust and resource permissions remain explicit operator steps. Pass the reviewed planHash as --plan-hash to reject a changed plan.',
   'Shared provider keys are fetched through each machine’s existing Vault authorization by workstation tooling. Never copy machine-local login caches.',
   'Use exact npm versions for automation. The application never self-updates.',
@@ -70,7 +70,7 @@ export function agentGuide(release: Release) {
         '{version:1,command,ok,generatedAt,nodes:[{node,checks:[{id,status,summary,remedy?}]}],summary,coverage}',
       statuses: ['pass', 'warn', 'fail', 'skip'],
       coverage:
-        'Default fleet-status tests the controller and all configured nodes. --local tests only this controller; --tailnet and --workers cover Tailscale computers. A missing roster fails explicitly. T3/VS Code end-to-end checks remain manual.',
+        'Default fleet-status tests the manager and all configured nodes. --local tests only this manager; --tailnet and --workers cover Tailscale computers. A missing roster fails explicitly. T3/VS Code end-to-end checks remain manual.',
     },
     safety: SAFETY,
     fleetSync: {
@@ -79,7 +79,7 @@ export function agentGuide(release: Release) {
       approval: 'Applies on invocation without a prompt; --dry-run previews',
       scope:
         'Whole enrolled Ubuntu fleet over verified SSH; --node filters diagnostics/rollout',
-      state: '~/.local/share/personal/fleet/controller/enrollment.json',
+      state: '~/.local/share/personal/fleet/manager/enrollment.json',
       readiness:
         'Full Ubuntu acceptance is incomplete and fails closed; do not override it or claim deployment success.',
     },

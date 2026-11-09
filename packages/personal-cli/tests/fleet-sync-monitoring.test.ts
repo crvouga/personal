@@ -1,0 +1,144 @@
+import { expect, test } from 'bun:test';
+import { resolve } from 'node:path';
+import {
+  synchronizeMonitoring,
+  synchronizeMonitoringWith,
+} from '../src/fleet-sync-monitoring';
+import { loadDefinition } from '../../fleet/src/definition';
+import type { CommandResult, FleetNode, Runner } from '../../fleet/src/types';
+
+const definition = loadDefinition(
+  resolve(import.meta.dir, '../../fleet/definition.json')
+);
+const revision = 'a'.repeat(40);
+const HUB = 'https://chriss-macbook-air-1.tail4829dc.ts.net:8443';
+const worker: FleetNode = {
+  id: 'chris-vouga-ms-a2',
+  ssh: 'chris-vouga-ms-a2',
+  workspace: '/unused',
+  tailscaleId: 'worker-id',
+  required: [],
+};
+const ok = (stdout = ''): CommandResult => ({
+  ok: true,
+  stdout,
+  stderr: '',
+  reason: 'exit',
+});
+const tailnet = JSON.stringify({
+  BackendState: 'Running',
+  Health: null,
+  Self: {
+    ID: 'manager-id',
+    HostName: 'chriss-macbook-air',
+    DNSName: 'chriss-macbook-air-1.tail4829dc.ts.net.',
+    OS: 'macOS',
+    Online: true,
+    TailscaleIPs: ['100.64.0.1'],
+  },
+  Peer: {
+    worker: {
+      ID: 'worker-id',
+      HostName: 'chris-vouga-ms-a2',
+      DNSName: 'chris-vouga-ms-a2.tail4829dc.ts.net.',
+      OS: 'linux',
+      Online: true,
+      TailscaleIPs: ['100.64.0.2'],
+    },
+  },
+});
+
+function fakeRunner(hubUp = true): { run: Runner; calls: string[][] } {
+  const calls: string[][] = [];
+  const run: Runner = async (args) => {
+    calls.push([...args]);
+    if (args[0] === 'curl')
+      return hubUp ? ok() : { ...ok(), ok: false, reason: 'exit' };
+    if (args[0] === 'tailscale') return ok(tailnet);
+    return ok(
+      JSON.stringify({
+        version: 1,
+        checks: [{ id: 'beszel:service', status: 'pass', summary: 'ok' }],
+      })
+    );
+  };
+  return { run, calls };
+}
+
+test('worker enrollment targets the manager hub and installs only the agent', async () => {
+  const { run, calls } = fakeRunner();
+  const hubs: string[] = [];
+  const bodies: object[] = [];
+  const checks = await synchronizeMonitoringWith({
+    sampleDeadlineMs: 0,
+    access: async (hub) => {
+      hubs.push(hub);
+      return {
+        userId: 'abcdefghijklmno',
+        request: async (path, body) => {
+          if (body) {
+            bodies.push(body);
+            return body;
+          }
+          if (path.endsWith('/info'))
+            return { v: '0.21.1', key: 'ssh-ed25519 fixture' };
+          if (path.includes('/systems/')) return { items: [] };
+          if (path.includes('/fingerprints/')) return { items: [] };
+          return { items: [{ created: new Date().toISOString() }] };
+        },
+      };
+    },
+  })(worker, definition, revision, run);
+  expect(hubs).toEqual([HUB]);
+  expect(calls[0]).toContain(`${HUB}/api/health`);
+  expect(bodies[0]).toMatchObject({
+    name: 'chris-vouga-ms-a2',
+    host: 'chris-vouga-ms-a2.tail4829dc.ts.net',
+  });
+  const ssh = calls.find((args) => args[0] === 'ssh') ?? [];
+  expect(ssh.join(' ')).toContain('monitoring/apply.ts');
+  expect(checks[0]?.id).toBe('beszel:service');
+});
+
+test('an unreachable manager hub stops before enrollment with a clear code', async () => {
+  const { run, calls } = fakeRunner(false);
+  const checks = await synchronizeMonitoringWith({
+    access: async () => {
+      throw new Error('must not log in');
+    },
+  })(worker, definition, revision, run);
+  expect(checks[0]?.summary).toBe('BESZEL_HUB_UNREACHABLE');
+  expect(checks[0]?.remedy?.action).toContain('runs on the manager');
+  expect(calls.every((args) => args[0] === 'curl')).toBe(true);
+});
+
+test('the manager and unknown machines are never enrolled as workers', async () => {
+  for (const id of ['chriss-macbook-air', 'unknown-node']) {
+    const { run, calls } = fakeRunner();
+    const checks = await synchronizeMonitoring(
+      { ...worker, id, ssh: id },
+      definition,
+      revision,
+      run
+    );
+    expect(checks[0]?.summary).toBe('BESZEL_NOT_ENROLLED');
+    expect(calls).toEqual([]);
+  }
+});
+
+test('a worker missing from the tailnet and a rejected login keep their codes', async () => {
+  const missing = await synchronizeMonitoring(
+    { ...worker, tailscaleId: 'absent' },
+    definition,
+    revision,
+    fakeRunner().run
+  );
+  expect(missing[0]?.summary).toBe('BESZEL_NODE_TAILNET_REQUIRED');
+  const rejected = await synchronizeMonitoringWith({
+    access: async () => {
+      throw new Error('BESZEL_ACCOUNT_REQUIRED');
+    },
+  })(worker, definition, revision, fakeRunner().run);
+  expect(rejected[0]?.summary).toBe('BESZEL_ACCOUNT_REQUIRED');
+  expect(rejected[0]?.remedy?.action).toContain('fleet-manager@chrisvouga.dev');
+});

@@ -68,7 +68,7 @@ export function reportChecks(data: unknown): CheckRow[] {
 
 function nodeChecks(value: unknown): CheckRow[] {
   if (!record(value) || !Array.isArray(value['checks'])) return [];
-  const node = text(value['node'], 'controller');
+  const node = text(value['node'], 'manager');
   return value['checks'].flatMap((check: unknown) => {
     if (!record(check) || !isStatus(check['status'])) return [];
     const remedy = record(check['remedy']) ? check['remedy'] : {};

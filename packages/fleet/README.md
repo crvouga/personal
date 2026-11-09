@@ -2,11 +2,15 @@
 
 `@pkgs/fleet` diagnoses development computers: SSH, VS Code Remote-SSH,
 per-machine authentication, T3 Connect and shared toolchain/dependency drift.
-It is a local CLI/library, not a daemon or cloud controller. It reuses the
+It is a local CLI/library, not a daemon or cloud manager. It reuses the
 existing mise/workstation owners rather than introducing another installer.
 
+The fleet is one singleton **manager** (the human's macOS machine, which runs
+`fleet-sync` and every singleton service such as the CLI proxy and Beszel hub)
+and stateless Linux **workers**. See [topology](docs/topology.md).
+
 See [Ubuntu fleet-sync implementation and operator status](docs/ubuntu-sync.md) for
-the new controller-driven public command and its outstanding full-machine gates.
+the manager-driven public command and its outstanding full-machine gates.
 
 ## Worker contract
 
@@ -14,8 +18,8 @@ Use `npx @crvouga/personal fleet-sync` to reconcile all declared workers and
 `npx @crvouga/personal fleet-status --workers` to inspect remaining gaps. See
 [worker-contract.md](docs/worker-contract.md) for bootstrap, ownership and the exact
 scope of readiness. `fleet-status` without flags diagnoses the local roster.
-Ubuntu 26.04 is the accepted worker platform; macOS 14+ nodes converge best effort
-through `packages/workstation/macos`. Machine policy (never sleep, no automatic
+Workers are Ubuntu 26.04; the manager is macOS and never sleeps on AC power
+(`packages/workstation/macos/manager.yml`). Machine policy (never sleep, no automatic
 logout, always-on Tailscale/SSH/Docker/Beszel, memory and disk safety, per-node
 credential renewal) is
 declared in Ansible and measured by `fleet-status --workers`, which also verifies
@@ -31,7 +35,7 @@ personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspac
 personal fleet-node-add --id dev-linux --ssh dev-linux --path /home/dev/workspace --apply --yes --json
 personal fleet-nodes --json                        # validate the roster; no network
 personal fleet-nodes --onboard --node dev-linux --json
-personal fleet-status --json                       # controller + all roster nodes
+personal fleet-status --json                       # manager + all roster nodes
 personal fleet-status --node dev-linux --json
 personal fleet-status --local --json               # no roster/SSH needed
 personal fleet-repair --node dev-linux --repair workspace --json   # plan only
@@ -75,13 +79,13 @@ remains the sole cloud resource owner; fleet creates no networks, hosts or secre
   the **non-login SSH PATH**. Configure explicitly when GUI terminals work but SSH
   cannot find Node. A shim also needs mise's environment/PATH working.
 - `required`: `github`, `vault`, `t3`, `vscode`, `toolchain`. Defaults to all except
-  vscode. Set vscode on editor/controller machines, not just on headless targets.
+  vscode. Set vscode on editor/manager machines, not just on headless targets.
   `[]` still checks checkout/dependencies/SSH. Unknown fields fail closed.
 
-The controller reference defaults to this repository checkout. `--workspace PATH`
+The manager reference defaults to this repository checkout. `--workspace PATH`
 changes that reference/local sync target. Nodes are compared to **that checkout**,
 including uncommitted lockfile edits, not an implicitly fetched origin/main.
-Controller capabilities default to all five; headless controllers can pass
+Manager capabilities default to all five; headless managers can pass
 `--require github,vault,t3,toolchain` or `--require none`. This does not override
 remote nodes' required lists. Run `fleet-nodes --schema` for editor/agent validation.
 
@@ -90,10 +94,10 @@ remote nodes' required lists. Run `fleet-nodes --schema` for editor/agent valida
 | Check                                                                              | Evidence / next action                                                                                                                                  |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `workspace`, `git:clean`                                                           | HEAD, input availability and dirty-tree status; no paths/diffs/file contents logged.                                                                    |
-| `revision`, `sync:*`                                                               | Compare exact HEAD and SHA-256 of package.json, bun.lock, mise.toml, mise.lock against controller. Missing inputs never pass.                           |
+| `revision`, `sync:*`                                                               | Compare exact HEAD and SHA-256 of package.json, bun.lock, mise.toml, mise.lock against manager. Missing inputs never pass.                              |
 | `dependencies`                                                                     | Last successful fleet frozen-sync receipt matches input hashes. Missing receipt is unverified, not in-sync.                                             |
 | `auth:toolchain`                                                                   | Existing scripts/dev/doctor.ts runs in the node checkout with its Bun, bounded to 90s. Use personal workstation tools check --json for individual pins. |
-| `ssh:agent`                                                                        | Controller agent exposes an identity; missing agent warns because IdentityFile keys may still work.                                                     |
+| `ssh:agent`                                                                        | Manager agent exposes an identity; missing agent warns because IdentityFile keys may still work.                                                        |
 | `ssh:session`                                                                      | Fresh batch SSH session actually runs the Node/Bun probe. No reused multiplexed connection or agent forwarding.                                         |
 | `ssh:host-key`, `ssh:dns`, `ssh:auth`, `ssh:network`, `ssh:runtime`, `ssh:timeout` | Classified failure and targeted remedy, without raw logs.                                                                                               |
 | `auth:github`                                                                      | gh auth status --active succeeds on this machine; not proof of Git SSH or every repository permission.                                                  |
@@ -104,8 +108,8 @@ remote nodes' required lists. Run `fleet-nodes --schema` for editor/agent valida
 | `t3:end-to-end`, `vscode:forwarding`                                               | SKIP: actual relay/peer authorization and VS Code tunnel/server installation require operator testing.                                                  |
 
 An SSH shell is not proof that VS Code or T3 Connect works. Diagnostics check
-**directed controller → node** connectivity, not all pairs. Run from each intended
-controller to check reverse directions. No host-key acceptance, known_hosts edits,
+**directed manager → node** connectivity, not all pairs. Run from each intended
+manager to check reverse directions. No host-key acceptance, known_hosts edits,
 sshd changes, agent forwarding, password retries or credential copying happen.
 SSH config/executables/hosts are trusted operator inputs; configured ProxyCommand
 or Match commands can execute the operator's own code.
@@ -127,7 +131,7 @@ need normal repository validation. A green install is not a healthy fleet.
    distinct machine key, authorize only its public key and verify the server
    fingerprint out of band. Never expose public SSH or copy private keys/auth
    folders. Cloud provisioning remains an OpenTofu task.
-3. Configure the controller's SSH alias, append the node to the local roster,
+3. Configure the manager's SSH alias, append the node to the local roster,
    then run `fleet-nodes` and `fleet-nodes --onboard --node ID --json`. Onboarding
    emits a ready-to-edit SSH stanza, VS Code settings and ordered instructions;
    it does not overwrite user config. Test `ssh ALIAS` manually first.
@@ -223,7 +227,7 @@ health errors invalidate complete discovery. ACL-hidden devices cannot be certif
 
 Health probes each registered remote node's declared `required` capabilities; it
 no longer adds cloud-service logins or direct provider authentication implicitly.
-The controller default covers T3, toolchain and workstation configuration.
+The manager default covers T3, toolchain and workstation configuration.
 Explicit `services` requirements retain Railway, Vercel, Cloudflare, AWS and npm
 checks. No raw account/auth output is retained. Version checks keep
 per-tool results, including the expected pinned version when available, and require
@@ -242,7 +246,7 @@ Use `--apply --yes` only after review; `--plan-hash` binds application to the
 previewed steps, targets and checkout/shared-input fingerprints. The remote
 protocol independently requires explicit apply, a supported repair action and
 expected input fingerprints. It preserves verified SSH and disables forwarding.
-After owner commands, the controller obtains fresh health checks. Successful
+After owner commands, the manager obtains fresh health checks. Successful
 installation never substitutes for authentication or resource authorization.
 
 The workstation owner reads permitted shared provider keys from each machine's

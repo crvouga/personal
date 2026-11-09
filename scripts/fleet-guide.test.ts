@@ -9,7 +9,7 @@ test('published guide inputs include the fleet flow and honest acceptance status
   const guide = renderLlmsTxt();
   expect(guide).toContain('npx @crvouga/personal fleet-sync');
   expect(guide).toContain(
-    '# Developer fleet: controller operation (Ubuntu, with macOS best effort)'
+    '# Developer fleet: one manager (macOS) and stateless workers (Ubuntu)'
   );
   expect(guide).toContain('not yet a completed or published fleet');
   expect(guide).toContain('homelab, not cloud infrastructure');

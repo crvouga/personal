@@ -1,4 +1,5 @@
-# Run from the verified deployment worktree. Never copy the hub data to an agent.
+# Run on the manager only, through hub-darwin.yml from the verified checkout.
+# Never copy the hub data to a worker or run a second copy of its identity.
 name: personal-beszel
 services:
   hub:
@@ -13,7 +14,11 @@ services:
       # Single-operator private hub: fleet-registered systems are visible to every login.
       SHARE_ALL_SYSTEMS: 'true'
     volumes:
-      - /var/lib/personal-beszel:/beszel_data
+      - type: bind
+        source: '${BESZEL_DATA_DIR:?per-user hub data directory required}'
+        target: /beszel_data
+        bind:
+          create_host_path: false
     logging:
       driver: local
       options:
@@ -24,7 +29,8 @@ services:
     pids_limit: 128
     stop_grace_period: 30s
   # Outbound-only Cloudflare Tunnel for the public dashboard hostname. The
-  # connector token is delivered from Vault to a root-owned file by hub.yml.
+  # connector token is delivered from the manager's Vault session to a 0600
+  # per-user file by hub-darwin.yml.
   cloudflared:
     profiles: [public-endpoint]
     image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
@@ -39,7 +45,12 @@ services:
         '/run/secrets/tunnel-token',
       ]
     volumes:
-      - /var/lib/personal-beszel-tunnel/token:/run/secrets/tunnel-token:ro
+      - type: bind
+        source: '${BESZEL_TUNNEL_TOKEN_FILE:?per-user connector token file required}'
+        target: /run/secrets/tunnel-token
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       - hub
     read_only: true

@@ -32,7 +32,7 @@ export async function convergeT3Route(run: Runner): Promise<Check[]> {
       summary:
         'Private HTTPS Serve route observed at ' +
         url +
-        '; controller reachability and paired tool execution remain separate checks.',
+        '; manager reachability and paired tool execution remain separate checks.',
     },
   ];
 }
@@ -44,7 +44,7 @@ function pending(code: string): Check[] {
       summary: code,
       remedy: {
         action:
-          'Inspect this node’s Tailscale identity, HTTPS capability and port 443 Serve ownership. Preserve existing routes; never reset Serve or enable Funnel. Pair using the native T3 client after a separate controller connection succeeds.',
+          'Inspect this node’s Tailscale identity, HTTPS capability and port 443 Serve ownership. Preserve existing routes; never reset Serve or enable Funnel. Pair using the native T3 client after a separate manager connection succeeds.',
       },
     },
   ];

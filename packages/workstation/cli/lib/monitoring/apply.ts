@@ -1,8 +1,9 @@
 import { runAnsible } from '../platform/ansible';
 import macos from '../../../macos/policy.json';
-import { applyHub } from './hub';
+import { convergeManagerHub } from './manager-hub';
 import { resolve } from 'node:path';
 import { loadDefinition } from '../../../../fleet/src/definition';
+import { hubUrl, roleOf } from '../../../../fleet/src/topology';
 import { record } from '../../../../fleet/src/config';
 import { isRevision } from '../../../../fleet/src/machine/state';
 import { privateHub } from '../../../../fleet/src/monitoring/beszel';
@@ -19,22 +20,21 @@ export async function applyAgent(
     resolve(root, 'packages/fleet/definition.json')
   );
   await validateSource(request, root, run);
-  if (
-    !definition.nodes.some(
-      (node) => node.id === request.node && node.os !== 'windows'
-    )
-  )
-    throw new Error('BESZEL_NOT_ENROLLED');
+  const role = roleOf(definition, request.node);
+  if (role === null) throw new Error('BESZEL_NOT_ENROLLED');
   if (request.mode === 'hub') {
-    if (definition.monitoring.parent !== request.node)
-      throw new Error('BESZEL_NOT_HUB');
-    return applyHub(root, request.hubUrl, run);
+    // The hub runs only on the manager; workers only ever run the agent.
+    if (role !== 'manager') throw new Error('BESZEL_NOT_HUB');
+    return convergeManagerHub(root, definition, run);
   }
   if (
     typeof request.publicKey !== 'string' ||
     typeof request.token !== 'string'
   )
     throw new Error('BESZEL_CREDENTIALS_REQUIRED');
+  // Agents connect only to the manager's private hub URL.
+  if (privateHub(request.hubUrl) !== privateHub(hubUrl(definition)))
+    throw new Error('BESZEL_HUB_MISMATCH');
   return installAgent(request, root, run);
 }
 
@@ -67,7 +67,7 @@ async function installAgent(
         summary: 'BESZEL_INSTALLATION_INCOMPLETE',
         remedy: {
           action:
-            'Inspect sudo, signed artifact access, free disk and existing service ownership. Preserve the native agent DATA_DIR and rerun the controller.',
+            'Inspect sudo, signed artifact access, free disk and existing service ownership. Preserve the native agent DATA_DIR and rerun the manager.',
         },
       },
     ];
@@ -134,13 +134,38 @@ async function main(): Promise<Check[]> {
   }
   return applyAgent(JSON.parse(raw), process.cwd(), runCommand);
 }
+/** Turns a known refusal into structured evidence; anything else is redacted. */
+export function refusal(error: unknown): Check[] {
+  const code = error instanceof Error ? error.message : '';
+  const action = REFUSALS[code];
+  return [
+    action
+      ? {
+          id: 'beszel:operation',
+          status: 'fail',
+          summary: code,
+          remedy: { action },
+        }
+      : {
+          id: 'beszel:operation',
+          status: 'fail',
+          summary: 'BESZEL_OPERATION_INCOMPLETE',
+        },
+  ];
+}
+const REFUSALS: Record<string, string> = {
+  BESZEL_NOT_HUB:
+    'The Beszel hub runs only on the manager. Workers run only the agent; converge the hub from the manager with fleet-sync.',
+  BESZEL_NOT_ENROLLED:
+    'Declare this machine in packages/fleet/definition.json (the manager or a worker) before enrolling monitoring.',
+  BESZEL_SOURCE_MISMATCH:
+    'The checkout is not the clean, expected revision. Rerun fleet-sync so the reviewed source is installed first.',
+  BESZEL_HUB_MISMATCH:
+    "Agents connect only to the manager's private hub URL from packages/fleet/definition.json. Rerun fleet-sync from an up-to-date checkout.",
+  BESZEL_CREDENTIALS_REQUIRED:
+    'Agent enrollment credentials were not delivered. Rerun fleet-sync from the manager.',
+};
 if (import.meta.main) {
-  const checks = await main().catch((): Check[] => [
-    {
-      id: 'beszel:operation',
-      status: 'fail',
-      summary: 'BESZEL_OPERATION_INCOMPLETE',
-    },
-  ]);
+  const checks = await main().catch(refusal);
   process.stdout.write(JSON.stringify({ version: 1, checks }));
 }

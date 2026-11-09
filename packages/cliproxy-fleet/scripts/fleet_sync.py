@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fleet singleton reconciliation using the existing installer, systemd and endpoint owner."""
+"""Fleet singleton reconciliation: the manager hosts the proxy, workers are clients."""
 import sys
 sys.dont_write_bytecode = True
 
@@ -9,14 +9,17 @@ import json
 import os
 import pathlib
 import re
-import socket
 import subprocess
 import time
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent
-ROOT = pathlib.Path('/opt/cliproxy-fleet')
-TIMERS = ['cliproxy-monitor.timer', 'cliproxy-vault-renew.timer',
-          'cliproxy-backup.timer', 'cliproxy-backup-check.timer', 'cliproxy-gc.timer']
+sys.path.insert(0, str(SCRIPTS))
+import cliproxy_host
+
+ENDPOINT = 'https://cli-proxy.chrisvouga.dev'
+DECOMMISSION = ('Workers never host singletons. Fence and decommission this local proxy with '
+                'packages/cliproxy-fleet/docs/migration.md (disable timers, drain, stop, disable, '
+                'final backup); fleet-sync never stops it automatically.')
 
 
 def execute(args, timeout=120):
@@ -33,7 +36,8 @@ def audit(root):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     try:
-        manifest, errors = module.audit(root)
+        # Provenance and unit links only: loaded/active state is reported per unit below.
+        manifest, errors = module.audit(root, run=lambda argv: True)
         return not errors, manifest.get('revision')
     except Exception:
         return False, None
@@ -45,6 +49,10 @@ def phase(code, status, summary, expected, observed, retryable=False):
             'observed': observed, 'retryable': retryable,
             'actionRequired': status in ('failed', 'action-required'),
             'scope': 'node', 'remedy': {'owner': 'cliproxy-fleet', 'action': summary}}
+
+
+def unit_code(unit):
+    return 'PROXY_UNIT_' + re.sub('[^A-Z0-9]', '_', unit.upper())
 
 
 def equivalent_source(installed, revision):
@@ -61,17 +69,38 @@ def equivalent_source(installed, revision):
         return False
 
 
-def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible_fn=equivalent_source):
+def inspect_worker(root, backend, run):
+    """Client role. A local host is reported, never stopped."""
+    live = [unit for unit in backend.units if any(backend.state(unit, run))]
+    if live:
+        return [phase('PROXY_DUPLICATE_OWNER', 'action-required', DECOMMISSION,
+                      'No proxy host on workers', 'Active or enabled local host: ' + ', '.join(live))]
+    if (root / 'INSTALLATION.json').exists():
+        return [phase('PROXY_DECOMMISSION_PENDING', 'action-required',
+                      'A fenced proxy installation (with private state) remains on this worker. After the manager '
+                      'cutover is verified, remove it as described in packages/cliproxy-fleet/docs/migration.md.',
+                      'No proxy installation on workers', 'Stopped local installation present')]
+    return [phase('PROXY_CLIENT_ROLE', 'unchanged', 'Worker; the proxy runs on the manager.',
+                  'No proxy host on workers', 'No active host')]
+
+
+def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible_fn=equivalent_source,
+            backend=None, identity=None):
+    backend = backend or cliproxy_host.backend()
     if node != owner:
-        active = (root / 'INSTALLATION.json').exists() or run(['systemctl', 'is-active', '--quiet', 'cliproxy-fleet.service'])
-        return [phase('PROXY_DUPLICATE_OWNER' if active else 'PROXY_CLIENT_ROLE',
-                      'action-required' if active else 'unchanged',
-                      'This node must use the central gateway; review and fence an unexpected local host before proceeding.' if active else 'Client node; proxy hosting is owned elsewhere.',
-                      'No proxy host on client nodes', 'Active local host' if active else 'No active host')]
+        return inspect_worker(root, backend, run)
+    if backend.name != 'launchd':
+        return [phase('PROXY_PLATFORM_MISMATCH', 'action-required',
+                      'The manager hosts the proxy on macOS with launchd; run fleet-sync for the manager on the manager.',
+                      'macOS launchd owner backend', backend.name)]
+    if identity is not None and identity != owner:
+        return [phase('PROXY_IDENTITY_MISMATCH', 'action-required',
+                      'This host is not the declared manager; changing the manager requires reviewed identity assignment and fencing.',
+                      owner, identity)]
     if not (root / 'state/runtime/config.yaml').is_file():
         return [phase('PROXY_RECOVERY_REQUIRED', 'action-required',
                       'Use the existing encrypted recovery flow after fencing the previous owner; never initialize a second provider identity.',
-                      'Recovered runtime state on the designated owner', 'Runtime cache missing')]
+                      'Recovered runtime state on the manager', 'Runtime cache missing')]
     clean, installed = audit_fn(root)
     if not clean:
         return [phase('PROXY_SOURCE_DRIFT', 'action-required',
@@ -82,10 +111,9 @@ def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible
                       'A proxy revision update can interrupt inference. Reapply with --maintenance in an approved window.',
                       revision, installed if isinstance(installed, str) and re.fullmatch('[0-9a-f]{40}', installed) else 'Unknown revision')]
     checks = []
-    for unit in ['cliproxy-fleet.service', *TIMERS]:
-        active = run(['systemctl', 'is-active', '--quiet', unit])
-        enabled = run(['systemctl', 'is-enabled', '--quiet', unit])
-        checks.append(phase('PROXY_UNIT_' + unit.replace('.', '_').replace('-', '_').upper(),
+    for unit in backend.units:
+        active, enabled = backend.state(unit, run)
+        checks.append(phase(unit_code(unit),
                             'unchanged' if active and enabled else 'action-required',
                             'Enable/start the declared unit; do not restart an already running gateway.',
                             'Enabled and active ' + unit,
@@ -110,27 +138,32 @@ def endpoint_health(root):
         return False
 
 
-def reconcile(root, node, owner, revision, apply=False, maintenance=False, run=execute, audit_fn=audit, endpoint_check=endpoint_health, compatible_fn=equivalent_source):
+def reconcile(root, node, owner, revision, apply=False, maintenance=False, run=execute, audit_fn=audit,
+              endpoint_check=endpoint_health, compatible_fn=equivalent_source, backend=None, identity=None):
     started = time.monotonic()
-    checks = inspect(root, node, owner, revision, run, audit_fn, compatible_fn)
+    backend = backend or cliproxy_host.backend()
+    checks = inspect(root, node, owner, revision, run, audit_fn, compatible_fn, backend, identity)
     changed = False
-    if apply and node == owner:
-        codes = {item['code'] for item in checks}
+    codes = {item['code'] for item in checks}
+    blocked = {'PROXY_PLATFORM_MISMATCH', 'PROXY_IDENTITY_MISMATCH', 'PROXY_RECOVERY_REQUIRED',
+               'PROXY_SOURCE_DRIFT', 'PROXY_UPDATE_PENDING'}
+    if apply and node == owner and not codes & (blocked - {'PROXY_UPDATE_PENDING'}):
         if codes == {'PROXY_UPDATE_PENDING'} and maintenance:
-            changed = run(['sudo', '-n', sys.executable, '-B', str(SCRIPTS / 'install.py'), '--revision', revision], 1500)
-        elif not codes.intersection({'PROXY_RECOVERY_REQUIRED', 'PROXY_SOURCE_DRIFT', 'PROXY_UPDATE_PENDING'}):
+            changed = run(backend.install(sys.executable, SCRIPTS, revision), 1500)
+        elif not codes & blocked:
             for item in checks:
                 if item['status'] != 'action-required':
                     continue
                 if item['code'].startswith('PROXY_UNIT_'):
                     unit = item['expected'].removeprefix('Enabled and active ')
                     # Backup operations must not run before existing recovery confirmation.
-                    if unit in TIMERS[2:] and not (root / 'state/secrets/recovery-confirmed').exists():
+                    if unit in backend.recovery_gated and not (root / 'state/secrets/recovery-confirmed').exists():
                         continue
-                    changed = run(['sudo', '-n', 'systemctl', 'enable', '--now', unit]) or changed
+                    for command in backend.enable(unit):
+                        changed = run(command) or changed
                 elif item['code'] == 'PROXY_ENDPOINT_DISABLED':
                     changed = run([sys.executable, '-B', str(root / 'scripts/public-endpoint'), 'enable']) or changed
-        checks = inspect(root, node, owner, revision, run, audit_fn, compatible_fn)
+        checks = inspect(root, node, owner, revision, run, audit_fn, compatible_fn, backend, identity)
     if node == owner and all(item['status'] == 'unchanged' for item in checks):
         verified = endpoint_check(root)
         checks.append(phase('PROXY_ENDPOINT_AUTH', 'unchanged' if verified else 'action-required',
@@ -138,9 +171,22 @@ def reconcile(root, node, owner, revision, apply=False, maintenance=False, run=e
                             'Authenticated public gateway client route',
                             'Verified' if verified else 'Endpoint or authentication unavailable', True))
     return {'version': 1, 'command': 'cliproxy fleet-sync', 'node': node,
-            'owner': owner, 'ok': all(item['status'] == 'unchanged' for item in checks),
+            'role': 'manager' if node == owner else 'worker', 'owner': owner,
+            'backend': backend.name, 'ok': all(item['status'] == 'unchanged' for item in checks),
             'changed': changed, 'desiredRevision': revision, 'phases': checks,
             'durationMs': round((time.monotonic() - started) * 1000)}
+
+
+def roles(definition):
+    """Validate definition v3 and return (manager id, worker ids)."""
+    manager = definition['manager']
+    if (definition.get('version') != 3 or manager.get('os') != 'macOS'
+            or definition['services']['proxy']['endpoint'] != ENDPOINT):
+        raise ValueError('Invalid definition')
+    workers = {worker['id'] for worker in definition['workers']}
+    if manager['id'] in workers:
+        raise ValueError('The manager is never a worker')
+    return manager['id'], workers
 
 
 def main():
@@ -151,15 +197,13 @@ def main():
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--maintenance', action='store_true')
     args = parser.parse_args()
-    definition = json.loads(args.definition.read_text())
-    owner = definition['proxy']['owner']
-    if definition['version'] != 2 or definition['proxy']['endpoint'] != 'https://cli-proxy.chrisvouga.dev':
-        raise ValueError('Invalid definition')
-    if not re.fullmatch('[a-f0-9]{40}', args.revision) or not re.fullmatch('[a-z][a-z0-9-]{0,62}', args.node):
+    owner, workers = roles(json.loads(args.definition.read_text()))
+    if not re.fullmatch('[a-f0-9]{40}', args.revision) or args.node not in workers | {owner}:
         raise ValueError('Invalid selection')
-    if args.apply and args.node == owner and socket.gethostname().lower() != owner:
-        raise ValueError('Singleton host identity does not match the declared owner; migration requires reviewed identity assignment and fencing')
-    result = reconcile(ROOT, args.node, owner, args.revision, args.apply, args.maintenance)
+    backend = cliproxy_host.backend()
+    identity = cliproxy_host.local_node_id() if args.node == owner else None
+    result = reconcile(cliproxy_host.default_root(), args.node, owner, args.revision, args.apply,
+                       args.maintenance, backend=backend, identity=identity)
     print(json.dumps(result))
     return 0 if result['ok'] else 1
 

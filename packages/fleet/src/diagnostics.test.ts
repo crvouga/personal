@@ -26,7 +26,7 @@ test('stale metrics can be retried, but unknown probe origin is not fabricated',
       status: 'fail',
       summary: 'BESZEL_METRICS_STALE',
     })
-  ).toMatchObject({ scope: 'controller', retryable: true });
+  ).toMatchObject({ scope: 'manager', retryable: true });
   expect(
     diagnostic('devbox', {
       id: 't3:end-to-end',

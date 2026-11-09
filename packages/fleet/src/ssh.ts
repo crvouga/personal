@@ -96,7 +96,7 @@ export function sshFailure(result: CommandResult): Check {
       summary: 'TAILSCALE_INTERACTIVE_AUTHORIZATION_REQUIRED',
       remedy: {
         action:
-          'The current Tailscale SSH policy requires interactive reauthentication. Adopt and update its existing policy through OpenTofu for the enrolled controller/worker scope, or enroll a separately verified OpenSSH key route. Fleet never bypasses trust or prompts for a password.',
+          'The current Tailscale SSH policy requires interactive reauthentication. Adopt and update its existing policy through OpenTofu for the enrolled manager/worker scope, or enroll a separately verified OpenSSH key route. Fleet never bypasses trust or prompts for a password.',
       },
     };
   if (result.reason === 'timeout')

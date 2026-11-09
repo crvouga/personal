@@ -1,4 +1,4 @@
-import type { ControllerReport } from '../../fleet/src/controller-sync';
+import type { ManagerReport } from '../../fleet/src/manager-sync';
 import type { Check } from '../../fleet/src/types';
 const T3_HEALTH = [
   't3:service',
@@ -8,8 +8,8 @@ const T3_HEALTH = [
   'worker:t3-health',
   'worker:service-recovery',
 ];
-const T3_CONNECTED = ['t3:controller-endpoint', 't3:paired-access'];
-export function controllerText(report: ControllerReport): string {
+const T3_CONNECTED = ['t3:manager-endpoint', 't3:paired-access'];
+export function managerText(report: ManagerReport): string {
   const lines = [
     `Approved revision: ${report.desiredRevision ?? 'not selected'}`,
     ...report.checks

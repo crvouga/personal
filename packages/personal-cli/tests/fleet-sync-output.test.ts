@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { controllerText } from '../src/fleet-sync-output';
-import type { ControllerReport } from '../../fleet/src/controller-sync';
+import { managerText } from '../src/fleet-sync-output';
+import type { ManagerReport } from '../../fleet/src/manager-sync';
 
 const pass = (id: string) => ({ id, status: 'pass' as const, summary: id });
 
-test('T3 columns report health and controller connectivity checks', () => {
+test('T3 columns report health and manager connectivity checks', () => {
   const report = {
     desiredRevision: 'abc',
     applied: true,
@@ -18,17 +18,17 @@ test('T3 columns report health and controller connectivity checks', () => {
         checks: [
           pass('t3:service'),
           pass('worker:t3-health'),
-          pass('t3:controller-endpoint'),
+          pass('t3:manager-endpoint'),
           {
             id: 't3:paired-access',
             status: 'fail' as const,
-            summary: 'CONTROLLER_T3_LINK_UNVERIFIED',
+            summary: 'MANAGER_T3_LINK_UNVERIFIED',
           },
         ],
       },
     ],
-  } as unknown as ControllerReport;
-  const text = controllerText(report);
+  } as unknown as ManagerReport;
+  const text = managerText(report);
   expect(text).toContain('T3 healthy | T3 connected');
   expect(text).toContain(
     'worker | online | unverified | unverified | pass | fail |'

@@ -1,12 +1,11 @@
 import { runLockedCommand as runCommand } from './runner';
 import { isRevision } from './machine/state';
 import { convergeLinux } from './node-converge-linux';
-import { convergeDarwin } from './node-converge-darwin';
 import type { Check } from './types';
 
-/** Internal remote entry only. Controller owns the operation lock and source
- * selection; this installs no pull daemon or timer. Never prints child output.
- * Linux is the accepted worker platform; macOS follows the same phases best effort.
+/** Internal remote entry, run on a worker only. The manager owns the operation
+ * lock and source selection; this installs no pull daemon or timer. Never
+ * prints child output. Workers are Linux.
  */
 async function main(): Promise<Check[]> {
   const [node, revision] = process.argv.slice(2);
@@ -15,8 +14,6 @@ async function main(): Promise<Check[]> {
   const root = process.cwd();
   const head = await runCommand(['git', 'rev-parse', 'HEAD']);
   if (!head.ok || head.stdout.trim() !== revision) throw new Error();
-  if (process.platform === 'darwin')
-    return convergeDarwin(root, node, revision, runCommand);
   if (process.platform === 'linux')
     return convergeLinux(root, node, revision, runCommand);
   return [
@@ -25,7 +22,8 @@ async function main(): Promise<Check[]> {
       status: 'fail',
       summary: 'PLATFORM_UNSUPPORTED',
       remedy: {
-        action: 'Controller convergence supports Ubuntu 26.04 and macOS 14+.',
+        action:
+          'Workers are Ubuntu 26.04. The macOS manager converges itself locally in fleet-sync.',
       },
     },
   ];

@@ -1,17 +1,15 @@
 import { expect, test } from 'bun:test';
-import { blocksPromotion, synchronizeController } from './controller-sync';
+import { blocksPromotion, synchronizeManager } from './manager-sync';
 import { parseDefinition } from './definition';
 import source from '../definition.json';
 import type { FleetNode, Runner } from './types';
 const revision = 'a'.repeat(40);
 const definition = parseDefinition({
   ...source,
-  nodes: [
+  workers: [
     { id: 'first', ssh: 'first', os: 'linux' },
     { id: 'second', ssh: 'second', os: 'linux' },
   ],
-  proxy: { ...source.proxy, owner: 'first' },
-  monitoring: { parent: 'first' },
 });
 const nodes: FleetNode[] = ['first', 'second'].map((id) => ({
   id,
@@ -40,7 +38,7 @@ function runner(offline = false): Runner {
       return ok(
         JSON.stringify({
           BackendState: 'Running',
-          Self: peer('controller'),
+          Self: peer('manager'),
           Peer: {
             first: peer('first'),
             second: peer('second', !offline),
@@ -53,9 +51,9 @@ function runner(offline = false): Runner {
     return ok('ubuntu\n26.04\nx86_64\n');
   };
 }
-test('one controller invocation uses one revision and never deploys a candidate', async () => {
+test('one manager invocation uses one revision and never deploys a candidate', async () => {
   const deployed: string[] = [];
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     { definition, nodes, revision, apply: true },
     runner(),
     async (node, sha) => {
@@ -73,7 +71,7 @@ test('one controller invocation uses one revision and never deploys a candidate'
 });
 test('offline node stays visible while independent reachable node proceeds', async () => {
   const deployed: string[] = [];
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     { definition, nodes, revision, apply: true },
     runner(true),
     async (node) => {
@@ -90,7 +88,7 @@ test('offline node stays visible while independent reachable node proceeds', asy
 });
 test('failed canary blocks promotion but does not omit other diagnostics', async () => {
   const deployed: string[] = [];
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     { definition, nodes, revision, apply: true, canary: 'first' },
     runner(),
     async (node) => {
@@ -108,7 +106,7 @@ test('failed canary blocks promotion but does not omit other diagnostics', async
   expect(JSON.stringify(result)).not.toContain('secret detail');
 });
 test('dry run neither bootstraps nor deploys; missing overrides remain accounted for', async () => {
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     { definition, nodes: nodes.slice(0, 1), revision, apply: false },
     runner(),
     async () => {
@@ -120,7 +118,7 @@ test('dry run neither bootstraps nor deploys; missing overrides remain accounted
   expect(result.applied).toBe(false);
 });
 test('device replacement blocks writes even when SSH succeeds', async () => {
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     {
       definition,
       nodes: nodes.map((node) => ({ ...node, tailscaleId: 'old' })),
@@ -142,7 +140,7 @@ test('device replacement blocks writes even when SSH succeeds', async () => {
 
 test('an explicitly authorized trusted SSH bootstrap route may repair an offline node', async () => {
   const deployed: string[] = [];
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     {
       definition,
       nodes: nodes.map((node) => ({ ...node, bootstrapViaSsh: true })),
@@ -169,7 +167,7 @@ test('an explicitly authorized trusted SSH bootstrap route may repair an offline
   expect(result.nodes[1]?.reachability).toBe('offline');
 });
 test('bootstrap authorization never permits a changed device identity', async () => {
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     {
       definition,
       nodes: nodes.map((node) => ({
@@ -190,7 +188,7 @@ test('bootstrap authorization never permits a changed device identity', async ()
 
 test('missing monitoring or client pairing remains incomplete without blocking independent node configuration', async () => {
   const deployed: string[] = [];
-  const result = await synchronizeController(
+  const result = await synchronizeManager(
     { definition, nodes, revision, apply: true, canary: 'first' },
     runner(),
     async (node) => {

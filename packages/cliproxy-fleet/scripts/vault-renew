@@ -3,9 +3,14 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import importlib.util, pathlib, sys, os
 
-root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+root = cliproxy_host.default_root().resolve()
 spec = importlib.util.spec_from_file_location(
     "vault_access", root / "scripts/vault-access.py"
 )

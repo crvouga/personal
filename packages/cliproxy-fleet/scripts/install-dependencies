@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ $(uname -s) == Darwin ]]; then
+  # Manager (macOS): check only; Homebrew/Docker Desktop are workstation-owned.
+  [[ $EUID != 0 ]] || { echo 'Do not use sudo on macOS; the manager installation is per-user.'; exit 1; }
+  # Same PATH as the tracked LaunchAgents (launchd/*.plist).
+  export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  missing=()
+  command -v brew >/dev/null || missing+=('Homebrew (https://brew.sh)')
+  if command -v brew >/dev/null; then
+    brew list --versions restic >/dev/null 2>&1 || missing+=('restic: brew install restic')
+    brew list --versions pyyaml >/dev/null 2>&1 || missing+=('PyYAML: brew install pyyaml')
+  fi
+  python3 -c 'import yaml' 2>/dev/null || missing+=("PyYAML importable by $(command -v python3) (the LaunchAgent python3)")
+  [[ -d /Applications/Docker.app ]] || missing+=('Docker Desktop (/Applications/Docker.app)')
+  if (( ${#missing[@]} )); then
+    printf 'Missing manager prerequisites:\n'
+    printf '  - %s\n' "${missing[@]}"
+    exit 1
+  fi
+  printf 'Manager prerequisites present. Start Docker Desktop (sign-in start) before installing.\n'
+  exit 0
+fi
+# Legacy Linux owner (decommission-only): Ubuntu packages.
 [[ $EUID == 0 ]] || { echo 'Run with sudo.'; exit 1; }
 apt-get update
 apt-get install -y docker.io docker-compose-v2 restic python3-yaml curl openssl shellcheck

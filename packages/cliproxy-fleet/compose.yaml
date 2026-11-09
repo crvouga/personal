@@ -3,7 +3,7 @@ services:
   proxy:
     image: ${CLI_PROXY_IMAGE:?image must be pinned}
     restart: unless-stopped
-    user: '1000:1000'
+    user: '${CLIPROXY_UID:-1000}:${CLIPROXY_GID:-1000}'
     working_dir: /state
     command: ['/CLIProxyAPI/CLIProxyAPI', '-config', '/state/config.yaml']
     environment:
@@ -37,7 +37,7 @@ services:
         max-file: '3'
   tailnet:
     profiles: [portable-endpoint]
-    user: '1000:1000'
+    user: '${CLIPROXY_UID:-1000}:${CLIPROXY_GID:-1000}'
     image: ${TAILSCALE_IMAGE:?image must be pinned}
     restart: unless-stopped
     entrypoint: ['/usr/local/bin/tailscaled']
@@ -62,7 +62,7 @@ services:
   cloudflared:
     profiles: [public-endpoint]
     image: ${CLOUDFLARED_IMAGE:?image must be pinned}
-    user: '1000:1000'
+    user: '${CLIPROXY_UID:-1000}:${CLIPROXY_GID:-1000}'
     restart: unless-stopped
     command:
       [

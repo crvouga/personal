@@ -1,7 +1,7 @@
 import { discoverTailnet } from './tailscale';
 import type { Check, FleetNode, Runner } from './types';
 
-/** A fresh controller HTTPS request is transport evidence only. Never read
+/** A fresh manager HTTPS request is transport evidence only. Never read
  * pairing material or treat HTTP health as an authenticated tool session.
  */
 export async function verifyT3Endpoint(
@@ -12,7 +12,7 @@ export async function verifyT3Endpoint(
   const tailnet = await discoverTailnet(run);
   const peer = tailnet.computers.find((entry) => entry.id === node.tailscaleId);
   if (!peer || !/^[a-z0-9.-]+\.ts\.net$/.test(peer.dns))
-    return pending('T3_CONTROLLER_IDENTITY_UNVERIFIED');
+    return pending('T3_MANAGER_IDENTITY_UNVERIFIED');
   try {
     const response = await request('https://' + peer.dns, {
       method: 'GET',
@@ -20,29 +20,28 @@ export async function verifyT3Endpoint(
       signal: AbortSignal.timeout(10_000),
     });
     await response.body?.cancel();
-    if (response.status !== 200)
-      return pending('T3_CONTROLLER_ENDPOINT_REJECTED');
+    if (response.status !== 200) return pending('T3_MANAGER_ENDPOINT_REJECTED');
     return [
       {
-        id: 't3:controller-endpoint',
+        id: 't3:manager-endpoint',
         status: 'pass',
         summary:
-          'A fresh HTTPS request from the controller reached the enrolled private endpoint with valid TLS and HTTP 200. Pairing, server compatibility and tool execution remain unverified.',
+          'A fresh HTTPS request from the manager reached the enrolled private endpoint with valid TLS and HTTP 200. Pairing, server compatibility and tool execution remain unverified.',
       },
     ];
   } catch {
-    return pending('T3_CONTROLLER_ENDPOINT_UNREACHABLE');
+    return pending('T3_MANAGER_ENDPOINT_UNREACHABLE');
   }
 }
 function pending(code: string): Check[] {
   return [
     {
-      id: 't3:controller-endpoint',
+      id: 't3:manager-endpoint',
       status: 'fail',
       summary: code,
       remedy: {
         action:
-          'Inspect the enrolled node’s private Serve route, T3 listener, Tailscale reachability and HTTPS capability. Restore the existing private route in source; never bypass TLS verification or interpret a local listener as controller access.',
+          'Inspect the enrolled node’s private Serve route, T3 listener, Tailscale reachability and HTTPS capability. Restore the existing private route in source; never bypass TLS verification or interpret a local listener as manager access.',
       },
     },
   ];

@@ -2,7 +2,6 @@ import { powerRecoveryCheck } from './power-recovery';
 import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
 import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
-import { verifyDarwinMachine } from '../../workstation/cli/lib/platform/darwin-verify';
 import policy from '../../workstation/ubuntu/policy.json';
 import { userInfo } from 'node:os';
 import type { Check, Runner } from './types';
@@ -25,11 +24,8 @@ function check(id: string, ok: boolean, summary: string): Check {
 /** Measured runtime evidence, independent of installer receipts. */
 export async function workerHostChecks(
   user: string,
-  run: Runner,
-  platform: NodeJS.Platform = process.platform
+  run: Runner
 ): Promise<Check[]> {
-  if (platform === 'darwin')
-    return verifyDarwinMachine({ name: user, uid: userInfo().uid }, run);
   const audit = await auditUbuntu(run);
   const checks = [
     check(

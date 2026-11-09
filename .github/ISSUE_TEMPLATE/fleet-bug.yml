@@ -27,8 +27,8 @@ body:
       options:
         - Read-only preview
         - Interactive apply
-        - Unattended controller apply
-        - Controller scheduled run
+        - Unattended manager apply
+        - Manager scheduled run
         - Disposable integration test
     validations:
       required: true
@@ -36,14 +36,14 @@ body:
     id: reproduction
     attributes:
       label: Starting state and minimal reproduction
-      description: Include controller OS, Ubuntu release/architecture, fresh/repeat/interrupted state, expected result, observed result, and whether other nodes continued. Use neutral node labels instead of private network details.
+      description: Include manager OS, Ubuntu release/architecture, fresh/repeat/interrupted state, expected result, observed result, and whether other nodes continued. Use neutral node labels instead of private network details.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
       label: Reviewed, redacted evidence
-      description: Include relevant diagnostic entries and timestamps only. Distinguish node checks, fresh controller connections, and paired end-to-end checks; do not substitute a service status for remote acceptance.
+      description: Include relevant diagnostic entries and timestamps only. Distinguish node checks, fresh manager connections, and paired end-to-end checks; do not substitute a service status for remote acceptance.
   - type: textarea
     id: regression
     attributes:

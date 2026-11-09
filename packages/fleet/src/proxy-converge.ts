@@ -1,13 +1,15 @@
 import { record } from './config';
 import type { Check, Runner } from './types';
 
-/** The existing proxy owner performs singleton/state/provenance checks before
- * starting an owned stopped unit. Routine sync cannot upgrade or restore it.
+/** The proxy runs only on the manager, which performs singleton/state/provenance
+ * checks before starting a stopped install; on a worker this verifies the
+ * client-only role. Routine sync cannot upgrade or restore it.
  */
 export async function convergeProxy(
   node: string,
   revision: string,
-  run: Runner
+  run: Runner,
+  options: { apply?: boolean; cwd?: string } = {}
 ): Promise<Check[]> {
   const result = await run(
     [
@@ -20,9 +22,12 @@ export async function convergeProxy(
       node,
       '--revision',
       revision,
-      '--apply',
+      ...(options.apply === false ? [] : ['--apply']),
     ],
-    { timeoutMs: 180_000 }
+    {
+      timeoutMs: 180_000,
+      ...(options.cwd ? { cwd: options.cwd } : {}),
+    }
   );
   try {
     const data: unknown = JSON.parse(result.stdout);
@@ -46,7 +51,7 @@ export async function convergeProxy(
         summary: phase['code'],
         remedy: {
           action:
-            'Inspect the singleton proxy owner with its existing audit/recovery runbook. Revision changes require maintenance; missing state requires fencing and encrypted recovery, never a second identity.',
+            'The proxy runs only on the manager. Inspect it there with its audit/recovery runbook; revision changes require maintenance, and missing state requires fencing and encrypted recovery, never a second identity.',
         },
       };
     });
@@ -58,7 +63,7 @@ export async function convergeProxy(
         summary: 'PROXY_RECONCILE_UNVERIFIED',
         remedy: {
           action:
-            'Inspect the existing CLIProxyAPI owner and its deployment manifest; runtime data and credentials were not copied.',
+            'Inspect the CLIProxyAPI install on the manager and its deployment manifest; runtime data and credentials were not copied.',
         },
       },
     ];

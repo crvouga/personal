@@ -3,16 +3,22 @@ import sys
 
 sys.dont_write_bytecode = True
 
-import os, sys, subprocess, shlex
+import os, pathlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
 
 args = sys.argv[1:]
 if args and args[0] == "compose" and "--project-directory" not in args:
     args = [
         "compose",
         "--project-directory",
-        os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"),
+        str(cliproxy_host.default_root()),
         *args[1:],
     ]
-if os.access("/var/run/docker.sock", os.R_OK | os.W_OK):
-    os.execv("/usr/bin/docker", ["docker", *args])
-os.execvp("sudo", ["sudo", "-n", "/usr/bin/docker", *args])
+try:
+    argv, environment = cliproxy_host.docker_invocation(args, __file__)
+except cliproxy_host.DockerUnavailable as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(cliproxy_host.DOCKER_UNAVAILABLE)
+os.execvpe(argv[0], argv, environment)

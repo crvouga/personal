@@ -16,7 +16,7 @@ export interface BootstrapPayload {
   digest: string;
   authorizeSudo?: string;
 }
-/** No controller tool installation; Git/source preparation is part of apply approval. */
+/** No manager tool installation; Git/source preparation is part of apply approval. */
 export async function prepareBootstrap(
   root: string,
   revision: string,
@@ -123,7 +123,7 @@ export async function bootstrapRemote(
         summary: 'REMOTE_BOOTSTRAP_EVIDENCE_INVALID',
         remedy: {
           action:
-            'Inspect the source-owned remote operation and lock. Do not assume a controller disconnect stopped installation.',
+            'Inspect the source-owned remote operation and lock. Do not assume a manager disconnect stopped installation.',
         },
       },
     ],

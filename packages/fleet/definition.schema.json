@@ -1,17 +1,51 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Portable developer machine definition; local paths remain in roster overrides",
+  "title": "Fleet topology: one manager (the human's machine, which runs every singleton service) and stateless Linux workers. Local paths remain in roster overrides.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "nodes", "proxy", "monitoring", "ubuntu"],
+  "required": ["version", "manager", "workers", "services", "ubuntu"],
   "properties": {
     "$schema": {
       "type": "string"
     },
     "version": {
-      "const": 2
+      "const": 3
     },
-    "nodes": {
+    "manager": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The singleton manager: the human's machine that runs fleet-sync and hosts every singleton service (CLI proxy, Beszel hub).",
+      "required": ["id", "os", "network", "neverSleepOnPower"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "os": {
+          "const": "macOS"
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tailscaleName", "user"],
+          "properties": {
+            "tailscaleName": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}$"
+            },
+            "user": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.-]{0,31}$"
+            }
+          }
+        },
+        "neverSleepOnPower": {
+          "const": true,
+          "description": "Workers depend on the manager's singleton services, so it never sleeps on AC power."
+        }
+      }
+    },
+    "workers": {
       "type": "array",
       "minItems": 1,
       "maxItems": 64,
@@ -29,7 +63,8 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,252}$"
           },
           "os": {
-            "enum": ["linux", "macOS", "windows"]
+            "const": "linux",
+            "description": "Workers are the Linux boxes: stateless, replaceable, never hosting a singleton service."
           },
           "network": {
             "type": "object",
@@ -59,26 +94,31 @@
         }
       }
     },
-    "proxy": {
+    "services": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["owner", "endpoint"],
+      "required": ["proxy", "monitoring"],
+      "description": "Singleton services. Every one runs on the manager; workers are clients only.",
       "properties": {
-        "owner": {
-          "type": "string"
+        "proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["endpoint"],
+          "properties": {
+            "endpoint": {
+              "const": "https://cli-proxy.chrisvouga.dev"
+            }
+          }
         },
-        "endpoint": {
-          "const": "https://cli-proxy.chrisvouga.dev"
-        }
-      }
-    },
-    "monitoring": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["parent"],
-      "properties": {
-        "parent": {
-          "type": "string"
+        "monitoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hubPort"],
+          "properties": {
+            "hubPort": {
+              "const": 8443
+            }
+          }
         }
       }
     },

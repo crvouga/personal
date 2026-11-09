@@ -5,6 +5,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 
 import hashlib
 import importlib.util
@@ -13,7 +18,7 @@ import os
 import pathlib
 import urllib.request
 
-root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+root = cliproxy_host.default_root().resolve()
 os.umask(0o077)
 state = root / "state"
 for directory in ["status", "secrets"]:

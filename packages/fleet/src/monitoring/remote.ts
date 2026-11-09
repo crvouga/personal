@@ -6,13 +6,15 @@ import { isRevision } from '../machine/state';
 import type { AgentEnrollment } from './enroll';
 import { remoteLockPrelude } from '../remote-lock';
 
-/** Only node-specific agent credentials cross SSH; hub account credentials stay
- * on the controller. The installed source and remote operation lock are reused.
+/** Installs the Beszel agent on a worker. Only node-specific agent credentials
+ * cross SSH; hub account credentials stay on the manager. Workers never host
+ * the hub (it runs only on the manager), so there is no remote hub mode.
+ * The installed source and remote operation lock are reused.
  */
 export async function installRemoteAgent(
   node: FleetNode,
   revision: string,
-  enrollment: AgentEnrollment | { mode: 'hub'; hubUrl: string },
+  enrollment: AgentEnrollment,
   run: Runner
 ): Promise<Check[]> {
   if (!isRevision(revision)) throw new Error('BESZEL_REVISION');

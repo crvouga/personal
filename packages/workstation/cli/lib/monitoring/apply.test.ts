@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
-import { applyAgent } from './apply';
+import { applyAgent, refusal } from './apply';
 import type { Runner } from '../../../../fleet/src/types';
 
 const root = resolve(import.meta.dir, '../../../../..');
@@ -48,3 +48,62 @@ for (const conflict of [
     expect(calls.every((args) => args[0] === 'git')).toBe(true);
   });
 }
+
+const clean: Runner = async (args) => ({
+  ok: true,
+  reason: 'exit',
+  stderr: '',
+  stdout: args.includes('--porcelain')
+    ? ''
+    : args.includes('--show-toplevel')
+      ? root
+      : revision,
+});
+test('hub mode is refused on every worker: the hub runs only on the manager', async () => {
+  const error = await applyAgent(
+    {
+      node: 'chris-vouga-ms-a2',
+      revision,
+      mode: 'hub',
+      hubUrl: 'https://chriss-macbook-air-1.tail4829dc.ts.net:8443',
+    },
+    root,
+    clean
+  ).catch((caught: unknown) => caught);
+  expect((error as Error).message).toBe('BESZEL_NOT_HUB');
+  const [check] = refusal(error);
+  expect(check?.summary).toBe('BESZEL_NOT_HUB');
+  expect(check?.remedy?.action).toContain('runs only on the manager');
+});
+test('agents accept only the manager hub URL and undeclared machines are refused', async () => {
+  const agent = {
+    revision,
+    publicKey: 'ssh-ed25519 fixture',
+    token: 'disposable-fixture-token',
+  };
+  await expect(
+    applyAgent(
+      {
+        ...agent,
+        node: 'chris-vouga-ms-a2',
+        hubUrl: 'https://chris-vouga-ms-a2.tail4829dc.ts.net:8443',
+      },
+      root,
+      clean
+    )
+  ).rejects.toThrow('BESZEL_HUB_MISMATCH');
+  await expect(
+    applyAgent(
+      {
+        ...agent,
+        node: 'unknown-node',
+        hubUrl: 'https://chriss-macbook-air-1.tail4829dc.ts.net:8443',
+      },
+      root,
+      clean
+    )
+  ).rejects.toThrow('BESZEL_NOT_ENROLLED');
+  expect(refusal(new Error('raw secret detail'))[0]?.summary).toBe(
+    'BESZEL_OPERATION_INCOMPLETE'
+  );
+});

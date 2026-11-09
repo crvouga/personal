@@ -2,7 +2,7 @@ import { sshArgs } from './ssh';
 import { record } from './config';
 import type { Check, FleetNode, Runner } from './types';
 
-/** Correlate a live SSH-verified server identity with the native controller's authenticated link. */
+/** Correlate a live SSH-verified server identity with the native manager's authenticated link. */
 export async function verifyT3Linked(
   node: FleetNode,
   run: Runner,
@@ -11,10 +11,10 @@ export async function verifyT3Linked(
   const unavailable: Check = {
     id: 't3:paired-access',
     status: 'fail',
-    summary: 'CONTROLLER_T3_LINK_UNVERIFIED',
+    summary: 'MANAGER_T3_LINK_UNVERIFIED',
     remedy: {
       action:
-        'Link this exact worker environment to the controller using T3 Connections once. Existing pairing identities are preserved; passwords and pairing tokens are never copied by Fleet.',
+        'Link this exact worker environment to the manager using T3 Connections once. Existing pairing identities are preserved; passwords and pairing tokens are never copied by Fleet.',
     },
   };
   try {
@@ -54,7 +54,7 @@ function linkedEvidence(
     status: expires - now < 7 * 86400000 ? 'warn' : 'pass',
     summary:
       expires - now < 7 * 86400000
-        ? 'Exact worker link is reachable but its controller authorization expires within seven days.'
+        ? 'Exact worker link is reachable but its manager authorization expires within seven days.'
         : 'Native T3 authenticated link reaches the exact enrolled worker environment. This checks connected access, not a model task.',
   };
 }
