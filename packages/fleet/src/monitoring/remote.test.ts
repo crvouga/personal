@@ -15,7 +15,12 @@ test('remote monitoring reports a real competing flock without starting mise', a
     const checks = await installRemoteAgent(
       { id: 'fixture', ssh: 'fixture', workspace: '/unused', required: [] },
       revision,
-      { mode: 'hub', hubUrl: 'https://fixture.example.ts.net:8443' },
+      {
+        systemId: 'abcdefghijklmno',
+        hubUrl: 'https://fixture.example.ts.net:8443',
+        publicKey: 'ssh-ed25519 fixture',
+        token: 'disposable-fixture-token',
+      },
       (args, options) =>
         runCommand(
           [
@@ -34,4 +39,58 @@ test('remote monitoring reports a real competing flock without starting mise', a
   } finally {
     await rm(home, { recursive: true, force: true });
   }
+});
+
+test('remote monitoring sends only agent enrollment and redacts invalid evidence', async () => {
+  const revision = 'b'.repeat(40);
+  const node = {
+    id: 'chris-vouga-ms-a2',
+    ssh: 'chris-vouga-ms-a2',
+    workspace: '/unused',
+    required: [],
+  };
+  const enrollment = {
+    systemId: 'abcdefghijklmno',
+    hubUrl: 'https://manager.example.ts.net:8443',
+    publicKey: 'ssh-ed25519 fixture',
+    token: 'never-output-token',
+  };
+  const inputs: string[] = [];
+  const pass = await installRemoteAgent(
+    node,
+    revision,
+    enrollment,
+    async (_args, options) => {
+      inputs.push(options?.input ?? '');
+      return {
+        ok: true,
+        reason: 'exit',
+        stderr: '',
+        stdout: JSON.stringify({
+          version: 1,
+          checks: [{ id: 'beszel:service', status: 'pass', summary: 'ok' }],
+        }),
+      };
+    }
+  );
+  expect(pass.map((check) => check.id)).toEqual(['beszel:service']);
+  expect(JSON.parse(inputs[0]!)).toEqual({
+    ...enrollment,
+    node: node.id,
+    revision,
+  });
+  expect(inputs[0]).not.toContain('"mode"');
+  const invalid = await installRemoteAgent(
+    node,
+    revision,
+    enrollment,
+    async () => ({
+      ok: true,
+      reason: 'exit',
+      stderr: '',
+      stdout: 'raw never-output-token',
+    })
+  );
+  expect(invalid[0]?.summary).toBe('BESZEL_REMOTE_EVIDENCE_INVALID');
+  expect(JSON.stringify(invalid)).not.toContain('never-output');
 });

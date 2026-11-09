@@ -2,7 +2,6 @@ import { powerRecoveryCheck } from './power-recovery';
 import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
 import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
-import { verifyDarwinMachine } from '../../workstation/cli/lib/platform/darwin-verify';
 import policy from '../../workstation/ubuntu/policy.json';
 import { userInfo } from 'node:os';
 import type { Check, Runner } from './types';
@@ -22,14 +21,28 @@ function check(id: string, ok: boolean, summary: string): Check {
       : {}),
   };
 }
+/** Observed unit state for a failed service check, e.g.
+ * `SERVICE_NOT_INSTALLED beszel-agent.service (inactive)`. */
+export function serviceState(name: string, show: string): string {
+  const field = (key: string) =>
+    new RegExp(`^${key}=(.*)$`, 'm').exec(show)?.[1] ?? '';
+  const file = field('UnitFileState');
+  const state = field('ActiveState') || 'unknown';
+  const code = !file
+    ? 'SERVICE_NOT_INSTALLED'
+    : state !== 'active'
+      ? 'SERVICE_NOT_RUNNING'
+      : file !== 'enabled'
+        ? 'SERVICE_NOT_ENABLED'
+        : 'SERVICE_RESTART_POLICY';
+  return `${code} ${name}.service (${state}, unit file ${file || 'missing'}, restart ${field('Restart') || 'unknown'})`;
+}
+
 /** Measured runtime evidence, independent of installer receipts. */
 export async function workerHostChecks(
   user: string,
-  run: Runner,
-  platform: NodeJS.Platform = process.platform
+  run: Runner
 ): Promise<Check[]> {
-  if (platform === 'darwin')
-    return verifyDarwinMachine({ name: user, uid: userInfo().uid }, run);
   const audit = await auditUbuntu(run);
   const checks = [
     check(
@@ -61,14 +74,18 @@ export async function workerHostChecks(
       name === 'beszel-agent'
         ? /^ActiveState=active$/m.test(unit.stdout)
         : audit.services[name] === true;
+    const ok =
+      unit.ok &&
+      active &&
+      /^UnitFileState=enabled$/m.test(unit.stdout) &&
+      /^Restart=always$/m.test(unit.stdout);
     checks.push(
       check(
         `service:${name}`,
-        unit.ok &&
-          active &&
-          /^UnitFileState=enabled$/m.test(unit.stdout) &&
-          /^Restart=always$/m.test(unit.stdout),
-        'Required system service is active, enabled for boot and restarts unconditionally.'
+        ok,
+        ok
+          ? 'Required system service is active, enabled for boot and restarts unconditionally.'
+          : serviceState(name, unit.stdout)
       )
     );
   }

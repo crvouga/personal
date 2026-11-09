@@ -104,9 +104,9 @@ function compare(
     id,
     status: matches ? 'pass' : 'fail',
     summary: matches
-      ? 'Matches the controller checkout.'
+      ? 'Matches the manager checkout.'
       : known
-        ? 'Differs from the controller checkout.'
+        ? 'Differs from the manager checkout.'
         : 'Cannot verify; reference or node input is missing.',
     ...(matches
       ? {}

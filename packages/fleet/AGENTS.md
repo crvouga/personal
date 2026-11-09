@@ -1,10 +1,11 @@
 # Fleet agent notes
 
 - Read `README.md` before using or changing this package. It is the operator and agent runbook.
+- Topology ([docs/topology.md](docs/topology.md)): one singleton **manager** (the human's macOS machine; runs `fleet-sync` and every singleton service) and stateless Linux **workers** (clients only). Use exactly these words. Never place a singleton service on a worker or give a service a host field; new singletons go under `services` and run on the manager.
 - `personal fleet-nodes --schema` and `personal fleet-repair --list` require no credentials or roster.
 - Diagnostics are read-only. Never add automatic repairs, logins, host-key acceptance, agent forwarding, credential copying, or cloud provisioning.
 - The public `fleet-sync` flow applies on invocation without a prompt (`--dry-run` previews); read `docs/ubuntu-sync.md` for its incomplete acceptance gates. `fleet-repair` and `fleet-node-add` require explicit `--apply --yes`. Repair delegates tool installation to `scripts/dev/setup.ts`; workstation configuration remains owned by `personal`.
-- Ubuntu 26.04 is the accepted worker platform; macOS nodes follow the same phases best effort (`node-converge-darwin.ts`, `workstation/macos`). Declare machine policy in Ansible with `ansible.builtin` modules only and verify it with measured runtime checks; keep bespoke TypeScript for native CLIs/APIs (T3, Beszel enrollment, providers, proxy).
+- Workers are Ubuntu 26.04 only; the manager is macOS (`workstation/macos/manager.yml`). Declare machine policy in Ansible with `ansible.builtin` modules only and verify it with measured runtime checks; keep bespoke TypeScript for native CLIs/APIs (T3, Beszel enrollment, providers, proxy).
 - Keep the roster local and secret-free. It describes developer SSH aliases/checkouts, not desired cloud infrastructure.
 - Use stable check IDs, structured remedies and versioned JSON. Never serialize raw subprocess output, environment variables, SSH config, auth responses or exception messages.
 - Remote commands target POSIX SSH shells only. Native Windows supports local commands; use WSL for remote nodes.

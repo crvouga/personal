@@ -27,7 +27,7 @@ function execution(entry: CommandSpec) {
       authorization: 'interactive-confirmation or --apply --yes',
       preview: 'personal fleet-sync --dry-run --json',
       scope:
-        'enrolled Ubuntu fleet over verified SSH; controller is not an implicit target',
+        'enrolled Ubuntu fleet over verified SSH; manager is not an implicit target',
       note: 'JSON/noninteractive never prompt. Full Ubuntu acceptance is not yet implemented.',
     };
   if (entry.id === 'workstation')

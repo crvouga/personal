@@ -21,7 +21,7 @@ export async function doctor(
   const agent = await run(['ssh-add', '-l']);
   const reports: NodeReport[] = [
     {
-      node: 'controller',
+      node: 'manager',
       snapshot: local,
       checks: [
         ...local.checks,
@@ -35,7 +35,7 @@ export async function doctor(
             ? {
                 remedy: {
                   action:
-                    'Unlock/load the intended key in the controller session. Check SSH_AUTH_SOCK and GUI/editor agent visibility; do not copy private keys.',
+                    'Unlock/load the intended key in the manager session. Check SSH_AUTH_SOCK and GUI/editor agent visibility; do not copy private keys.',
                 },
               }
             : {}),

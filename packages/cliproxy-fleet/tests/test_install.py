@@ -142,6 +142,39 @@ class Installation(unittest.TestCase):
             old,
         )
 
+    def test_launchd_audit_requires_linked_and_loaded_agents(self):
+        host = installer.cliproxy_host
+        for label in [host.LAUNCHD_SERVICE, *host.LAUNCHD_SCHEDULED]:
+            self.write("launchd/" + label + ".plist", "<plist/>\n")
+        self.commit()
+        revision, files = installer.source_files(self.repo, "HEAD")
+        installer.materialize(
+            self.target,
+            revision,
+            files,
+            installer.prepare_source(self.repo, self.target, revision),
+        )
+        agents = host.Launchd(uid=501, home=pathlib.Path(self.directory.name) / "home")
+        loaded = set()
+        calls = []
+
+        def run(argv):
+            calls.append(argv)
+            return argv[2].rsplit("/", 1)[1] in loaded
+
+        errors = auditor.audit(self.target, backend=agents, run=run)[1]
+        self.assertEqual(len([e for e in errors if "LaunchAgents" in e]), 6)
+        self.assertEqual(len([e for e in errors if e.startswith("not loaded")]), 3)
+        installer.link_units(self.target, agents)
+        loaded.update([host.LAUNCHD_SERVICE, *host.LAUNCHD_SCHEDULED[:2]])
+        self.assertEqual(auditor.audit(self.target, backend=agents, run=run)[1], [])
+        self.assertTrue(all(call[:3] == ["launchctl", "print", call[2]] and call[2].startswith("gui/501/") for call in calls))
+        (self.target / "state/secrets").mkdir(parents=True)
+        (self.target / "state/secrets/recovery-confirmed").touch()
+        self.assertEqual(
+            len(auditor.audit(self.target, backend=agents, run=run)[1]), 3
+        )
+
     def test_tracked_state_or_symlinks_are_refused(self):
         self.write("state/token", "synthetic secret must not deploy")
         self.commit()

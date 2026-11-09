@@ -69,7 +69,7 @@ export async function withMachineLock<T>(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
       throw new FleetUsageError(
-        'Cannot create controller lock; inspect private state-directory permissions and free disk space.'
+        'Cannot create manager lock; inspect private state-directory permissions and free disk space.'
       );
     throw new FleetLockError(
       'Fleet sync is locked. Inspect running installers before removing an abandoned sync.lock directory, then rerun.'

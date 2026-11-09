@@ -16,6 +16,9 @@ import re
 import subprocess
 import shutil
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 PACKAGE = "packages/cliproxy-fleet"
 REPOSITORY = "https://github.com/crvouga/personal.git"
 LEGACY_FILES = [
@@ -60,7 +63,8 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def image_environment(files):
+def image_environment(files, ids=None):
+    """Image pins; on the macOS manager also the installing user's IDs for Compose."""
     images = json.loads(files["image.lock.json"][1])
     mapping = {
         "CLI_PROXY_IMAGE": images["eceasy/cli-proxy-api"],
@@ -76,6 +80,8 @@ def image_environment(files):
         for value in mapping.values()
     ):
         raise ValueError("Upstream images must use immutable digests")
+    if ids is not None:
+        mapping["CLIPROXY_UID"], mapping["CLIPROXY_GID"] = (str(value) for value in ids)
     return "".join(
         name + "=" + value + "\n" for name, value in mapping.items()
     ).encode()
@@ -113,7 +119,7 @@ def restore_repository_ownership(repo, metadata):
     (worktrees/<sha>/*, config for sparse checkout). Hand those files back to the
     repository owner so its user can keep running git and read-only audits."""
     owner = pathlib.Path(repo).stat()
-    if owner.st_uid == 0:
+    if owner.st_uid == 0 or os.geteuid() != 0:
         return
     common = pathlib.Path(
         git(repo, "rev-parse", "--git-common-dir").decode().strip()
@@ -152,7 +158,7 @@ def link_path(path, destination):
         os.replace(temporary, path)
 
 
-def materialize(target, commit, files, worktree):
+def materialize(target, commit, files, worktree, ids=None):
     target.mkdir(parents=True, exist_ok=True)
     manifest_file = target / "INSTALLATION.json"
     previous = json.loads(manifest_file.read_text()) if manifest_file.exists() else None
@@ -182,7 +188,7 @@ def materialize(target, commit, files, worktree):
     source = worktree / PACKAGE
     for name in sorted({pathlib.PurePosixPath(name).parts[0] for name in files}):
         link_path(target / name, source / name)
-    environment = image_environment(files)
+    environment = image_environment(files, ids)
     atomic_write(target / ".env", environment, 0o644)
     manifest = {
         "schema_version": 2,
@@ -197,58 +203,8 @@ def materialize(target, commit, files, worktree):
     return manifest
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--repo", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[3]
-    )
-    parser.add_argument("--revision", default="HEAD")
-    parser.add_argument("--rollback", action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument(
-        "--prepare-only",
-        action="store_true",
-        help="Materialize committed recovery tooling without initializing state or starting services",
-    )
-    args = parser.parse_args()
-    target = pathlib.Path("/opt/cliproxy-fleet")
-    revision = args.revision
-    if args.rollback:
-        previous = target / "INSTALLATION.previous.json"
-        if not previous.exists():
-            parser.error("No previous Git installation is recorded")
-        previous_metadata = json.loads(previous.read_text())
-        if previous_metadata.get("schema_version") != 2:
-            parser.error(
-                "Legacy copied-code revisions are not eligible for repository-only rollback"
-            )
-        revision = previous_metadata["revision"]
-    commit, files = source_files(args.repo, revision)
-    image_environment(files)
-    if "clients/launcher.py" not in files:
-        parser.error(
-            "Choose a revision supporting tracked-code launchers and worktrees"
-        )
-    if args.dry_run:
-        print(
-            json.dumps(
-                {
-                    "repository": REPOSITORY,
-                    "revision": commit,
-                    "target": str(target),
-                    "tracked_files": len(files),
-                    "state": "preserved",
-                }
-            )
-        )
-        return
-    if os.geteuid() != 0:
-        parser.error("Run the installation command with sudo")
-    # Callers (fleet bootstrap) may run with umask 077; deployment code and the
-    # source repository metadata written here must stay readable for audits.
-    os.umask(0o022)
-    if target.is_symlink():
-        parser.error("Installation root must not be a symlink")
+def prepare_root(target, ids):
+    """Private state directories; the legacy Linux host hands them to UID 1000."""
     for directory in [
         target / "recovery",
         target / "state",
@@ -257,30 +213,31 @@ def main():
     ]:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         directory.chmod(0o700)
-        os.chown(directory, 1000, 1000)
+        if os.geteuid() == 0:
+            os.chown(directory, *ids)
     status = target / "state/status"
     operation_lock = open(status / "operation.lock", "a")
-    os.chown(status / "operation.lock", 1000, 1000)
-    fcntl.flock(operation_lock, fcntl.LOCK_EX)
-    worktree = prepare_source(args.repo, target, commit)
-    materialize(target, commit, files, worktree)
-    if args.prepare_only:
-        print(
-            "Prepared committed recovery tooling at "
-            + str(target)
-            + "; no services started."
-        )
-        return
-    environment = os.environ.copy()
-    environment["CLIPROXY_ROOT"] = str(target)
-    subprocess.run([str(target / "scripts/initialize")], env=environment, check=True)
-    for file in (target / "systemd").iterdir():
-        if not file.name.startswith("cliproxy-") or file.suffix not in [
-            ".service",
-            ".timer",
-        ]:
-            raise ValueError("Unexpected system unit name")
-        link_path(pathlib.Path("/etc/systemd/system") / file.name, file.resolve())
+    if os.geteuid() == 0:
+        os.chown(status / "operation.lock", *ids)
+    return operation_lock
+
+
+def link_units(target, backend):
+    """Link tracked unit files (never rendered copies) into the backend's directory."""
+    prefix, suffixes = (
+        ("cliproxy-", [".service", ".timer"])
+        if backend.name == "systemd"
+        else ("dev.chrisvouga.cliproxy-", [".plist"])
+    )
+    backend.unit_directory.mkdir(parents=True, exist_ok=True)
+    for file in (target / backend.source_directory).iterdir():
+        if not file.name.startswith(prefix) or file.suffix not in suffixes:
+            raise ValueError("Unexpected unit name")
+        link_path(backend.unit_directory / file.name, file.resolve())
+
+
+def start_systemd(target, environment, operation_lock):
+    """Legacy Linux owner; retained for fencing and decommissioning only."""
     subprocess.run(["systemctl", "daemon-reload"], check=True)
     subprocess.run(["systemctl", "enable", "--now", "docker.service"], check=True)
     subprocess.run(
@@ -312,6 +269,124 @@ def main():
             ],
             check=True,
         )
+
+
+def launchd_plan(target, backend):
+    """Ordered launchctl commands that (re)load the manager's agents in gui/$UID."""
+    labels = backend.units
+    if not (target / "state/secrets/recovery-confirmed").exists():
+        labels = [label for label in labels if label not in backend.recovery_gated]
+    unload = [backend.bootout(label) for label in backend.units]
+    load = [command for label in labels for command in backend.enable(label)]
+    return unload, load
+
+
+def start_launchd(target, environment, operation_lock, backend, run=subprocess.run):
+    """macOS manager: Docker Desktop + per-user LaunchAgents, never root."""
+    try:
+        cliproxy_host.docker_invocation(["info"], str(target / "scripts/docker"))
+    except cliproxy_host.DockerUnavailable as error:
+        raise SystemExit("Installation stopped: " + str(error)) from None
+    unload, load = launchd_plan(target, backend)
+    for command in unload:
+        run(command, check=False, capture_output=True)  # Not loaded is fine.
+    fcntl.flock(operation_lock, fcntl.LOCK_UN)
+    for command in load:
+        run(command, check=command[1] == "bootstrap")
+    # The service agent also starts at load; this synchronous run (serialized by
+    # the operation lock, idempotent) gives the installer a definite result.
+    run([str(target / "scripts/service-start")], env=environment, check=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--repo", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[3]
+    )
+    parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--rollback", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Materialize committed recovery tooling without initializing state or starting services",
+    )
+    args = parser.parse_args()
+    platform = cliproxy_host.system()
+    backend = cliproxy_host.backend()
+    if platform == "linux":
+        target = cliproxy_host.LINUX_ROOT
+    else:
+        target = cliproxy_host.default_root()
+        if not target.is_absolute():
+            parser.error("CLIPROXY_ROOT must be absolute")
+    ids = cliproxy_host.runtime_ids()
+    revision = args.revision
+    if args.rollback:
+        previous = target / "INSTALLATION.previous.json"
+        if not previous.exists():
+            parser.error("No previous Git installation is recorded")
+        previous_metadata = json.loads(previous.read_text())
+        if previous_metadata.get("schema_version") != 2:
+            parser.error(
+                "Legacy copied-code revisions are not eligible for repository-only rollback"
+            )
+        revision = previous_metadata["revision"]
+    commit, files = source_files(args.repo, revision)
+    image_environment(files)
+    if "clients/launcher.py" not in files:
+        parser.error(
+            "Choose a revision supporting tracked-code launchers and worktrees"
+        )
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "repository": REPOSITORY,
+                    "revision": commit,
+                    "target": str(target),
+                    "backend": backend.name,
+                    "tracked_files": len(files),
+                    "state": "preserved",
+                }
+            )
+        )
+        return
+    if platform == "linux" and os.geteuid() != 0:
+        parser.error("Run the installation command with sudo")
+    if platform == "macos":
+        if os.geteuid() == 0:
+            parser.error("Do not use sudo on macOS; the manager installation is per-user")
+        if "launchd/" + backend.service + ".plist" not in files:
+            parser.error("Choose a revision with the tracked macOS LaunchAgents")
+        # Tracked agents reference the default root; another root is data-only.
+        default = cliproxy_host.default_root(environ={})
+        if not args.prepare_only and target.resolve() != default.resolve():
+            parser.error("LaunchAgents require the default root " + str(default))
+    # Callers (fleet bootstrap) may run with umask 077; deployment code and the
+    # source repository metadata written here must stay readable for audits.
+    os.umask(0o022)
+    if target.is_symlink():
+        parser.error("Installation root must not be a symlink")
+    operation_lock = prepare_root(target, ids)
+    fcntl.flock(operation_lock, fcntl.LOCK_EX)
+    worktree = prepare_source(args.repo, target, commit)
+    materialize(target, commit, files, worktree, ids if platform == "macos" else None)
+    if args.prepare_only:
+        print(
+            "Prepared committed recovery tooling at "
+            + str(target)
+            + "; no services started."
+        )
+        return
+    environment = os.environ.copy()
+    environment["CLIPROXY_ROOT"] = str(target)
+    subprocess.run([str(target / "scripts/initialize")], env=environment, check=True)
+    link_units(target, backend)
+    if platform == "linux":
+        start_systemd(target, environment, operation_lock)
+    else:
+        start_launchd(target, environment, operation_lock, backend)
     subprocess.run([str(target / "scripts/audit.py")], env=environment, check=True)
     print(
         "Installed committed revision "

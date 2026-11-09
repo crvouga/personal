@@ -3,9 +3,14 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import datetime, json, pathlib, subprocess, sys, os
 
-r = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+r = cliproxy_host.default_root().resolve()
 issues = []
 provenance = subprocess.run([str(r / "scripts/audit.py")], capture_output=True)
 if provenance.returncode:

@@ -13,9 +13,9 @@ const run: Runner = async () => ({
   stdout: JSON.stringify({
     BackendState: 'Running',
     Self: {
-      ID: 'controller',
-      DNSName: 'controller.fixture.ts.net.',
-      HostName: 'controller',
+      ID: 'manager',
+      DNSName: 'manager.fixture.ts.net.',
+      HostName: 'manager',
       OS: 'linux',
       Online: true,
       TailscaleIPs: ['100.64.0.1'],
@@ -34,7 +34,7 @@ const run: Runner = async () => ({
   stderr: '',
   reason: 'exit',
 });
-test('controller HTTP evidence remains explicitly separate from paired acceptance', async () => {
+test('manager HTTP evidence remains explicitly separate from paired acceptance', async () => {
   const request = async (url: string, options: RequestInit) => {
     expect(url).toBe('https://dev.fixture.ts.net');
     expect(options.redirect).toBe('manual');

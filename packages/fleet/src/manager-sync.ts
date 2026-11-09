@@ -1,9 +1,16 @@
 import { diagnostic, type Diagnostic } from './diagnostics';
-import type { Check, FleetNode, NodeReport, Runner } from './types';
+import {
+  blocking,
+  type Check,
+  type FleetNode,
+  type NodeReport,
+  type Runner,
+} from './types';
 import { discoverTailnet, type TailnetComputer } from './tailscale';
 import { matchComputers } from './tailnet-matching';
 import { sshArgs, sshFailure } from './ssh';
 import type { FleetDefinition, MachineDefinition } from './definition';
+import { hubUrl } from './topology';
 import {
   convergeable,
   evaluatePlatform,
@@ -11,22 +18,24 @@ import {
   type MachinePlatform,
 } from './machine/platform';
 
-export interface ControllerNode extends NodeReport {
+export interface ManagerNode extends NodeReport {
+  /** The singleton manager converges locally; workers over SSH. */
+  role?: 'manager' | 'worker';
   reachability: 'online' | 'offline' | 'missing' | 'conflict' | 'unknown';
   desiredRevision: string | null;
   appliedRevision: string | null;
   durationMs: number;
   diagnostics?: Diagnostic[];
 }
-export interface ControllerReport {
-  version: 2;
+export interface ManagerReport {
+  version: 3;
   command: 'fleet-sync';
-  execution: 'controller-push';
+  execution: 'manager-push';
   ok: boolean;
   applied: boolean;
   desiredRevision: string | null;
   checks: Check[];
-  nodes: ControllerNode[];
+  nodes: ManagerNode[];
   candidates: number;
   dashboardUrl: string | null;
 }
@@ -68,7 +77,7 @@ export async function inspectBootstrap(
 /** One invocation, one immutable revision. Serial application bounds pressure and
  * lets a failed declared canary stop promotion; diagnostics still cover all nodes.
  */
-export async function synchronizeController(
+export async function synchronizeManager(
   input: {
     definition: FleetDefinition;
     nodes: FleetNode[];
@@ -76,39 +85,38 @@ export async function synchronizeController(
     apply: boolean;
     canary?: string;
     progress?: (node: string, phase: string) => void;
+    /** Called once per node as soon as its result is final. */
+    finished?: (node: ManagerNode) => void;
+    /** Converges the manager locally before any worker; omitted in tests. */
+    manager?: () => Promise<ManagerNode>;
   },
   run: Runner,
   deploy: DeployNode
-): Promise<ControllerReport> {
+): Promise<ManagerReport> {
   const tailnet = await discoverTailnet(run);
   const matches = await matchComputers(input.nodes, tailnet.computers, run);
-  const hubNode = input.nodes.find(
-    (node) => node.id === input.definition.monitoring.parent
-  );
-  const hubPeer = tailnet.computers.find(
-    (peer) => peer.id === hubNode?.tailscaleId
-  );
-  const report: ControllerReport = {
-    version: 2,
+  const report: ManagerReport = {
+    version: 3,
     command: 'fleet-sync',
-    execution: 'controller-push',
+    execution: 'manager-push',
     ok: false,
     applied: false,
     desiredRevision: input.revision,
     checks: tailnet.checks,
-    dashboardUrl: hubPeer ? `https://${hubPeer.dns}:8443` : null,
+    dashboardUrl: hubUrl(input.definition),
     nodes: [],
     candidates: tailnet.computers.filter(
       (peer) => !peer.self && !matches.get(peer.id)?.length
     ).length,
   };
-  for (const machine of input.definition.nodes.filter(convergeable)) {
+  if (input.manager) report.nodes.push(await convergeManagerNode(input));
+  for (const machine of input.definition.workers.filter(convergeable)) {
     input.progress?.(
       machine.id,
       'Inspecting enrolled identity and fresh SSH access'
     );
     report.nodes.push(
-      await inspectControllerNode(
+      await inspectManagerNode(
         machine,
         {
           nodes: input.nodes,
@@ -121,91 +129,149 @@ export async function synchronizeController(
     );
   }
   if (input.apply) await applyNodes(report, input, deploy);
-  report.ok =
-    report.checks.every((c) => c.status === 'pass') &&
-    report.nodes.length > 0 &&
-    report.nodes.every(
-      (node) =>
-        node.checks.length > 0 && node.checks.every((c) => c.status === 'pass')
-    );
+  else
+    report.nodes
+      .filter((node) => node.role !== 'manager')
+      .forEach((node) => input.finished?.(node));
+  report.ok = ready(report);
   for (const node of report.nodes)
     node.diagnostics = node.checks.map((check) => diagnostic(node.node, check));
   return report;
 }
+async function convergeManagerNode(input: {
+  definition: FleetDefinition;
+  progress?: (node: string, phase: string) => void;
+  finished?: (node: ManagerNode) => void;
+  manager?: () => Promise<ManagerNode>;
+}): Promise<ManagerNode> {
+  input.progress?.(
+    input.definition.manager.id,
+    'Converging the manager and its singleton services locally'
+  );
+  const manager = await input.manager!();
+  input.finished?.(manager);
+  return manager;
+}
+
+/** Ready when nothing required failed; warnings and skips do not count. */
+function ready(report: ManagerReport): boolean {
+  return (
+    !report.checks.some(blocking) &&
+    report.nodes.length > 0 &&
+    report.nodes.every(
+      (node) => node.checks.length > 0 && !node.checks.some(blocking)
+    )
+  );
+}
+
 async function applyNodes(
-  report: ControllerReport,
+  report: ManagerReport,
   input: {
     nodes: FleetNode[];
     revision: string;
     canary?: string;
     progress?: (node: string, phase: string) => void;
+    finished?: (node: ManagerNode) => void;
   },
   deploy: DeployNode
 ): Promise<void> {
-  const ordered = [...report.nodes].sort(
-    (a, b) => Number(b.node === input.canary) - Number(a.node === input.canary)
-  );
-  let blocked = report.checks.some((c) => c.status !== 'pass');
+  const ordered = report.nodes
+    .filter((node) => node.role !== 'manager')
+    .sort(
+      (a, b) =>
+        Number(b.node === input.canary) - Number(a.node === input.canary)
+    );
+  let blocked = report.checks.some(blocking);
   for (const result of ordered) {
-    if (!mayDeploy(result, input.nodes)) {
-      if (result.node === input.canary) blocked = true;
-      continue;
-    }
-    if (blocked) {
-      result.checks.push({
-        id: 'rollout:promotion',
-        status: 'skip',
-        summary: 'FLEET_PROMOTION_BLOCKED',
-        remedy: {
-          action:
-            'Resolve discovery or canary failure, then rerun the same approved revision.',
-        },
-      });
-      continue;
-    }
-    notifyProgress(input.progress, result.node);
-    const started = Date.now();
-    try {
-      const outcome = await deploy(
-        input.nodes.find((node) => node.id === result.node)!,
-        input.revision
-      );
+    const deployable = mayDeploy(result, input.nodes);
+    if (await rollOut(result, { deployable, blocked }, input, deploy))
       report.applied = true;
-      result.checks.push(...outcome.checks);
-      if (!outcome.checks.length)
-        result.checks.push({
-          id: 'rollout:evidence',
-          status: 'fail',
-          summary: 'FLEET_VERIFICATION_MISSING',
-        });
-    } catch {
-      result.checks.push({
-        id: 'rollout:operation',
-        status: 'fail',
-        summary: 'FLEET_REMOTE_OPERATION_FAILED',
-        remedy: {
-          action:
-            'Inspect the remote operation lock before retrying. A disconnected controller does not establish that installation stopped.',
-        },
-      });
-    }
-    result.durationMs += Date.now() - started;
-    if (result.checks.every((check) => check.status === 'pass'))
-      result.appliedRevision = input.revision;
-    if (result.node === input.canary && result.checks.some(blocksPromotion))
+    if (
+      result.node === input.canary &&
+      (!deployable || result.checks.some(blocksPromotion))
+    )
       blocked = true;
+    input.finished?.(result);
   }
+}
+
+/** One node's rollout step; true when its remote operation ran. */
+async function rollOut(
+  result: ManagerNode,
+  { deployable, blocked }: { deployable: boolean; blocked: boolean },
+  input: {
+    nodes: FleetNode[];
+    revision: string;
+    progress?: (node: string, phase: string) => void;
+  },
+  deploy: DeployNode
+): Promise<boolean> {
+  if (!deployable) return false;
+  if (blocked) {
+    result.checks.push({
+      id: 'rollout:promotion',
+      status: 'fail',
+      summary: 'FLEET_PROMOTION_BLOCKED',
+      remedy: {
+        action:
+          'Resolve the discovery or canary failure above, then rerun the same approved revision.',
+      },
+    });
+    return false;
+  }
+  input.progress?.(
+    result.node,
+    'Applying the approved revision and verifying postconditions'
+  );
+  return deployNode(result, input, deploy);
+}
+
+/** Deploys one node and records its evidence; true when the remote ran. */
+async function deployNode(
+  result: ManagerNode,
+  input: { nodes: FleetNode[]; revision: string },
+  deploy: DeployNode
+): Promise<boolean> {
+  const started = Date.now();
+  let ran = false;
+  try {
+    const outcome = await deploy(
+      input.nodes.find((node) => node.id === result.node)!,
+      input.revision
+    );
+    ran = true;
+    result.checks.push(...outcome.checks);
+    if (!outcome.checks.length)
+      result.checks.push({
+        id: 'rollout:evidence',
+        status: 'fail',
+        summary: 'FLEET_VERIFICATION_MISSING',
+      });
+  } catch {
+    result.checks.push({
+      id: 'rollout:operation',
+      status: 'fail',
+      summary: 'FLEET_REMOTE_OPERATION_FAILED',
+      remedy: {
+        action:
+          'Inspect the remote operation lock before retrying. A disconnected manager does not establish that installation stopped.',
+      },
+    });
+  }
+  result.durationMs += Date.now() - started;
+  if (!result.checks.some(blocking)) result.appliedRevision = input.revision;
+  return ran;
 }
 
 function connectionState(
   conflict: boolean,
   peer: TailnetComputer | undefined
-): ControllerNode['reachability'] {
+): ManagerNode['reachability'] {
   if (conflict) return 'conflict';
   if (!peer) return 'missing';
   return peer.online ? 'online' : 'offline';
 }
-async function inspectControllerNode(
+async function inspectManagerNode(
   machine: MachineDefinition,
   context: {
     nodes: FleetNode[];
@@ -214,7 +280,7 @@ async function inspectControllerNode(
     matches: Map<string, FleetNode[]>;
   },
   run: Runner
-): Promise<ControllerNode> {
+): Promise<ManagerNode> {
   const { nodes, revision, computers, matches } = context;
   const id = machine.id;
   const started = Date.now();
@@ -233,7 +299,7 @@ async function inspectControllerNode(
       summary: 'FLEET_CONNECTION_REQUIRED',
       remedy: {
         action:
-          'Add this canonical node’s reviewed SSH alias and managed workspace path to the private controller overrides. Do not substitute a discovered peer.',
+          'Add this canonical node’s reviewed SSH alias and managed workspace path to the private manager overrides. Do not substitute a discovered peer.',
       },
     });
   else if (conflict)
@@ -262,6 +328,7 @@ async function inspectControllerNode(
     });
   return {
     node: id,
+    role: 'worker',
     checks,
     desiredRevision: revision,
     appliedRevision: null,
@@ -290,12 +357,12 @@ function identityChecks(
   return checks;
 }
 
-function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
+function mayDeploy(result: ManagerNode, nodes: FleetNode[]): boolean {
   const allowBootstrap =
     nodes.find((node) => node.id === result.node)?.bootstrapViaSsh === true;
   return result.checks.every(
     (check) =>
-      check.status === 'pass' ||
+      !blocking(check) ||
       (allowBootstrap &&
         [
           'TAILSCALE_NODE_OFFLINE',
@@ -310,7 +377,7 @@ function mayDeploy(result: ControllerNode, nodes: FleetNode[]): boolean {
  * configuration on other nodes. Actual deployment failures stop promotion.
  */
 export function blocksPromotion(check: Check): boolean {
-  if (check.status === 'pass') return false;
+  if (!blocking(check)) return false;
   if (check.id === 't3:service' && T3_MAINTENANCE.has(check.summary))
     return false;
   return !/^(worker:|beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
@@ -329,10 +396,3 @@ const T3_MAINTENANCE = new Set([
   'T3_POLICY_RESTART_PENDING',
   'T3_DESKTOP_MIGRATION_REQUIRED',
 ]);
-
-function notifyProgress(
-  notify: ((node: string, phase: string) => void) | undefined,
-  node: string
-): void {
-  notify?.(node, 'Applying the approved revision and verifying postconditions');
-}

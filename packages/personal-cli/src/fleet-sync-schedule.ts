@@ -16,7 +16,7 @@ interface ScheduleInput {
   config: string;
   authorized: boolean;
 }
-export async function controllerSchedule(
+export async function managerSchedule(
   input: ScheduleInput,
   run: Runner,
   platform: Platform = currentPlatform()
@@ -27,12 +27,12 @@ export async function controllerSchedule(
       data: {
         version: 2,
         command: 'fleet-sync',
-        execution: 'controller-push',
+        execution: 'manager-push',
         scheduling: scheduleStatus(platform),
       },
     };
   if (!input.authorized)
-    return required('Controller scheduling changes require --apply --yes.');
+    return required('Manager scheduling changes require --apply --yes.');
   if (input.action === 'pause' || input.action === 'disable')
     return removeSchedule(input, platform);
   return enableSchedule(input, run, platform);
@@ -50,8 +50,8 @@ function removeSchedule(
       ok: result.ok,
       scheduling: input.action,
       summary: result.ok
-        ? 'Controller schedule removed; node application services are untouched.'
-        : 'Controller scheduler removal failed; inspect its platform status.',
+        ? 'Manager schedule removed; node application services are untouched.'
+        : 'Manager scheduler removal failed; inspect its platform status.',
     },
   };
 }
@@ -85,7 +85,7 @@ async function enableSchedule(
   );
   if (!installed.ok)
     return required(
-      'The exact CLI package could not be installed in the managed controller runtime. No schedule was enabled.'
+      'The exact CLI package could not be installed in the managed manager runtime. No schedule was enabled.'
     );
   const result = platform.installScheduledJob({
     label: LABEL,
@@ -115,7 +115,7 @@ async function enableSchedule(
       scheduling: result.ok ? 'enabled' : 'action-required',
       revision: input.revision,
       summary:
-        'Controller schedule uses one exact package and approved revision. Linux user scheduling requires lingering; macOS LaunchAgent requires the controller user session. Inspect status and logs; boot acceptance is separate.',
+        'Manager schedule uses one exact package and approved revision. Linux user scheduling requires lingering; macOS LaunchAgent requires the manager user session. Inspect status and logs; boot acceptance is separate.',
     },
   };
 }

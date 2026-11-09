@@ -36,7 +36,7 @@ function tailnet(computers: TailnetComputer[]): Tailnet {
   };
 }
 
-test('every discovered computer is accounted for: offline, unregistered and controller', async () => {
+test('every discovered computer is accounted for: offline, unregistered and manager', async () => {
   const calls: string[][] = [];
   const run: Runner = async (command) => {
     calls.push(command);
@@ -44,7 +44,7 @@ test('every discovered computer is accounted for: offline, unregistered and cont
   };
   const reports = await tailnetHealth(
     tailnet([
-      computer('controller', true, true),
+      computer('manager', true, true),
       computer('offline', false),
       computer('unregistered'),
     ]),
@@ -54,7 +54,7 @@ test('every discovered computer is accounted for: offline, unregistered and cont
   );
   expect(reports.map((report) => report.node)).toEqual([
     'tailscale',
-    'controller.tailnet.ts.net',
+    'manager.tailnet.ts.net',
     'offline.tailnet.ts.net',
     'unregistered.tailnet.ts.net',
   ]);

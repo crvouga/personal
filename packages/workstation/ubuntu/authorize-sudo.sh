@@ -1,5 +1,5 @@
 #!/bin/sh
-# Controller-led, explicitly approved initial privilege step. Run through a real
+# Manager-led, explicitly approved initial privilege step. Run through a real
 # SSH terminal so sudo reads the operator's password itself; never capture it.
 set -eu
 umask 077

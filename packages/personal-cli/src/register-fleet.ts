@@ -22,7 +22,7 @@ function collect(value: string, previous: string[]): string[] {
 function targetOptions(command: Command): Command {
   return command
     .option('--node <id>', 'Select a registered node; repeatable', collect, [])
-    .option('--local', 'This controller only; no roster or SSH required')
+    .option('--local', 'This manager only; no roster or SSH required')
     .option('--timeout <ms>', 'Per-node deadline, 1000–1800000 milliseconds');
 }
 
@@ -85,7 +85,7 @@ function registerStatus(registration: Registration) {
     )
     .option(
       '--require <capabilities>',
-      'Controller capabilities, comma separated, or none'
+      'Manager capabilities, comma separated, or none'
     )
     .option('--strict', 'Warnings and skipped checks also produce exit 1')
     .addHelpText(
@@ -106,7 +106,7 @@ function registerRepair(registration: Registration) {
     .option('--all', 'Every visible Tailscale computer (default)')
     .option(
       '--require <capabilities>',
-      'Local only: controller capabilities, comma separated, or none'
+      'Local only: manager capabilities, comma separated, or none'
     )
     .option(
       '--repair <ids>',
@@ -168,7 +168,7 @@ function registerSync({ program, defaults, complete }: Registration) {
   program
     .command('fleet-sync')
     .description(
-      'Synchronize the enrolled Ubuntu fleet from this controller over verified SSH'
+      'Synchronize the enrolled Ubuntu fleet from this manager over verified SSH'
     )
     .option(
       '--revision <sha>',
@@ -195,7 +195,7 @@ function registerSync({ program, defaults, complete }: Registration) {
     .option('--yes', 'Accepted for compatibility with --apply')
     .option(
       '--schedule <action>',
-      'Controller-only schedule: enable, pause, resume, disable, status'
+      'Manager-only schedule: enable, pause, resume, disable, status'
     )
     .action(async (_options, command: Command) => {
       const options = command.optsWithGlobals<

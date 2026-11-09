@@ -21,7 +21,7 @@ export function networkProjection(
   definition: FleetDefinition,
   identities: Record<string, string>
 ): NetworkHost[] {
-  return definition.nodes.flatMap((node) =>
+  return definition.workers.flatMap((node) =>
     node.network
       ? [
           {
@@ -44,7 +44,7 @@ function compatible(
     node.os === host['os']
   );
 }
-/** Immutable migration input supplies old controller paths only, never desired hosts. */
+/** Immutable migration input supplies old manager paths only, never desired hosts. */
 export function legacyIdentities(
   definition: FleetDefinition,
   raw: unknown
@@ -55,8 +55,8 @@ export function legacyIdentities(
   for (const host of raw['hosts']) {
     if (!record(host))
       throw new FleetUsageError('Invalid legacy network host.');
-    const node = definition.nodes.find((node) => node.ssh === host['alias']);
-    // A retired host has no controller identity to migrate into this fleet.
+    const node = definition.workers.find((node) => node.ssh === host['alias']);
+    // A retired host has no manager identity to migrate into this fleet.
     if (!node) continue;
     if (!compatible(node, host))
       throw new FleetUsageError(

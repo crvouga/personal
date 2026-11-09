@@ -38,7 +38,7 @@ export function evaluatePlatform(
   };
 }
 
-/** Windows machines stay declared but never receive controller convergence. */
+/** Windows machines stay declared but never receive manager convergence. */
 export function convergeable(node: MachineDefinition): boolean {
   return node.os !== 'windows';
 }

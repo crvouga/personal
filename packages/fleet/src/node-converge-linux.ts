@@ -41,7 +41,7 @@ export async function convergeLinux(
           : 'UBUNTU_BASELINE_MISMATCH',
         remedy: {
           action:
-            'Authorize designated-user sudo through the controller enrollment flow; unsupported releases require an explicit migration.',
+            'Authorize designated-user sudo through the manager enrollment flow; unsupported releases require an explicit migration.',
         },
       },
     ];
@@ -128,7 +128,7 @@ async function applyTailscale(root: string, run: Runner): Promise<Check> {
     id: 'tailscale:configuration',
     status: tailscale.ok ? 'pass' : 'fail',
     summary: tailscale.ok
-      ? 'Pinned native Tailscale service is enabled, running and authenticated; controller reachability remains separate.'
+      ? 'Pinned native Tailscale service is enabled, running and authenticated; manager reachability remains separate.'
       : 'TAILSCALE_SETUP_OR_LOGIN_REQUIRED',
   };
 }

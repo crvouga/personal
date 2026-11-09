@@ -17,7 +17,7 @@ export function inventory() {
   return {
     BackendState: 'Running',
     Health: null,
-    Self: peer('controller'),
+    Self: peer('manager'),
     Peer: {
       offline: peer('offline', 'linux', false),
       phone: peer('phone', 'iOS'),
@@ -29,7 +29,7 @@ export function inventory() {
 test('includes offline computers and self; excludes only explicit mobile operating systems', () => {
   const tailnet = parseTailnet(inventory());
   expect(tailnet.computers.map((computer) => computer.id)).toEqual([
-    'controller',
+    'manager',
     'offline',
   ]);
   expect(tailnet.computers[1]?.online).toBe(false);
@@ -70,7 +70,7 @@ test('rejects injection hosts, invalid addresses, duplicate peers and oversized 
     expect(() => parseTailnet(data)).toThrow();
   }
   const data = inventory();
-  data.Peer.offline.ID = 'controller';
+  data.Peer.offline.ID = 'manager';
   expect(() => parseTailnet(data)).toThrow();
   expect(() =>
     parseTailnet({

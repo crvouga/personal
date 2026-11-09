@@ -5,11 +5,11 @@ import { privateHub } from '../../../../fleet/src/monitoring/beszel';
 import type { HubRequest } from '../../../../fleet/src/monitoring/enroll';
 import { record } from '../../../../fleet/src/config';
 
-/** The normal (non-superuser) Beszel account the controller enrolls nodes with.
- * OpenTofu generates its password as BESZEL_FLEET_AUTH; the account itself is
- * created once in the hub with that password (see the monitoring runbook).
+/** The normal (non-superuser) Beszel account the manager enrolls nodes with.
+ * OpenTofu generates its password as BESZEL_FLEET_AUTH. A fresh hub on the
+ * manager creates the account itself on first start (hub-darwin.yml).
  */
-export const BESZEL_FLEET_IDENTITY = 'fleet-controller@chrisvouga.dev';
+export const BESZEL_FLEET_IDENTITY = 'fleet-manager@chrisvouga.dev';
 
 /** Accept the OpenTofu-generated password, or a legacy JSON identity/password pair. */
 export function fleetCredentials(secret: string): {
@@ -34,6 +34,26 @@ export function fleetCredentials(secret: string): {
     return { identity: parsed['identity'], password: parsed['password'] };
   }
   return { identity: BESZEL_FLEET_IDENTITY, password: value };
+}
+
+/** The fleet login from the manager's Vault session, or null when absent.
+ * Used to create the account on a hub's first start; never printed.
+ */
+export async function fleetAccount(): Promise<{
+  identity: string;
+  password: string;
+} | null> {
+  try {
+    const vault = resolveVaultConfig();
+    const store = new VaultSecretStore({
+      ...vault,
+      token: new VaultCli({ addr: vault.addr }).resolveToken().token,
+    });
+    const secret = await store.getOptional('BESZEL_FLEET_AUTH');
+    return secret ? fleetCredentials(secret.readSecretValue()) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Read existing Vault authorization only. This never creates credentials or

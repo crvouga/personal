@@ -1,6 +1,6 @@
-# Controller-led Ubuntu fleet setup
+# Manager-led Ubuntu fleet setup
 
-For the enrolled Ubuntu development fleet, run on the designated controller:
+For the enrolled Ubuntu development fleet, run on the designated manager:
 
 ```sh
 npx @crvouga/personal fleet-sync
@@ -46,7 +46,7 @@ use `--id NAME` to retain an existing node's registry overrides.
 
 The selected revision defaults to checkout HEAD. `--revision FULL_SHA` pins a
 reviewed commit already fetched into that checkout. Deployment uses a clean Git
-worktree and preserves developer edits. For whole-fleet maintenance, use the controller command above; this legacy local route does not orchestrate other nodes. A failed step stops later steps and reports
+worktree and preserves developer edits. For whole-fleet maintenance, use the manager command above; this legacy local route does not orchestrate other nodes. A failed step stops later steps and reports
 partial progress; it never claims authentication or inference was verified.
 
 Portable models live in `agents/registry.json`; T3 desired provider instances live
@@ -122,7 +122,7 @@ personal workstation opencode sync
 personal workstation net check
 ```
 
-`personal fleet-status` diagnoses the controller and registered remote nodes.
+`personal fleet-status` diagnoses the manager and registered remote nodes.
 `personal fleet-discover` lists visible Tailscale computers. The local SSH roster
 still requires real aliases and checkout paths; discovery never guesses these.
 Use `personal commands --json` to discover the complete interface.

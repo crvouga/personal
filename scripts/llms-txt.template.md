@@ -90,7 +90,7 @@ or `fleet-status --local --json`. Commands are flat and prefixed by domain
 in automation. See {{path:packages/personal-cli/README.md}} and
 {{path:packages/personal-cli/releasing.md}} for installation, onboarding and CI publishing.
 
-`fleet-status --json` checks the controller and every node in the local,
+`fleet-status --json` checks the manager and every node in the local,
 secret-free roster. Missing rosters and credentials never count as a pass.
 Register actual SSH aliases and checkout paths with `fleet-node-add`; preview before
 `--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic

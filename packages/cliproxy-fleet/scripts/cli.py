@@ -5,6 +5,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 
 import os
 import pathlib
@@ -12,7 +17,7 @@ import subprocess
 import sys
 
 source = pathlib.Path(__file__).resolve().parent
-root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+root = cliproxy_host.default_root().resolve()
 args = sys.argv[1:]
 if not args or args[0] in ["help", "--help", "-h"]:
     print(
@@ -22,7 +27,9 @@ if not args or args[0] in ["help", "--help", "-h"]:
 command, *rest = args
 if command == "install":
     invocation = [sys.executable, str(source / "install.py"), *rest]
-    if os.geteuid() != 0 and "--dry-run" not in rest:
+    # The legacy Linux host installs system units; the macOS manager is per-user.
+    linux = cliproxy_host.system() == "linux"
+    if linux and os.geteuid() != 0 and "--dry-run" not in rest:
         invocation = ["sudo", *invocation]
 elif command in ["model-health", "model-suite"]:
     invocation = [sys.executable, "-B", str(source / "model_health.py"), command, *rest]

@@ -20,7 +20,7 @@ export const HEALTH_CAPABILITIES: Capability[] = [
   'workstation',
 ];
 export interface TailnetHealthOptions {
-  includeControllerReport?: boolean;
+  includeManagerReport?: boolean;
   reference?: Snapshot | undefined;
   root: string;
   timeoutMs: number;
@@ -39,11 +39,11 @@ export async function tailnetHealth(
   const required = uniqueMapping(candidates, matches)
     ? candidates[0]!.required
     : HEALTH_CAPABILITIES;
-  const controller =
+  const manager =
     options.reference ??
     (await probe(
       options.root,
-      options.includeControllerReport === false && !self ? [] : required,
+      options.includeManagerReport === false && !self ? [] : required,
       run
     ));
   let source: Promise<string> | undefined;
@@ -52,8 +52,8 @@ export async function tailnetHealth(
     if (peer.self)
       return {
         node: peer.dns,
-        snapshot: controller,
-        checks: [...checks, ...controller.checks],
+        snapshot: manager,
+        checks: [...checks, ...manager.checks],
       };
     const candidates = matches.get(peer.id)!;
     if (!uniqueMapping(candidates, matches))
@@ -64,26 +64,26 @@ export async function tailnetHealth(
       node,
       {
         action: 'probe',
-        expected: controller.fingerprint,
+        expected: manager.fingerprint,
         source: (source ??= Promise.resolve().then(options.source)),
         timeoutMs: options.timeoutMs,
       },
       run
     );
-    return combine(peer, checks, report, controller);
+    return combine(peer, checks, report, manager);
   });
   const absent = nodes.filter(
     (node) => ![...matches.values()].some((matched) => matched.includes(node))
   );
   return [
     { node: 'tailscale', checks: tailnet.checks },
-    ...(options.includeControllerReport !== false &&
+    ...(options.includeManagerReport !== false &&
     !tailnet.computers.some((peer) => peer.self)
       ? [
           {
-            node: 'controller',
-            snapshot: controller,
-            checks: controller.checks,
+            node: 'manager',
+            snapshot: manager,
+            checks: manager.checks,
           },
         ]
       : []),

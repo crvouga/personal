@@ -5,6 +5,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import hashlib
 import json
 import os
@@ -13,7 +18,21 @@ import subprocess
 import sys
 
 
-def audit(root, check_units=True):
+def quiet(args):
+    try:
+        return (
+            subprocess.run(
+                args, capture_output=True, timeout=30, check=False
+            ).returncode
+            == 0
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def audit(root, check_units=True, backend=None, run=quiet):
+    """Check provenance; with check_units, also the platform's unit links (and,
+    for launchd, that the required agents are loaded in gui/$UID)."""
     manifest = json.loads((root / "INSTALLATION.json").read_text())
     errors = []
     if manifest.get("schema_version") != 2:
@@ -50,7 +69,9 @@ def audit(root, check_units=True):
         stderr=subprocess.PIPE,
     ).strip():
         errors.append("deployment worktree has local changes")
-    source = worktree / manifest["package"]
+    # Resolve once: macOS temporary/home paths may route through symlinks.
+    source = worktree.resolve() / manifest["package"]
+    units = (backend or cliproxy_host.backend()) if check_units else None
     for name, expected in manifest["files"].items():
         path = root / name
         if (
@@ -60,17 +81,25 @@ def audit(root, check_units=True):
             or hashlib.sha256(path.read_bytes()).hexdigest() != expected
         ):
             errors.append(name)
-        if check_units and name.startswith("systemd/"):
-            unit = pathlib.Path("/etc/systemd/system") / path.name
+        if units and name.startswith(units.source_directory + "/"):
+            unit = units.unit_directory / path.name
             if not unit.is_symlink() or unit.resolve() != source / name:
                 errors.append(str(unit))
     for name, expected in manifest["generated"].items():
         if hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
             errors.append(name)
-    for folder in ["scripts", "clients", "systemd"]:
+    if units and units.name == "launchd":
+        required = [units.service, *units.scheduled]
+        if not (root / "state/secrets/recovery-confirmed").exists():
+            required = [label for label in required if label not in units.recovery_gated]
+        for label in required:
+            if not units.loaded(label, run):
+                errors.append("not loaded: " + units.domain + "/" + label)
+    for folder in ["scripts", "clients", "systemd", "launchd"]:
         for path in (root / folder).rglob("*"):
             if (
-                path.is_file()
+                (root / folder).is_dir()
+                and path.is_file()
                 and "__pycache__" not in path.parts
                 and str(path.relative_to(root)) not in manifest["files"]
             ):
@@ -80,9 +109,7 @@ def audit(root, check_units=True):
 
 if __name__ == "__main__":
     try:
-        manifest, errors = audit(
-            pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
-        )
+        manifest, errors = audit(cliproxy_host.default_root())
         if errors:
             print("Code is not clean tracked repository source: " + ", ".join(errors))
             sys.exit(1)

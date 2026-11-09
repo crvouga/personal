@@ -9,7 +9,7 @@ export interface Diagnostic {
   summary: string;
   expected: string;
   observed: string;
-  scope: 'controller' | 'node' | 'unverified';
+  scope: 'manager' | 'node' | 'unverified';
   durationMs: number | null;
   retryable: boolean;
   actionRequired: boolean;
@@ -29,8 +29,8 @@ const EXPECTED: Record<string, string> = {
   beszel:
     'Pinned monitoring artifacts, canonical registration and fresh authenticated metrics are independently verified.',
   rollout: 'Required prerequisites and canary gates pass before promotion.',
-  controller:
-    'Controller enrollment, approval and exclusive operation ownership are valid.',
+  manager:
+    'Manager enrollment, approval and exclusive operation ownership are valid.',
   source:
     'The approved full commit and packaged canonical definition match verified source.',
   configuration:
@@ -71,11 +71,11 @@ export function diagnostic(node: string, check: Check): Diagnostic {
 }
 function scope(id: string): Diagnostic['scope'] {
   if (
-    /^(t3:controller-endpoint|ssh:|controller:|rollout:|source:|tailscale:(reachability|identity|enrolled-identity))/.test(
+    /^(t3:manager-endpoint|ssh:|manager:|rollout:|source:|tailscale:(reachability|identity|enrolled-identity))/.test(
       id
     )
   )
-    return 'controller';
+    return 'manager';
   if (
     /^(provider:|proxy:|configuration:|ubuntu:baseline|t3:(service|policy)|tailscale:configuration)/.test(
       id
@@ -83,7 +83,7 @@ function scope(id: string): Diagnostic['scope'] {
   )
     return 'node';
   if (/^beszel:(version|registration|connection|freshness|api)/.test(id))
-    return 'controller';
+    return 'manager';
   return 'unverified';
 }
 function owner(phase: string): string {

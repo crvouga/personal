@@ -11,7 +11,7 @@ export async function chooseTargets(
       ? []
       : [
           {
-            name: 'Controller only / local',
+            name: 'Manager only / local',
             value: 'local',
             description:
               'No roster or SSH required; uses this session workspace.',
@@ -75,12 +75,12 @@ async function missingRoster(
     'Roster needed',
     [
       'No usable roster nodes. Run fleet-node-add to register an existing computer.',
-      'Controller-only status works without a roster or SSH. No login, host-key change or repair is automatic.',
+      'Manager-only status works without a roster or SSH. No login, host-key change or repair is automatic.',
     ].join('\n')
   );
   if (action !== 'doctor') return undefined;
   const choice = await session.prompts.select('Continue without a roster?', [
-    { name: 'Run controller-only diagnostics', value: 'local' },
+    { name: 'Run manager-only diagnostics', value: 'local' },
     { name: 'Back to palette', value: 'back' },
   ]);
   return choice === 'local' ? ['--local'] : undefined;
@@ -93,9 +93,8 @@ function allTargetsName(action: string): string {
 }
 
 function allTargetsDescription(action: string): string {
-  if (action === 'doctor')
-    return 'Controller + every configured node; read-only.';
+  if (action === 'doctor') return 'Manager + every configured node; read-only.';
   return action === 'repair'
-    ? 'Inspect this controller and every visible computer; preview repairs before applying.'
+    ? 'Inspect this manager and every visible computer; preview repairs before applying.'
     : 'Every configured remote checkout.';
 }

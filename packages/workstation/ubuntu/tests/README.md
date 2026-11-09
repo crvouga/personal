@@ -52,7 +52,7 @@ pinned Beszel binaries with a disposable loopback hub. It checks supported accou
 and enrollment APIs, authenticated metrics, preserved registration/fingerprint,
 and the supported backup/restore API. It uses no production accounts.
 
-These tests do not prove multi-target controller bootstrap, intended-tailnet
+These tests do not prove multi-target manager bootstrap, intended-tailnet
 connectivity, private TLS reachability, paired T3 execution, live provider accounts,
 off-host disaster recovery, or every hardware/desktop configuration. Track those
 separately in Fleet's acceptance issues. Never replace missing evidence with a
@@ -90,5 +90,5 @@ docker run --rm --device /dev/kvm \
 Inspect `bootstrap-result.json` and `bootstrap-repeat-result.json` for redacted
 phase evidence. A failed assertion preserves the guest disk for diagnosis and
 terminates the VM. Keep fixture keys and raw diagnostic logs private. This is a
-single-target production transport test; multi-target promotion and controller
+single-target production transport test; multi-target promotion and manager
 restart/interruption scenarios remain separate gates.

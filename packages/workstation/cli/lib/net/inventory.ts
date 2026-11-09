@@ -71,7 +71,7 @@ function parseHost(raw: unknown): NetHost {
 /** Parse and validate the inventory JSON. Pure — unit-tested. */
 export function parseInventory(text: string): NetHost[] {
   const parsed: unknown = JSON.parse(text);
-  if (isRecord(parsed) && parsed['version'] === 2)
+  if (isRecord(parsed) && parsed['version'] === 3)
     return networkProjection(parseDefinition(parsed), {});
   if (!isRecord(parsed) || !Array.isArray(parsed['hosts'])) {
     throw new Error('net/hosts.json: expected { "hosts": [...] }');

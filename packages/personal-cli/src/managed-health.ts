@@ -11,40 +11,33 @@ import {
   type BeszelRequest,
 } from '../../fleet/src/monitoring/beszel';
 import { hubAccess } from '../../workstation/cli/lib/monitoring/hub-access';
+import { hubUrl } from '../../fleet/src/topology';
 
 export interface DashboardAccess {
   (hub: string): Promise<{ request: BeszelRequest }>;
 }
 
-/** The hub is the canonical monitoring parent reached by its MagicDNS name. */
-export function dashboardUrl(
-  tailnet: Tailnet,
-  registered: FleetNode[]
-): string | null {
+/** The hub always runs on the manager, reached by its MagicDNS name. */
+export function dashboardUrl(tailnet: Tailnet): string | null {
   const canonical = parseDefinition(definition);
-  const parent = canonical.nodes.find(
-    (node) => node.id === canonical.monitoring.parent
-  );
-  const enrolled = registered.find((node) => node.id === parent?.id);
-  const peer = tailnet.computers.find(
+  const visible = tailnet.computers.some(
     (computer) =>
-      (enrolled?.tailscaleId && computer.id === enrolled.tailscaleId) ||
-      computer.dns === parent?.network?.tailscaleName
+      computer.dns.replace(/\.$/, '') ===
+      canonical.manager.network.tailscaleName
   );
-  return peer ? `https://${peer.dns}:8443` : null;
+  return visible ? hubUrl(canonical) : null;
 }
 
 /** Centralized dashboard evidence for every canonical worker: the hub must answer
  * privately, and each node must be registered, connected and reporting fresh
- * samples. A missing controller Vault session is reported, never silently passed.
+ * samples. A missing manager Vault session is reported, never silently passed.
  */
 export async function appendDashboardEvidence(
   reports: NodeReport[],
-  registered: FleetNode[],
   tailnet: Tailnet,
   options: { access?: DashboardAccess; fetcher?: typeof fetch } = {}
 ): Promise<string | null> {
-  const hub = dashboardUrl(tailnet, registered);
+  const hub = dashboardUrl(tailnet);
   const dashboard: NodeReport = { node: 'dashboard', checks: [] };
   reports.push(dashboard);
   if (!hub) {
@@ -52,7 +45,7 @@ export async function appendDashboardEvidence(
       fail(
         'beszel:hub',
         'BESZEL_HUB_SELECTION_REQUIRED',
-        'The canonical monitoring parent is not visible in Tailscale; restore its connection or enroll it with personal fleet-sync.'
+        'The hub runs on the manager, which is not visible in Tailscale. Wake the manager and reconnect it to the tailnet.'
       )
     );
     return null;
@@ -73,8 +66,7 @@ async function nodeEvidence(
   const canonical = parseDefinition(definition);
   try {
     const { request } = await access(hub);
-    for (const machine of canonical.nodes) {
-      if (machine.os === 'windows') continue;
+    for (const machine of canonical.workers) {
       const evidence = await verifyBeszel(hub, machine.id, request);
       const report =
         reports.find(
@@ -94,7 +86,7 @@ async function nodeEvidence(
           : 'BESZEL_ACCOUNT_REQUIRED',
       remedy: {
         action:
-          'Authenticate this controller to Vault so BESZEL_FLEET_AUTH can be read, then rerun fleet-status --workers. Node registration and metric freshness are unverified until then.',
+          'Authenticate this manager to Vault so BESZEL_FLEET_AUTH can be read, then rerun fleet-status --workers. Node registration and metric freshness are unverified until then.',
       },
     });
   }
@@ -121,7 +113,7 @@ async function hubReachable(
   return fail(
     'beszel:hub',
     'BESZEL_HUB_UNREACHABLE',
-    `The private dashboard did not answer at ${hub}/api/health. Run personal fleet-sync for the monitoring parent; the hub is a pinned Compose service behind Tailscale Serve.`
+    `The private dashboard did not answer at ${hub}/api/health. The hub runs on the manager: keep it awake with Docker Desktop running, then run personal fleet-sync there.`
   );
 }
 
@@ -148,7 +140,7 @@ async function publicEndpoint(fetcher: typeof fetch): Promise<Check> {
     status: 'warn',
     summary: 'BESZEL_PUBLIC_ENDPOINT_OFFLINE',
     remedy: {
-      action: `${PUBLIC_HUB_URL} did not answer. Apply the OpenTofu foundation and vault roots, then run fleet-sync so the monitoring parent starts its Cloudflare connector. The private dashboard is unaffected.`,
+      action: `${PUBLIC_HUB_URL} did not answer. Apply the OpenTofu foundation and vault roots, then run fleet-sync on the manager so the hub starts its Cloudflare connector. The private dashboard is unaffected.`,
     },
   };
 }
@@ -161,19 +153,19 @@ function fail(id: string, summary: string, action: string): Check {
 export function managedHealthScope(
   tailnet: Tailnet,
   roster: FleetNode[],
-  includeController = true
+  includeManager = true
 ) {
   const canonical = parseDefinition(definition);
   const declared = roster.filter((node) =>
-    canonical.nodes.some((entry) => entry.id === node.id)
+    canonical.workers.some((entry) => entry.id === node.id)
   );
   const nodes = declared.length
     ? enrolledRoster(canonical, { version: 1, nodes: declared }).nodes
     : [];
   const computers = tailnet.computers.filter(
     (peer) =>
-      (includeController && peer.self) ||
-      canonical.nodes.some(
+      (includeManager && peer.self) ||
+      canonical.workers.some(
         (node) =>
           peer.dns === node.network?.tailscaleName ||
           peer.dns.split('.')[0] === node.ssh ||
@@ -182,7 +174,7 @@ export function managedHealthScope(
           )
       )
   );
-  const missing = canonical.nodes.filter(
+  const missing = canonical.workers.filter(
     (node) => !nodes.some((entry) => entry.id === node.id)
   );
   return {
@@ -209,13 +201,15 @@ export function managedHealthScope(
   };
 }
 
-export async function appendControllerLinks(
+export async function appendManagerLinks(
   reports: NodeReport[],
   registered: FleetNode[],
   run: Runner
 ): Promise<void> {
   for (const node of registered) {
-    const machine = definition.nodes.find((entry) => entry.id === node.id);
+    const machine = parseDefinition(definition).workers.find(
+      (entry) => entry.id === node.id
+    );
     const report = reports.find(
       (entry) =>
         entry.node === machine?.network?.tailscaleName || entry.node === node.id

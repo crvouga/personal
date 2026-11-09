@@ -21,11 +21,11 @@ export function workerTokenField(node: string): string {
 }
 
 /**
- * The controller reads each node's own token from Vault, so it must be logged in
+ * The manager reads each node's own token from Vault, so it must be logged in
  * first. Interactive runs prompt once on this terminal; the password never
  * passes through this process.
  */
-export async function authorizeController(
+export async function authorizeManager(
   options: { interactive: boolean },
   run: Runner,
   attach: TerminalRunner = terminal
@@ -33,7 +33,7 @@ export async function authorizeController(
   if ((await run(lookup(), { timeoutMs: 20_000 })).ok) return true;
   if (!options.interactive) return false;
   process.stderr.write(
-    'This controller is not logged in to Vault. Log in once; each machine then gets its own token.\n'
+    'This manager is not logged in to Vault. Log in once; each machine then gets its own token.\n'
   );
   attach(login());
   return (await run(lookup(), { timeoutMs: 20_000 })).ok;
