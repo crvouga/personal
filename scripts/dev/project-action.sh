@@ -6,7 +6,7 @@ cd "$root"
 action=${1:-warm}
 if [[ $# -gt 0 ]]; then shift; fi
 case "$action" in
-warm | portfolio | workstation-sync | workstation-update | workstation-net-fix | workstation-net-check | workstation-net-fix-check | fleet-sync | fleet-status | fleet-repair) ;;
+warm | portfolio | workstation-sync | workstation-update | workstation-net-fix | workstation-net-check | workstation-net-fix-check | fleet-sync | fleet-status | fleet-repair | infra-cliproxy) ;;
 *)
   echo "Unknown project action: $action" >&2
   exit 2
@@ -34,4 +34,6 @@ portfolio) mise exec -- bun run portfolio ;;
 fleet-sync) run_personal fleet-sync --revision "$(git rev-parse HEAD)" "$@" ;;
 fleet-status) run_personal fleet-status --workers "$@" ;;
 fleet-repair) run_personal fleet-repair --json "$@" ;;
+# Arguments choose the operation, for example `model-health`, `model-suite --target mock`, `status`.
+infra-cliproxy) run_personal infra-cliproxy "$@" ;;
 esac

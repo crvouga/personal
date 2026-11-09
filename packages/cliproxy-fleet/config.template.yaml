@@ -18,11 +18,15 @@ access:
 oauth:
   auth-dir: /state/auths
 routing:
-  strategy: round-robin
+  # Fill first: use one account until its quota is exhausted (it then cools down), then the next.
+  # Sessions stay bound to their account while it is available; new sessions start on the first
+  # available account, so usage is not spread across accounts.
+  strategy: fill-first
   session-affinity: true
   retry:
     request-retry: 2
-    max-retry-credentials: 3
+    # 0 tries every eligible credential, so exhausting several accounts still reaches the next one.
+    max-retry-credentials: 0
     max-retry-interval: 30
   cooldown:
     disable-cooling: false

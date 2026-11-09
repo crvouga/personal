@@ -1,24 +1,49 @@
 name: CLI proxy health
 on:
   schedule:
+    # Frequent: endpoint, cloud freshness, readiness and the cheapest real inference per model.
     - cron: '7,22,37,52 * * * *'
-  workflow_dispatch: {}
+    # Nightly: comprehensive protocol, tool-calling, streaming and agent workflows per model.
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: liveness and readiness spend nothing; light is the frequent check; nightly is comprehensive; manual adds wrong-key probes.
+        type: choice
+        default: light
+        options: [liveness, readiness, light, nightly, manual]
+      suite:
+        description: Which declared checks to run.
+        type: choice
+        default: all
+        options: [all, core, cursor]
+      model:
+        description: Optional single model alias from packages/cliproxy-fleet/models.json.
+        type: string
+        default: ''
+      max_requests:
+        description: Optional lower request budget for this run.
+        type: string
+        default: ''
 permissions:
   contents: read
+env:
+  PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || (github.event.schedule == '41 3 * * *' && 'nightly' || 'light') }}
 concurrency:
-  group: cliproxy-external-health
+  group: cliproxy-model-health-${{ github.event_name == 'workflow_dispatch' && inputs.profile || (github.event.schedule == '41 3 * * *' && 'nightly' || 'light') }}
   cancel-in-progress: false
 jobs:
   health:
     if: github.repository == 'crvouga/personal' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v5
       - name: Install read-only backup client
+        if: env.PROFILE == 'light'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends restic
@@ -32,4 +57,45 @@ jobs:
           jwtGithubAudience: https://vault.chrisvouga.dev
           exportToken: true
       - name: Verify endpoint and cloud recovery freshness
+        if: env.PROFILE == 'light'
         run: python3 -B packages/cliproxy-fleet/scripts/external-health.py
+      - name: Restore last-success state
+        uses: actions/cache/restore@v4
+        with:
+          path: model-health-state.json
+          key: cliproxy-model-health-state-${{ env.PROFILE }}-${{ github.run_id }}
+          restore-keys: cliproxy-model-health-state-
+      - name: Validate every required model alias
+        # Bounded spend: the profile's request budget, concurrency and timeouts come from models.json;
+        # inference is never retried. The client key is read in-process from Vault and never printed.
+        if: ${{ !cancelled() }}
+        env:
+          MODEL: ${{ inputs.model }}
+          MAX_REQUESTS: ${{ inputs.max_requests }}
+          SUITE: ${{ inputs.suite || 'all' }}
+        run: |
+          command=model-health
+          fail_on=unhealthy
+          case "$PROFILE" in nightly | manual) command=model-suite; fail_on=degraded ;; esac
+          args=(--profile "$PROFILE" --suite "$SUITE" --fail-on "$fail_on"
+            --output model-health-report --state model-health-state.json)
+          if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+          if [ -n "$MAX_REQUESTS" ]; then args+=(--max-requests "$MAX_REQUESTS"); fi
+          set +e
+          python3 -B packages/cliproxy-fleet/scripts/model_health.py "$command" "${args[@]}" > /dev/null
+          code=$?
+          if [ -f model-health-report/model-health.md ]; then cat model-health-report/model-health.md >> "$GITHUB_STEP_SUMMARY"; fi
+          exit $code
+      - name: Save last-success state
+        if: ${{ always() && hashFiles('model-health-state.json') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: model-health-state.json
+          key: cliproxy-model-health-state-${{ env.PROFILE }}-${{ github.run_id }}
+      - name: Keep structured report
+        if: ${{ always() && hashFiles('model-health-report/model-health.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-health-${{ env.PROFILE }}-${{ github.run_id }}
+          path: model-health-report
+          retention-days: 30

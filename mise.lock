@@ -188,7 +188,7 @@ url_api = "https://api.github.com/repos/aws/aws-sam-cli/releases/assets/69000378
 version = "2.91.0"
 backend = "pypi:azure-cli"
 specifiers = ["2.91.0"]
-uv = { path = ".mise/locks/azure-cli/2.91.0~a837e014", digest = "sha256:5b3b15625528da9c506e50e6b681bd8b3803db6228a41bb821ea23fdc3c1e668" }
+uv = { path = ".mise/locks/azure-cli/2.91.0~a837e014", digest = "sha256:5b799b744892eec610ee763322ce9c9eec4c4d1858e489f3a1186ece09a66d4b" }
 
 [tools.azure-cli.options]
 dependency_prereleases = "allow"

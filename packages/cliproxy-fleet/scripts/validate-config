@@ -5,9 +5,11 @@ sys.dont_write_bytecode = True
 
 import pathlib, sys, yaml, os
 
+arguments = [a for a in sys.argv[1:] if not a.startswith("--")]
+require_fill_first = "--require-fill-first" in sys.argv[1:]
 p = (
-    pathlib.Path(sys.argv[1])
-    if len(sys.argv) > 1
+    pathlib.Path(arguments[0])
+    if arguments
     else pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
     / "state/runtime/config.yaml"
 )
@@ -36,6 +38,10 @@ try:
         )
     )
     require(management not in keys)
+    require(c["routing"]["strategy"] in ("round-robin", "weighted-round-robin", "fill-first"))
+    # Candidate configurations must keep the fill-first policy; the running config is only
+    # reported on drift (see scripts/monitor), so an older deployment still starts.
+    require(not require_fill_first or c["routing"]["strategy"] == "fill-first")
     require(c.get("quota-exceeded", {}).get("switch-preview-model") is False)
     require(c["observability"]["logs"]["debug"] is False)
     require(c["observability"]["logs"]["request-log"] is False)

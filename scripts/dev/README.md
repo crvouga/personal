@@ -364,9 +364,9 @@ Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkou
 Actions are named exactly like the `personal` command they run, so a T3 script
 label reads the same as the CLI: `warm`, `portfolio`, `workstation-sync`,
 `workstation-update`, `workstation-net-fix`, `workstation-net-check`,
-`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`. Label
+`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`. Label
 each T3 script `Domain: Command words` (`Fleet: Sync`, `Fleet: Status`,
-`Workstation: Net check`). `fleet-sync` selects the current checkout HEAD as its
+`Workstation: Net check`, `Infra: Cliproxy model health` running `infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the offline, credential-free suite). `fleet-sync` selects the current checkout HEAD as its
 exact revision and retains its approval flow; extra arguments such as `--dry-run`
 are forwarded. `fleet-status` runs `personal fleet-status --workers`, the
 canonical worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed

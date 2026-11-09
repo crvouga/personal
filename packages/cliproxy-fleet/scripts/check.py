@@ -27,4 +27,8 @@ assert all(
     re.fullmatch(r"[a-z0-9/.-]+@sha256:[0-9a-f]{64}", image)
     for image in images.values()
 )
-print("Python/shell syntax and immutable image pins passed.")
+sys.path.insert(0, str(root / "scripts"))
+from modelhealth import config as model_config
+
+model_config.load(root / "models.json")  # declarative model-health contract
+print("Python/shell syntax, immutable image pins and models.json passed.")

@@ -13,6 +13,16 @@ if provenance.returncode:
 p = subprocess.run([str(r / "scripts/ops"), "health"], capture_output=True)
 if p.returncode:
     issues.append("Application health/authentication failed; inspect sanitized logs.")
+try:
+    import yaml
+
+    strategy = yaml.safe_load((r / "state/runtime/config.yaml").read_text())["routing"]["strategy"]
+    if strategy != "fill-first":
+        issues.append(
+            "Live routing strategy is not fill-first (drift from config.template.yaml); apply a reviewed config with `cliproxy apply`."
+        )
+except Exception:
+    issues.append("Live routing strategy could not be read.")
 f = r / "state/status/backup-success.json"
 if not f.exists():
     issues.append("No successful independent backup has been recorded.")
