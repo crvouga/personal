@@ -212,10 +212,17 @@
         "status",
         "levels",
         "models",
+        "rate_limited",
         "simulation_failures",
         "findings"
       ],
       "properties": {
+        "rate_limited": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "status": {
           "type": "string",
           "enum": ["healthy", "degraded", "unhealthy", "unknown"]
