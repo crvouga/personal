@@ -39,6 +39,10 @@ def hashes(root):
     }
 
 
+# Upstream writes these beside credentials; they are never checkpointed.
+AUTH_TRANSIENT = ("*.lock", "logs")
+
+
 def validate(root):
     regular_tree(root)
     manifest = json.loads((root / "CHECKPOINT.json").read_text())
@@ -63,7 +67,9 @@ def validate(root):
     for path in (state / "runtime/auths").iterdir():
         if path.name == "kv.db" and path.is_file() and path.stat().st_size > 0:
             continue  # Opaque upstream bbolt state, captured while the process is stopped.
-        if path.suffix != ".json" or not path.is_file():
+        # .json: provider credential; .cds: upstream per-account cooldown
+        # records (JSON object, no credential), kept so limits survive moves.
+        if path.suffix not in (".json", ".cds") or not path.is_file():
             raise ValueError("Unexpected provider file")
         if not isinstance(json.loads(path.read_text()), dict):
             raise ValueError("Provider credential must be an object")
@@ -96,9 +102,10 @@ def capture(root, target, compose):
             destination = target / "state" / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             if source.is_dir():
-                # Runtime file locks are process-local and must not be restored.
+                # Process-local locks and upstream error logs (request
+                # content) are never restored.
                 ignore = (
-                    shutil.ignore_patterns("*.lock")
+                    shutil.ignore_patterns(*AUTH_TRANSIENT)
                     if name == "runtime/auths"
                     else None
                 )
