@@ -20,7 +20,7 @@ bun run cliproxy recover
 bun run cliproxy snapshots
 ```
 
-`install-dependencies` only checks Homebrew `restic`/`pyyaml`, the LaunchAgent `python3` and Docker Desktop; it never uses sudo. `--prepare-only` creates the worktree and private directories without starting anything. `recover` reads the existing Restic password from Vault and confirms it; it never generates or writes cloud secrets. Do not run `initialize` before recovery.
+`install-dependencies` builds the pinned tools directory (mise Python + hash-locked PyYAML, mise `restic`) that the LaunchAgents run with; it never uses sudo or Homebrew. `--prepare-only` creates the worktree and private directories without starting anything. `recover` reads the existing Restic password from Vault and confirms it; it never generates or writes cloud secrets. Do not run `initialize` before recovery.
 
 ### 2. Fence the source (outage starts)
 

@@ -8,12 +8,12 @@
 	<array>
 		<string>/bin/sh</string>
 		<string>-c</string>
-		<string>exec "$HOME/Library/Application Support/cliproxy-fleet/scripts/monitor"</string>
+		<string>PATH="$HOME/Library/Application Support/cliproxy-fleet/tools/bin:$PATH" exec "$HOME/Library/Application Support/cliproxy-fleet/scripts/monitor"</string>
 	</array>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
-		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Docker.app/Contents/Resources/bin</string>
 		<key>PYTHONDONTWRITEBYTECODE</key>
 		<string>1</string>
 	</dict>

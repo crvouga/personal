@@ -235,3 +235,39 @@ test('maintenance-class T3 outcomes and external acceptance never block promotio
     blocksPromotion({ id: 'ubuntu:baseline', status: 'pass', summary: 'ok' })
   ).toBe(false);
 });
+
+test('warnings and skips are reported but a run with no failure succeeds', async () => {
+  const finished: string[] = [];
+  const result = await synchronizeManager(
+    {
+      definition,
+      nodes,
+      revision,
+      apply: true,
+      finished: (n) => finished.push(n.node),
+    },
+    runner(),
+    async (node) => ({
+      node: node.id,
+      checks: [
+        { id: 'configuration:apply', status: 'pass', summary: 'ok' },
+        {
+          id: 'provider:codex:inference',
+          status: 'warn',
+          summary: 'PROVIDER_RATE_LIMITED',
+        },
+        {
+          id: 'worker:power-loss-recovery',
+          status: 'skip',
+          summary: 'unobservable',
+        },
+      ],
+    })
+  );
+  expect(result.ok).toBe(true);
+  expect(result.nodes.map((n) => n.appliedRevision)).toEqual([
+    revision,
+    revision,
+  ]);
+  expect(finished).toEqual(['first', 'second']);
+});

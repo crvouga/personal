@@ -48,7 +48,7 @@ This hostname routes to whichever host runs the connector (the manager after the
 
 ## Install, update and rollback
 
-Manager (macOS) requirements: Docker Desktop (running), Homebrew `restic` and `pyyaml`, Python 3 and curl. `packages/cliproxy-fleet/scripts/install-dependencies` (no sudo on macOS) checks them with the same `PATH` the LaunchAgents use and prints what is missing; Homebrew and Docker Desktop themselves are workstation-owned. Developer tools follow the repository's locked mise setup. Legacy Linux: `sudo packages/cliproxy-fleet/scripts/install-dependencies` installs the Ubuntu packages.
+Manager (macOS) requirements: Docker Desktop (running) and the shared mise toolchain. `packages/cliproxy-fleet/scripts/install-dependencies` (never sudo on macOS) builds `INSTALL_ROOT/tools`: a venv on the pinned mise Python with hash-locked PyYAML (`requirements.lock`) plus the pinned, checksum-locked `restic` from `mise.lock`. Every LaunchAgent puts `tools/bin` first on `PATH`, so jobs never depend on whatever happens to be installed on the Mac. Homebrew is not used. Legacy Linux: `sudo packages/cliproxy-fleet/scripts/install-dependencies` installs the Ubuntu packages.
 
 From the repository root on the manager, after committing/reviewing the package revision:
 

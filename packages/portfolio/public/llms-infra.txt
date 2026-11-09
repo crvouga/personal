@@ -479,6 +479,7 @@ credential, without copying another machine's login directory.
 | `node` | 26.13.0 | Base toolchain |
 | `atlas` | 1.3.0 | On demand (linux, macos) |
 | `azure-cli` | 2.91.0 | On demand |
+| `restic` | 0.19.1 | On demand (linux, macos) |
 | `pnpm` | 12.16.1 | Base toolchain |
 | `npm:@yarnpkg/cli-dist` | 4.18.1 | Base toolchain |
 | `deno` | 2.9.8 | Base toolchain |

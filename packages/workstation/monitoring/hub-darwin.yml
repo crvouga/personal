@@ -64,10 +64,23 @@
         mode: '0600'
       when: beszel_tunnel_token | default('') | length > 0
       no_log: true
+    - name: Detect a hub that has never started (no database yet)
+      ansible.builtin.stat:
+        path: '{{ beszel_data_dir }}/data.db'
+      register: hub_database
     - name: Start pinned stock Compose service
       ansible.builtin.command:
         argv: "{{ beszel_compose + ['up', '-d', '--pull', 'missing', 'hub'] }}"
-      environment: '{{ beszel_environment }}'
+      # A fresh hub creates the fleet login itself on first start, so no one
+      # has to create the account by hand. Existing data is never changed.
+      environment: >-
+        {{ beszel_environment | combine({
+             'BESZEL_BOOTSTRAP_EMAIL': beszel_fleet_identity,
+             'BESZEL_BOOTSTRAP_PASSWORD': beszel_fleet_password
+           } if (not hub_database.stat.exists
+                 and beszel_fleet_password | default('') | length > 0)
+           else {}) }}
+      no_log: true
       register: hub_apply
       changed_when: "'Started' in hub_apply.stderr or 'Created' in hub_apply.stderr or 'Recreated' in hub_apply.stderr"
     - name: Start the public connector when its credential is present

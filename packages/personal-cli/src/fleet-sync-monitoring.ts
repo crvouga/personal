@@ -100,7 +100,7 @@ async function hubReachable(hub: string, run: Runner): Promise<boolean> {
 }
 
 const REMEDIES: Record<string, string> = {
-  BESZEL_ACCOUNT_REQUIRED: `The hub rejected the fleet login. Once, as the hub superuser, create the normal users record ${BESZEL_FLEET_IDENTITY} (verified) whose password is the BESZEL_FLEET_AUTH Vault value, then rerun fleet-sync. Never paste the password on a command line.`,
+  BESZEL_ACCOUNT_REQUIRED: `The hub rejected the fleet login ${BESZEL_FLEET_IDENTITY}. A new hub on the manager creates it on first start from BESZEL_FLEET_AUTH; an older hub needs it once, by its superuser, as a verified users record with that Vault password. Never paste the password on a command line.`,
   BESZEL_HUB_UNREACHABLE:
     'The hub runs on the manager; keep it awake and Docker Desktop running, then rerun fleet-sync from the manager so it converges the hub first.',
   BESZEL_NODE_TAILNET_REQUIRED:

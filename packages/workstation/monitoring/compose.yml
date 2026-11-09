@@ -13,6 +13,10 @@ services:
       CHECK_UPDATES: 'false'
       # Single-operator private hub: fleet-registered systems are visible to every login.
       SHARE_ALL_SYSTEMS: 'true'
+      # First start only (empty data directory): Beszel creates the fleet login
+      # as a verified user and superuser. hub-darwin.yml sets these just once.
+      USER_EMAIL: '${BESZEL_BOOTSTRAP_EMAIL:-}'
+      USER_PASSWORD: '${BESZEL_BOOTSTRAP_PASSWORD:-}'
     volumes:
       - type: bind
         source: '${BESZEL_DATA_DIR:?per-user hub data directory required}'

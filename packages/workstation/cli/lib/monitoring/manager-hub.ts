@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { runAnsible } from '../platform/ansible';
 import { failure, inspectRoute, publicEndpointCheck, tunnelToken } from './hub';
+import { fleetAccount } from './hub-access';
 import type { FleetDefinition } from '../../../../fleet/src/definition';
 import { hostId, hubUrl } from '../../../../fleet/src/topology';
 import {
@@ -47,6 +48,8 @@ export function tailscaleCommand(
 export interface ManagerHubOptions {
   home?: string;
   tailscale?: string | null;
+  /** Fleet login for a fresh hub; defaults to the manager's Vault session. */
+  account?: () => Promise<{ identity: string; password: string } | null>;
 }
 
 /** Converges the singleton Beszel hub locally on the manager: pinned Compose
@@ -65,6 +68,7 @@ export async function convergeManagerHub(
   if (refused) return refused;
   const paths = managerHubPaths(options.home);
   const tunnel = await tunnelToken(run);
+  const account = await (options.account ?? fleetAccount)();
   const result = await runAnsible(run, 'hub-darwin.yml', {
     cwd: resolve(root, 'packages/workstation/monitoring'),
     input: JSON.stringify({
@@ -73,6 +77,12 @@ export async function convergeManagerHub(
       beszel_data_dir: paths.data,
       beszel_tunnel_dir: paths.tunnel,
       ...(tunnel ? { beszel_tunnel_token: tunnel } : {}),
+      ...(account
+        ? {
+            beszel_fleet_identity: account.identity,
+            beszel_fleet_password: account.password,
+          }
+        : {}),
     }),
     timeoutMs: 300_000,
   });

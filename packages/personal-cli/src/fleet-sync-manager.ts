@@ -1,4 +1,4 @@
-import type { Check, Runner } from '../../fleet/src/types';
+import { blocking, type Check, type Runner } from '../../fleet/src/types';
 import type { FleetDefinition } from '../../fleet/src/definition';
 import type { ManagerNode } from '../../fleet/src/manager-sync';
 import { hostId } from '../../fleet/src/topology';
@@ -38,9 +38,7 @@ export async function convergeManager(
     reachability: 'online',
     desiredRevision: input.revision,
     appliedRevision:
-      input.apply && checks.every((check) => check.status === 'pass')
-        ? input.revision
-        : null,
+      input.apply && !checks.some(blocking) ? input.revision : null,
     durationMs: Date.now() - started,
   };
 }

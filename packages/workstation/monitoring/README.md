@@ -67,10 +67,12 @@ System services may be visible; user T3 service information is not certified by
 that fact. Missing sensors, SMART privileges, Docker stats and user-service metrics
 remain unavailable until their specific supported permissions are reviewed.
 
-Create the first (superuser) hub account through its private stock UI. Manager
-enrollment uses the normal Beszel account `fleet-manager@chrisvouga.dev`, whose
-password OpenTofu generates as `BESZEL_FLEET_AUTH` in `secret/personal/prd`; create
-that user in the hub with the generated password and grant it the fleet systems.
+Accounts need no manual step. On a hub's first start (empty data directory),
+`hub-darwin.yml` passes Beszel's `USER_EMAIL`/`USER_PASSWORD` once, so the hub
+creates `fleet-manager@chrisvouga.dev` as a verified user and as its superuser,
+with the password OpenTofu generates as `BESZEL_FLEET_AUTH` in
+`secret/personal/prd`. Later runs never pass it, and existing data is never
+changed. Sign in to the dashboard with that account.
 The hub runs with `SHARE_ALL_SYSTEMS=true`, so systems that account registers are
 visible to every hub login.
 A legacy JSON `identity`/`password` value is still accepted. The manager's existing
@@ -114,14 +116,11 @@ never run two copies of its identity or two tunnel connectors:
    (stops the hub and its `cloudflared` connector; keep `/var/lib/personal-beszel`
    untouched until the move is verified), then
    `sudo tailscale serve --https=8443 off`.
-3. On the manager, with Docker Desktop running, run fleet-sync to converge the
-   empty hub, then restore the backup through the stock **Backups** upload/restore
-   action as its superuser. Alternatively, with both hubs stopped, copy the
-   fenced `/var/lib/personal-beszel` contents into
-   `~/Library/Application Support/personal-beszel` before the first start.
-4. Confirm the restored node IDs, fingerprints, history, settings and the
-   `fleet-manager@chrisvouga.dev` account, then run fleet-sync so agents
-   re-enroll against the manager URL and report fresh samples.
+3. On the manager, with Docker Desktop running, run fleet-sync. It starts a fresh
+   hub, which creates the fleet account itself, and enrolls every worker. To keep
+   history instead, restore the backup afterwards through the stock **Backups**
+   upload/restore action as the superuser.
+4. Confirm fresh samples from every worker in the dashboard.
 5. Only after verification, remove ms-a2's hub data and its `beszel-hub-read`
    Vault grant (OpenTofu).
 

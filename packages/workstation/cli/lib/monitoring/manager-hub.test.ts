@@ -84,7 +84,11 @@ function fixture(options: Fixture = {}) {
   };
   return { run, calls, variables };
 }
-const options = { home: '/Users/chrisvouga', tailscale: CLI };
+const options = {
+  home: '/Users/chrisvouga',
+  tailscale: CLI,
+  account: async () => null,
+};
 
 test('the manager hub converges locally with a per-user data dir and private route', async () => {
   const { run, calls, variables } = fixture();
@@ -172,4 +176,16 @@ test('the macOS Tailscale CLI resolves from PATH, then the app bundle', () => {
   expect(managerHubPaths('/Users/x').data).toBe(
     '/Users/x/Library/Application Support/personal-beszel'
   );
+});
+
+test('a fresh hub receives the fleet login so it can create the account itself', async () => {
+  const { run, variables } = fixture();
+  await convergeManagerHub(root, definition, run, {
+    ...options,
+    account: async () => ({ identity: 'fleet@example.test', password: 'x' }),
+  });
+  expect(variables[0]).toMatchObject({
+    beszel_fleet_identity: 'fleet@example.test',
+    beszel_fleet_password: 'x',
+  });
 });

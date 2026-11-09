@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { providerHttpFailure, providerFailureCode } from './provider-errors';
+import { inferenceFailure } from './fleet-verify';
 test('provider rejection distinguishes auth, quota, upstream and protocol failures', () => {
   for (const [status, code] of [
     [401, 'PROVIDER_AUTH_REJECTED'],
@@ -19,4 +20,16 @@ test('unexpected private errors never become diagnostic codes', () => {
   expect(providerFailureCode(new Error('PROVIDER_STREAM_INCOMPLETE'))).toBe(
     'PROVIDER_STREAM_INCOMPLETE'
   );
+});
+
+test('provider account conditions warn; gateway and credential failures fail', () => {
+  for (const code of [
+    'PROVIDER_RATE_LIMITED',
+    'PROVIDER_UPSTREAM_UNAVAILABLE',
+    'PROVIDER_MODEL_UNAVAILABLE',
+    'PROVIDER_TIMEOUT',
+  ])
+    expect(inferenceFailure('codex', code).status).toBe('warn');
+  for (const code of ['PROVIDER_AUTH_REJECTED', 'PROVIDER_NETWORK_UNVERIFIED'])
+    expect(inferenceFailure('codex', code).status).toBe('fail');
 });

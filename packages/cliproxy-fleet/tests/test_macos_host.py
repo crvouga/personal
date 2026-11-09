@@ -111,6 +111,7 @@ class TrackedAgents(unittest.TestCase):
             shell, flag, command = agent["ProgramArguments"]
             self.assertEqual((shell, flag), ("/bin/sh", "-c"))
             script = re.fullmatch(
+                r'PATH="\$HOME/' + re.escape(host.MACOS_ROOT) + r'/tools/bin:\$PATH" '
                 r'exec "\$HOME/' + re.escape(host.MACOS_ROOT) + r'/scripts/([a-z-]+)"( [a-z]+)?',
                 command,
             )
@@ -140,10 +141,19 @@ class TrackedAgents(unittest.TestCase):
             {"Weekday": 0, "Hour": 5, "Minute": 0},
         )
 
-    def test_dependency_check_uses_agent_path(self):
+    def test_dependencies_come_from_pinned_tools(self):
         text = (SCRIPTS / "install-dependencies").read_text()
-        self.assertIn("export PATH=" + host.LAUNCHD_PATH, text)
-        self.assertIn("brew list --versions restic", text)
+        self.assertIn("mise install --quiet python uv restic", text)
+        self.assertIn("--require-hashes", text)
+        self.assertNotIn("brew install", text)
+
+    def test_agents_put_pinned_tools_first(self):
+        for plist in (PACKAGE / "launchd").glob("*.plist"):
+            command = plistlib.loads(plist.read_bytes())["ProgramArguments"][-1]
+            self.assertTrue(
+                command.startswith('PATH="' + host.LAUNCHD_TOOLS + ':$PATH" exec '),
+                plist.name,
+            )
 
 
 class DockerDesktop(unittest.TestCase):

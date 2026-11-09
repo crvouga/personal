@@ -42,15 +42,37 @@ export async function verifyFleetProviders(node: string): Promise<Check[]> {
           'Gateway authentication, bounded inference, completed streaming and safe echo tool round trip verified from node environment. Native CLI/T3 execution is separate.',
       });
     } catch (error) {
-      checks.push({
-        id: `provider:${provider}:inference`,
-        status: 'fail',
-        summary: providerFailureCode(error),
-        remedy: {
-          action: `Verify unattended Vault access and the declared ${provider} model on the singleton gateway. Preserve OAuth state; do not log native auth on proxy clients.`,
-        },
-      });
+      checks.push(inferenceFailure(provider, providerFailureCode(error)));
     }
   }
   return checks;
+}
+
+/** Conditions owned by the upstream provider account (quota, outage, billing)
+ * do not mean this node is misconfigured: the gateway answered and routed the
+ * request. They are warnings, so a provider outage never fails fleet-sync.
+ */
+const UPSTREAM: Record<string, string> = {
+  PROVIDER_RATE_LIMITED:
+    'The provider account is rate limited or out of quota. It recovers on its own when the quota resets; no fleet change is needed.',
+  PROVIDER_UPSTREAM_UNAVAILABLE:
+    'The provider returned a server error through the gateway. Retry later; no fleet change is needed.',
+  PROVIDER_MODEL_UNAVAILABLE:
+    'The provider refused the declared model (often billing or account access). Fix the provider account, or change the model in packages/workstation/agents/registry.json.',
+  PROVIDER_TIMEOUT:
+    'The provider did not answer within the bounded verification deadline. Retry later.',
+};
+
+export function inferenceFailure(provider: string, code: string): Check {
+  const upstream = UPSTREAM[code];
+  return {
+    id: `provider:${provider}:inference`,
+    status: upstream ? 'warn' : 'fail',
+    summary: code,
+    remedy: {
+      action:
+        upstream ??
+        `Verify unattended Vault access and the declared ${provider} model on the singleton gateway. Preserve OAuth state; do not log native auth on proxy clients.`,
+    },
+  };
 }

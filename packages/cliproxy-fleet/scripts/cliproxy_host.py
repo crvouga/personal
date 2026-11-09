@@ -20,8 +20,10 @@ LINUX_ROOT = pathlib.Path("/opt/cliproxy-fleet")
 # The tracked LaunchAgents reference this path relative to $HOME.
 MACOS_ROOT = "Library/Application Support/cliproxy-fleet"
 LINUX_IDS = (1000, 1000)
-# Same PATH as the tracked LaunchAgents: Homebrew restic/python, then system.
-LAUNCHD_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+# Base PATH of the tracked LaunchAgents. Each agent puts the install's
+# tools/bin (pinned python3 + PyYAML venv, pinned restic) in front of it.
+LAUNCHD_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Docker.app/Contents/Resources/bin"
+LAUNCHD_TOOLS = "$HOME/Library/Application Support/cliproxy-fleet/tools/bin"
 DOCKER_DESKTOP_BIN = "/Applications/Docker.app/Contents/Resources/bin"
 DOCKER_UNAVAILABLE = 69  # EX_UNAVAILABLE
 

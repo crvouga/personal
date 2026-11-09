@@ -2,7 +2,7 @@ import { localCheckoutRevision } from '../../fleet/src/machine/local-source';
 import canonicalDefinition from '../../fleet/definition.json';
 import { parseDefinition } from '../../fleet/src/definition';
 import { managerFailure } from '../../fleet/src/manager-failure';
-import { managerText } from './fleet-sync-output';
+import { managerText, stdoutColor } from './fleet-sync-output';
 import { managerSchedule, type ScheduleAction } from './fleet-sync-schedule';
 import { enrollManager } from './fleet-sync-enrollment';
 import { authorizeManager } from './fleet-sync-vault';
@@ -125,7 +125,11 @@ function actionRequired(code: string, remedy: string): CommandOutcome {
     code,
     remedy
   );
-  return { exitCode: 1, data: report, text: managerText(report) };
+  return {
+    exitCode: 1,
+    data: report,
+    text: managerText(report, { color: stdoutColor() }),
+  };
 }
 
 function validate(options: FleetSyncOptions): void {
