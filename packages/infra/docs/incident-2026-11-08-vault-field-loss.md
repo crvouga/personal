@@ -43,7 +43,7 @@ delete it afterwards. Never print values.
    `secret/infra/operator` for state credentials, Cloudflare account/zone and
    GitHub token; `personal/prd` for `RAILWAY_TOKEN`, `CLOUDFLARE_API_TOKEN`,
    `PLANETSCALE_SERVICE_TOKEN_ID`, `PLANETSCALE_SERVICE_TOKEN`. Export them as
-   `TF_VAR_*` with `TF_VAR_vault_inputs`, then `bun run infra:foundation plan
+   `TF_VAR_*` with `TF_VAR_vault_inputs`, then `bun run infra plan
 -out=...`. **Accept only** an in-place update of
    `github_actions_secret.bootstrap["TOFU_VAULT_INPUTS"]`. Any other change means
    a rebuilt input differs from the deployed one: stop and ask the operator.
