@@ -1646,8 +1646,13 @@ verification and the CLIProxy singleton.
 Credential sync is deliberately indirect: no secret is copied between machines.
 OpenTofu issues each enrolled worker its own renewable periodic token
 (`vault.tokens` entries `fleet-worker-<node>`, policy `personal-read`, sunk into
-`secret/personal/prd` as `FLEET_WORKER_TOKEN_<NODE>`). After the vault root has
-applied, deliver each token once to its node over SSH stdin, never as an argument:
+`secret/personal/prd` as `FLEET_WORKER_TOKEN_<NODE>`). `personal fleet-sync`
+delivers each node's token automatically over SSH stdin (never as an argument)
+whenever that node has no working Vault session. Interactive runs first log the
+controller in (`vault login -method=userpass`, password typed on your terminal)
+and fall back to the same password login on a node whose token is not issued.
+Without either, the node reports `VAULT_LOGIN_REQUIRED` and its T3 proxy
+providers stay unavailable. The manual equivalent of the automatic delivery:
 
 ```sh
 vault kv get -field=FLEET_WORKER_TOKEN_CHRIS_VOUGA_MS_A2 secret/personal/prd \

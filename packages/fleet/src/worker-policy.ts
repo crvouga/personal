@@ -5,6 +5,8 @@ import type { Capability } from './types';
 export interface WorkerPolicy {
   requiredCapabilities: Capability[];
   githubLogin: string;
+  /** Vault userpass login each node uses for its own periodic token. */
+  vaultUser: string;
   toolchain: 'mise.lock';
   agentProfile: 'proxy';
   unattendedSudo: true;
@@ -33,6 +35,7 @@ function validPolicy(value: Record<string, unknown>): boolean {
       [
         'requiredCapabilities',
         'githubLogin',
+        'vaultUser',
         'toolchain',
         'agentProfile',
         'unattendedSudo',
@@ -43,6 +46,8 @@ function validPolicy(value: Record<string, unknown>): boolean {
     validCapabilities(value['requiredCapabilities']) &&
     typeof value['githubLogin'] === 'string' &&
     /^[a-zA-Z0-9-]{1,39}$/.test(value['githubLogin']) &&
+    typeof value['vaultUser'] === 'string' &&
+    /^[a-zA-Z0-9_.-]{1,64}$/.test(value['vaultUser']) &&
     value['toolchain'] === 'mise.lock' &&
     value['agentProfile'] === 'proxy' &&
     ['unattendedSudo', 'persistentT3', 'neverSleep'].every(

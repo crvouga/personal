@@ -21,12 +21,12 @@ run_personal() {
 }
 case "$action" in
 warm) ;;
-workstation-sync) run_personal workstation sync ;;
-workstation-update) run_personal workstation update ;;
-workstation-net-fix) run_personal workstation net fix ;;
+workstation-sync) run_personal workstation sync --yes ;;
+workstation-update) run_personal workstation update --yes ;;
+workstation-net-fix) run_personal workstation net fix --yes ;;
 workstation-net-check) run_personal workstation net check ;;
 workstation-net-fix-check)
-  run_personal workstation net fix
+  run_personal workstation net fix --yes
   run_personal workstation net check
   ;;
 portfolio) mise exec -- bun run portfolio ;;

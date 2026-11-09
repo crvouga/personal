@@ -101,6 +101,7 @@
       "required": [
         "requiredCapabilities",
         "githubLogin",
+        "vaultUser",
         "toolchain",
         "agentProfile",
         "unattendedSudo",
@@ -125,6 +126,10 @@
         "githubLogin": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9-]{1,39}$"
+        },
+        "vaultUser": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_.-]{1,64}$"
         },
         "toolchain": {
           "const": "mise.lock"

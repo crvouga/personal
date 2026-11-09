@@ -2,6 +2,7 @@ import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
 import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';
+import { authorizeVault } from './fleet-sync-vault';
 import { controllerFailure } from '../../fleet/src/controller-failure';
 import { controllerText } from './fleet-sync-output';
 import { synchronizeMonitoring } from './fleet-sync-monitoring';
@@ -125,8 +126,15 @@ function deployWithMonitoring(
       const checks = await authorizePrivilege(node, payload.authorizeSudo, run);
       if (checks.length) return { node: node.id, checks };
     }
+    const vault = { interactive: ui.interactiveAuthorization };
+    const before = await authorizeVault(node, vault, run);
     const result = await withProgress(node.id, ui.progress, () =>
       bootstrapRemote(node, payload, run)
+    );
+    // A fresh node gets vault from the bootstrap; log it in now. Its provider
+    // checks in this run predate the login, so the next sync verifies them.
+    result.checks.push(
+      ...(before.length ? before : await authorizeVault(node, vault, run))
     );
     const os =
       parseDefinition(definition).nodes.find((entry) => entry.id === node.id)
