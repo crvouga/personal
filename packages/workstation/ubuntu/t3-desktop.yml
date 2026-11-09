@@ -164,7 +164,9 @@
           Type=simple
           WorkingDirectory=%h
           Environment=T3CODE_HOME=%h/.t3
-          ExecStart="{{ t3_desktop_dir }}/t3code"
+          # Native Wayland hangs before the first window on Asahi (16K pages);
+          # XWayland works on every GNOME worker, so use it everywhere.
+          ExecStart="{{ t3_desktop_dir }}/t3code" --ozone-platform=x11
           KillMode=mixed
           Restart=always
           RestartSec=5
