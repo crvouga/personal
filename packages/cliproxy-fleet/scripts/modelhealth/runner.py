@@ -8,12 +8,16 @@ import pathlib
 import random
 import time
 
-from . import checks, protocol
+from . import checks, findings, protocol
 from .redact import Redactor
 from .transport import Client, TransportError
 
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2}
 SCHEMA = "cliproxy-model-health/1"
+
+
+def _parse(timestamp):
+    return datetime.datetime.fromisoformat(timestamp)
 
 
 def now_iso():
@@ -56,7 +60,7 @@ def liveness(base_url, redact, timeout):
 
 
 def readiness(config, base_url, key, redact, timeout, retries, backoff):
-    """Authenticated and free: the key works, /v1/models is valid, every configured alias is served."""
+    """Authenticated and free: the key works, /v1/models is valid, every configured model id is served."""
     if not key:
         return _level("unknown", "credentials", ["no client API key available"]), set()
     client = Client(base_url, key, redact, timeout)
@@ -77,11 +81,11 @@ def readiness(config, base_url, key, redact, timeout, retries, backoff):
     if problems:
         return _level("unhealthy", "protocol", problems), set()
     served = {item["id"] for item in body["data"]}
-    configured = {m["alias"] for m in config.models}
+    configured = {m["id"] for m in config.models}
     missing = sorted(configured - served)
     return (
-        _level("unhealthy" if missing else "healthy", "alias_missing" if missing else None,
-               ["alias not served: " + alias for alias in missing],
+        _level("unhealthy" if missing else "healthy", "model_missing" if missing else None,
+               ["model not served: " + model_id for model_id in missing],
                latency_ms=round(response.elapsed * 1000), served_models=len(served),
                discovered_unconfigured=sorted(served - configured)),
         served,
@@ -90,7 +94,7 @@ def readiness(config, base_url, key, redact, timeout, retries, backoff):
 
 # ------------------------------------------------------------------- models
 
-def _capability_rows(config, model, results, selected, alias_known, alias_present, aborted):
+def _capability_rows(config, model, results, selected, model_known, model_present, aborted):
     """Per-capability truth table: declared state versus what was actually observed."""
     by_id = {r["capability"]: r for r in results}
     rows = {}
@@ -109,14 +113,15 @@ def _capability_rows(config, model, results, selected, alias_known, alias_presen
                 row.update(result="fail", reason=result["category"])
         elif result:
             row["reason"] = result["category"]
-        elif not alias_known:
+        elif not model_known:
             row["reason"] = "readiness_not_passed"
-        elif not alias_present:
-            row["reason"] = "alias_missing"
+        elif not model_present:
+            row["reason"] = "model_missing"
         elif case.capability not in selected:
             row["reason"] = "not_in_profile"
         else:
-            row["reason"] = "aborted" if aborted else "not_run"
+            row["reason"] = "paused_rate_limited" if (aborted or "").startswith("rate limited recently") else (
+                "aborted" if aborted else "not_run")
         rows[case.capability] = row
     return rows
 
@@ -152,15 +157,15 @@ def _metrics(events, results, observed_models):
     }
 
 
-def derive_status(config, rows, results, metrics, alias_known, alias_present, scope_e2e):
+def derive_status(config, rows, results, metrics, model_known, model_present, scope_e2e):
     """Return (status, reasons). Unknown is never upgraded to healthy."""
     policy = config.raw["health"]
-    if not alias_known:
-        return "unknown", ["readiness did not pass; the alias could not be confirmed"]
-    if not alias_present:
-        return "unhealthy", ["alias not served by /v1/models"]
+    if not model_known:
+        return "unknown", ["readiness did not pass; the model could not be confirmed"]
+    if not model_present:
+        return "unhealthy", ["model not served by /v1/models"]
     if not scope_e2e:
-        return "unknown", ["alias is served, but inference was not exercised at this scope"]
+        return "unknown", ["model is served, but inference was not exercised at this scope"]
     executed = [r for r in results if r["status"] in ("pass", "fail")]
     if not executed:
         return "unknown", ["no inference check completed"]
@@ -180,16 +185,19 @@ def derive_status(config, rows, results, metrics, alias_known, alias_present, sc
         reasons.append("time to first token p50 %dms exceeds policy" % p50)
     if p95 is not None and p95 > policy["latency_ms"]["total_p95_warn"]:
         reasons.append("latency p95 %dms exceeds policy" % p95)
-    if policy.get("alias_consistency") and len(metrics["resolved_models"]) > 1:
-        reasons.append("alias resolved to multiple model ids: " + ", ".join(metrics["resolved_models"]))
+    if policy.get("model_consistency") and len(metrics["resolved_models"]) > 1:
+        reasons.append("model resolved to multiple ids: " + ", ".join(metrics["resolved_models"]))
     return ("degraded" if reasons else "healthy"), reasons
 
 
-def run_model(config, model, cases, make_client, budget, seed, redact, timeouts, alias_known, alias_present, scope_e2e):
+def run_model(config, model, cases, make_client, budget, seed, redact, timeouts, model_known, model_present, scope_e2e,
+              paused=None, paused_detail=None):
     """Test one model in isolation; any failure here is confined to this model."""
-    ctx = checks.Context(config, model, make_client, budget, random.Random("%s:%s" % (seed, model["alias"])), redact, timeouts)
+    ctx = checks.Context(config, model, make_client, budget, random.Random("%s:%s" % (seed, model["id"])), redact, timeouts)
     results, consecutive, aborted = [], 0, None
-    if scope_e2e and alias_known and alias_present:
+    if paused:
+        aborted = paused  # inference is skipped: the account was rate limited recently
+    if scope_e2e and model_known and model_present and not paused:
         for case in sorted(cases, key=lambda c: SEVERITY_ORDER[c.severity]):
             declared, _reason = config.state(model, case.capability)
             if declared == "unsupported" or aborted:
@@ -205,13 +213,18 @@ def run_model(config, model, cases, make_client, budget, seed, redact, timeouts,
                     aborted = "rate limited; stopped to avoid hammering the account"
                 elif consecutive >= config.raw["health"]["abort_model_after_consecutive_failures"]:
                     aborted = "%d consecutive failures" % consecutive
-    rows = _capability_rows(config, model, results, {c.capability for c in cases}, alias_known, alias_present, aborted)
+    rows = _capability_rows(config, model, results, {c.capability for c in cases}, model_known, model_present, aborted)
     metrics = _metrics(ctx.events, results, ctx.observed_models)
-    status, reasons = derive_status(config, rows, results, metrics, alias_known, alias_present, scope_e2e)
-    if aborted:
+    status, reasons = derive_status(config, rows, results, metrics, model_known, model_present, scope_e2e)
+    if paused:
+        status, reasons = "unhealthy", ["paused: " + paused]
+    elif aborted:
         reasons.append("aborted: " + aborted)
-    return {"alias": model["alias"], "provider": model["provider"], "status": status, "reasons": reasons,
-            "coverage": _coverage(rows), "capabilities": rows, "checks": results, "metrics": metrics}
+    limit_error = next((r["details"][0] for r in results if r["status"] == "fail" and r["category"] == "rate_limit"), None)
+    rate_limited = bool(paused) or limit_error is not None
+    return {"id": model["id"], "provider": model["provider"], "status": status, "reasons": reasons,
+            "coverage": _coverage(rows), "capabilities": rows, "checks": results, "metrics": metrics,
+            "rate_limited": rate_limited, "paused": bool(paused), "rate_limit_detail": paused_detail if paused else limit_error}
 
 
 def _coverage(rows):
@@ -228,15 +241,25 @@ def merge_state(report, previous, timestamp):
     """Carry forward last-success times; only passes ever advance them."""
     state = {"models": {}}
     for model in report["models"]:
-        old = (previous or {}).get("models", {}).get(model["alias"], {})
+        old = (previous or {}).get("models", {}).get(model["id"], {})
         capabilities = dict(old.get("capabilities", {}))
         for capability, row in model["capabilities"].items():
             if row["result"] == "pass":
                 capabilities[capability] = timestamp
         passed = any(row["result"] == "pass" for row in model["capabilities"].values())
+        if model.get("paused"):
+            limited_at = old.get("rate_limited_at")  # keep the original time so the pause expires
+        elif model.get("rate_limited"):
+            limited_at = timestamp
+        elif model["checks"]:
+            limited_at = None  # inference ran without a 429: the quota is back
+        else:
+            limited_at = old.get("rate_limited_at")
+        detail = model.get("rate_limit_detail") if limited_at else None
         entry = {"healthy_at": timestamp if model["status"] == "healthy" else old.get("healthy_at"),
-                 "any_check_at": timestamp if passed else old.get("any_check_at"), "capabilities": capabilities}
-        state["models"][model["alias"]] = entry
+                 "any_check_at": timestamp if passed else old.get("any_check_at"), "capabilities": capabilities,
+                 "rate_limited_at": limited_at, "rate_limit_detail": detail}
+        state["models"][model["id"]] = entry
         model["last_success"] = entry
     return state
 
@@ -260,8 +283,8 @@ def save_state(path, state):
 
 # --------------------------------------------------------------------- main
 
-def run(config, run_name, suite="all", base_url=None, key=None, target="live", aliases=None, seed=None,
-        state_path=None, overrides=None, simulate=None, clock=now_iso):
+def run(config, run_name, suite="all", base_url=None, key=None, target="live", model_ids=None, seed=None,
+        state_path=None, overrides=None, simulate=None, clock=now_iso, only=None, force_probe=False):
     """Execute a run profile and return the structured report."""
     overrides = overrides or {}
     profile = config.runs(run_name)
@@ -271,10 +294,10 @@ def run(config, run_name, suite="all", base_url=None, key=None, target="live", a
     if overrides.get("timeout_scale"):
         timeouts = {k: v * overrides["timeout_scale"] for k, v in timeouts.items()}
     seed = seed if seed is not None else random.SystemRandom().randrange(1 << 30)
-    unknown = sorted(set(aliases or []) - {m["alias"] for m in config.models})
+    unknown = sorted(set(model_ids or []) - {m["id"] for m in config.models})
     if unknown:
-        raise ValueError("Unknown model alias requested: " + ", ".join(unknown))
-    models = [m for m in config.models if not aliases or m["alias"] in aliases]
+        raise ValueError("Unknown model id requested: " + ", ".join(unknown))
+    models = [m for m in config.models if not model_ids or m["id"] in model_ids]
     report = {"schema": SCHEMA, "generated_at": clock(), "profile": run_name, "suite": suite,
               "target": {"kind": target, "base_url": base_url}, "seed": seed, "levels": {}, "models": [],
               "cursor": dict(config.raw["cursor"], suite_selected=suite in ("cursor", "all")),
@@ -292,23 +315,34 @@ def run(config, run_name, suite="all", base_url=None, key=None, target="live", a
             retry = config.raw["retry"]
             ready, served = readiness(config, base_url, key, redact, timeouts["request_s"], retry["read_only"], retry["backoff_s"])
         report["levels"]["readiness"] = ready
-    alias_known = ready is not None and (ready["status"] == "healthy" or ready["category"] == "alias_missing")
+    model_known = ready is not None and (ready["status"] == "healthy" or ready["category"] == "model_missing")
     scope_e2e = "e2e" in profile["levels"]
-    cases = config.cases_for(suite, profile["max_tier"]) if scope_e2e else []
+    cases = config.cases_for(suite, profile["max_tier"], only) if scope_e2e else []
+    previous = load_state(state_path) if state_path else {}
+    pause = config.raw["health"]["rate_limit_backoff_s"]
+    paused = {}
+    for model in models:
+        limited_at = previous.get("models", {}).get(model["id"], {}).get("rate_limited_at")
+        if scope_e2e and limited_at and not force_probe:
+            resume = _parse(limited_at) + datetime.timedelta(seconds=pause)
+            if _parse(report["generated_at"]) < resume:
+                paused[model["id"]] = "rate limited recently (at %s); not probing again before %s so no quota is spent. Use --force-probe to override." % (
+                    limited_at, resume.replace(microsecond=0).isoformat())
     limits = dict(profile.get("budget", {"max_requests": 1, "max_requests_per_model": 1, "max_output_tokens": 1, "concurrency": 1}))
     limits.update({k: v for k, v in overrides.items() if k in limits and v})
     budget = checks.Budget(limits["max_requests"], limits["max_requests_per_model"], limits["max_output_tokens"])
 
-    def factory(alias):
+    def factory(model_id):
         def on_request(kind):
             if kind in ("inference", "probe"):
-                budget.take(alias)
+                budget.take(model_id)
 
         return Client(base_url, key, redact, timeouts["request_s"], on_request)
 
     def one(model):
+        last = previous.get("models", {}).get(model["id"], {}).get("rate_limit_detail")
         return run_model(config, model, cases, factory, budget, seed, redact, timeouts,
-                         alias_known, model["alias"] in served, scope_e2e)
+                         model_known, model["id"] in served, scope_e2e, paused.get(model["id"]), last)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=limits["concurrency"]) as pool:
         report["models"] = list(pool.map(one, models))
@@ -318,16 +352,23 @@ def run(config, run_name, suite="all", base_url=None, key=None, target="live", a
                             "per_model_max": limits["max_requests_per_model"], "concurrency": limits["concurrency"],
                             "inference_retries": config.raw["retry"]["inference"]}
     report["simulations"] = simulate() if simulate and profile.get("simulations") else []
-    state = merge_state(report, load_state(state_path) if state_path else {}, report["generated_at"])
-    report["summary"] = summarize(config, report, profile)
+    state = merge_state(report, previous, report["generated_at"])
+    report["summary"] = summarize(report, profile)
+    report["findings"] = findings.build(config, report, run_name)
+    report["summary"]["findings"] = {
+        "total": len(report["findings"]),
+        "operator": sum(not f["agent_fixable"] for f in report["findings"]),
+        "agent": sum(f["agent_fixable"] for f in report["findings"]),
+        "fingerprint": findings.fingerprint(report["findings"]),
+    }
     if state_path:
         save_state(state_path, state)
     return report
 
 
-def summarize(config, report, profile):
+def summarize(report, profile):
     levels = {name: level["status"] for name, level in report["levels"].items()}
-    models = {m["alias"]: m["status"] for m in report["models"]}
+    models = {m["id"]: m["status"] for m in report["models"]}
     failed_sims = [s["id"] for s in report["simulations"] if s["status"] != "pass"]
     scope_e2e = "e2e" in profile["levels"]
     judged = list(levels.values()) + (list(models.values()) if scope_e2e else
@@ -341,30 +382,4 @@ def summarize(config, report, profile):
         overall = "degraded"
     else:
         overall = "healthy"
-    return {"status": overall, "levels": levels, "models": models, "simulation_failures": failed_sims,
-            "diagnostics": diagnostics(config, report)}
-
-
-def diagnostics(config, report):
-    """Actionable entries naming the level, model, endpoint, test and failure category."""
-    advice = config.raw["diagnostics"]
-    entries = []
-
-    def add(**entry):
-        entry["advice"] = advice.get(entry["category"], "")
-        entries.append(entry)
-
-    for name, level in report["levels"].items():
-        if level["status"] in ("unhealthy", "unknown") and level["category"]:
-            add(level=name, model=None, check=None, category=level["category"], details=level["details"])
-    for model in report["models"]:
-        for result in model["checks"]:
-            if result["status"] == "fail":
-                add(level="e2e", model=model["alias"], check=result["id"], endpoint=result["endpoint"],
-                    category=result["category"], severity=result["severity"], details=result["details"])
-            elif result["status"] == "untested":
-                add(level="e2e", model=model["alias"], check=result["id"], category=result["category"], details=result["details"])
-    for sim in report["simulations"]:
-        if sim["status"] != "pass":
-            add(level="simulation", model=None, check=sim["id"], category="harness", details=sim.get("details", []))
-    return entries
+    return {"status": overall, "levels": levels, "models": models, "simulation_failures": failed_sims}

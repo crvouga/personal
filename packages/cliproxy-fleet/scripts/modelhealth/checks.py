@@ -25,16 +25,16 @@ class Budget:
         self.used, self.tokens, self.by_model = 0, 0, {}
         self.lock = threading.Lock()
 
-    def take(self, alias):
+    def take(self, model_id):
         with self.lock:
             if self.used >= self.max_requests:
                 raise BudgetExceeded("run request budget exhausted")
-            if self.by_model.get(alias, 0) >= self.per_model:
+            if self.by_model.get(model_id, 0) >= self.per_model:
                 raise BudgetExceeded("per-model request budget exhausted")
             if self.tokens >= self.max_tokens:
                 raise BudgetExceeded("output token budget exhausted")
             self.used += 1
-            self.by_model[alias] = self.by_model.get(alias, 0) + 1
+            self.by_model[model_id] = self.by_model.get(model_id, 0) + 1
 
     def spend(self, tokens):
         with self.lock:
@@ -80,11 +80,12 @@ class Context:
     """Everything a check needs for one model; no cross-model mutable state."""
 
     def __init__(self, config, model, client_factory, budget, rng, redact, timeouts):
-        self.config, self.model, self.alias = config, model, model["alias"]
+        self.config, self.model, self.model_id = config, model, model["id"]
         self.make_client, self.budget, self.rng, self.redact = client_factory, budget, rng, redact
         self.timeouts = timeouts
-        self.client = client_factory(self.alias)
+        self.client = client_factory(self.model_id)
         self.events = []
+        self.traces = []  # per-request evidence for failure reports; never contains prompt text
         self.observed_models = set()
 
     def token(self):
@@ -92,7 +93,7 @@ class Context:
         return "%s-%04d" % (letters, self.rng.randrange(10000))
 
     def variables(self):
-        return {"alias": self.alias, "nonce": self.token(), "codeword": self.token(), "marker": self.token()}
+        return {"model_id": self.model_id, "nonce": self.token(), "codeword": self.token(), "marker": self.token()}
 
 
 def _envelope_detail(response, ctx):
@@ -103,11 +104,11 @@ def _envelope_detail(response, ctx):
     return "no error envelope"
 
 
-def call(ctx, case_protocol, turn, variables, stop_after=None, alias=None, headers=None):
+def call(ctx, case_protocol, turn, variables, stop_after=None, model_id=None, headers=None):
     """Send one request and return an Outcome (never raises for HTTP/protocol failures)."""
     out = Outcome()
     config = ctx.config.raw
-    body = scenario.build(case_protocol, alias or ctx.alias, turn, config, ctx.config.extra(ctx.model, case_protocol))
+    body = scenario.build(case_protocol, model_id or ctx.model_id, turn, config, ctx.config.extra(ctx.model, case_protocol))
     path = config["protocols"][case_protocol]["path"]
     stream = bool(turn.get("stream"))
     event = {"protocol": case_protocol, "stream": stream, "tool": bool(turn.get("tools")), "ok": False,
@@ -154,6 +155,7 @@ def call(ctx, case_protocol, turn, variables, stop_after=None, alias=None, heade
         ctx.events.remove(event)  # nothing was sent, so it is not a sample
         raise
     finally:
+        ctx.traces.append(_trace(ctx, case_protocol, path, turn, out, stream))
         event.update(status=out.status, ttft=out.ttft, total=out.elapsed, category=out.category)
         if out.norm is not None:
             if out.norm.model:
@@ -161,6 +163,38 @@ def call(ctx, case_protocol, turn, variables, stop_after=None, alias=None, heade
             if out.norm.usage:
                 ctx.budget.spend(out.norm.usage["output"])
     return out
+
+
+def _choice_kind(choice):
+    if isinstance(choice, dict):
+        return "forced:" + str(choice.get("name"))
+    return choice
+
+
+def _trace(ctx, case_protocol, path, turn, out, stream):
+    """Structural evidence about one request/response: shapes and numbers, never message text."""
+    norm = out.norm
+    headers = out.headers or {}
+    trace = {
+        "protocol": case_protocol, "method": "POST", "path": path, "stream": stream,
+        "request": {"tools": list(turn.get("tools", [])), "tool_choice": _choice_kind(turn.get("tool_choice")),
+                    "max_tokens": turn.get("max_tokens"), "json_schema": bool(turn.get("json_schema")),
+                    "messages": len(turn.get("messages", []))},
+        "http_status": out.status or None, "category": out.category,
+        "total_ms": round(out.elapsed * 1000), "ttft_ms": round(out.ttft * 1000) if out.ttft is not None else None,
+        "retry_after": out.retry_after,
+        "cf_ray": headers.get("cf-ray"), "request_id": headers.get("x-request-id"),
+    }
+    if out.failed and out.detail:
+        trace["error"] = ctx.redact(out.detail, 240)
+    if norm is not None:
+        trace["response"] = {
+            "model": norm.model, "finish_reason": norm.finish_reason, "events": norm.events or None,
+            "content_chars": len(norm.content), "tool_calls": [c["name"] for c in norm.tool_calls],
+            "usage": norm.usage, "terminated": norm.terminated,
+            "violations": [ctx.redact(v, 160) for v in norm.violations[:6]],
+        }
+    return trace
 
 
 def judge(ctx, out, expect, variables, tool_names=()):
@@ -326,13 +360,18 @@ def run_error_probe(ctx, case, variables):
     elif "body" in check:
         body = check["body"]
     else:
-        alias = check.get("model", ctx.alias)
-        body = scenario.build(case.protocol, alias, scenario.substitute(check["turn"], variables), ctx.config.raw, {})
+        model_id = check.get("model", ctx.model_id)
+        body = scenario.build(case.protocol, model_id, scenario.substitute(check["turn"], variables), ctx.config.raw, {})
     event = {"protocol": case.protocol, "stream": False, "tool": False, "ok": False, "category": None,
              "completed": False, "cancelled": False, "status": 0, "ttft": None, "total": None, "probe": True}
     ctx.events.append(event)
     response = client.request("POST", path, body, timeout=ctx.timeouts["request_s"], kind="probe")
     event.update(status=response.status, total=response.elapsed)
+    ctx.traces.append({"protocol": case.protocol, "method": "POST", "path": path, "stream": False,
+                       "request": {"probe": case.check["id"], "body": "raw" if "raw_body" in check else "json"},
+                       "http_status": response.status, "total_ms": round(response.elapsed * 1000),
+                       "cf_ray": response.headers.get("cf-ray"), "request_id": response.headers.get("x-request-id"),
+                       "error": _envelope_detail(response, ctx)})
     wanted = check["expect"]["status"]
     if response.status not in wanted:
         category = "assertion" if response.status < 500 else "upstream"
@@ -365,7 +404,7 @@ def execute(ctx, case):
         "title": case.check["title"], "endpoint": ctx.config.raw["protocols"][case.protocol]["path"],
         "status": "pass", "category": None, "details": [], "evidence": "live",
     }
-    marker = len(ctx.events)
+    marker, trace_marker = len(ctx.events), len(ctx.traces)
     try:
         verdict = RUNNERS[case.kind](ctx, case, ctx.variables())
         verdict.observations.pop("_out", None)
@@ -379,6 +418,8 @@ def execute(ctx, case):
     except Exception as error:  # a harness defect must not hide other models' results
         result.update(status="fail", category="harness", details=[ctx.redact(type(error).__name__ + ": " + str(error))])
     result["duration_ms"] = round((time.monotonic() - started) * 1000)
+    if result["status"] != "pass":
+        result["trace"] = ctx.traces[trace_marker:]
     mine = ctx.events[marker:]
     result["requests"] = len(mine)
     streams = [e["ttft"] for e in mine if e["stream"] and e["ttft"] is not None]

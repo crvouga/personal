@@ -17,7 +17,7 @@ from modelhealth import emulator as emulation  # noqa: E402
 from modelhealth import runner, simulate  # noqa: E402
 
 RAW = json.loads((PACKAGE / "models.json").read_text())
-ALIASES = [m["alias"] for m in RAW["models"]]
+MODEL_IDS = [m["id"] for m in RAW["models"]]
 
 
 def load(mutate=None):
@@ -52,8 +52,8 @@ def child_environment(**extra):
 
 
 @contextlib.contextmanager
-def served(aliases=None, **options):
-    emulator = emulation.Emulator(aliases or ALIASES, **options)
+def served(model_ids=None, **options):
+    emulator = emulation.Emulator(model_ids or MODEL_IDS, **options)
     base = emulator.start()
     try:
         yield emulator, base
@@ -68,5 +68,5 @@ def run(emulator, base, profile="nightly", config=None, key=None, **kwargs):
                       seed=kwargs.pop("seed", 3), simulate=scenarios, **kwargs)
 
 
-def model(report, alias):
-    return next(m for m in report["models"] if m["alias"] == alias)
+def model(report, model_id):
+    return next(m for m in report["models"] if m["id"] == model_id)

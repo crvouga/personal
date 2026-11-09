@@ -83,11 +83,11 @@ def _tool_choice(protocol, choice):
     return {"type": "function", "name": name}
 
 
-def build(protocol, alias, turn, config, extra=None):
+def build(protocol, model_id, turn, config, extra=None):
     """Return the JSON body for one request on the given wire protocol."""
     tools = {name: config["tools"][name] for name in turn.get("tools", [])}
     limit_field = config["protocols"][protocol]["token_limit_field"]
-    body = {"model": alias}
+    body = {"model": model_id}
     if protocol == "chat":
         body["messages"] = _chat_messages(turn)
         if tools:

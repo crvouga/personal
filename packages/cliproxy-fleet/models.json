@@ -11,7 +11,7 @@
       "levels": ["liveness"]
     },
     "readiness": {
-      "description": "Liveness plus authentication, model discovery and alias configuration. No inference.",
+      "description": "Liveness plus authentication, model discovery and configured model ids. No inference.",
       "levels": ["liveness", "readiness"]
     },
     "light": {
@@ -32,7 +32,7 @@
       "budget": {
         "max_requests": 240,
         "max_requests_per_model": 60,
-        "max_output_tokens": 40000,
+        "max_output_tokens": 24000,
         "concurrency": 2
       },
       "simulations": true
@@ -45,7 +45,7 @@
       "budget": {
         "max_requests": 300,
         "max_requests_per_model": 75,
-        "max_output_tokens": 60000,
+        "max_output_tokens": 36000,
         "concurrency": 2
       }
     }
@@ -69,8 +69,9 @@
       "ttft_p50_warn": 20000,
       "total_p95_warn": 90000
     },
-    "alias_consistency": true,
-    "required_model_fields": ["id"]
+    "required_model_fields": ["id"],
+    "model_consistency": true,
+    "rate_limit_backoff_s": 1800
   },
   "protocols": {
     "chat": {
@@ -101,22 +102,20 @@
   },
   "models": [
     {
-      "alias": "cli-proxy-anthropic-opus",
       "provider": "anthropic",
       "profile": "frontier-agent",
+      "id": "claude-opus-5-5",
       "capabilities": {}
     },
     {
-      "alias": "cli-proxy-anthropic-sonnet",
       "provider": "anthropic",
       "profile": "frontier-agent",
+      "id": "claude-sonnet-5-5",
       "capabilities": {}
     },
     {
-      "alias": "cli-proxy-open-ai-astra",
       "provider": "openai",
       "profile": "frontier-agent",
-      "capabilities": {},
       "extra": {
         "chat": {
           "reasoning_effort": "low"
@@ -126,13 +125,13 @@
             "effort": "low"
           }
         }
-      }
+      },
+      "id": "gpt-6-astra",
+      "capabilities": {}
     },
     {
-      "alias": "cli-proxy-open-ai-sol",
       "provider": "openai",
       "profile": "frontier-agent",
-      "capabilities": {},
       "extra": {
         "chat": {
           "reasoning_effort": "low"
@@ -142,13 +141,15 @@
             "effort": "low"
           }
         }
-      }
+      },
+      "id": "gpt-6.1-sol",
+      "capabilities": {}
     }
   ],
   "simulated_capabilities": {
     "routing.failover": "Request succeeds on another account after the first account's quota is exhausted.",
     "routing.recovery": "A cooled-down account serves requests again after its cooldown elapses.",
-    "routing.alias_consistency": "Every account behind an alias returns the same response shape and model id.",
+    "routing.model_consistency": "Every account behind a model returns the same response shape and model id.",
     "routing.all_unavailable": "When every account is unavailable the client gets a prompt OpenAI-style error.",
     "limits.rate_limit": "429 and Retry-After are classified and never retried by the harness.",
     "limits.timeout": "A stalled upstream is cut off by the harness deadline.",
@@ -726,10 +727,10 @@
         "messages": [
           {
             "role": "user",
-            "content": "Count from 1 to 60, one number per line, with no other text."
+            "content": "Count from 1 to 40, one number per line, with no other text."
           }
         ],
-        "max_tokens": 600,
+        "max_tokens": 300,
         "stream": true,
         "include_usage": true
       },
@@ -759,7 +760,7 @@
             "content": "Count from 1 to 200, one number per line, with no other text."
           }
         ],
-        "max_tokens": 800,
+        "max_tokens": 200,
         "stream": true
       },
       "cancel_after_frames": 3,
@@ -821,7 +822,7 @@
       "tier": "full",
       "severity": "major",
       "kind": "error_probe",
-      "model": "cli-proxy-model-health-nonexistent",
+      "model": "model-health-nonexistent",
       "turn": {
         "messages": [
           {
@@ -902,8 +903,8 @@
   "diagnostics": {
     "credentials": "No client API key was available. Set CLIPROXY_API_KEY, provide an existing VAULT_TOKEN, or run on the host with an installed client key. Nothing was tested.",
     "auth": "The client key was rejected. Confirm Vault secret/personal/prd:CLIPROXY_FLEET_CLIENT_API_KEY matches access.api-keys in the live config; never paste the key into logs.",
-    "not_found": "The alias is not served. Check the model alias mapping in the live CLIProxyAPI config (dashboard) and run `bun run cliproxy models` on the host.",
-    "rate_limit": "The provider account is rate limited or out of quota. Inspect account cooldowns in the dashboard; do not retry in a loop.",
+    "not_found": "The model id is not served. Check `bun run cliproxy models` on the host and the provider account behind it.",
+    "rate_limit": "The provider account is rate limited or out of quota (HTTP 429 model_cooldown means every account for that model is cooling down). Inspect account usage in the dashboard; do not retry in a loop. Add an account or wait for the limit to reset.",
     "timeout": "No response within the deadline. Check the host (`bun run cliproxy status`), the Cloudflare tunnel and provider status.",
     "transport": "The connection failed (DNS, TLS, tunnel or host down). Run the liveness profile first.",
     "upstream": "The proxy returned a 5xx or reported a provider failure. Check `bun run cliproxy logs` for the model's channel and the provider's status page.",
@@ -912,8 +913,8 @@
     "request_rejected": "The proxy or provider rejected a valid request (HTTP 400/422). If the capability is genuinely unsupported, declare it optional or unsupported in models.json.",
     "budget": "The request or token budget was exhausted before this check ran.",
     "aborted": "Remaining checks were skipped after repeated consecutive failures to bound spend.",
-    "alias_missing": "The alias is absent from /v1/models, so no inference was attempted for it.",
-    "harness": "The test harness itself raised an error; this is a bug in the checks, not the endpoint."
+    "harness": "The test harness itself raised an error; this is a bug in the checks, not the endpoint.",
+    "model_missing": "The model id is not in /v1/models, so no inference was attempted for it. Compare `bun run cliproxy models` with models.json; the provider account may be unauthenticated or the model retired."
   },
   "simulations": [
     {
@@ -1245,8 +1246,8 @@
       ]
     },
     {
-      "id": "alias_consistent_across_accounts",
-      "capability": "routing.alias_consistency",
+      "id": "model_consistent_across_accounts",
+      "capability": "routing.model_consistency",
       "title": "Both accounts return the same model id and valid shapes on both protocols",
       "accounts": [
         {

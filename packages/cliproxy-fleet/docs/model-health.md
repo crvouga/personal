@@ -4,7 +4,7 @@ This is the declarative validation layer for the hosted OpenAI-compatible endpoi
 `https://cli-proxy.chrisvouga.dev/v1`. It extends the existing external health workflow; it does
 not replace the provenance, backup-freshness or recovery checks.
 
-Everything model-specific lives in [`models.json`](../models.json). The code in
+Models are tested under the ids the proxy serves in `/v1/models` (`claude-opus-5-5`, `claude-sonnet-5-5`, `gpt-6-astra`, `gpt-6.1-sol`), the conventional setup with no alias layer. Everything model-specific lives in [`models.json`](../models.json). The code in
 `scripts/modelhealth/` is generic: adding a model, capability, check or fault scenario is a
 configuration change.
 
@@ -29,7 +29,7 @@ Responses request shapes, streaming tool calls, tool round trips, a scripted mul
 workflow, cancellation and recovery, usage and finish reasons. It does not reproduce Cursor's
 private behavior, and no run of this suite proves the Cursor application works. Every report states
 `Verified with the actual Cursor application: no`. Verifying the application needs a human running
-Cursor against the endpoint with the same alias names and recording the result separately.
+Cursor against the endpoint with the same model ids and recording the result separately.
 
 ## Architecture
 
@@ -63,15 +63,15 @@ models.json  ──►  config.py (validate, resolve capability states)
 | Profile     | Levels              | Inference          | Intended use                                                                                   |
 | ----------- | ------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
 | `liveness`  | liveness            | none               | "Is it reachable and does it reject anonymous callers?" No credentials.                        |
-| `readiness` | liveness, readiness | none               | Key works, `/v1/models` valid, **every configured alias served**.                              |
-| `light`     | + cheapest e2e      | 2 requests/model   | Every 15 minutes. Chat non-stream + Responses stream.                                          |
+| `readiness` | liveness, readiness | none               | Key works, `/v1/models` valid, **every configured model served**.                              |
+| `light`     | + cheapest e2e      | 2 requests/model   | Hourly. Chat non-stream + Responses stream.                                                    |
 | `nightly`   | + all `full` checks | ~53 requests/model | Comprehensive protocol, tools, agent workflow, errors, concurrency; also runs the simulations. |
 | `manual`    | + `manual` checks   | + wrong-key probe  | Full diagnostics, plus the fault-injection scenarios.                                          |
 
 Liveness checks that `GET /v1/models` without a key returns 401 (a 200 is a failure) and that the
 dashboard serves. Readiness lists discovered models and reports any not in configuration
-(`discovered_unconfigured`). A configured alias missing from `/v1/models` makes that model
-`unhealthy` with category `alias_missing` and no inference is sent to it. It is never skipped
+(`discovered_unconfigured`). A configured model id missing from `/v1/models` makes that model
+`unhealthy` with category `model_missing` and no inference is sent to it. It is never skipped
 silently.
 
 The wrong-key probe is `manual` only. Upstream counts failed _management_ logins toward an IP ban,
@@ -89,14 +89,14 @@ bun run cliproxy model-health --profile liveness   # no credentials
 # Complete suite (default profile: nightly)
 bun run cliproxy model-suite
 bun run cliproxy model-suite --suite cursor        # Cursor-style agent checks only
-bun run cliproxy model-suite --profile manual --model cli-proxy-open-ai-sol --output ./report
+bun run cliproxy model-suite --profile manual --model gpt-6.1-sol --output ./report
 
 # Offline: the same declarative suite against the local emulator. No key, no spend, no network.
 bun run cliproxy model-suite --target mock --profile manual
 ```
 
-Useful flags: `--model ALIAS` (repeatable), `--suite core|cursor|all`, `--json`, `--output DIR`
-(writes `model-health.json` and `model-health.md`), `--state FILE` (last-success memory),
+Useful flags: `--model MODEL_ID` (repeatable), `--check CAPABILITY_GLOB` (repeatable), `--force-probe`, `--suite core|cursor|all`, `--json`, `--output DIR`
+(writes `model-health.json`, `model-health.md` and `agent-brief.md`), `--state FILE` (last-success memory),
 `--max-requests N`, `--concurrency N`, `--timeout-scale F`, `--seed N` (reproducible tokens),
 `--fail-on unhealthy|degraded`, `--allow-unknown`.
 
@@ -114,11 +114,11 @@ Per model: `healthy`, `degraded`, `unhealthy`, `unknown`.
 
 - `unknown`: inference was not exercised at this scope, readiness did not pass, or no check
   completed. Readiness-only profiles therefore report models as `unknown`, not `healthy`.
-- `unhealthy`: alias not served; a `critical` required capability fails; or at least
+- `unhealthy`: model id not served; a `critical` required capability fails; or at least
   `health.unhealthy_if_failed_ratio` of the exercised required capabilities fail.
 - `degraded`: a non-critical required capability fails, a required capability's optional sibling
-  hit an infrastructure failure, latency exceeds `health.latency_ms`, or one alias resolved to
-  several model ids (`health.alias_consistency`).
+  hit an infrastructure failure, latency exceeds `health.latency_ms`, or one model id resolved to
+  several response model ids (`health.model_consistency`).
 - `healthy`: everything that was exercised passed. **Healthy applies to the exercised capabilities
   only**; read `coverage` and the `untested` rows. A `light` run exercises 2 of 38.
 
@@ -136,10 +136,10 @@ rejects anything else). Only the read-only model listing is retried once, on tra
 | `endpoint`                              | Base URL (HTTPS), key environment variable, Vault field.                                |
 | `runs`                                  | Profiles: levels, highest check tier, request/token budget, concurrency, `simulations`. |
 | `timeouts`, `retry`                     | Per-request, stream idle/deadline, liveness; retry policy.                              |
-| `health`                                | Abort threshold, unhealthy ratio, latency warnings, alias consistency.                  |
+| `health`                                | Abort threshold, unhealthy ratio, latency warnings, model-id consistency.               |
 | `protocols`                             | Path and token-limit field for `chat` and `responses`.                                  |
 | `capability_profiles`                   | Default state, `optional` and `unsupported` capability globs, shared request extras.    |
-| `models`                                | Alias, provider, profile, per-model capability overrides and request extras.            |
+| `models`                                | Model id, provider, profile, per-model capability overrides and request extras.         |
 | `tools`                                 | Function definitions (JSON Schema) shared by checks.                                    |
 | `checks`                                | Declarative test cases (below).                                                         |
 | `simulated_capabilities`, `simulations` | Routing, rate-limit, timeout and truncation scenarios.                                  |
@@ -165,7 +165,7 @@ Append to `models` and nothing else:
 
 ```json
 {
-  "alias": "cli-proxy-new-model",
+  "id": "new-vendor-model",
   "provider": "anthropic",
   "profile": "frontier-agent",
   "capabilities": {
@@ -277,18 +277,74 @@ framing edge cases against a raw socket server, property-style tests (randomized
 fragmentation, schema validation), fill-first routing, the full suite against the emulator, per-model isolation,
 budgets, fault detection, last-success persistence, and secret hygiene.
 
-## Scheduling
+## Scheduling and cost
 
-[`cliproxy-health.yml`](../../../.github/workflows/cliproxy-health.yml):
+[`cliproxy-health.yml`](../../../.github/workflows/cliproxy-health.yml) has five entry points:
 
-- Every 15 minutes (minutes 7, 22, 37, 52): the existing endpoint and cloud-checkpoint freshness
-  check, then `model-health` (`light`). Failure level: `unhealthy`.
-- 03:41 UTC nightly: `model-suite` (`nightly`), failing on `degraded`.
-- Manual dispatch: choose profile, suite, a single model and a lower request budget.
+| Trigger          | Profile     | Inference                          | Notes                                                                                                           |
+| ---------------- | ----------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Every 15 minutes | `readiness` | none                               | Key, `/v1/models`, every configured model served, plus cloud checkpoint freshness. Free.                        |
+| Hourly (`:17`)   | `light`     | 2 requests per model (about 8/run) | About 190 requests and well under 5,000 output tokens a day across four models.                                 |
+| 03:41 UTC        | `nightly`   | about 53 requests per model        | Capped at 240 requests and 24,000 output tokens per run.                                                        |
+| Pull request     | (offline)   | none                               | `contract` job: `models.json` lint, the offline tests and the whole suite against the emulator. No credentials. |
+| Manual dispatch  | any         | your choice                        | `model`, `check`, `max_requests` and `force_probe` inputs.                                                      |
 
-Each run uploads `model-health.json` as an artifact (30 days), appends the Markdown report to the
-job summary and persists last-success times through the Actions cache. Budgets come from
-`models.json` and can only be lowered at dispatch.
+Controls that keep usage bounded, all in `models.json`:
+
+- Per-profile caps on total requests, requests per model, output tokens and concurrency. Exhaustion leaves
+  the remaining checks `untested` (reason `budget`); it never fails silently or spends more.
+- Small fixtures: every check caps output at 400 tokens or fewer; the long-stream and cancellation
+  checks ask for 300 and 200.
+- No inference retries, ever. Four consecutive failures stop a model.
+- **Rate-limit pause.** A 429 stops that model immediately and records the time in the state file. For
+  `health.rate_limit_backoff_s` (30 minutes) later runs send that model nothing: its status stays
+  `unhealthy`, the finding is `paused`, and the reason says when probing resumes. The first probe after
+  the pause that succeeds clears it. `--force-probe` overrides. Quota exhaustion therefore costs one
+  rejected request per half hour, not a request per run.
+- A 429 is rejected before inference and does not consume provider usage; successful requests are tiny.
+- Last-success and pause state persist between runs through the Actions cache, shared by all profiles.
+
+Each live run uploads `model-health.json`, `model-health.md` and `agent-brief.md` as an artifact
+(30 days) and writes the brief and the report to the job summary.
+
+## Findings, the agent brief and the tracking issue
+
+Every failure becomes a **finding** in `model-health.json` (`findings[]`, validated by
+[`model-health-report.schema.json`](model-health-report.schema.json)) and in `agent-brief.md`:
+
+- `id`: stable (`<model>/<capability>/<category>`), so a fix can be confirmed by its absence.
+- `resolver` / `agent_fixable`: `operator` for quota, credentials, the proxy host or proxy configuration,
+  which no edit to this repository can fix; `agent` for protocol or assertion mismatches, harness defects
+  and budgets. Operator findings are listed first.
+- `evidence`: the failure details plus one **trace** per request: method, path, HTTP status, timings,
+  Cloudflare `cf-ray` and `x-request-id`, `retry-after`, resolved model id, finish reason, event count,
+  tool-call names, usage, and the protocol violations found. Traces contain structure and numbers only:
+  never prompt text, completions or keys, and error messages are redacted and truncated.
+- `reproduce`: the exact cheap command, for example
+  `bun run cliproxy model-suite --profile nightly --model gpt-6.1-sol --check chat.tools --seed 4` (one
+  check, one or two requests). `--check` takes capability globs.
+- `fix_hints`: where to edit (`models.json` declaration, check fixture, validator, or the operator
+  action), and what not to do (delete a check, loosen an assertion, call an untested capability healthy).
+
+On scheduled and full manual runs the workflow also keeps one issue per scope,
+`[ops] CLI proxy model health (live)` and `(nightly)`: opened with the brief when the run is unhealthy or
+degraded, updated (with a comment) only when the set of findings changes (`summary.findings.fingerprint`),
+and closed when a full run is healthy. Partial runs (`model` or `check` set) never touch it. The issue body
+is the redacted brief, which includes provider error text such as `usage_limit_reached` and request ids;
+keep that in mind if the repository is public.
+
+### Agent runbook
+
+```bash
+gh workflow run "CLI proxy health" -f profile=readiness            # free
+gh workflow run "CLI proxy health" -f profile=nightly -f model=claude-opus-5-5   # one model
+gh run list --workflow "CLI proxy health" --limit 5
+gh run download <run-id> -n model-health-nightly-<run-id>          # agent-brief.md, model-health.json
+```
+
+The same flow is the `/model-health` agent command (`.agents/commands/model-health.md`): read the brief,
+stop on operator findings, reproduce an agent finding with its command, fix the declaration, check or
+validator, add an offline test, run `test:models`, and verify with a live run of the reproduce command.
 
 ## Report
 
@@ -301,7 +357,7 @@ error categories, upstream failures and the resolved model ids. Routing outcomes
 for simulations.
 
 Failure categories: `credentials`, `auth`, `not_found`, `rate_limit`, `timeout`, `transport`,
-`upstream`, `protocol`, `assertion`, `request_rejected`, `budget`, `aborted`, `alias_missing`,
+`upstream`, `protocol`, `assertion`, `request_rejected`, `budget`, `aborted`, `model_missing`,
 `harness`. Diagnostics never contain keys, tokens, request bodies or prompt text; messages from the
 endpoint are redacted and truncated to a few hundred characters.
 
@@ -311,12 +367,12 @@ endpoint are redacted and truncated to a few hundred characters.
    model failure below it.
 2. `transport`/`timeout` at liveness: host, tunnel or DNS. Use `bun run cliproxy status` on the
    workstation. `auth` at readiness: the client key and `access.api-keys` disagree.
-3. `alias_missing`: the alias is not in `/v1/models`. Compare `bun run cliproxy models` with
-   `models.json`; alias mappings are live configuration (dashboard), not part of the template.
+3. `model_missing`: the model id is not in `/v1/models`. Compare `bun run cliproxy models` with
+   `models.json`; the provider account behind it may be unauthenticated or the model retired.
 4. A model `unhealthy` with `upstream`/`rate_limit`: provider account or quota. Check the
    dashboard and `bun run cliproxy logs`. The harness already stopped requesting after the first 429.
 5. `protocol` or `assertion`: reproduce one case with
-   `model-suite --profile nightly --model ALIAS --seed N` (the seed is in the report). `protocol`
+   `model-suite --profile nightly --model MODEL_ID --seed N` (the seed is in the report). `protocol`
    after a CLIProxyAPI upgrade usually means the translation changed; compare the check's details
    with the validator in `protocol.py`.
 6. If the capability is genuinely unavailable on that route, change its state to `optional` or

@@ -32,15 +32,15 @@ class Account:
         self.cooldown_until = 0.0
         self.served = 0
 
-    def serves(self, alias):
-        return self.models is None or alias in self.models
+    def serves(self, model_id):
+        return self.models is None or model_id in self.models
 
 
 class Emulator:
-    def __init__(self, aliases, keys=("emulator-client-key-0000000000000000",), accounts=None,
+    def __init__(self, model_ids, keys=("emulator-client-key-0000000000000000",), accounts=None,
                  cooldown_s=30.0, transient_cooldown_s=60.0, max_retry_credentials=0, chunk_delay_s=0.0,
                  strategy="fill-first"):
-        self.aliases = list(aliases)
+        self.model_ids = list(model_ids)
         self.keys = set(keys)
         self.open_api = False  # fault: accepts anonymous callers
         self.accounts = accounts or [Account("acct-a"), Account("acct-b")]
@@ -98,7 +98,7 @@ class Emulator:
         return sorted(self.keys)[0]
 
     # ---------------------------------------------------------------- routing
-    def route(self, alias, affinity):
+    def route(self, model_id, affinity):
         """Return (account, error) following the documented routing policy.
 
         fill-first: accounts are tried in declaration order, so one account takes all traffic until
@@ -109,17 +109,17 @@ class Emulator:
         """
         with self.lock:
             now = self.now()
-            candidates = [a for a in self.accounts if a.serves(alias)]
+            candidates = [a for a in self.accounts if a.serves(model_id)]
             tried = []
             if not candidates:
-                self.routing_log.append({"alias": alias, "tried": [], "served_by": None})
+                self.routing_log.append({"model": model_id, "tried": [], "served_by": None})
                 return None, (404, "model_not_found", "No account serves this model.", None)
             if self.strategy == "round-robin":
-                start = self.pointer.get(alias, 0)
+                start = self.pointer.get(model_id, 0)
                 order = [candidates[(start + i) % len(candidates)] for i in range(len(candidates))]
             else:
                 order = list(candidates)
-            sticky = self.affinity.get((alias, affinity))
+            sticky = self.affinity.get((model_id, affinity))
             if sticky is not None:
                 order = [a for a in order if a.id == sticky] + [a for a in order if a.id != sticky]
             last, attempts = None, 0
@@ -144,15 +144,15 @@ class Emulator:
                 if account.quota is not None:
                     account.quota -= 1
                 account.served += 1
-                self.pointer[alias] = (candidates.index(account) + 1) % len(candidates)
-                self.affinity[(alias, affinity)] = account.id
+                self.pointer[model_id] = (candidates.index(account) + 1) % len(candidates)
+                self.affinity[(model_id, affinity)] = account.id
                 tried.append((account.id, "served"))
-                self.routing_log.append({"alias": alias, "tried": tried, "served_by": account.id})
+                self.routing_log.append({"model": model_id, "tried": tried, "served_by": account.id})
                 return account, None
             if last is None:
                 waits = [a.cooldown_until - now for a in candidates if a.cooldown_until > now]
                 last = (429, "rate_limit_exceeded", "All credentials are cooling down.", max(waits or [1.0]))
-            self.routing_log.append({"alias": alias, "tried": tried, "served_by": None})
+            self.routing_log.append({"model": model_id, "tried": tried, "served_by": None})
             return None, last
 
 
@@ -312,7 +312,7 @@ def _call_id(seed, index, prefix):
 
 # ------------------------------------------------------------------ renderers
 
-def chat_body(alias, body, reply, request_id, faults):
+def chat_body(model_id, body, reply, request_id, faults):
     prompt, completion = _usage_counts(body, reply)
     message = {"role": "assistant", "content": reply["text"] or None}
     if reply["calls"]:
@@ -320,7 +320,7 @@ def chat_body(alias, body, reply, request_id, faults):
             {"id": None if faults.get("drop_tool_ids") else _call_id(request_id, i, "call_"), "type": "function",
              "function": {"name": c["name"], "arguments": "{broken" if faults.get("bad_json_args") else json.dumps(c["arguments"])}}
             for i, c in enumerate(reply["calls"])]
-    out = {"id": "chatcmpl-" + request_id, "object": "chat.completion", "created": 1_700_000_000, "model": alias,
+    out = {"id": "chatcmpl-" + request_id, "object": "chat.completion", "created": 1_700_000_000, "model": model_id,
            "choices": [{"index": 0, "message": message, "finish_reason": faults.get("finish_reason", reply["finish"])}]}
     if not faults.get("drop_usage"):
         out["usage"] = {"prompt_tokens": prompt, "completion_tokens": completion,
@@ -328,8 +328,8 @@ def chat_body(alias, body, reply, request_id, faults):
     return out
 
 
-def chat_events(alias, body, reply, request_id, faults):
-    base = {"id": "chatcmpl-" + request_id, "object": "chat.completion.chunk", "created": 1_700_000_000, "model": alias}
+def chat_events(model_id, body, reply, request_id, faults):
+    base = {"id": "chatcmpl-" + request_id, "object": "chat.completion.chunk", "created": 1_700_000_000, "model": model_id}
 
     def chunk(delta, finish=None, usage=None, choices=True):
         data = dict(base)
@@ -356,7 +356,7 @@ def chat_events(alias, body, reply, request_id, faults):
                                "total_tokens": prompt + completion}, choices=False)
 
 
-def responses_object(alias, body, reply, request_id, faults, status="completed"):
+def responses_object(model_id, body, reply, request_id, faults, status="completed"):
     output = []
     if reply["text"]:
         output.append({"type": "message", "id": "msg_" + request_id, "role": "assistant", "status": "completed",
@@ -365,7 +365,7 @@ def responses_object(alias, body, reply, request_id, faults, status="completed")
         output.append({"type": "function_call", "id": "fc_%s%d" % (request_id, i), "call_id": _call_id(request_id, i, "call_"),
                        "name": call["name"], "arguments": json.dumps(call["arguments"]), "status": "completed"})
     prompt, completion = _usage_counts(body, reply)
-    out = {"id": "resp_" + request_id, "object": "response", "created_at": 1_700_000_000, "model": alias,
+    out = {"id": "resp_" + request_id, "object": "response", "created_at": 1_700_000_000, "model": model_id,
            "status": "incomplete" if reply["finish"] == "length" else status, "output": output}
     if reply["finish"] == "length":
         out["incomplete_details"] = {"reason": "max_output_tokens"}
@@ -374,7 +374,7 @@ def responses_object(alias, body, reply, request_id, faults, status="completed")
     return out
 
 
-def responses_events(alias, body, reply, request_id, faults):
+def responses_events(model_id, body, reply, request_id, faults):
     sequence = [0]
 
     def event(kind, **data):
@@ -382,7 +382,7 @@ def responses_events(alias, body, reply, request_id, faults):
         sequence[0] += 1
         return (kind, json.dumps(data))
 
-    final = responses_object(alias, body, reply, request_id, faults)
+    final = responses_object(model_id, body, reply, request_id, faults)
     shell = dict(final, status="in_progress", output=[])
     yield event("response.created", response=shell)
     yield event("response.in_progress", response=shell)
@@ -450,9 +450,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/models":
             if not self._authorized():
                 return self._error(401, "invalid_api_key", "Missing or invalid API key.")
-            missing = owner.faults.get("missing_aliases", ())
+            missing = owner.faults.get("missing_models", ())
             data = [{"id": a, "object": "model", "created": 1_700_000_000, "owned_by": "cli-proxy"}
-                    for a in owner.aliases if a not in missing]
+                    for a in owner.model_ids if a not in missing]
             return self._send(200, {"object": "list", "data": data})
         self._error(404, "not_found", "Unknown path.")
 
@@ -478,17 +478,17 @@ class _Handler(BaseHTTPRequestHandler):
                 owner.faults["status_remaining"] = faults.get("status_remaining", 1) - 1
             return self._error(override, "injected_fault", "Injected fault.", faults.get("retry_after"))
         required = "messages" if protocol == "chat" else "input"
-        alias = body.get("model")
+        model_id = body.get("model")
         if required not in body:
             return self._error(400, "missing_required_parameter", "Missing required parameter: '%s'." % required)
-        if alias not in owner.aliases or alias in faults.get("missing_aliases", ()):
+        if model_id not in owner.model_ids or model_id in faults.get("missing_models", ()):
             return self._error(404, "model_not_found", "The model does not exist.")
-        failing = faults.get("alias_status", {}).get(alias)
+        failing = faults.get("model_status", {}).get(model_id)
         if failing:
             return self._error(failing, "injected_fault", "Injected fault.", faults.get("retry_after"))
         affinity = self.headers.get("X-Session-Id") or body.get("user") or hashlib.sha1(
             json.dumps(body.get("messages") or body.get("input"), sort_keys=True).encode()).hexdigest()[:8]
-        account, failure = owner.route(alias, affinity)
+        account, failure = owner.route(model_id, affinity)
         if failure:
             status, code, message, retry_after = failure
             return self._error(status, code, message, retry_after)
@@ -503,11 +503,11 @@ class _Handler(BaseHTTPRequestHandler):
             time.sleep(faults["stall_s"])
         if not body.get("stream"):
             if protocol == "chat":
-                return self._send(200, chat_body(alias, body, reply, request_id, faults), headers)
-            return self._send(200, responses_object(alias, body, reply, request_id, faults), headers)
-        self._stream(protocol, alias, body, reply, request_id, faults, headers)
+                return self._send(200, chat_body(model_id, body, reply, request_id, faults), headers)
+            return self._send(200, responses_object(model_id, body, reply, request_id, faults), headers)
+        self._stream(protocol, model_id, body, reply, request_id, faults, headers)
 
-    def _stream(self, protocol, alias, body, reply, request_id, faults, headers):
+    def _stream(self, protocol, model_id, body, reply, request_id, faults, headers):
         owner = self.owner
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
@@ -515,7 +515,7 @@ class _Handler(BaseHTTPRequestHandler):
         for key, value in headers.items():
             self.send_header(key, value)
         self.end_headers()
-        events = (chat_events if protocol == "chat" else responses_events)(alias, body, reply, request_id, faults)
+        events = (chat_events if protocol == "chat" else responses_events)(model_id, body, reply, request_id, faults)
         try:
             if faults.get("first_token_delay_s"):
                 time.sleep(faults["first_token_delay_s"])

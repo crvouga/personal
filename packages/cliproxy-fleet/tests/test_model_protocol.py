@@ -233,11 +233,11 @@ class RequestBuilding(unittest.TestCase):
         raw = support.RAW
         turn = {"system": "S", "messages": [{"role": "user", "content": "u"}], "tools": ["get_weather"],
                 "tool_choice": {"name": "get_weather"}, "max_tokens": 9, "stream": True, "include_usage": True}
-        chat = scenario.build("chat", "alias", turn, raw, {"reasoning_effort": "low"})
+        chat = scenario.build("chat", "model_id", turn, raw, {"reasoning_effort": "low"})
         self.assertEqual(chat["messages"][0], {"role": "system", "content": "S"})
         self.assertEqual(chat["tool_choice"], {"type": "function", "function": {"name": "get_weather"}})
         self.assertEqual((chat["max_tokens"], chat["stream_options"], chat["reasoning_effort"]), (9, {"include_usage": True}, "low"))
-        responses = scenario.build("responses", "alias", turn, raw, {})
+        responses = scenario.build("responses", "model_id", turn, raw, {})
         self.assertEqual(responses["instructions"], "S")
         self.assertEqual(responses["tool_choice"], {"type": "function", "name": "get_weather"})
         self.assertEqual((responses["max_output_tokens"], responses["store"], responses["tools"][0]["name"]), (9, False, "get_weather"))

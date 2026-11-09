@@ -30,6 +30,7 @@ def render(report, config):
             b["requests_used"], b["requests_max"], b["output_tokens_used"], b["output_tokens_max"], b["concurrency"],
             b["inference_retries"]))
     out.append("")
+    out += _findings(report)
     out.append("## Levels")
     for name, level in report["levels"].items():
         detail = "; ".join(level["details"]) or ("category " + level["category"] if level["category"] else "")
@@ -51,7 +52,7 @@ def render(report, config):
         for m in report["models"]:
             by = m["coverage"]["by_result"]
             metrics = m["metrics"]
-            out.append(_row([m["alias"], ICON[m["status"]], "%d/%d" % (m["coverage"]["exercised"], m["coverage"]["capabilities"]),
+            out.append(_row([m["id"], ICON[m["status"]], "%d/%d" % (m["coverage"]["exercised"], m["coverage"]["capabilities"]),
                              by.get("pass", 0), by.get("fail", 0), by.get("untested", 0),
                              by.get("unsupported", 0) + by.get("observed_unsupported", 0),
                              _ms(metrics["ttft_ms"]["p50"]), _ms(metrics["latency_ms"]["p95"]),
@@ -77,20 +78,26 @@ def render(report, config):
         out.append("")
     if report["profile"] != "liveness":
         out += _cursor(report, config)
-    if summary["diagnostics"]:
-        out.append("## Failure diagnostics")
-        for d in summary["diagnostics"]:
-            where = " / ".join(x for x in (d["level"], d.get("model"), d.get("check")) if x)
-            out.append("- **%s** [%s]%s: %s" % (where, d["category"], " " + d["endpoint"] if d.get("endpoint") else "",
-                                                "; ".join(d["details"]) or "no detail"))
-            if d.get("advice"):
-                out.append("  - Action: " + d["advice"])
-        out.append("")
     return "\n".join(out)
 
 
+def _findings(report):
+    findings = report["findings"]
+    if not findings:
+        return ["## Findings", "", "None. `untested` capabilities below are not claims of health.", ""]
+    out = ["## Findings (%d: %d need an operator, %d an agent can attempt)" % (
+        len(findings), report["summary"]["findings"]["operator"], report["summary"]["findings"]["agent"]), ""]
+    out.append(_row(["Finding", "Who fixes", "Category", "What", "Reproduce"]))
+    out.append(_row(["---"] * 5))
+    for f in findings:
+        out.append(_row(["`%s`" % f["id"], "agent" if f["agent_fixable"] else "operator", f["category"], f["summary"],
+                         "`%s`" % f["reproduce"]]))
+    out += ["", "Evidence traces and fix hints for each finding are in `model-health.json` (`findings[]`) and `agent-brief.md`.", ""]
+    return out
+
+
 def _model(m):
-    out = ["### %s: %s (%s)" % (m["alias"], ICON[m["status"]], m["provider"])]
+    out = ["### %s: %s (%s)" % (m["id"], ICON[m["status"]], m["provider"])]
     for reason in m["reasons"]:
         out.append("- " + reason)
     metrics = m["metrics"]
@@ -137,7 +144,7 @@ def _cursor(report, config):
             for capability in ids:
                 result = m["capabilities"][capability]["result"]
                 counts[result] = counts.get(result, 0) + 1
-            out.append(_row([m["alias"], counts.get("pass", 0), counts.get("fail", 0), counts.get("untested", 0),
+            out.append(_row([m["id"], counts.get("pass", 0), counts.get("fail", 0), counts.get("untested", 0),
                              counts.get("unsupported", 0) + counts.get("observed_unsupported", 0)]))
         out.append("")
     return out

@@ -7,6 +7,7 @@ import pathlib
 import sys
 
 from . import config as configuration
+from . import findings
 from . import report as reporting
 from . import runner, simulate
 from .emulator import Emulator
@@ -46,10 +47,14 @@ def parser(default_profile):
     p.add_argument("--target", default="live", choices=["live", "mock"],
                    help="mock runs the same declarative suite against the local emulator (no credentials, no spend)")
     p.add_argument("--base-url", help="Override the endpoint base URL (HTTPS required for live targets)")
-    p.add_argument("--model", action="append", dest="models", metavar="ALIAS", help="Limit to a configured alias (repeatable)")
+    p.add_argument("--model", action="append", dest="models", metavar="MODEL_ID", help="Limit to a configured model id (repeatable)")
     p.add_argument("--config", help="Alternate models.json")
     p.add_argument("--output", metavar="DIR", help="Write model-health.json and model-health.md here")
     p.add_argument("--state", metavar="FILE", help="Persist last-success times here")
+    p.add_argument("--check", action="append", dest="only", metavar="CAPABILITY",
+                   help="Run only matching capabilities, for example chat.tools or 'responses.*' (repeatable); cheap reproduction")
+    p.add_argument("--force-probe", action="store_true",
+                   help="Probe models even if they were rate limited recently (normally paused to protect quota)")
     p.add_argument("--json", action="store_true", help="Print the JSON report instead of the human report")
     p.add_argument("--seed", type=int, help="Seed fixture tokens for reproducible requests")
     p.add_argument("--max-requests", type=int, help="Override the profile's total request budget")
@@ -65,6 +70,7 @@ def write_reports(directory, report, text):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "model-health.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     (directory / "model-health.md").write_text(text + "\n")
+    (directory / "agent-brief.md").write_text(findings.render_brief(report) + "\n")
 
 
 def exit_code(status, fail_on, allow_unknown):
@@ -86,7 +92,7 @@ def main(argv, default_profile="light"):
     base_url = args.base_url
     try:
         if args.target == "mock":
-            emulator = Emulator([m["alias"] for m in config.models])
+            emulator = Emulator([m["id"] for m in config.models])
             base_url = emulator.start()
             key = emulator.key
         else:
@@ -94,7 +100,7 @@ def main(argv, default_profile="light"):
         report = runner.run(
             config, args.profile, args.suite, base_url, key, args.target, args.models, args.seed, args.state,
             {"max_requests": args.max_requests, "concurrency": args.concurrency, "timeout_scale": args.timeout_scale},
-            simulate=lambda: simulate.run_all(config, args.seed or 0),
+            simulate=lambda: simulate.run_all(config, args.seed or 0), only=args.only, force_probe=args.force_probe,
         )
     except ValueError as error:
         print(error, file=sys.stderr)

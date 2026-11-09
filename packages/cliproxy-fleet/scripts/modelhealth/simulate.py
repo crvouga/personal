@@ -56,20 +56,20 @@ def _expect(step_expect, outcomes, emulator, sent, elapsed):
 
 
 def run_scenario(config, scenario, seed=0):
-    aliases = [m["alias"] for m in config.models]
+    model_ids = [m["id"] for m in config.models]
     accounts = []
     for spec in scenario["accounts"]:
         account = Account(spec["id"], quota=spec.get("quota"))
         account.fail_next = spec.get("fail_next", 0)
         accounts.append(account)
-    emulator = Emulator(aliases, accounts=accounts, strategy=scenario.get("strategy", config.raw["routing"]["strategy"]))
+    emulator = Emulator(model_ids, accounts=accounts, strategy=scenario.get("strategy", config.raw["routing"]["strategy"]))
     base = emulator.start()
     redact = Redactor([emulator.key])
     timeouts = dict(config.raw["timeouts"], **scenario.get("timeouts", {}))
     budget = checks.Budget(10_000, 10_000, 10_000_000)
     ctx = checks.Context(config, config.models[0],
-                         lambda alias: Client(base, emulator.key, redact, timeouts["request_s"],
-                                              lambda kind: budget.take(alias) if kind in ("inference", "probe") else None),
+                         lambda model_id: Client(base, emulator.key, redact, timeouts["request_s"],
+                                              lambda kind: budget.take(model_id) if kind in ("inference", "probe") else None),
                          budget, random.Random(seed), redact, timeouts)
     details, sent = [], 0
     try:

@@ -14,7 +14,7 @@ import unittest
 import modelhealth_support as support
 from modelhealth import cli, report as reporting, runner, simulate
 
-OPUS, SONNET, ASTRA, SOL = support.ALIASES
+OPUS, SONNET, ASTRA, SOL = support.MODEL_IDS
 
 
 class FullSuite(unittest.TestCase):
@@ -24,13 +24,13 @@ class FullSuite(unittest.TestCase):
             cls.report = support.run(emulator, base, "manual", simulations=True)
             cls.posts = emulator.requests
 
-    def test_every_alias_is_validated_independently_and_passes_every_capability(self):
+    def test_every_model_id_is_validated_independently_and_passes_every_capability(self):
         self.assertEqual(self.report["summary"]["status"], "healthy")
-        self.assertEqual([m["alias"] for m in self.report["models"]], support.ALIASES)
+        self.assertEqual([m["id"] for m in self.report["models"]], support.MODEL_IDS)
         for m in self.report["models"]:
             self.assertEqual(m["status"], "healthy", m["reasons"])
-            self.assertEqual(set(m["coverage"]["by_result"]), {"pass"}, m["alias"])
-            self.assertEqual(m["metrics"]["resolved_models"], [m["alias"]])
+            self.assertEqual(set(m["coverage"]["by_result"]), {"pass"}, m["id"])
+            self.assertEqual(m["metrics"]["resolved_models"], [m["id"]])
             self.assertEqual(m["metrics"]["streaming_completion_rate"], 1.0)
             self.assertEqual(m["metrics"]["tool_call_success_rate"], 1.0)
 
@@ -59,39 +59,39 @@ class FullSuite(unittest.TestCase):
 class Independence(unittest.TestCase):
     def test_one_failing_model_does_not_stop_the_others(self):
         with support.served() as (emulator, base):
-            emulator.fault(alias_status={OPUS: 503})
+            emulator.fault(model_status={OPUS: 503})
             report = support.run(emulator, base, "nightly")
         self.assertEqual(support.model(report, OPUS)["status"], "unhealthy")
-        for alias in (SONNET, ASTRA, SOL):
-            self.assertEqual(support.model(report, alias)["status"], "healthy")
+        for model_id in (SONNET, ASTRA, SOL):
+            self.assertEqual(support.model(report, model_id)["status"], "healthy")
         self.assertEqual(report["summary"]["status"], "unhealthy")
         opus = support.model(report, OPUS)
         self.assertEqual(opus["metrics"]["error_categories"], {"upstream": 4})  # aborted after four consecutive failures
         self.assertIn("aborted", " ".join(opus["reasons"]))
-        entry = next(d for d in report["summary"]["diagnostics"] if d["model"] == OPUS)
-        self.assertEqual((entry["category"], entry["endpoint"].startswith("/")), ("upstream", True))
-        self.assertTrue(entry["advice"])
+        finding = next(f for f in report["findings"] if f["model"] == OPUS and f["check"] == "chat.basic")
+        self.assertEqual((finding["category"], finding["endpoint"].startswith("/")), ("upstream", True))
+        self.assertTrue(finding["fix_hints"])
         self.assertLess(support.model(report, OPUS)["metrics"]["requests"], 8)
 
-    def test_missing_alias_is_reported_never_skipped(self):
+    def test_missing_model_id_is_reported_never_skipped(self):
         with support.served() as (emulator, base):
-            emulator.fault(missing_aliases={ASTRA})
+            emulator.fault(missing_models={ASTRA})
             report = support.run(emulator, base, "light")
-        self.assertEqual(report["levels"]["readiness"]["category"], "alias_missing")
+        self.assertEqual(report["levels"]["readiness"]["category"], "model_missing")
         self.assertIn(ASTRA, report["levels"]["readiness"]["details"][0])
         astra = support.model(report, ASTRA)
         self.assertEqual(astra["status"], "unhealthy")
         self.assertEqual(astra["checks"], [])
-        self.assertEqual(astra["capabilities"]["chat.basic"]["reason"], "alias_missing")
+        self.assertEqual(astra["capabilities"]["chat.basic"]["reason"], "model_missing")
         self.assertEqual(support.model(report, SOL)["status"], "healthy")
         self.assertEqual(report["summary"]["status"], "unhealthy")
 
     def test_unconfigured_discovered_models_are_listed(self):
-        with support.served(support.ALIASES + ["cli-proxy-extra"]) as (emulator, base):
+        with support.served(support.MODEL_IDS + ["extra-model"]) as (emulator, base):
             report = support.run(emulator, base, "readiness")
-        self.assertEqual(report["levels"]["readiness"]["discovered_unconfigured"], ["cli-proxy-extra"])
+        self.assertEqual(report["levels"]["readiness"]["discovered_unconfigured"], ["extra-model"])
 
-    def test_inconsistent_alias_resolution_degrades_the_model(self):
+    def test_inconsistent_model_id_resolution_degrades_the_model(self):
         # Two accounts that answer with different model ids would show up as several resolved ids.
         with support.served() as (emulator, base):
             report = support.run(emulator, base, "light")
@@ -99,7 +99,7 @@ class Independence(unittest.TestCase):
             model["metrics"]["resolved_models"] = ["a", "b"]
             status, reasons = runner.derive_status(support.load(), model["capabilities"], model["checks"], model["metrics"], True, True, True)
         self.assertEqual(status, "degraded")
-        self.assertIn("multiple model ids", reasons[0])
+        self.assertIn("multiple ids", reasons[0])
 
 
 class CapabilityHonesty(unittest.TestCase):
@@ -159,7 +159,7 @@ class CapabilityHonesty(unittest.TestCase):
 
     def test_rate_limit_stops_that_model_immediately(self):
         with support.served() as (emulator, base):
-            emulator.fault(alias_status={SONNET: 429}, retry_after=5)
+            emulator.fault(model_status={SONNET: 429}, retry_after=5)
             report = support.run(emulator, base, "nightly")
         sonnet = support.model(report, SONNET)
         self.assertEqual(sonnet["metrics"]["requests"], 1)
@@ -168,11 +168,11 @@ class CapabilityHonesty(unittest.TestCase):
 
 
 class FaultDetection(unittest.TestCase):
-    def run_with(self, alias=OPUS, profile="nightly", **faults):
+    def run_with(self, model_id=OPUS, profile="nightly", **faults):
         with support.served() as (emulator, base):
             emulator.fault(**faults)
-            report = support.run(emulator, base, profile, aliases=[alias])
-        return support.model(report, alias)
+            report = support.run(emulator, base, profile, model_ids=[model_id])
+        return support.model(report, model_id)
 
     def failing(self, model):
         return {c["capability"]: c["category"] for c in model["checks"] if c["status"] == "fail"}
@@ -210,7 +210,7 @@ class FaultDetection(unittest.TestCase):
             state = pathlib.Path(directory) / "state.json"
             with support.served() as (emulator, base):
                 first = support.run(emulator, base, "light", state_path=str(state), clock=lambda: "T1")
-                emulator.fault(alias_status={OPUS: 503})
+                emulator.fault(model_status={OPUS: 503})
                 second = support.run(emulator, base, "light", state_path=str(state), clock=lambda: "T2")
             self.assertEqual(support.model(first, OPUS)["last_success"]["healthy_at"], "T1")
             failed = support.model(second, OPUS)
@@ -258,9 +258,9 @@ class ReadinessAndLiveness(unittest.TestCase):
         self.assertEqual((report["levels"]["liveness"]["status"], report["levels"]["liveness"]["category"]), ("unhealthy", "auth"))
         self.assertEqual(report["summary"]["status"], "unhealthy")
 
-    def test_unknown_alias_filter_is_rejected(self):
+    def test_unknown_model_id_filter_is_rejected(self):
         with support.served() as (emulator, base), self.assertRaises(ValueError):
-            support.run(emulator, base, "light", aliases=["cli-proxy-typo"])
+            support.run(emulator, base, "light", model_ids=["typo-model"])
 
 
 class Simulations(unittest.TestCase):
@@ -310,7 +310,7 @@ class CommandLine(unittest.TestCase):
         self.assertIn("responses.tools_stream", ids)
         self.assertNotIn("chat.developer", ids)
 
-    def test_invalid_config_and_unknown_alias_exit_with_usage_code(self):
+    def test_invalid_config_and_unknown_model_id_exit_with_usage_code(self):
         with tempfile.TemporaryDirectory() as directory:
             bad = pathlib.Path(directory) / "bad.json"
             bad.write_text(json.dumps({"schema": 2}))
@@ -354,6 +354,20 @@ class CommandLine(unittest.TestCase):
             self.assertIn(needle, workflow)
         self.assertNotIn("max-parallel", workflow)
         self.assertNotIn("echo $VAULT_TOKEN", workflow)
+
+    def test_workflow_keeps_pull_requests_offline_and_inference_hourly_at_most(self):
+        workflow = (support.PACKAGE.parents[1] / ".github/workflows/cliproxy-health.yml").read_text()
+        contract, health = workflow.split("\n  health:\n")
+        contract = contract.split("\n  contract:\n")[1]
+        for forbidden in ("vault-action", "id-token", "VAULT_TOKEN", "issues: write", "--profile light", "--profile nightly"):
+            self.assertNotIn(forbidden, contract)
+        self.assertIn("--target mock", contract)
+        self.assertIn("github.event_name != 'pull_request'", health)
+        self.assertIn("issues: write", health)
+        crons = [line.split("cron:")[1].strip(" '\n") for line in workflow.splitlines() if "cron:" in line]
+        self.assertEqual(crons, ["7,22,37,52 * * * *", "17 * * * *", "41 3 * * *"])
+        self.assertIn("github.event.schedule == '17 * * * *' && 'light'", workflow)  # inference only on the hourly cron
+        self.assertIn("|| 'readiness'", workflow)  # the 15-minute cron is free
 
 
 if __name__ == "__main__":

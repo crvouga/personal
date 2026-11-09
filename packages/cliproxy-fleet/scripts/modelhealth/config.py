@@ -12,10 +12,10 @@ SEVERITIES = ("critical", "major", "minor")
 KINDS = ("request", "roundtrip", "agent", "cancel_recover", "concurrent", "error_probe")
 SUITES = ("core", "cursor")
 STATES = ("required", "optional", "unsupported")
-VARIABLES = ("alias", "nonce", "codeword", "marker")
+VARIABLES = ("model_id", "nonce", "codeword", "marker")
 CATEGORIES = (
     "credentials", "auth", "not_found", "rate_limit", "timeout", "transport", "upstream",
-    "protocol", "assertion", "request_rejected", "budget", "aborted", "alias_missing", "harness",
+    "protocol", "assertion", "request_rejected", "budget", "aborted", "model_missing", "harness",
 )
 
 
@@ -50,11 +50,12 @@ class Config:
     def runs(self, name):
         return self.raw["runs"][name]
 
-    def cases_for(self, suite, max_tier):
+    def cases_for(self, suite, max_tier, only=None):
         rank = TIERS[max_tier]
         return [
             case for case in self.cases
             if TIERS[case.tier] <= rank and (suite == "all" or suite in case.check["suites"])
+            and (not only or any(fnmatch.fnmatchcase(case.capability, pattern) for pattern in only))
         ]
 
     def state(self, model, capability):
@@ -107,6 +108,7 @@ def validate(raw):
         need(raw.get("timeouts", {}).get(name, 0) > 0, "timeouts.%s must be positive" % name)
     protocols = raw.get("protocols", {})
     need(set(protocols) == {"chat", "responses"}, "protocols must be chat and responses")
+    need(raw.get("health", {}).get("rate_limit_backoff_s", 0) > 0, "health.rate_limit_backoff_s must be positive")
     need(raw.get("routing", {}).get("strategy") in ("fill-first", "round-robin", "weighted-round-robin"), "routing.strategy is required")
 
     tools = raw.get("tools", {})
@@ -134,8 +136,8 @@ def validate(raw):
         need(not unknown, where + ": unknown placeholders " + ", ".join(sorted(unknown)))
         for protocol in check.get("protocols", []):
             capabilities.append(protocol + "." + str(check.get("id")))
-    names = {c.get("alias") for c in raw.get("models", [])}
-    need(len(names) == len(raw.get("models", [])) and None not in names, "model aliases must be unique")
+    names = {c.get("id") for c in raw.get("models", [])}
+    need(len(names) == len(raw.get("models", [])) and None not in names, "model ids must be unique")
     need(bool(raw.get("models")), "at least one model is required")
     profiles = raw.get("capability_profiles", {})
     patterns = []
@@ -145,8 +147,8 @@ def validate(raw):
         for reason in profile.get("unsupported", {}).values():
             need(bool(reason), "profile %s: unsupported capabilities need a reason" % name)
     for model in raw.get("models", []):
-        where = "model %s" % model.get("alias")
-        need(bool(model.get("alias")) and model.get("provider"), where + ": alias and provider are required")
+        where = "model %s" % model.get("id")
+        need(bool(model.get("id")) and model.get("provider"), where + ": id and provider are required")
         need(model.get("profile") in profiles, where + ": unknown capability profile")
         for pattern, value in model.get("capabilities", {}).items():
             patterns.append((pattern, where))

@@ -9,11 +9,11 @@ from modelhealth import schema
 
 
 class DeclarativeConfiguration(unittest.TestCase):
-    def test_shipped_configuration_is_valid_and_requires_the_four_aliases(self):
+    def test_shipped_configuration_is_valid_and_requires_the_four_model_ids(self):
         config = support.load()
         self.assertEqual(
-            [m["alias"] for m in config.models],
-            ["cli-proxy-anthropic-opus", "cli-proxy-anthropic-sonnet", "cli-proxy-open-ai-astra", "cli-proxy-open-ai-sol"],
+            [m["id"] for m in config.models],
+            ["claude-opus-5-5", "claude-sonnet-5-5", "gpt-6-astra", "gpt-6.1-sol"],
         )
         self.assertEqual(config.raw["endpoint"]["base_url"], "https://cli-proxy.chrisvouga.dev/v1")
 
@@ -25,13 +25,13 @@ class DeclarativeConfiguration(unittest.TestCase):
 
     def test_adding_a_model_needs_only_configuration(self):
         def add(raw):
-            raw["models"].append({"alias": "cli-proxy-new-model", "provider": "other", "profile": "frontier-agent",
+            raw["models"].append({"id": "new-vendor-model", "provider": "other", "profile": "frontier-agent",
                                   "capabilities": {"*.tools*": {"state": "unsupported", "reason": "No function calling."}}})
 
         config = support.load(add)
-        with support.served(support.ALIASES + ["cli-proxy-new-model"]) as (emulator, base):
+        with support.served(support.MODEL_IDS + ["new-vendor-model"]) as (emulator, base):
             report = support.run(emulator, base, "nightly", config=config)
-        new = support.model(report, "cli-proxy-new-model")
+        new = support.model(report, "new-vendor-model")
         self.assertEqual(new["capabilities"]["chat.tools"]["result"], "unsupported")
         self.assertEqual(new["capabilities"]["chat.tools"]["reason"], "No function calling.")
         self.assertEqual(new["capabilities"]["chat.basic"]["result"], "pass")
@@ -39,7 +39,7 @@ class DeclarativeConfiguration(unittest.TestCase):
 
     def test_invalid_configuration_is_rejected_with_every_problem(self):
         cases = {
-            "duplicate alias": lambda r: r["models"].append(copy.deepcopy(r["models"][0])),
+            "duplicate model_id": lambda r: r["models"].append(copy.deepcopy(r["models"][0])),
             "unknown pattern": lambda r: r["models"][0]["capabilities"].update({"chat.nope": "optional"}),
             "unsupported without reason": lambda r: r["models"][0]["capabilities"].update({"chat.tools": {"state": "unsupported"}}),
             "inference retries": lambda r: r["retry"].update(inference=2),
