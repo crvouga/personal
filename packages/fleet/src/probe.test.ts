@@ -150,3 +150,19 @@ test('T3 distinguishes enabled settings, local API and untested end-to-end conne
   );
   expect(revoked[0]?.status).toBe('fail');
 });
+
+test('T3 falls back to the pinned native CLI when no t3 launcher is on PATH', async () => {
+  const pinned =
+    '/home/dev/.local/share/personal/tools/t3-0.1.8-linux-arm64/t3';
+  const used: string[] = [];
+  const run: Runner = async (command) => {
+    if (command[0] === 'sh') return success(`${pinned}\n`);
+    used.push(command[0] ?? '');
+    return command[1] === 'status'
+      ? success(JSON.stringify({ connect: { enabled: true, revoked: false } }))
+      : success('[]');
+  };
+  const checks = await authCheck('t3', run, '/repo');
+  expect(used).toEqual([pinned, pinned]);
+  expect(checks.filter((check) => check.status === 'fail')).toEqual([]);
+});
