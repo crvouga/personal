@@ -1,5 +1,6 @@
 import { workerCapacity } from './worker-capacity';
 import { userInfo, hostname } from 'node:os';
+import { hostId } from './topology';
 import type { Check, Runner } from './types';
 import { workerHostChecks } from './worker-host-checks';
 import { workerAccessChecks } from './worker-access-checks';
@@ -7,7 +8,7 @@ import { record } from './config';
 
 export async function workerReadiness(
   run: Runner,
-  nodeId = hostname().toLowerCase(),
+  nodeId = hostId(hostname()),
   root = process.cwd()
 ): Promise<Check[]> {
   const host = await workerHostChecks(userInfo().username, run);

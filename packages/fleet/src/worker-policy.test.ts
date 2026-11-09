@@ -9,7 +9,7 @@ import { success, failure, NODE } from './test-fixtures';
 
 test('canonical worker requirements cannot be waived by private connection overrides', () => {
   const policy = parseDefinition(definition);
-  const machine = definition.nodes[0]!;
+  const machine = definition.workers[0]!;
   const roster = enrolledRoster(policy, {
     version: 1,
     nodes: [{ ...NODE, id: machine.id, ssh: machine.ssh, required: [] }],

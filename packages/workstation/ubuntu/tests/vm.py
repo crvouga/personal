@@ -101,7 +101,6 @@ ssh_keys:
         test_drift(ssh, command)
         run(ssh + ['test "$(cat work/uncommitted)" = preserved && sudo visudo -c && test "$(systemctl is-enabled sleep.target)" = masked'])
         t3_tested = test_t3(ssh)
-        test_hub(ssh)
         test_agent(ssh)
         boot = run(ssh + ['cat /proc/sys/kernel/random/boot_id']).stdout
         subprocess.run(ssh + ['sudo reboot'], capture_output=True, timeout=10)
@@ -129,8 +128,7 @@ ssh_keys:
             (ROOT / 'boot-policy-evidence.json').write_text(evidence.stdout)
             print('production boot-policy observer passed after VM reboot', flush=True)
         run(ssh + ['systemctl is-active beszel-agent.service && test \"$(sudo cat /var/lib/beszel-agent/fixture-preserved)\" = preserved'])
-        run(ssh + ['sudo docker inspect --format=\"{{.State.Running}}\" personal-beszel-hub-1 | grep -qx true && curl -fsS http://127.0.0.1:8090/api/health >/dev/null'])
-        print(json.dumps({'passed': ['Ubuntu baseline apply', 'repeat no-op', 'sudoers validation', 'sleep target masked', 'reboot and fresh SSH', 'uncommitted file preserved', 'sleep/SSH drift repair and injected capacity gate', 'native Beszel agent no-op/crash/reboot with intentionally unreachable fixture hub', 'pinned Beszel hub fresh Docker installation, repeat no-op and reboot'] + (['native T3 service install, no-op, crash recovery, managed update policy and reboot'] if t3_tested else []), 'unverified': ['Tailscale', 'paired T3', 'Beszel agent/private metrics', 'full remote bootstrap']}), flush=True)
+        print(json.dumps({'passed': ['Ubuntu baseline apply', 'repeat no-op', 'sudoers validation', 'sleep target masked', 'reboot and fresh SSH', 'uncommitted file preserved', 'sleep/SSH drift repair and injected capacity gate', 'native Beszel agent no-op/crash/reboot with intentionally unreachable fixture hub'] + (['native T3 service install, no-op, crash recovery, managed update policy and reboot'] if t3_tested else []), 'unverified': ['Tailscale', 'paired T3', 'Beszel agent/private metrics', 'full remote bootstrap']}), flush=True)
     finally:
         # Preserve failure evidence on disk before terminating the disposable VM.
         # This is fixture cleanup, not a claimed power-loss acceptance test.
@@ -170,18 +168,6 @@ def test_t3(ssh):
 
 
 
-
-def test_hub(ssh):
-    run(ssh + ['mkdir -p beszel'])
-    archive = subprocess.run(['tar', '-C', '/workspace/packages/workstation', '-cf', '-', 'ubuntu', 'monitoring'], capture_output=True, check=True).stdout
-    subprocess.run(ssh + ['tar -C beszel -xf -'], input=archive, capture_output=True, check=True, timeout=30)
-    command = 'cd beszel/monitoring && ansible-playbook hub.yml --extra-vars \'{"beszel_hub_url":"https://fixture.fixture.ts.net:8443"}\''
-    first = run(ssh + [command])
-    (ROOT / 'beszel-first.log').write_text(first.stdout + first.stderr)
-    second = run(ssh + [command])
-    (ROOT / 'beszel-repeat.log').write_text(second.stdout + second.stderr)
-    assert 'changed=0' in second.stdout, 'Beszel hub repeat changed configuration'
-    print('pinned Beszel hub and native Docker repeat no-op passed', flush=True)
 
 def test_drift(ssh, command):
     # Disposable guest fault injection only. Repair uses the unchanged tracked

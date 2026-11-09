@@ -38,6 +38,14 @@ export interface Check {
   remedy?: { action: string; command?: string };
 }
 
+/** Only a required failure blocks readiness. Warnings (conditions outside the
+ * fleet, such as a provider quota) and skips (not observable here) are shown
+ * but never fail a run.
+ */
+export function blocking(check: Check): boolean {
+  return check.status === 'fail' && check.required !== false;
+}
+
 export interface Fingerprint {
   head: string | null;
   files: Record<string, string | null>;

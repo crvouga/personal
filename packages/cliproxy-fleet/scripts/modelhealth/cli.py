@@ -32,7 +32,9 @@ def resolve_key(config, offline):
             return cloud_state.client_key(token)
         except Exception:
             return None
-    root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
+    import cliproxy_host
+
+    root = cliproxy_host.default_root()
     try:
         return (root / "state/secrets/client-key").read_text().strip() or None
     except OSError:

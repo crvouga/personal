@@ -23,7 +23,7 @@ function identifier(value: unknown): string {
     throw new Error('BESZEL_PROTOCOL');
   return value;
 }
-/** Mutating API adapter: call only after fleet approval and under controller lock.
+/** Mutating API adapter: call only after fleet approval and under manager lock.
  * Uses the same systems/fingerprints API as upstream Add System, never its DB.
  * The returned token is secret material: pass only through private SSH stdin.
  */

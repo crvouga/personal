@@ -24,7 +24,7 @@ including on a TTY; `--interactive` opens the searchable palette; `--json` and
 ## Fleet
 
 ```sh
-personal fleet-status                    # this controller + every roster node (read-only)
+personal fleet-status                    # this manager + every roster node (read-only)
 personal fleet-status --local            # this computer only; no roster or SSH
 personal fleet-status --tailnet          # every visible Tailscale computer
 personal fleet-status --workers          # canonical worker fleet audit
@@ -39,14 +39,14 @@ personal fleet-node-add --id ID --ssh ALIAS --path /checkout [--apply --yes]
 ```
 
 `fleet-status` is always read-only. It checks SSH, authentication, T3, VS Code
-and dependency drift from this controller; a missing roster fails explicitly and
+and dependency drift from this manager; a missing roster fails explicitly and
 directed SSH success is not all-pairs connectivity. `--tailnet` reads the signed-in
 Tailscale daemon, excludes iOS/Android/tvOS, and fails coverage for offline,
 unregistered or unverified computers. `--workers` audits the canonical fleet in
 `packages/fleet/definition.json` against the published input hashes, verifies the
 centralized Beszel dashboard (hub reachable, each node registered, connected and
 reporting fresh samples) and lists every remaining gap; it needs no checkout on
-the controller. Its report carries `dashboardUrl`.
+the manager. Its report carries `dashboardUrl`.
 
 `fleet-sync` pushes one approved immutable revision to every enrolled Ubuntu
 worker (and, best effort, macOS 14+ nodes) over verified SSH with one interactive
@@ -54,8 +54,8 @@ approval or `--apply --yes`. Machine policy is Ansible: never sleep, no automati
 logout, always-on Tailscale/SSH/Docker/Beszel, the dashboard hub and agents, and
 each node's own credential renewal. It never requests a worker password or
 interactive sudo after enrollment. `--schedule`
-manages the controller-only schedule. Read the
-[controller runbook](../fleet/docs/ubuntu-sync.md); full Ubuntu acceptance is still
+manages the manager-only schedule. Read the
+[manager runbook](../fleet/docs/ubuntu-sync.md); full Ubuntu acceptance is still
 incomplete and fails closed.
 
 `fleet-node-sync` reconciles locked tools, installs the `personal` launcher, upserts
@@ -73,7 +73,7 @@ script instead. Logins, host trust and resource permissions stay operator steps.
 The roster is local and secret-free: `--config`, `PERSONAL_FLEET_CONFIG`, the
 closest `.fleet.local.json`, then `~/.config/personal/fleet.json`. `fleet-node-add`
 previews until `--apply --yes`, writes 0600 with a lock, never overwrites other
-entries and refuses symlinks. Controller checkout resolution: `--workspace`,
+entries and refuses symlinks. Manager checkout resolution: `--workspace`,
 `PERSONAL_WORKSPACE`, closest `mise.toml`, then the current directory.
 
 ## T3

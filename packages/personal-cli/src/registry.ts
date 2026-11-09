@@ -29,14 +29,14 @@ export const COMMANDS: CommandSpec[] = [
     [
       'fleet-status',
       'Check this computer and registered nodes',
-      'Read-only SSH, authentication, T3, VS Code and dependency checks for this controller and every roster node. --tailnet covers every visible Tailscale computer; --workers audits the canonical worker fleet.',
+      'Read-only SSH, authentication, T3, VS Code and dependency checks for this manager and every roster node. --tailnet covers every visible Tailscale computer; --workers audits the canonical worker fleet.',
       ['health', 'doctor', 'ssh', 'auth', 'github', 'vscode', 't3', 'diagnose'],
     ],
     [
       'fleet-status --local',
       'Check this computer only',
       'Diagnose this process context without a roster or remote connections.',
-      ['local', 'controller', 'health'],
+      ['local', 'manager', 'health'],
     ],
     [
       'fleet-status --tailnet',
@@ -59,7 +59,7 @@ export const COMMANDS: CommandSpec[] = [
     [
       'fleet-sync',
       'Synchronize the enrolled Ubuntu fleet',
-      'Controller push to all enrolled Ubuntu nodes at one approved revision over verified SSH; interactive confirmation or --apply --yes. Readiness is verified separately.',
+      'Manager push to all enrolled Ubuntu nodes at one approved revision over verified SSH; interactive confirmation or --apply --yes. Readiness is verified separately.',
       ['ubuntu', 'enrollment', 'converge', 'sync'],
       true,
     ],

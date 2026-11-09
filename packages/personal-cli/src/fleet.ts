@@ -1,5 +1,5 @@
 import { selectNodes } from '../../fleet/src/config';
-import { doctor } from '../../fleet/src/controller';
+import { doctor } from '../../fleet/src/manager';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { onboarding } from '../../fleet/src/onboard';
 import {
@@ -140,10 +140,10 @@ async function diagnose(
         : options.node?.length
           ? 'selected'
           : 'all-configured',
-      controller: true,
+      manager: true,
       configuredNodesTested: nodes.map((node) => node.id),
       rosterAvailable: !settings.missingRoster,
-      note: 'Directed SSH checks from this controller only. T3 relay/peer and VS Code forwarding require operator tests.',
+      note: 'Directed SSH checks from this manager only. T3 relay/peer and VS Code forwarding require operator tests.',
     },
   };
   return {
@@ -161,7 +161,7 @@ function missingRoster(): NodeReport {
         id: 'fleet:roster',
         status: 'fail',
         summary:
-          'No developer fleet roster is configured. Only this controller could be checked; fleet-wide health is unknown.',
+          'No developer fleet roster is configured. Only this manager could be checked; fleet-wide health is unknown.',
         remedy: {
           action:
             'Open personal --interactive and choose Register a developer computer, or run personal fleet-node-add --help. Then run fleet-status --json.',

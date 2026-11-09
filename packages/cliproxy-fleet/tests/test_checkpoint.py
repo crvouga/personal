@@ -42,6 +42,11 @@ class Checkpoint(unittest.TestCase):
         )
         (self.state / "runtime/auths/kv.db").write_bytes(b"synthetic-bbolt\x00\xff")
         (self.state / "runtime/auths/provider.json.lock").touch()
+        (self.state / "runtime/auths/provider.cds").write_text(
+            json.dumps({"version": 1, "records": []})
+        )
+        (self.state / "runtime/auths/logs").mkdir()
+        (self.state / "runtime/auths/logs/error-v1.log").write_text("MUST-NOT-BE-SAVED")
         (self.state / "tailscale").mkdir()
         (self.state / "tailscale/tailscaled.state").write_text("synthetic identity")
         (self.state / "repository.json").write_text('{"S3_BUCKET":"fixture"}')
@@ -76,6 +81,8 @@ class Checkpoint(unittest.TestCase):
             (self.target / "state/runtime/auths/provider.json.lock").exists()
         )
         self.assertFalse((self.target / "state/secrets").exists())
+        self.assertFalse((self.target / "state/runtime/auths/logs").exists())
+        self.assertTrue((self.target / "state/runtime/auths/provider.cds").exists())
         self.assertFalse((self.target / "state/runtime/logs").exists())
         self.assertFalse((self.target / "state/runtime/config.yaml.previous").exists())
         # The immutable capture must not change when the running process refreshes OAuth.

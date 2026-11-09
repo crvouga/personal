@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { controllerSchedule } from '../src/fleet-sync-schedule';
+import { managerSchedule } from '../src/fleet-sync-schedule';
 import type { Platform } from '../../workstation/cli/lib/platform/types';
 import type { Runner } from '../../fleet/src/types';
 const never: Runner = async () => {
@@ -18,7 +18,7 @@ test('schedule status is read-only and excludes raw platform output', async () =
       detail: 'SECRET',
     }),
   } as unknown as Platform;
-  const result = await controllerSchedule(
+  const result = await managerSchedule(
     { ...request, action: 'status' },
     never,
     platform
@@ -28,7 +28,7 @@ test('schedule status is read-only and excludes raw platform output', async () =
 });
 test('unattended schedule mutations require explicit authorization', async () => {
   for (const action of ['enable', 'pause', 'resume', 'disable'] as const) {
-    const result = await controllerSchedule(
+    const result = await managerSchedule(
       { ...request, action },
       never,
       {} as Platform
@@ -36,7 +36,7 @@ test('unattended schedule mutations require explicit authorization', async () =>
     expect(result.exitCode).toBe(1);
   }
 });
-test('pause removes only the controller schedule through the existing platform adapter', async () => {
+test('pause removes only the manager schedule through the existing platform adapter', async () => {
   const labels: string[] = [];
   const platform = {
     removeScheduledJob: (label: string) => {
@@ -44,7 +44,7 @@ test('pause removes only the controller schedule through the existing platform a
       return { ok: true, detail: 'raw output' };
     },
   } as unknown as Platform;
-  const result = await controllerSchedule(
+  const result = await managerSchedule(
     { ...request, action: 'pause', authorized: true },
     never,
     platform

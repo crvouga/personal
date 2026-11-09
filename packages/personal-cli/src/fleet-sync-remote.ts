@@ -3,22 +3,25 @@ import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';
 import { authorizeVault } from './fleet-sync-vault';
-import { controllerFailure } from '../../fleet/src/controller-failure';
-import { controllerText } from './fleet-sync-output';
+import { managerFailure } from '../../fleet/src/manager-failure';
+import { managerText, stdoutColor } from './fleet-sync-output';
+import { syncProgress, type SyncProgress } from './fleet-sync-progress';
+import { saveReport } from './fleet-sync-report';
 import { synchronizeMonitoring } from './fleet-sync-monitoring';
+import { convergeManager } from './fleet-sync-manager';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { loadConfig, selectNodes } from '../../fleet/src/config';
 import { parseDefinition, enrolledRoster } from '../../fleet/src/definition';
 import definition from '../../fleet/definition.json';
-import { synchronizeController } from '../../fleet/src/controller-sync';
-import { inspectBootstrap } from '../../fleet/src/controller-sync';
+import { synchronizeManager } from '../../fleet/src/manager-sync';
+import { inspectBootstrap } from '../../fleet/src/manager-sync';
 import {
   prepareBootstrap,
   bootstrapRemote,
 } from '../../fleet/src/remote-bootstrap';
 import { machineRoot } from './fleet-sync';
-import type { Runner, FleetNode } from '../../fleet/src/types';
-import type { DeployNode } from '../../fleet/src/controller-sync';
+import type { Runner } from '../../fleet/src/types';
+import type { DeployNode } from '../../fleet/src/manager-sync';
 import type { FleetSyncOptions } from './fleet-sync';
 import type { Settings } from './settings';
 import type { CommandOutcome } from './contracts';
@@ -48,42 +51,65 @@ export async function selected(
   if (
     options.expectedPlanFingerprint &&
     options.expectedPlanFingerprint !== planFingerprint
-  ) {
-    const report = controllerFailure(
-      scoped,
-      options.revision,
-      'FLEET_PLAN_STALE',
-      'Controller connection bindings or target policy changed after approval. Inspect a fresh plan and approve it; no source preparation or node mutation occurred.'
+  )
+    return failed(
+      managerFailure(
+        scoped,
+        options.revision,
+        'FLEET_PLAN_STALE',
+        'Manager connection bindings or target policy changed after approval. Inspect a fresh plan and approve it; no source preparation or node mutation occurred.'
+      )
     );
-    return { exitCode: 1, data: report, text: controllerText(report) };
-  }
   const payload = options.apply
     ? await prepareBootstrap(machineRoot(), options.revision, run, {
         definition: canonical,
         checkout: settings.workspace,
       })
     : null;
-  const report = await synchronizeController(
+  const started = Date.now();
+  const report = await synchronizeManager(
     {
       definition: scoped,
       nodes,
       revision: options.revision,
       apply: Boolean(options.apply),
-      canary: canonical.proxy.owner,
-      progress: ui.notify,
+      // The manager converges first; the first declared worker is the canary.
+      ...(canonical.workers[0] ? { canary: canonical.workers[0].id } : {}),
+      progress: (node, phase) => ui.progress.step(node, phase),
+      finished: (node) => ui.progress.finished(node),
+      manager: () =>
+        convergeManager(
+          canonical,
+          {
+            revision: options.revision!,
+            apply: Boolean(options.apply),
+            workspace: settings.workspace,
+          },
+          run
+        ),
     },
     run,
-    deployWithMonitoring(
-      payload,
-      roster.nodes.find((entry) => entry.id === canonical.monitoring.parent),
-      run,
-      ui
-    )
-  );
+    deployWithMonitoring(payload, canonical, run, ui)
+  ).finally(() => ui.progress.stop());
+  return outcome(report, planFingerprint, started);
+}
+
+/** Saves the full JSON report, then renders the short human summary. */
+async function outcome(
+  report: Awaited<ReturnType<typeof synchronizeManager>>,
+  planFingerprint: string,
+  started: number
+): Promise<CommandOutcome> {
+  const data = { ...report, planFingerprint };
+  const reportPath = await saveReport(machineRoot(), data);
   return {
     exitCode: report.ok ? 0 : 1,
-    data: { ...report, planFingerprint },
-    text: controllerText(report),
+    data,
+    text: managerText(report, {
+      color: stdoutColor(),
+      durationMs: Date.now() - started,
+      ...(reportPath ? { reportPath } : {}),
+    }),
   };
 }
 
@@ -91,20 +117,28 @@ function enrollmentRequired(
   canonical: ReturnType<typeof parseDefinition>,
   revision: string
 ): CommandOutcome {
-  const report = controllerFailure(
+  const report = managerFailure(
     canonical,
     revision,
-    'FLEET_CONTROLLER_ENROLLMENT_REQUIRED',
-    'Create or migrate private controller connection overrides for the canonical fleet. Resolve conflicting IDs/SSH aliases; discovery cannot authorize membership.'
+    'FLEET_MANAGER_ENROLLMENT_REQUIRED',
+    'Create or migrate private manager connection overrides for the canonical fleet. Resolve conflicting IDs/SSH aliases; discovery cannot authorize membership.'
   );
-  return { exitCode: 1, data: report, text: controllerText(report) };
+  return failed(report);
+}
+
+function failed(report: ReturnType<typeof managerFailure>): CommandOutcome {
+  return {
+    exitCode: 1,
+    data: report,
+    text: managerText(report, { color: stdoutColor() }),
+  };
 }
 
 function deployWithMonitoring(
   payload: Awaited<ReturnType<typeof prepareBootstrap>>,
-  hub: FleetNode | undefined,
+  canonical: ReturnType<typeof parseDefinition>,
   run: Runner,
-  ui: { progress: boolean; interactiveAuthorization: boolean }
+  ui: { progress: SyncProgress; interactiveAuthorization: boolean }
 ): DeployNode {
   return async (node, revision) => {
     if (!payload || payload.revision !== revision)
@@ -117,29 +151,30 @@ function deployWithMonitoring(
             summary: 'FLEET_APPROVED_BOOTSTRAP_UNAVAILABLE',
             remedy: {
               action:
-                'Install Git on the controller and verify the approved source contains the tracked remote bootstrap and matches this package’s canonical fleet definition. Use the matching package release after a membership change. No controller credentials are forwarded.',
+                'Install Git on the manager and verify the approved source contains the tracked remote bootstrap and matches this package’s canonical fleet definition. Use the matching package release after a membership change. No manager credentials are forwarded.',
             },
           },
         ],
       };
+    // Password prompts need a quiet terminal: no spinner while authorizing.
     if (ui.interactiveAuthorization) {
+      ui.progress.stop();
       const checks = await authorizePrivilege(node, payload.authorizeSudo, run);
       if (checks.length) return { node: node.id, checks };
     }
     const vault = { interactive: ui.interactiveAuthorization };
+    if (ui.interactiveAuthorization) ui.progress.stop();
     const before = await authorizeVault(node, vault, run);
-    const result = await withProgress(node.id, ui.progress, () =>
-      bootstrapRemote(node, payload, run)
-    );
+    ui.progress.step(node.id, 'Converging (remote lock, install, verify)');
+    const result = await bootstrapRemote(node, payload, run);
     // A fresh node gets vault from the bootstrap; log it in now. Its provider
     // checks in this run predate the login, so the next sync verifies them.
     result.checks.push(
       ...(before.length ? before : await authorizeVault(node, vault, run))
     );
-    const os =
-      parseDefinition(definition).nodes.find((entry) => entry.id === node.id)
-        ?.os ?? 'linux';
-    result.checks.push(...(await inspectBootstrap(node, run, os)));
+    // Workers are Linux by definition.
+    ui.progress.step(node.id, 'Verifying SSH, OS and T3');
+    result.checks.push(...(await inspectBootstrap(node, run, 'linux')));
     result.checks.push(...(await verifyT3Endpoint(node, run)));
     result.checks.push(await verifyT3Linked(node, run));
     if (
@@ -150,40 +185,13 @@ function deployWithMonitoring(
       result.checks = result.checks.filter(
         (check) => check.id !== 'beszel:freshness'
       );
+      ui.progress.step(node.id, 'Enrolling monitoring');
       result.checks.push(
-        ...(await withProgress(node.id, ui.progress, () =>
-          synchronizeMonitoring(node, hub, revision, run)
-        ))
+        ...(await synchronizeMonitoring(node, canonical, revision, run))
       );
     }
     return result;
   };
-}
-
-async function withProgress<T>(
-  node: string,
-  enabled: boolean,
-  operation: () => Promise<T>
-): Promise<T> {
-  if (!enabled) return operation();
-  process.stderr.write(
-    `[${node}] Starting approved remote convergence; the node must acquire its operation lock before installation.\n`
-  );
-  const timer = setInterval(
-    () =>
-      process.stderr.write(
-        `[${node}] Remote convergence is still running; waiting within its bounded deadline.\n`
-      ),
-    30_000
-  );
-  try {
-    return await operation();
-  } finally {
-    clearInterval(timer);
-    process.stderr.write(
-      `[${node}] Remote operation returned; verifying fresh SSH and monitoring evidence.\n`
-    );
-  }
 }
 
 function scopeDefinition(
@@ -193,21 +201,17 @@ function scopeDefinition(
   return ids?.length
     ? {
         ...canonical,
-        nodes: canonical.nodes.filter((node) => ids.includes(node.id)),
+        workers: canonical.workers.filter((node) => ids.includes(node.id)),
       }
     : canonical;
 }
 function interfaceOptions(options: FleetSyncOptions) {
   return {
-    progress: !options.json,
+    progress: syncProgress(!options.json),
     interactiveAuthorization: Boolean(
       options.interactiveAuthorization &&
       !options.json &&
       !options.nonInteractive
     ),
-    notify: (node: string, phase: string) => {
-      if (!options.json)
-        process.stderr.write('[' + node + '] ' + phase + '.\n');
-    },
   };
 }

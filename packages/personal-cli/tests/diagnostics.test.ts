@@ -38,14 +38,14 @@ test('local doctor never bundles a probe, reads a roster or contacts auth when u
     }
   );
   const report = result.data as Report & { coverage: { scope: string } };
-  expect(report.nodes.map((node) => node.node)).toEqual(['controller']);
+  expect(report.nodes.map((node) => node.node)).toEqual(['manager']);
   expect(report.coverage.scope).toBe('local');
   expect(
     commands.every((command) => ['git', 'ssh-add'].includes(command[0]!))
   ).toBe(true);
 });
 
-test('all doctor still diagnoses controller but fails honestly without a fleet roster', async () => {
+test('all doctor still diagnoses manager but fails honestly without a fleet roster', async () => {
   const result = await executeFleet(
     'doctor',
     { all: true, require: 'none' },
@@ -59,7 +59,7 @@ test('all doctor still diagnoses controller but fails honestly without a fleet r
   );
   expect(result.exitCode).toBe(1);
   const report = result.data as Report;
-  expect(report.nodes.some((node) => node.node === 'controller')).toBe(true);
+  expect(report.nodes.some((node) => node.node === 'manager')).toBe(true);
   expect(
     report.nodes
       .flatMap((node) => node.checks)
@@ -90,7 +90,7 @@ test('all configured nodes use the supplied standalone probe; selected scope lim
   const services = { run, source: async () => 'standalone-probe-source' };
   const all = await executeFleet('doctor', { require: 'none' }, base, services);
   expect((all.data as Report).nodes.map((node) => node.node)).toEqual([
-    'controller',
+    'manager',
     'one',
     'two',
   ]);
@@ -103,7 +103,7 @@ test('all configured nodes use the supplied standalone probe; selected scope lim
     services
   );
   expect((selected.data as Report).nodes.map((node) => node.node)).toEqual([
-    'controller',
+    'manager',
     'two',
   ]);
   expect(targets).toHaveLength(1);

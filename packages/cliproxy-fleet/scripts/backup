@@ -3,11 +3,16 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import datetime, json, os, pathlib, subprocess, sys, tempfile, fcntl, importlib.util
 import checkpoint
 import retention
 
-root = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+root = cliproxy_host.default_root().resolve()
 os.umask(0o077)
 os.environ["PATH"] = str(root / "scripts") + ":" + os.environ["PATH"]
 state = root / "state"

@@ -28,7 +28,7 @@ function check(
   return { id: `beszel:${id}`, status, summary, remedy: { action } };
 }
 /** Public dashboard hostname served through the OpenTofu-managed Cloudflare
- * tunnel `beszel`. Agents and the controller keep using the private hub URL.
+ * tunnel `beszel`. Agents and the manager keep using the private hub URL.
  */
 export const PUBLIC_HUB_URL = 'https://beszel.chrisvouga.dev';
 

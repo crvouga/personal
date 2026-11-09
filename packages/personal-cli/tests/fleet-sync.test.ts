@@ -3,7 +3,7 @@ import { execute } from '../src/program';
 
 const settings = { workspace: '/no-checkout', config: '/no-roster' };
 const revision = 'a'.repeat(40);
-test('fleet-sync reports controller scope and enrollment failures without writes', async () => {
+test('fleet-sync reports manager scope and enrollment failures without writes', async () => {
   const flat = await execute(
     ['fleet-sync', '--revision', revision, '--dry-run', '--json'],
     settings,
@@ -25,8 +25,8 @@ test('noninteractive sync cannot enroll or authenticate without confirmation', a
   expect(result.exitCode).toBe(1);
   expect(result.data).toMatchObject({
     applied: false,
-    version: 2,
-    execution: 'controller-push',
+    version: 3,
+    execution: 'manager-push',
   });
 });
 test('remote selection requires a roster and never substitutes tailnet discovery', async () => {

@@ -124,7 +124,7 @@ async function inspectTailnet(
     }
   }
   if (!tailnet.computers.some((peer) => peer.self))
-    targets.push({ name: 'controller', root: settings.workspace });
+    targets.push({ name: 'manager', root: settings.workspace });
   return {
     reports,
     targets: targets.map((target) => attachFingerprint(target, reports)),

@@ -121,7 +121,7 @@ personal workstation cleanup --protect 'vite' --protect 'storybook'
 T3 Code and VS Code Remote-SSH. The machines live in the checked-in
 canonical `../fleet/definition.json` (alias, Tailscale name, SSH port/user,
 OS, T3 port), so every machine gets the same view. Private keys are never
-committed: controller identity paths remain local. Hosts without an explicit
+committed: manager identity paths remain local. Hosts without an explicit
 identity use existing SSH configuration or Tailscale SSH; login is checked separately.
 
 `personal workstation net check` is read-only. For each host it checks, in order:
@@ -146,7 +146,7 @@ as a remote. Exit code 1 means at least one check failed.
 - `tailscale` / `code` wrappers in the global bin dir when the apps are installed but their CLIs are not on `PATH`
 - the background check (`personal workstation net watch install`): a launchd agent on macOS or a systemd user timer on Linux that runs `personal workstation net check --notify --quiet` every 5 minutes and posts a desktop notification when failures appear or clear. History: `<cache>/ws/net/check.log`.
 
-Adding a fleet machine: review its membership in `../fleet/definition.json`, then run `npx @crvouga/personal fleet-sync` on the designated controller to enroll its verified connection. Workstation network diagnostics consume that same definition. Legacy key-path migration data is retained under `../fleet/migrations/`; private connection overrides remain local.
+Adding a fleet machine: review its membership in `../fleet/definition.json`, then run `npx @crvouga/personal fleet-sync` on the designated manager to enroll its verified connection. Workstation network diagnostics consume that same definition. Legacy key-path migration data is retained under `../fleet/migrations/`; private connection overrides remain local.
 
 ### Platform design
 
@@ -533,7 +533,7 @@ and `t3-cleanup`. Only declared/explicitly imported instances are owned.
 ## Ubuntu one-command synchronization
 
 See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
-`personal fleet-sync` is the guarded controller-driven whole-fleet
+`personal fleet-sync` is the guarded manager-driven whole-fleet
 flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
 apply does not claim machine readiness. Existing commands retain their semantics.
 
@@ -543,7 +543,7 @@ The shared toolchain installs the verified T3 CLI; on workers Workstation
 installs the pinned T3 Code desktop app (`ubuntu/t3-desktop.yml`), which is the
 only T3 process: it starts with the GDM auto-login session, shows its UI and
 serves the API. Runtime state in `~/.t3` is preserved. See the
-[controller runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
+[manager runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
 
 Docker runtime setup on macOS is exposed through
 `personal workstation tools docker-setup`. The adapter runs the shared,

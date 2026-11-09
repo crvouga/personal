@@ -76,7 +76,7 @@ function failureMessage(data: unknown): string {
     invalid_usage:
       'Configuration or arguments need attention. Run fleet-nodes --schema to check the roster, or pass --config.',
     config_missing:
-      'No roster found. Run fleet-node-add, or run controller-only diagnostics with fleet-status --local.',
+      'No roster found. Run fleet-node-add, or run manager-only diagnostics with fleet-status --local.',
     operation_failed:
       'Operation failed safely. Check connectivity and configuration before retrying.',
   };

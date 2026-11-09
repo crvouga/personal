@@ -4,10 +4,15 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 
 import json, pathlib, urllib.request, os
 
-ROOT = pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")).resolve()
+ROOT = cliproxy_host.default_root().resolve()
 ADDR = "https://vault.chrisvouga.dev"
 
 

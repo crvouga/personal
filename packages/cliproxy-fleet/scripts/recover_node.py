@@ -5,6 +5,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
+import pathlib as _pathlib
+
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
+
 import argparse
 import ctypes
 import datetime
@@ -20,18 +25,26 @@ import cloud_state
 
 
 def publish(candidate, destination):
-    """Ubuntu atomic directory publication with no replacement, including races."""
+    """Atomic directory publication with no replacement, including races."""
     library = ctypes.CDLL(None, use_errno=True)
-    rename = library.renameat2
-    rename.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
+    if cliproxy_host.system() == "macos":
+        # renamex_np(from, to, RENAME_EXCL)
+        rename = library.renamex_np
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        arguments = [os.fsencode(candidate), os.fsencode(destination), 0x4]
+    else:
+        # renameat2(AT_FDCWD, from, AT_FDCWD, to, RENAME_NOREPLACE)
+        rename = library.renameat2
+        rename.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        arguments = [-100, os.fsencode(candidate), -100, os.fsencode(destination), 1]
     rename.restype = ctypes.c_int
-    if rename(-100, os.fsencode(candidate), -100, os.fsencode(destination), 1) != 0:
+    if rename(*arguments) != 0:
         raise OSError(ctypes.get_errno(), "Recovery destination could not be published")
 
 
@@ -56,9 +69,7 @@ def recover(
     read_settings=cloud_state.settings,
 ):
     # Refuse even an empty existing directory: no user data or deployment can be overwritten.
-    live_root = pathlib.Path(
-        os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet")
-    ).resolve()
+    live_root = cliproxy_host.default_root().resolve()
     canonical_destination = destination.parent.resolve() / destination.name
     if live_root.exists() and canonical_destination.is_relative_to(live_root):
         raise ValueError("Recovery destination must be outside the existing deployment")
@@ -144,7 +155,7 @@ def main():
     parser.add_argument(
         "--vault-token-file",
         type=pathlib.Path,
-        default=pathlib.Path(os.environ.get("CLIPROXY_ROOT", "/opt/cliproxy-fleet"))
+        default=cliproxy_host.default_root()
         / "state/secrets/vault-token",
     )
     args = parser.parse_args()

@@ -1,7 +1,7 @@
 import type { Fingerprint, Snapshot } from '../../fleet/src/types';
 
 declare const PERSONAL_FLEET_REFERENCE: Fingerprint | null | undefined;
-/** Published health carries safe input hashes; it needs no controller checkout or Bun. */
+/** Published health carries safe input hashes; it needs no manager checkout or Bun. */
 export function fleetReference(): Snapshot | undefined {
   if (
     typeof PERSONAL_FLEET_REFERENCE === 'undefined' ||

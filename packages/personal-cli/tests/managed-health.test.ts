@@ -12,10 +12,10 @@ const peer = (dns: string, self = false): TailnetComputer => ({
   online: true,
   self,
 });
-test('managed health retains controller and canonical nodes, exposes excluded service peers and missing enrollments', () => {
+test('managed health retains manager and canonical nodes, exposes excluded service peers and missing enrollments', () => {
   const computers = [
-    peer('controller', true),
-    ...definition.nodes.map((node) => peer(node.network.tailscaleName)),
+    peer('manager', true),
+    ...definition.workers.map((node) => peer(node.network.tailscaleName)),
     peer('service.example'),
   ];
   const result = managedHealthScope(
@@ -31,7 +31,7 @@ test('managed health retains controller and canonical nodes, exposes excluded se
 });
 test('declared registrations are retained, unrelated roster entries do not expand managed coverage', () => {
   const nodes = [
-    ...definition.nodes.map((node) => ({
+    ...definition.workers.map((node) => ({
       id: node.id,
       ssh: node.ssh,
       workspace: '/repo',

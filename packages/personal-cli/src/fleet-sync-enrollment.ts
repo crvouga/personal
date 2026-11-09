@@ -15,24 +15,19 @@ import type { FleetNode, Runner } from '../../fleet/src/types';
 /** Interactive enrollment/resume only. Existing paths and explicit identities
  * are preserved. Tailnet candidates never enter the declared membership.
  */
-export async function enrollController(
-  path: string,
-  run: Runner
-): Promise<void> {
+export async function enrollManager(path: string, run: Runner): Promise<void> {
   const canonical = parseDefinition(definition);
   const original = await existingEnrollment(path);
   const saved =
     original === null
       ? []
       : enrolledRoster(canonical, await loadConfig(path)).nodes;
-  const nodes: FleetNode[] = canonical.nodes
-    .filter((node) => node.os !== 'windows')
-    .map((node) => ({
-      id: node.id,
-      ssh: node.ssh,
-      workspace: '/',
-      required: ['t3', 'toolchain', 'workstation'],
-    }));
+  const nodes: FleetNode[] = canonical.workers.map((node) => ({
+    id: node.id,
+    ssh: node.ssh,
+    workspace: '/',
+    required: ['t3', 'toolchain', 'workstation'],
+  }));
   const pending = nodes.filter(
     (node) => !saved.find((entry) => entry.id === node.id)?.tailscaleId
   );

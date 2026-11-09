@@ -3,12 +3,15 @@
 import datetime
 import json
 import pathlib
-import pwd
 import re
 import shutil
 import stat
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import cliproxy_host
 
 
 def forget(restic):
@@ -94,10 +97,12 @@ def revisions(root, references=None):
         keep.add(json.loads(previous.read_text())["revision"])
     parent = root / "revisions"
     if references is None:
-        home = pathlib.Path(pwd.getpwuid(1000).pw_dir)
+        home = cliproxy_host.runtime_home()
+        units = cliproxy_host.backend().unit_directory
         references = [
             *(home / ".local/bin").glob("*-fleet"),
-            *pathlib.Path("/etc/systemd/system").glob("cliproxy-*"),
+            *units.glob("cliproxy-*"),
+            *units.glob("dev.chrisvouga.cliproxy-*"),
         ]
     for reference in references:
         if reference.is_symlink():

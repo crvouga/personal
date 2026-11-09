@@ -65,7 +65,7 @@ export async function verifyUbuntuBoot(
   if (!(await filesPredateBoot(run)))
     return pending(
       'UBUNTU_MAINTENANCE_REBOOT_PENDING',
-      'Effective session policy matches, but the managed power files were not observed before this boot. Perform an explicit maintenance reboot and rerun the controller command.'
+      'Effective session policy matches, but the managed power files were not observed before this boot. Perform an explicit maintenance reboot and rerun the manager command.'
     );
   return [
     {
