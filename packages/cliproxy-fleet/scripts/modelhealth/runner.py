@@ -371,8 +371,12 @@ def summarize(report, profile):
     models = {m["id"]: m["status"] for m in report["models"]}
     failed_sims = [s["id"] for s in report["simulations"] if s["status"] != "pass"]
     scope_e2e = "e2e" in profile["levels"]
-    judged = list(levels.values()) + (list(models.values()) if scope_e2e else
-                                      [s for s in models.values() if s == "unhealthy"])
+    # A 429 or an active pause means the proxy answered and the provider account is out of quota. That is
+    # the operator's to resolve and clears itself, so it is reported but never fails the gate.
+    rate_limited = sorted(m["id"] for m in report["models"] if m["rate_limited"])
+    judged_models = {mid: s for mid, s in models.items() if mid not in rate_limited}
+    judged = list(levels.values()) + (list(judged_models.values()) if scope_e2e else
+                                      [s for s in judged_models.values() if s == "unhealthy"])
     top = "readiness" if "readiness" in levels else "liveness"
     if any(s == "unhealthy" for s in judged):
         overall = "unhealthy"
@@ -382,4 +386,5 @@ def summarize(report, profile):
         overall = "degraded"
     else:
         overall = "healthy"
-    return {"status": overall, "levels": levels, "models": models, "simulation_failures": failed_sims}
+    return {"status": overall, "levels": levels, "models": models, "rate_limited": rate_limited,
+            "simulation_failures": failed_sims}

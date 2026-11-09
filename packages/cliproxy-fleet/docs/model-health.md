@@ -298,7 +298,7 @@ Controls that keep usage bounded, all in `models.json`:
 - No inference retries, ever. Four consecutive failures stop a model.
 - **Rate-limit pause.** A 429 stops that model immediately and records the time in the state file. For
   `health.rate_limit_backoff_s` (30 minutes) later runs send that model nothing: its status stays
-  `unhealthy`, the finding is `paused`, and the reason says when probing resumes. The first probe after
+  `unhealthy` (still excluded from the overall verdict), the finding is `paused`, and the reason says when probing resumes. The first probe after
   the pause that succeeds clears it. `--force-probe` overrides. Quota exhaustion therefore costs one
   rejected request per half hour, not a request per run.
 - A 429 is rejected before inference and does not consume provider usage; successful requests are tiny.
@@ -369,8 +369,11 @@ endpoint are redacted and truncated to a few hundred characters.
    workstation. `auth` at readiness: the client key and `access.api-keys` disagree.
 3. `model_missing`: the model id is not in `/v1/models`. Compare `bun run cliproxy models` with
    `models.json`; the provider account behind it may be unauthenticated or the model retired.
-4. A model `unhealthy` with `upstream`/`rate_limit`: provider account or quota. Check the
-   dashboard and `bun run cliproxy logs`. The harness already stopped requesting after the first 429.
+4. A model `unhealthy` with `upstream`: provider account or upstream outage. Check the dashboard and
+   `bun run cliproxy logs`. A model with `rate_limit` (quota exhausted, every credential cooling down)
+   is listed in `summary.rate_limited` and as an operator finding, but never fails the run or turns
+   `summary.status` red: the proxy answered, and the limit clears on its own. The harness already
+   stopped requesting after the first 429.
 5. `protocol` or `assertion`: reproduce one case with
    `model-suite --profile nightly --model MODEL_ID --seed N` (the seed is in the report). `protocol`
    after a CLIProxyAPI upgrade usually means the translation changed; compare the check's details
