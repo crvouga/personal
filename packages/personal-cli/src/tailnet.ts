@@ -25,7 +25,7 @@ export async function executeTailnet(
   settings: Settings,
   services: FleetServices
 ): Promise<CommandOutcome> {
-  const { tailnet, registered, coverage } = await healthContext(
+  const { tailnet, discovered, registered, coverage } = await healthContext(
     command,
     options,
     settings,
@@ -59,8 +59,10 @@ export async function executeTailnet(
   );
   if (options.managed)
     await appendManagerLinks(nodes, registered, services.run);
+  // The hub runs on the manager, which worker scope deliberately filters out of
+  // `tailnet`; its visibility comes from the unfiltered discovery.
   const dashboard = options.workers
-    ? await appendDashboardEvidence(nodes, tailnet)
+    ? await appendDashboardEvidence(nodes, discovered)
     : null;
   const report = makeReport('health', nodes);
   const exitCode = reportExitCode(report, true);
@@ -111,6 +113,7 @@ async function healthContext(
   };
   return {
     tailnet,
+    discovered,
     registered: managed === null ? registered : managed.nodes,
     coverage,
   };
