@@ -27,10 +27,10 @@ describe('service-index.json', () => {
   });
 
   test('rejects a malformed file', () => {
-    expect(() => parseServiceIndex({ version: 1 })).toThrow(/malformed/);
+    expect(() => parseServiceIndex({ version: 2 })).toThrow(/malformed/);
     expect(() =>
       parseServiceIndex({
-        version: 1,
+        version: 2,
         zone: 'example.dev',
         hosts: [
           {
@@ -41,24 +41,42 @@ describe('service-index.json', () => {
             sourceUrl: null,
           },
         ],
+        resources: [],
       })
     ).toThrow(/malformed/);
   });
 
-  test('every host has a catalog entry (add one in src/content/service-index.ts)', () => {
-    const missing = loadServiceIndex()
-      .hosts.map((host) => host.hostname)
-      .filter((hostname) => CATALOG[hostname] === undefined);
-    expect(missing).toEqual([]);
+  const keys = (): readonly string[] => {
+    const index = loadServiceIndex();
+    return [
+      ...index.hosts.map((host) => host.hostname),
+      ...index.resources.map((resource) => resource.key),
+    ];
+  };
+
+  test('every host and store has a catalog entry (add one in src/content/service-index.ts)', () => {
+    expect(keys().filter((key) => CATALOG[key] === undefined)).toEqual([]);
   });
 
-  test('every catalog entry is for a host that still exists', () => {
-    const hosts = new Set(
-      loadServiceIndex().hosts.map((host) => host.hostname)
-    );
-    expect(
-      Object.keys(CATALOG).filter((hostname) => !hosts.has(hostname))
-    ).toEqual([]);
+  test('every catalog entry is for a host or store that still exists', () => {
+    const known = new Set(keys());
+    expect(Object.keys(CATALOG).filter((key) => !known.has(key))).toEqual([]);
+  });
+
+  test('items with several links name each one', () => {
+    const titles = new Map<string, number>();
+    for (const entry of Object.values(CATALOG)) {
+      const key = `${entry.category} ${entry.title}`;
+      titles.set(key, (titles.get(key) ?? 0) + 1);
+    }
+    const unnamed = Object.entries(CATALOG)
+      .filter(
+        ([, entry]) =>
+          entry.variant === null &&
+          (titles.get(`${entry.category} ${entry.title}`) ?? 0) > 1
+      )
+      .map(([key]) => key);
+    expect(unnamed).toEqual([]);
   });
 
   test.skipIf(!present)(

@@ -1,34 +1,39 @@
 /**
- * The `/index/` catalog. What a person needs to know about each host: a name, one sentence, and a
- * category. Everything else on a card (status, screenshot, hosting, source)
- * is read from the inventory or probed at build time.
+ * The `/index/` catalog: a name, one sentence and a group for every host and
+ * store the inventory declares. Status, hosting, source and art are read from
+ * the inventory or probed at build time.
  *
- * `src/data/service-index.test.ts` holds this file to the inventory snapshot in both directions: a
- * host the inventory declares without an entry here fails, and an entry for
- * a host the inventory no longer declares fails. So the list cannot rot.
+ * Keys are hostnames, or a store's key from the snapshot (`postgres:<id>`,
+ * `blob:<id>`). Entries with the same group and title are one item on the
+ * page, and each entry's `variant` names its link (Rust, Dev, Production…).
+ * The item's description is the first non-null one, in catalog order.
  *
- * Leave `description` null rather than guess: the card then shows the page's
+ * `src/data/service-index.test.ts` holds this file to the snapshot in both
+ * directions, so a new host without an entry fails, and so does an entry for
+ * a host that is gone.
+ *
+ * Leave `description` null rather than guess: the item then shows the page's
  * own meta description, or what its status says.
  */
 
 export const CATEGORIES = [
-  'product',
-  'game',
-  'library',
-  'ai',
-  'platform',
-  'ops',
+  'public-app',
+  'public-api',
+  'internal-dashboard',
+  'internal-api',
+  'postgres',
+  'blob',
   'domain',
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export const CATEGORY_LABEL: Readonly<Record<Category, string>> = {
-  product: 'Apps',
-  game: 'Games',
-  library: 'Libraries',
-  ai: 'AI',
-  platform: 'Platform',
-  ops: 'Ops',
+  'public-app': 'Public Apps',
+  'public-api': 'Public APIs',
+  'internal-dashboard': 'Internal Dashboards',
+  'internal-api': 'Internal APIs',
+  postgres: 'Postgres Databases',
+  blob: 'S3 Blob Storage',
   domain: 'Domains',
 };
 
@@ -36,216 +41,256 @@ export type CatalogEntry = {
   readonly title: string;
   readonly description: string | null;
   readonly category: Category;
+  /** Names this link among the item's others; null for a single-link item. */
+  readonly variant: string | null;
 };
 
 const entry = (
   title: string,
   category: Category,
-  description: string | null
-): CatalogEntry => ({ title, category, description });
+  description: string | null,
+  variant: string | null = null
+): CatalogEntry => ({ title, category, description, variant });
 
 export const CATALOG: Readonly<Record<string, CatalogEntry>> = {
-  // Apps
+  // Public apps
   'www.chrisvouga.dev': entry(
     'Portfolio',
-    'product',
+    'public-app',
     'Projects, work history, writing and a generated résumé.'
   ),
   'anime.chrisvouga.dev': entry(
     'Anime Blog',
-    'product',
+    'public-app',
     'A blog built as a fast static site, with content managed apart from the code.'
-  ),
-  'imageservice.chrisvouga.dev': entry(
-    'Image Service',
-    'product',
-    'Resizes and optimizes images on demand, with no configuration.'
   ),
   'moviefinder.chrisvouga.dev': entry(
     'moviefinder',
-    'product',
-    'Movie and TV discovery with shared lists and reactive social features.'
+    'public-app',
+    'Movie and TV discovery with shared lists and reactive social features, built in several stacks side by side.',
+    'Main'
+  ),
+  'moviefinder.app': entry(
+    'moviefinder',
+    'public-app',
+    null,
+    'moviefinder.app'
   ),
   'moviefinder-app-rust.chrisvouga.dev': entry(
-    'moviefinder · Rust',
-    'product',
-    'The moviefinder app built in Rust, one of several stacks compared side by side.'
+    'moviefinder',
+    'public-app',
+    null,
+    'Rust'
   ),
   'moviefinder-app-react.chrisvouga.dev': entry(
-    'moviefinder · React',
-    'product',
-    'The moviefinder app built in React, one of several stacks compared side by side.'
+    'moviefinder',
+    'public-app',
+    null,
+    'React'
   ),
   'moviefinder-app-clojurescript.chrisvouga.dev': entry(
-    'moviefinder · ClojureScript',
-    'product',
-    'The moviefinder app built in ClojureScript, one of several stacks compared side by side.'
+    'moviefinder',
+    'public-app',
+    null,
+    'ClojureScript'
   ),
   'pickflix.chrisvouga.dev': entry(
     'Pickflix',
-    'product',
+    'public-app',
     'Watch trailers, write reviews and build shared movie lists with friends.'
   ),
   'todo.chrisvouga.dev': entry(
     'Todo',
-    'product',
+    'public-app',
     'A task manager with user accounts and real-time sync.'
   ),
-
-  // Games
+  'gamezilla.app': entry(
+    'Gamezilla',
+    'public-app',
+    'A local-first multiplayer game platform for phones.'
+  ),
+  'normalizer.app': entry(
+    'Normalizer',
+    'public-app',
+    'Reshapes spreadsheet data from one format into another.'
+  ),
   'connectfour.chrisvouga.dev': entry(
     'Connect Four',
-    'game',
+    'public-app',
     'Connect Four with online multiplayer and a computer opponent.'
   ),
   'matchthree.chrisvouga.dev': entry(
     'Match Three',
-    'game',
+    'public-app',
     'Swipe items around to line up three in a row.'
   ),
   'simonsays.chrisvouga.dev': entry(
     'Simon Says',
-    'game',
+    'public-app',
     'The classic memory game, with sound, visuals and rising difficulty.'
   ),
   'snake.chrisvouga.dev': entry(
     'Snake',
-    'game',
+    'public-app',
     'The classic Snake game, with smooth animation and responsive controls.'
   ),
   'violetsgarden.chrisvouga.dev': entry(
     "Violet's Garden",
-    'game',
+    'public-app',
     'A cozy puzzle game about guiding a pug through garden mazes, every level proven solvable.'
   ),
-
-  // Libraries
   'mockingbird.chrisvouga.dev': entry(
     'Mockingbird',
-    'library',
-    'Stateful emulators for third-party APIs and SQL databases, for end-to-end tests.'
+    'public-app',
+    'Docs for stateful emulators of third-party APIs and SQL databases, for end-to-end tests.'
   ),
   'headlesscombobox.chrisvouga.dev': entry(
     'headless-combobox',
-    'library',
-    'Docs for an accessible, framework-agnostic autocomplete component.'
+    'public-app',
+    'Docs and examples for an accessible, framework-agnostic autocomplete component.',
+    'Docs'
   ),
   'svelte-headlesscombobox.chrisvouga.dev': entry(
-    'headless-combobox · Svelte',
-    'library',
-    'The headless-combobox library running in a Svelte example app.'
+    'headless-combobox',
+    'public-app',
+    null,
+    'Svelte example'
   ),
   'svelte.headlesscombobox.chrisvouga.dev': entry(
-    'headless-combobox · Svelte (old address)',
-    'library',
-    'An older address for the Svelte example, routed to the origin server.'
+    'headless-combobox',
+    'public-app',
+    null,
+    'Svelte example (old address)'
   ),
 
-  // AI
-  '9router.chrisvouga.dev': entry(
-    '9router',
-    'ai',
-    'One endpoint that routes AI requests across model providers and accounts.'
+  // Public APIs
+  'imageservice.chrisvouga.dev': entry(
+    'Image Service',
+    'public-api',
+    'Resizes and optimizes images on demand, with no configuration.',
+    'imageservice.chrisvouga.dev'
   ),
-  'llm-proxy.chrisvouga.dev': entry(
-    'LLM Proxy',
-    'ai',
-    'Routes AI model requests to any provider and records usage for cost and health.'
+  'imageresizerservice.com': entry(
+    'Image Service',
+    'public-api',
+    null,
+    'imageresizerservice.com'
   ),
-  'llm.chrisvouga.dev': entry(
-    'LLM endpoint',
-    'ai',
-    'A self-hosted language model endpoint, reached through a Cloudflare Tunnel.'
-  ),
-  'lm-studio.chrisvouga.dev': entry(
-    'LM Studio',
-    'ai',
-    'An LM Studio model server, reached through a Cloudflare Tunnel.'
-  ),
-  'openai.chrisvouga.dev': entry(
-    'OpenAI-compatible API',
-    'ai',
-    'An OpenAI-compatible API for self-hosted models, through a Cloudflare Tunnel.'
-  ),
-  'vllm.chrisvouga.dev': entry(
-    'vLLM',
-    'ai',
-    'A vLLM inference server, reached through a Cloudflare Tunnel.'
-  ),
-
-  // Platform
   'auth.chrisvouga.dev': entry(
     'Relay',
-    'platform',
-    'Shared sign-in for the projects, backed by Google.'
+    'public-api',
+    'Shared OIDC sign-in for the projects, backed by Google.',
+    'Production'
   ),
-  'auth-dev.chrisvouga.dev': entry(
-    'Relay · dev',
-    'platform',
-    'The non-production sign-in relay, for development.'
-  ),
+  'auth-dev.chrisvouga.dev': entry('Relay', 'public-api', null, 'Dev'),
+
+  // Internal dashboards
   'auth-admin.chrisvouga.dev': entry(
     'Relay admin',
-    'platform',
-    'Admin console for the sign-in relay, behind Cloudflare Access.'
+    'internal-dashboard',
+    'Admin console for the sign-in relay, behind Cloudflare Access.',
+    'Production'
   ),
   'auth-admin-dev.chrisvouga.dev': entry(
-    'Relay admin · dev',
-    'platform',
-    'Admin console for the non-production sign-in relay.'
+    'Relay admin',
+    'internal-dashboard',
+    null,
+    'Dev'
   ),
-  'vault.chrisvouga.dev': entry(
-    'Vault',
-    'platform',
-    'The OpenBao secrets store every service reads its credentials from.'
-  ),
-  'fleet.chrisvouga.dev': entry(
-    'Fleet',
-    'platform',
-    'Membership and sync for the developer machine fleet.'
+  '9router.chrisvouga.dev': entry(
+    '9router',
+    'internal-dashboard',
+    'One endpoint that routes AI requests across model providers and accounts.'
   ),
   'zoomies.chrisvouga.dev': entry(
     'Zoomies',
-    'platform',
+    'internal-dashboard',
     'Controller for the self-hosted GitHub Actions runners.'
   ),
-
-  // Ops
   'dozzle.chrisvouga.dev': entry(
     'Dozzle',
-    'ops',
+    'internal-dashboard',
     'Live container logs from the origin server.'
   ),
   'netdata.chrisvouga.dev': entry(
     'Netdata',
-    'ops',
+    'internal-dashboard',
     'Real-time metrics for the origin server.'
   ),
-  'orchestrator.chrisvouga.dev': entry('Orchestrator', 'ops', null),
-  'filestash.chrisvouga.dev': entry('Filestash', 'ops', 'A web file manager.'),
+  'filestash.chrisvouga.dev': entry(
+    'Filestash',
+    'internal-dashboard',
+    'A web file manager.'
+  ),
   'pgweb.chrisvouga.dev': entry(
     'pgweb',
-    'ops',
+    'internal-dashboard',
     'A web client for browsing Postgres databases.'
   ),
+  'orchestrator.chrisvouga.dev': entry(
+    'Orchestrator',
+    'internal-dashboard',
+    null
+  ),
 
-  // Domains
-  'gamezilla.app': entry(
-    'gamezilla.app',
-    'domain',
-    'A local-first multiplayer game platform for phones.'
+  // Internal APIs
+  'vault.chrisvouga.dev': entry(
+    'Vault',
+    'internal-api',
+    'The OpenBao secrets store every service reads its credentials from.'
   ),
-  'moviefinder.app': entry(
-    'moviefinder.app',
-    'domain',
-    'The moviefinder app on its own domain.'
+  'fleet.chrisvouga.dev': entry(
+    'Fleet',
+    'internal-api',
+    'Membership and sync for the developer machine fleet.'
   ),
-  'normalizer.app': entry(
-    'normalizer.app',
-    'domain',
-    'Reshapes spreadsheet data from one format into another.'
+  'llm-proxy.chrisvouga.dev': entry(
+    'LLM Proxy',
+    'internal-api',
+    'Routes AI model requests to any provider and records usage for cost and health.'
   ),
-  'imageresizerservice.com': entry('imageresizerservice.com', 'domain', null),
+  'llm.chrisvouga.dev': entry(
+    'Self-hosted models',
+    'internal-api',
+    'Language model servers on the fleet, reached through a Cloudflare Tunnel.',
+    'llm'
+  ),
+  'openai.chrisvouga.dev': entry(
+    'Self-hosted models',
+    'internal-api',
+    null,
+    'OpenAI-compatible'
+  ),
+  'lm-studio.chrisvouga.dev': entry(
+    'Self-hosted models',
+    'internal-api',
+    null,
+    'LM Studio'
+  ),
+  'vllm.chrisvouga.dev': entry(
+    'Self-hosted models',
+    'internal-api',
+    null,
+    'vLLM'
+  ),
+
+  // Postgres
+  'postgres:openbao': entry(
+    'Personal Postgres',
+    'postgres',
+    'The shared PlanetScale Postgres: OpenBao storage and the sign-in relay schemas.'
+  ),
+
+  // Blob storage
+  'blob:production': entry(
+    'R2 buckets',
+    'blob',
+    'S3-compatible object storage for app files and backups.',
+    'Production'
+  ),
+  'blob:development': entry('R2 buckets', 'blob', null, 'Development'),
+
+  // Domains with nothing launched yet
   'colddrive.app': entry('colddrive.app', 'domain', null),
   'datoms.app': entry('datoms.app', 'domain', null),
   'emulates.dev': entry('emulates.dev', 'domain', null),

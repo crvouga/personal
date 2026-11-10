@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
+import { PLANNED_TASKS } from './browser-plan';
 
 const root = join(import.meta.dirname, '../..');
 const workflow = parse(
@@ -155,9 +156,12 @@ test('cached browser tasks can skip installation while the actual tests always r
     step.name.startsWith('Install Chromium')
   );
   expect(install.if).toContain("steps.browsers.outputs.install == 'true'");
-  expect(
-    steps.find((step: any) => step.name === 'Test and build packages').if
-  ).toBe("matrix.task == 'tests'");
+  const run = steps.find(
+    (step: any) => step.name === 'Test and build packages'
+  );
+  expect(run.if).toBe("matrix.task == 'tests'");
+  // The plan must look at every task the step runs, or an uncached one runs without a browser.
+  expect(run.run).toContain(`turbo run ${PLANNED_TASKS.join(' ')}`);
 });
 
 test('formatting cache keeps the full check and scopes reuse to the lock and formatter configuration', () => {
