@@ -118,8 +118,8 @@ test('CI gates publication on main and read-only OIDC credential selection', asy
     )
   );
   const release = ci.jobs.personal_cli_release;
-  expect(ci.jobs.check.needs).toContain('personal_cli');
-  expect(ci.jobs.personal_cli_release.needs).toEqual(['check', 'fleet']);
+  expect(ci.jobs.slow.needs).toContain('personal_cli');
+  expect(ci.jobs.personal_cli_release.needs).toEqual(['check', 'slow']);
   expect(ci.jobs.personal_cli_release.if).toContain('refs/heads/main');
   expect(release.permissions).toEqual({
     contents: 'read',
@@ -131,13 +131,13 @@ test('CI gates publication on main and read-only OIDC credential selection', asy
   expect(release.uses).toBeUndefined();
   expect(release['runs-on']).toBe('ubuntu-latest');
   expect(
-    release.steps.find(
-      (step: { uses?: string }) => step.uses === 'hashicorp/vault-action@v4'
+    release.steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith('hashicorp/vault-action@')
     ).with.secrets
   ).toContain('NODE_AUTH_TOKEN');
   expect(
-    release.steps.find(
-      (step: { uses?: string }) => step.uses === 'hashicorp/vault-action@v4'
+    release.steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith('hashicorp/vault-action@')
     ).if
   ).toContain("vars.PERSONAL_NPM_TOKEN_KEY != ''");
   expect(release.steps.at(-1).run).toContain('--oidc');
