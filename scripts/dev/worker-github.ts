@@ -1,7 +1,7 @@
 /** Acquire declared service credentials from this worker's Vault session; never copy a login directory. */
 import { spawnSync } from 'node:child_process';
 import { resolveVaultConfig } from '../../packages/fleet/src/vault-config';
-import definition from '../../packages/fleet/definition.json';
+import { fleet as definition } from '../../packages/fleet/src/fleet-config';
 
 export type AuthRunner = (
   args: string[],
@@ -14,7 +14,7 @@ const execute: AuthRunner = (args, options = {}) =>
     ...options,
   });
 export function syncWorkerGithub(run: AuthRunner = execute): boolean {
-  const expected = definition.worker.githubLogin;
+  const expected = definition.worker!.githubLogin;
   const current = run(['gh', 'api', 'user', '--jq', '.login']);
   if (current.status === 0 && current.stdout?.trim() === expected) return true;
   const { addr, mount, project, config } = resolveVaultConfig();

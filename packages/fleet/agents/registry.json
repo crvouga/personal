@@ -22,7 +22,6 @@
     }
   },
   "proxy": {
-    "endpoint": "https://cli-proxy.chrisvouga.dev",
     "secret": {
       "mount": "secret",
       "project": "personal",

@@ -127,7 +127,7 @@ export function managerText(
 const TAILNET_URL =
   /\bhttps?:\/\/[a-z0-9.-]+\.ts\.net(?::\d+)?(?:\/[^\s'",;)]*[^\s'",;).])?/gi;
 
-/** Printed output names only stable public URLs (*.chrisvouga.dev). A tailnet
+/** Printed output names only stable public URLs. A tailnet
  * MagicDNS address in any summary or remedy is replaced, never shown.
  */
 export function stableUrls(text: string): string {

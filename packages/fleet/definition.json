@@ -1,6 +1,9 @@
 {
   "$schema": "./definition.schema.json",
   "version": 3,
+  "source": {
+    "repository": "https://github.com/crvouga/personal.git"
+  },
   "manager": {
     "id": "chriss-macbook-air",
     "os": "macOS",
@@ -39,7 +42,10 @@
       "endpoint": "https://cli-proxy.chrisvouga.dev"
     },
     "monitoring": {
-      "hubPort": 8443
+      "hubPort": 8443,
+      "publicUrl": "https://beszel.chrisvouga.dev",
+      "managerAccount": "fleet-manager@chrisvouga.dev",
+      "viewerAccount": "public-viewer@chrisvouga.dev"
     }
   },
   "ubuntu": {

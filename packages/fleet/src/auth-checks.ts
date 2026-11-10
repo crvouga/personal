@@ -1,5 +1,5 @@
 import { resolveVaultConfig } from './vault-config';
-import definition from '../definition.json';
+import { fleet as definition } from './fleet-config';
 import { workerReadiness } from './worker-readiness';
 import { record } from './config';
 import { codingAuth, serviceAuth } from './service-auth';

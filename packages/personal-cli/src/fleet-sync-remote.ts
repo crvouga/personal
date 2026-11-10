@@ -12,8 +12,9 @@ import { synchronizeMonitoring } from './fleet-sync-monitoring';
 import { convergeManager } from './fleet-sync-manager';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { loadConfig, selectNodes } from '../../fleet/src/config';
-import { parseDefinition, enrolledRoster } from '../../fleet/src/definition';
-import definition from '../../fleet/definition.json';
+import { enrolledRoster } from '../../fleet/src/definition';
+import type { FleetDefinition } from '../../fleet/src/definition';
+import { fleet as definition } from '../../fleet/src/fleet-config';
 import { synchronizeManager } from '../../fleet/src/manager-sync';
 import { inspectBootstrap } from '../../fleet/src/manager-sync';
 import {
@@ -34,7 +35,7 @@ export async function selected(
 ): Promise<CommandOutcome> {
   if (!options.revision)
     throw new FleetUsageError('An approved source revision is required.');
-  const canonical = parseDefinition(definition);
+  const canonical = definition;
   let roster;
   try {
     roster = enrolledRoster(canonical, await loadConfig(settings.config));
@@ -99,7 +100,7 @@ export async function selected(
  * so every worker converges at once.
  */
 function canary(
-  canonical: ReturnType<typeof parseDefinition>,
+  canonical: FleetDefinition,
   options: FleetSyncOptions
 ): { canary?: string } {
   const first = canonical.workers[0];
@@ -126,7 +127,7 @@ async function outcome(
 }
 
 function enrollmentRequired(
-  canonical: ReturnType<typeof parseDefinition>,
+  canonical: FleetDefinition,
   revision: string
 ): CommandOutcome {
   const report = managerFailure(
@@ -148,7 +149,7 @@ function failed(report: ReturnType<typeof managerFailure>): CommandOutcome {
 
 function deployWithMonitoring(
   payload: Awaited<ReturnType<typeof prepareBootstrap>>,
-  canonical: ReturnType<typeof parseDefinition>,
+  canonical: FleetDefinition,
   run: Runner,
   ui: {
     progress: SyncProgress;
@@ -218,10 +219,7 @@ function deployWithMonitoring(
   };
 }
 
-function scopeDefinition(
-  canonical: ReturnType<typeof parseDefinition>,
-  ids?: string[]
-) {
+function scopeDefinition(canonical: FleetDefinition, ids?: string[]) {
   return ids?.length
     ? {
         ...canonical,

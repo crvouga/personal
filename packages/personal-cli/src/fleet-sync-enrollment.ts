@@ -4,8 +4,7 @@ import { loadConfig } from '../../fleet/src/config';
 import { enrolledRoster } from '../../fleet/src/definition';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { dirname } from 'node:path';
-import definition from '../../fleet/definition.json';
-import { parseDefinition } from '../../fleet/src/definition';
+import { fleet as definition } from '../../fleet/src/fleet-config';
 import { discoverTailnet } from '../../fleet/src/tailscale';
 import { matchComputers } from '../../fleet/src/tailnet-matching';
 import { sshArgs, sshFailure } from '../../fleet/src/ssh';
@@ -16,7 +15,7 @@ import type { FleetNode, Runner } from '../../fleet/src/types';
  * are preserved. Tailnet candidates never enter the declared membership.
  */
 export async function enrollManager(path: string, run: Runner): Promise<void> {
-  const canonical = parseDefinition(definition);
+  const canonical = definition;
   const original = await existingEnrollment(path);
   const saved =
     original === null

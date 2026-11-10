@@ -25,12 +25,23 @@ export interface ManagerDefinition {
 }
 export interface FleetDefinition {
   version: 3;
+  /** The Git repository that holds this fleet's configuration and pins. */
+  source: { repository: string };
   manager: ManagerDefinition;
   /** Stateless, replaceable Linux boxes; clients of the manager's services. */
   workers: MachineDefinition[];
   services: {
-    proxy: { endpoint: 'https://cli-proxy.chrisvouga.dev' };
-    monitoring: { hubPort: 8443 };
+    /** Public HTTPS origin of the CLI proxy every node uses. */
+    proxy: { endpoint: string };
+    monitoring: {
+      hubPort: 8443;
+      /** Public dashboard origin. */
+      publicUrl: string;
+      /** Beszel account the manager enrolls nodes with. */
+      managerAccount: string;
+      /** Read-only Beszel account visitors are signed in as. */
+      viewerAccount: string;
+    };
   };
   worker?: WorkerPolicy;
   ubuntu: { release: '26.04'; architectures: ['amd64', 'arm64'] };
@@ -121,6 +132,7 @@ export function parseDefinition(value: unknown): FleetDefinition {
     !keys(value, [
       '$schema',
       'version',
+      'source',
       'manager',
       'workers',
       'services',
@@ -137,6 +149,7 @@ export function parseDefinition(value: unknown): FleetDefinition {
   if (new Set(ids).size !== ids.length) return fail();
   return {
     version: 3,
+    source: source(value['source']),
     manager: lead,
     workers,
     services: services(value['services']),
@@ -153,19 +166,41 @@ function services(value: unknown): FleetDefinition['services'] {
   if (
     !record(proxy) ||
     !keys(proxy, ['endpoint']) ||
-    proxy['endpoint'] !== 'https://cli-proxy.chrisvouga.dev'
-  )
-    return fail();
-  if (
-    !record(monitoring) ||
-    !keys(monitoring, ['hubPort']) ||
-    monitoring['hubPort'] !== 8443
+    !origin(proxy['endpoint'])
   )
     return fail();
   return {
-    proxy: { endpoint: 'https://cli-proxy.chrisvouga.dev' },
-    monitoring: { hubPort: 8443 },
+    proxy: { endpoint: proxy['endpoint'] },
+    monitoring: monitoringService(monitoring),
   };
+}
+function monitoringService(
+  value: unknown
+): FleetDefinition['services']['monitoring'] {
+  const fields = ['hubPort', 'publicUrl', 'managerAccount', 'viewerAccount'];
+  if (!record(value) || !keys(value, fields) || value['hubPort'] !== 8443)
+    return fail();
+  const { publicUrl, managerAccount, viewerAccount } = value;
+  if (!origin(publicUrl) || !account(managerAccount) || !account(viewerAccount))
+    return fail();
+  return { hubPort: 8443, publicUrl, managerAccount, viewerAccount };
+}
+const origin = (value: unknown): value is string =>
+  typeof value === 'string' && /^https:\/\/[A-Za-z0-9.-]{1,253}$/.test(value);
+const account = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^[^\s@]{1,64}@[A-Za-z0-9.-]{1,253}$/.test(value);
+function source(value: unknown): FleetDefinition['source'] {
+  if (
+    !record(value) ||
+    !keys(value, ['repository']) ||
+    typeof value['repository'] !== 'string' ||
+    !/^https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._/-]+\.git$/.test(
+      value['repository']
+    )
+  )
+    return fail();
+  return { repository: value['repository'] };
 }
 function baseline(ubuntu: unknown): FleetDefinition['ubuntu'] {
   if (

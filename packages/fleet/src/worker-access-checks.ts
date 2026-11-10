@@ -1,13 +1,12 @@
 import type { Check, Runner } from './types';
-import definition from '../definition.json';
-import { parseDefinition } from './definition';
+import { fleet } from './fleet-config';
 import { registry } from './agents/registry';
 import { resolveVaultConfig } from './vault-config';
 import { record } from './config';
 
 /** Inject every subprocess; never put credentials in argv, reports, or logs. */
 export async function workerAccessChecks(run: Runner): Promise<Check[]> {
-  const policy = parseDefinition(definition).worker!;
+  const policy = fleet.worker!;
   const github = await run(['gh', 'api', 'user', '--jq', '.login']);
   return [
     {

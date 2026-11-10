@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import definition from '../../fleet/definition.json';
+import { fleet as definition } from '../../fleet/src/fleet-config';
 import { sshArgs, shellQuote } from '../../fleet/src/ssh';
 import { resolveVaultConfig } from '../../fleet/src/vault-config';
 import type { Check, FleetNode, Runner } from '../../fleet/src/types';
@@ -124,7 +124,7 @@ function login(): string[] {
     `-address=${addr}`,
     '-method=userpass',
     '-no-print',
-    `username=${definition.worker.vaultUser}`,
+    `username=${definition.worker!.vaultUser}`,
   ];
 }
 
@@ -157,7 +157,7 @@ function required(node: FleetNode): Check {
     status: 'fail',
     summary: 'VAULT_LOGIN_REQUIRED',
     remedy: {
-      action: `Run personal fleet-sync in a terminal, or apply the OpenTofu vault root so ${workerTokenField(node.id)} exists. Manual fallback on ${node.id}: vault login -address=${addr} -method=userpass username=${definition.worker.vaultUser}. Proxy providers in T3 stay unavailable until then.`,
+      action: `Run personal fleet-sync in a terminal, or apply the OpenTofu vault root so ${workerTokenField(node.id)} exists. Manual fallback on ${node.id}: vault login -address=${addr} -method=userpass username=${definition.worker!.vaultUser}. Proxy providers in T3 stay unavailable until then.`,
     },
   };
 }
