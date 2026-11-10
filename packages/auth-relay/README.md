@@ -134,11 +134,11 @@ The database is the existing shared Postgres. Application tables live exclusivel
 
 ## Agent registration
 
-The public, generated [integration guide](https://www.chrisvouga.dev/llms.txt#6-auth-relay-google-sign-in)
+The public, generated [cloud app infrastructure guide](https://www.chrisvouga.dev/llms-cloud.txt#5-auth-relay-google-sign-in)
 is the entry point for an agent in another repository. It includes hosting,
 PostgreSQL, S3-compatible object storage, Vault coordinates, exact relay issuers,
 credential onboarding, CLI/CI examples and the language-independent HTTP contract.
-Its source is [the template](../../scripts/llms-txt.template.md); run
+Its source is [the cloud template](../../scripts/llms-cloud.template.md); run
 `bun run llms:sync` after editing it.
 
 The dependency-free [Bun client](agent.ts) can be copied into any project. It reads

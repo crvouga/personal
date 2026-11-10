@@ -145,8 +145,9 @@ describe('one story everywhere', () => {
     expect(text.startsWith(`# ${CONTENT.PAGE_TITLE}`)).toBe(true);
     expect(text).toContain('/resume.json');
     expect(text).toContain('/llms-infra.txt');
+    expect(text).toContain('/llms-cloud.txt');
     expect(text).toContain(
-      '/llms-infra.txt#ubuntu-developer-fleet-synchronization'
+      '/llms-local.txt#ubuntu-developer-fleet-synchronization'
     );
     expect(text).toContain('#machine-setup-macos-windows-and-linux');
     expect(text).toContain('#developer-fleet-configuration-setup');

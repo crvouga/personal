@@ -1,12 +1,16 @@
-# Integrating with shared infra — moved to the generated site guide
+# Integrating with shared infra — moved to the generated guides
 
-The integration guide for other repos (Vault, PostgreSQL, Turborepo remote
-cache, R2 object store, and Dockerized hosting on the managed platform) is the
-generated [`llms.txt`](llms.txt) at the repo root and is published with the
-portfolio. Fetch and follow the deployed copy:
+Infrastructure docs for agents are split into two separate generated guides that
+never share content:
 
-https://www.chrisvouga.dev/llms.txt
+- **Cloud app infrastructure** (Vault, PostgreSQL, R2 object store, Dockerized
+  hosting on Railway, Google sign-in): [`llms-cloud.txt`](llms-cloud.txt),
+  served at https://www.chrisvouga.dev/llms-cloud.txt
+- **Local development infrastructure** (developer machines, toolchain, fleet,
+  AI proxy, local Turborepo caching): [`llms-local.txt`](llms-local.txt),
+  served at https://www.chrisvouga.dev/llms-local.txt
+
+The index at https://www.chrisvouga.dev/llms-infra.txt routes to one of them.
 
 This stub only exists so older links keep working. Point your project's
-`AGENTS.md` / `CLAUDE.md` at the URL above. The singular
-`https://www.chrisvouga.dev/llm.txt` path is an identical alias.
+`AGENTS.md` / `CLAUDE.md` at the guide(s) above that it needs.

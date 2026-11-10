@@ -75,7 +75,7 @@ export const ADVICE: Advice[] = [
   when(
     'github',
     /publish\.yml is missing/,
-    'The application repo owns its publisher workflow: add .github/workflows/publish.yml there (see llms.txt), or set managed_publisher=false in the inventory.'
+    'The application repo owns its publisher workflow: add .github/workflows/publish.yml there (see llms-cloud.txt), or set managed_publisher=false in the inventory.'
   ),
   when(
     'domains',

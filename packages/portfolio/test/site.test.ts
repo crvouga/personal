@@ -594,6 +594,8 @@ describe('the site’s own guarantees', () => {
     '/resume.json',
     '/llms.txt',
     '/llms-infra.txt',
+    '/llms-local.txt',
+    '/llms-cloud.txt',
     '/manifest.webmanifest',
     '/favicon.svg',
     '/.well-known/security.txt',

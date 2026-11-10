@@ -515,8 +515,9 @@ toolchain bootstrap does not install the `personal` launcher or change OpenCode 
 run `bun run personal:install` to opt into those existing features. CLI-only setup works
 without symlink privileges on Windows.
 
-The generated root `llms.txt` and portfolio `/llms-infra.txt` embed the machine
-runbook and an exact version table from the manifest. The site's `/llms.txt`
+The generated local guide (root `llms-local.txt`, portfolio `/llms-local.txt`)
+embeds the machine runbook and an exact version table from the manifest. It is
+separate from the cloud app infrastructure guide. The site's `/llms.txt`
 provides the entry link. Run `bun run llms:sync` when changing setup instructions
 or tool pins, then `bun run check:llms` to verify all published copies.
 
