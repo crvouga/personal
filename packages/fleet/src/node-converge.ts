@@ -8,18 +8,14 @@ import type { Check } from './types';
  * prints child output. Workers are Linux.
  */
 async function main(): Promise<Check[]> {
-  const [node, revision, mode = 'routine'] = process.argv.slice(2);
+  const [node, revision] = process.argv.slice(2);
   if (!node || !/^[a-z][a-z0-9-]{0,62}$/.test(node) || !isRevision(revision))
     throw new Error();
   const root = process.cwd();
   const head = await runCommand(['git', 'rev-parse', 'HEAD']);
   if (!head.ok || head.stdout.trim() !== revision) throw new Error();
   if (process.platform === 'linux')
-    return convergeLinux(
-      root,
-      { node, revision, maintenance: mode === 'maintenance' },
-      runCommand
-    );
+    return convergeLinux(root, { node, revision }, runCommand);
   return [
     {
       id: 'platform:unsupported',

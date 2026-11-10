@@ -233,7 +233,7 @@ Sources: [upstream release](https://github.com/router-for-me/CLIProxyAPI/tree/v8
 `personal fleet-sync` delegates singleton inspection and permitted stopped-agent
 recovery to `scripts/fleet_sync.py`, which reads Fleet definition version 3: the
 proxy owner is `manager.id`. Flags: `--definition`, `--node`, `--revision`,
-`--apply`, `--maintenance`. It prints one JSON object (`version` 1, `command`,
+`--apply`. It prints one JSON object (`version` 1, `command`,
 `node`, `role` = `manager`|`worker`, `owner`, `backend` = `launchd`|`systemd`,
 `ok`, `changed`, `desiredRevision`, `phases`, `durationMs`); each phase has a
 `PROXY_*` `code`.
@@ -242,11 +242,11 @@ proxy owner is `manager.id`. Flags: `--definition`, `--node`, `--revision`,
   `PROXY_IDENTITY_MISMATCH` unless the normalized `scutil --get LocalHostName`
   equals `manager.id`. Missing state is `PROXY_RECOVERY_REQUIRED` (fenced
   encrypted recovery only); drift is `PROXY_SOURCE_DRIFT`; a different
-  installed revision installs automatically when `compose.yaml` and
-  `image.lock.json` are unchanged (containers mount the stable install root, so
-  the gateway keeps running); a revision that changes either one would
-  recreate the gateway and stays `PROXY_UPDATE_PENDING` until `--maintenance`
-  (`personal fleet-sync --maintenance`). Settings the fleet owns in the live
+  installed revision is installed by every fleet-sync. Containers mount the
+  stable install root, so the gateway keeps running unless `compose.yaml` or
+  `image.lock.json` changed; then it is recreated, which briefly interrupts
+  in-flight inference. `PROXY_UPDATE_PENDING` remains only when that install
+  failed. Settings the fleet owns in the live
   config (today `oauth.model-alias`, from `config.template.yaml`) are compared
   by `ops declared` (exit 3 when they differ) and reported as
   `PROXY_CONFIG_PENDING`; `ops declared --apply` (run by every fleet-sync)

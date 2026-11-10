@@ -86,7 +86,7 @@ class FleetSingleton(unittest.TestCase):
 
     def test_worker_hosting_proxy_is_reported_never_stopped(self):
         (self.root / 'INSTALLATION.json').write_text('{}')
-        result = fleet.reconcile(self.root, WORKER, MANAGER, SHA, True, maintenance=True,
+        result = fleet.reconcile(self.root, WORKER, MANAGER, SHA, True,
                                  run=self.active, backend=host.Systemd())
         phase = result['phases'][0]
         self.assertEqual(phase['code'], 'PROXY_DUPLICATE_OWNER')
@@ -101,24 +101,17 @@ class FleetSingleton(unittest.TestCase):
         self.assertEqual(result['phases'][0]['code'], 'PROXY_DECOMMISSION_PENDING')
         self.assertFalse(result['ok'])
 
-    def test_revision_upgrade_requires_maintenance(self):
+    def test_every_sync_installs_a_pending_revision_without_sudo(self):
         self.runtime()
         result = self.owner(run=self.command, audit_fn=lambda root: (True, 'b' * 40),
-                            compatible_fn=lambda installed, desired: False,
-                            restart_free_fn=lambda installed, desired: False)
-        self.assertEqual(result['phases'][0]['code'], 'PROXY_UPDATE_PENDING')
-        self.assertIn('--maintenance', result['phases'][0]['remedy']['action'])
-        self.assertEqual(self.calls, [])
-
-    def test_update_that_keeps_the_gateway_running_applies_without_maintenance(self):
-        self.runtime()
-        seen = []
-        self.owner(run=self.command, audit_fn=lambda root: (True, 'b' * 40),
-                   compatible_fn=lambda installed, desired: False,
-                   restart_free_fn=lambda installed, desired: seen.append((installed, desired)) or True)
-        self.assertEqual(seen, [('b' * 40, SHA)])
+                            compatible_fn=lambda installed, desired: False)
+        self.assertEqual(len(self.calls), 1)
+        self.assertNotIn('sudo', self.calls[0])
         self.assertTrue(self.calls[0][2].endswith('install.py'))
         self.assertEqual(self.calls[0][-2:], ['--revision', SHA])
+        # The fake install failed, so the update is still reported.
+        self.assertEqual(result['phases'][0]['code'], 'PROXY_UPDATE_PENDING')
+        self.assertNotIn('--maintenance', result['phases'][0]['remedy']['action'])
 
     def test_endpoint_check_retries_a_reconnecting_route(self):
         self.runtime()
@@ -169,20 +162,6 @@ class FleetSingleton(unittest.TestCase):
         codes = [p['code'] for p in result['phases']]
         self.assertIn('PROXY_CONFIG_PENDING', codes)
         self.assertFalse(result['ok'])
-
-    def test_restart_free_requires_known_revisions(self):
-        self.assertFalse(fleet.restart_free('Unknown revision', SHA))
-        self.assertFalse(fleet.restart_free(None, SHA))
-
-    def test_maintenance_installs_without_sudo_on_manager(self):
-        self.runtime()
-        self.owner(run=self.command, maintenance=True, audit_fn=lambda root: (True, 'b' * 40),
-                   compatible_fn=lambda installed, desired: False,
-                   restart_free_fn=lambda installed, desired: False)
-        self.assertEqual(len(self.calls), 1)
-        self.assertNotIn('sudo', self.calls[0])
-        self.assertTrue(self.calls[0][2].endswith('install.py'))
-        self.assertEqual(self.calls[0][-2:], ['--revision', SHA])
 
     def test_stopped_agents_are_bootstrapped_in_gui_domain(self):
         self.runtime()

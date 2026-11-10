@@ -7,9 +7,7 @@ revision=$1
 bundle_sha=$2
 node=$3
 source_mode=${4:-transfer}
-run_mode=${5:-routine}
 case "$source_mode" in cached|transfer) ;; *) exit 2;; esac
-case "$run_mode" in routine|maintenance) ;; *) exit 2;; esac
 case "$revision" in *[!a-f0-9]*|'') exit 2;; esac
 [ "${#revision}" = 40 ] || exit 2
 case "$bundle_sha" in *[!a-f0-9]*|'') exit 2;; esac
@@ -168,4 +166,4 @@ fi
 [ -n "$toolchain_warm" ] || printf '%s' "$toolchain_key" >"$ready_file"
 phase=configuration
 trap - EXIT INT TERM
-exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision" "$run_mode"
+exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision"

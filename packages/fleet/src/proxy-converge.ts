@@ -9,7 +9,7 @@ export async function convergeProxy(
   node: string,
   revision: string,
   run: Runner,
-  options: { apply?: boolean; maintenance?: boolean; cwd?: string } = {}
+  options: { apply?: boolean; cwd?: string } = {}
 ): Promise<Check[]> {
   const result = await run(
     [
@@ -23,7 +23,6 @@ export async function convergeProxy(
       '--revision',
       revision,
       ...(options.apply === false ? [] : ['--apply']),
-      ...(options.maintenance ? ['--maintenance'] : []),
     ],
     {
       timeoutMs: 180_000,

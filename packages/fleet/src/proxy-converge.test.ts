@@ -17,14 +17,11 @@ function proxy(phases: object[]) {
   return { run, calls };
 }
 
-test('maintenance is passed through only when asked', async () => {
+test('every sync applies; there is no separate maintenance mode', async () => {
   const plain = proxy([{ code: 'PROXY_CLIENT_ROLE', status: 'unchanged' }]);
   await convergeProxy('node', revision, plain.run);
   expect(plain.calls[0]).toContain('--apply');
   expect(plain.calls[0]).not.toContain('--maintenance');
-  const window = proxy([{ code: 'PROXY_CLIENT_ROLE', status: 'unchanged' }]);
-  await convergeProxy('node', revision, window.run, { maintenance: true });
-  expect(window.calls[0]).toContain('--maintenance');
 });
 
 test("the proxy's own remedy reaches the report", async () => {
@@ -32,11 +29,11 @@ test("the proxy's own remedy reaches the report", async () => {
     {
       code: 'PROXY_UPDATE_PENDING',
       status: 'action-required',
-      remedy: { action: 'Apply it with: personal fleet-sync --maintenance' },
+      remedy: { action: 'Inspect bun run cliproxy install on the manager.' },
     },
     { code: 'PROXY_SOURCE_DRIFT', status: 'action-required', remedy: 7 },
   ]);
   const [pending, drift] = await convergeProxy('node', revision, run);
-  expect(pending?.remedy?.action).toContain('fleet-sync --maintenance');
+  expect(pending?.remedy?.action).toContain('cliproxy install');
   expect(drift?.remedy?.action).toContain('audit/recovery runbook');
 });

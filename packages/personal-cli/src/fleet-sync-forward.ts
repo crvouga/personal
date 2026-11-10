@@ -107,7 +107,6 @@ export function forwardedFlags(
   if (options.schedule) flags.push('--schedule', options.schedule);
   const switches: [boolean | undefined, string][] = [
     [options.all, '--all'],
-    [options.maintenance, '--maintenance'],
     [options.dryRun, '--dry-run'],
     [options.apply, '--apply'],
     [options.yes, '--yes'],

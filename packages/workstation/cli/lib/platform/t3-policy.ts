@@ -2,8 +2,7 @@ import { runAnsible } from './ansible';
 import { desired } from '../../../../personal-cli/src/t3/desired';
 import policy from '../../../ubuntu/t3/policy.json';
 import { basename, dirname, join, resolve } from 'node:path';
-import { rename, rm, stat, symlink } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { rename, rm, symlink } from 'node:fs/promises';
 import { T3_DESKTOP_UNIT } from './t3-service';
 import type { Runner, Check } from '../../../../fleet/src/types';
 
@@ -72,59 +71,26 @@ export async function verifyT3Policy(
       : 'T3_POLICY_RESTART_PENDING',
     remedy: {
       action:
-        'During approved maintenance restart the native T3 service, then rerun fleet-sync. Routine sync preserves active turns.',
+        'T3 did not load the installed policy after a restart. Inspect systemctl --user status t3code-desktop.service on the node, then rerun fleet-sync.',
     },
   };
 }
 
-/** T3 streams every active turn into its state database, so a database
- * unchanged for this long means no turn is running.
- */
-export const T3_IDLE_MS = 5 * 60_000;
 /** Summary of a heal that restarted T3: its manager link reconnects next. */
 export const T3_RESTARTED_SUMMARY =
-  'T3 was idle, so it was restarted to load the new managed policy; the running server confirms it.';
+  'T3 was restarted to load the new managed policy; the running server confirms it.';
 
-/** Newest write to T3's state database (0 when absent). */
-export async function lastT3Write(
-  stateDir = join(homedir(), '.t3', 'userdata')
-): Promise<number> {
-  let newest = 0;
-  for (const name of ['statev2.sqlite', 'statev2.sqlite-wal']) {
-    const info = await stat(join(stateDir, name)).catch(() => null);
-    if (info) newest = Math.max(newest, info.mtimeMs);
-  }
-  return newest;
-}
-
-/** Self-healing: a staged policy the running T3 has not loaded is applied by
- * restarting the desktop app, but only while T3 is idle, so routine sync never
- * ends an active turn. While busy it is reported (non-blocking) and the next
- * sync applies it.
+/** A staged policy the running T3 has not loaded is applied by restarting the
+ * desktop app, so every node offers the same providers after every sync. This
+ * ends the turns that T3 is running; fleet-sync never waits for it to be idle.
  */
 export async function healT3Policy(
   executable: string,
   run: Runner,
-  options: {
-    lastWrite?: number;
-    now?: number;
-    pause?: () => Promise<void>;
-  } = {}
+  pause?: () => Promise<void>
 ): Promise<Check> {
-  // Measure idleness before any probe below could touch T3's state.
-  const lastWrite = options.lastWrite ?? (await lastT3Write());
-  const check = await verifyT3Policy(executable, run, options.pause);
+  const check = await verifyT3Policy(executable, run, pause);
   if (check.status === 'pass') return check;
-  if ((options.now ?? Date.now()) - lastWrite < T3_IDLE_MS)
-    return {
-      id: 't3:policy-loaded',
-      status: 'warn',
-      summary: 'T3_POLICY_PENDING_ACTIVE',
-      remedy: {
-        action:
-          'T3 has active work, so the new provider settings wait: the next fleet-sync applies them once T3 has been idle for five minutes. To apply now (this restarts T3 and ends its active turns): personal fleet-sync --maintenance',
-      },
-    };
   await run(['systemctl', '--user', 'restart', T3_DESKTOP_UNIT], {
     timeoutMs: 60_000,
   });
@@ -132,7 +98,7 @@ export async function healT3Policy(
   const after = await verifyT3Policy(
     executable,
     run,
-    options.pause ?? (() => new Promise((done) => setTimeout(done, 5000)))
+    pause ?? (() => new Promise((done) => setTimeout(done, 5000)))
   );
   return after.status === 'pass'
     ? {
