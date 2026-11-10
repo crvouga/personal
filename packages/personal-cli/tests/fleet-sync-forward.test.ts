@@ -125,3 +125,46 @@ test('off the manager with hand-off disabled, nothing runs', async () => {
   expect(JSON.stringify(result.data)).toContain('FLEET_NOT_MANAGER');
   expect(calls.every((args) => args[0] === 'scutil')).toBe(true);
 });
+
+test('a manager sync re-runs itself from the fleet-owned checkout of its revision', async () => {
+  const { runFromCheckout } = await import('../src/fleet-sync-checkout');
+  const revision = 'b'.repeat(40);
+  const commands: string[][] = [];
+  const outcome = await runFromCheckout(
+    { json: true, maintenance: true },
+    { revision, workspace: '/work' },
+    async (args) => ({
+      ok: args[1] === 'show',
+      reason: 'exit',
+      stdout: '#!/bin/sh\necho run\n',
+      stderr: '',
+    }),
+    async (command) => {
+      commands.push(command);
+      return { exitCode: 0, stdout: '{"version":3,"ok":true}' };
+    }
+  );
+  expect(commands[0]).toEqual([
+    'sh',
+    '-c',
+    '#!/bin/sh\necho run\n',
+    'fleet-manager-run',
+    revision,
+    '--maintenance',
+    '--json',
+  ]);
+  expect(outcome).toEqual({ exitCode: 0, data: { version: 3, ok: true } });
+});
+
+test('a revision without the run script converges in place', async () => {
+  const { runFromCheckout } = await import('../src/fleet-sync-checkout');
+  const outcome = await runFromCheckout(
+    {},
+    { revision: 'c'.repeat(40), workspace: '/work' },
+    async () => ({ ok: false, reason: 'exit', stdout: '', stderr: '' }),
+    async () => {
+      throw new Error('must not spawn');
+    }
+  );
+  expect(outcome).toBeNull();
+});

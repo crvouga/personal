@@ -1,9 +1,11 @@
 #!/bin/sh
-# Executed on the manager over strict SSH when fleet-sync is started on a
-# worker. Runs fleet-sync from a clean, fleet-owned checkout of the exact
-# approved revision, so fixes in that revision reach the manager too (not
-# whatever the human's checkout has). Checkouts are reused when warm and
-# pruned to the three most recent. Never touches the human's working tree.
+# Every fleet-sync on the manager runs through this, whether started there or
+# handed off from a worker over strict SSH. Runs fleet-sync from a clean,
+# fleet-owned checkout of the exact approved revision, so the result never
+# depends on the working tree it was started in (uncommitted edits, another
+# branch, a removed worktree). Checkouts are reused when warm and pruned to the
+# three most recent plus the one T3's providers launch from. Never touches the
+# human's working tree.
 set -eu
 revision=$1
 shift
@@ -48,12 +50,15 @@ if [ -z "$(find "$stamp" -mmin -1440 2>/dev/null)" ]; then
   fi
   touch "$stamp"
 fi
-# Keep the three most recent run checkouts (names are commit SHAs).
+# Keep the three most recent run checkouts (names are commit SHAs) and the
+# applied one: fleet/current points at it and T3's providers launch from there.
+applied=$(basename "$(readlink "$(dirname "$runs")/current" 2>/dev/null || true)")
 # shellcheck disable=SC2012
 for old in $(ls -1td "$runs"/*/ | tail -n +4); do
+  [ "$(basename "$old")" != "$applied" ] || continue
   git -C "$repo" worktree remove --force "$old" 2>/dev/null || true
   rm -f -- "${old%/}.setup.log" "${old%/}.ready"
 done
 git -C "$repo" worktree prune
-export PERSONAL_WORKSPACE="$dir"
+export PERSONAL_WORKSPACE="$dir" PERSONAL_FLEET_RUN_CHECKOUT="$revision"
 exec mise exec --locked bun -- bun packages/personal-cli/src/cli.ts fleet-sync --revision "$revision" "$@"

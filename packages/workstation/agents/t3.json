@@ -3,7 +3,7 @@
   "instances": {
     "personal_codex_proxy": {
       "driver": "codex",
-      "displayName": "Personal CLI Proxy",
+      "displayName": "Codex CLI Proxy",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/codex-proxy.ts",
@@ -19,7 +19,7 @@
     },
     "personal_gateway_models": {
       "driver": "opencode",
-      "displayName": "Muse & shared accounts (OpenCode)",
+      "displayName": "OpenCode CLI Proxy",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/opencode-proxy.ts"
@@ -34,7 +34,7 @@
     },
     "personal_claude_proxy": {
       "driver": "claudeAgent",
-      "displayName": "Claude (CLI Proxy)",
+      "displayName": "Claude CLI Proxy",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/claude-proxy",
@@ -50,7 +50,7 @@
     },
     "personal_grok_proxy": {
       "driver": "grok",
-      "displayName": "Grok (CLI Proxy)",
+      "displayName": "Grok CLI Proxy",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/grok-proxy.ts"
@@ -70,7 +70,7 @@
     },
     "personal_antigravity_proxy": {
       "driver": "antigravity",
-      "displayName": "Antigravity (CLI Proxy)",
+      "displayName": "AntiGravity CLI Proxy",
       "enabled": true,
       "config": {
         "authMethod": "gemini-api-key",

@@ -11,6 +11,7 @@ import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
 import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secrets';
 import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeProxy } from './proxy-converge';
+import { providerNames } from '../../personal-cli/src/t3/names-check';
 import {
   quotaLimited,
   verifyFleetProviders,
@@ -252,6 +253,8 @@ async function convergeT3(
         lastWrite: maintenance ? 0 : lastWrite,
       })
     );
+  // Names live in user settings T3 watches, so they conform without a restart.
+  checks.push(await providerNames(node, root, true));
   const serviceReady = checks.some(
     (check) => check.id === 't3:service' && check.status === 'pass'
   );
