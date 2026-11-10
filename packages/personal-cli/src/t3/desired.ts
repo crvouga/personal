@@ -2,11 +2,8 @@ import { join, resolve } from 'node:path';
 import { homedir, hostname } from 'node:os';
 import { FleetUsageError } from '../../../fleet/src/errors';
 import { object, read } from './files';
-import registry from '../../../workstation/agents/registry.json';
 import { proxyName } from './names';
-
-/** T3's marker for a credential kept in its per-host secret store. */
-export const T3_SAVED_SECRET = '••••••';
+import { accountInstances, proxyAccounts, type Roster } from './accounts';
 
 export interface T3Options {
   id?: string;
@@ -15,6 +12,8 @@ export interface T3Options {
   planHash?: string;
   dryRun?: boolean;
   import?: string;
+  /** Internal: the proxy account roster (read live when omitted). */
+  roster?: Roster;
 }
 
 export function nodeId(value?: string): string {
@@ -43,7 +42,15 @@ export function paths(options: T3Options, workspace: string) {
   };
 }
 
-export async function desired(path: string, workspace: string, id: string) {
+/** The managed instances: the fixed ones in the definition plus one per
+ * provider account signed in on the CLI proxy (`roster`, read live).
+ */
+export async function desired(
+  path: string,
+  workspace: string,
+  id: string,
+  roster: Roster = proxyAccounts
+) {
   const raw = await read(path);
   if (raw === null)
     throw new FleetUsageError('T3 definition is missing in this checkout.');
@@ -68,7 +75,10 @@ export async function desired(path: string, workspace: string, id: string) {
     node: id,
   };
   // Substitute individual strings, not serialized JSON: paths may contain quotes/backslashes.
-  return expand(instances, variables) as Record<string, unknown>;
+  return {
+    ...(expand(instances, variables) as Record<string, unknown>),
+    ...accountInstances(await roster(), variables),
+  };
 }
 
 function expand(value: unknown, variables: Record<string, string>): unknown {
@@ -86,29 +96,17 @@ function expand(value: unknown, variables: Record<string, string>): unknown {
   return value;
 }
 
-/** Each managed driver accepts only the adapter fields fleet sets, under its
- * conventional `<Provider> CLI Proxy` name. Credentials
- * never appear here (T3 refuses a managed policy that holds one): wrappers read
- * them from Vault at launch, and Antigravity's key is the saved-secret marker,
- * resolved from T3's per-host secret store that fleet fills from Vault.
+/** Each fixed driver accepts only the adapter fields fleet sets, under its
+ * conventional `<Provider> CLI Proxy` name. Credentials never appear here (T3
+ * refuses a managed policy that holds one): wrappers read them from Vault at
+ * launch.
  */
 const DRIVERS: Record<
   string,
-  {
-    required: string[];
-    fixed?: Record<string, string>;
-    env?: Record<string, string>;
-  }
+  { required: string[]; env?: Record<string, string> }
 > = {
-  codex: { required: ['binaryPath', 'homePath'] },
   opencode: { required: ['binaryPath'] },
-  claudeAgent: { required: ['binaryPath', 'homePath'] },
   grok: { required: ['binaryPath'], env: { XAI_API_KEY: 'fleet-cli-proxy' } },
-  antigravity: {
-    required: ['authMethod', 'apiKey'],
-    fixed: { authMethod: 'gemini-api-key', apiKey: T3_SAVED_SECRET },
-    env: { GOOGLE_GEMINI_BASE_URL: registry.proxy.endpoint },
-  },
 };
 
 function validateInstance(id: string, value: unknown): void {
@@ -136,14 +134,11 @@ function validateInstance(id: string, value: unknown): void {
 
 function validConfig(
   config: Record<string, unknown>,
-  driver: { required: string[]; fixed?: Record<string, string> }
+  driver: { required: string[] }
 ): boolean {
   return (
     Object.keys(config).every((key) => driver.required.includes(key)) &&
-    driver.required.every((key) => typeof config[key] === 'string') &&
-    Object.entries(driver.fixed ?? {}).every(
-      ([key, value]) => config[key] === value
-    )
+    driver.required.every((key) => typeof config[key] === 'string')
   );
 }
 

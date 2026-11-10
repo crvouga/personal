@@ -17,14 +17,10 @@ export async function t3Command(
   const target = paths(options, workspace);
   if (command === 't3-apply' && options.import !== undefined)
     return importCommand(target, options);
-  const instances =
-    command === 't3-cleanup'
-      ? {}
-      : await desired(
-          target.definition,
-          workspace,
-          nodeId(options.id ?? deployed?.node)
-        );
+  const instances = await declared(command, target.definition, workspace, {
+    ...options,
+    id: nodeId(options.id ?? deployed?.node),
+  });
   const apply = shouldApply(command, options);
   if (apply) requireSupportedPlatform(instances);
   const data = await reconcileT3(
@@ -36,6 +32,19 @@ export async function t3Command(
     exitCode: outcomeCode(command, data),
     data: { command, ...data },
   };
+}
+
+function declared(
+  command: string,
+  definition: string,
+  workspace: string,
+  options: T3Options & { id: string }
+): Promise<Record<string, unknown>> {
+  if (command === 't3-cleanup') return Promise.resolve({});
+  // An explicit definition is the complete instance set.
+  const roster =
+    options.roster ?? (options.definition ? async () => [] : undefined);
+  return desired(definition, workspace, options.id, roster);
 }
 
 async function importCommand(

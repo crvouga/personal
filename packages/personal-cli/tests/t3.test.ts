@@ -166,69 +166,99 @@ test('lock excludes concurrent writers and interrupted ownership intent is retry
   ).toBe(false);
 });
 
-test('portable desired templates substitute paths safely and reject credential fields', async () => {
-  const files = await fixture();
-  const definition = join(files.dir, 'definition.json');
-  const source = await readFile(
+const roster = async () => [
+  {
+    tool: 'claude',
+    email: 'a@example.com',
+    prefix: 'claude-a@example.com',
+    models: ['m'],
+  },
+  {
+    tool: 'opencode',
+    email: 'a@example.com',
+    prefix: 'antigravity-a@example.com',
+    models: ['g'],
+  },
+];
+const tracked = () =>
+  readFile(
     new URL('../../workstation/agents/t3.json', import.meta.url),
     'utf8'
   );
+
+test('fixed instances substitute paths safely and reject credential fields', async () => {
+  const files = await fixture();
+  const definition = join(files.dir, 'definition.json');
+  const source = await tracked();
   await writeFile(definition, source);
   const rendered = await desired(
     definition,
     '/repo/with "quotes"',
-    'test-node'
+    'test-node',
+    async () => []
   );
-  expect(JSON.stringify(rendered)).toContain('test-node');
-  const invalid = JSON.parse(source);
-  invalid.instances.personal_codex_proxy.environment[0].name = 'API_KEY';
-  await writeFile(definition, JSON.stringify(invalid));
-  await expect(desired(definition, '/repo', 'node')).rejects.toThrow('Invalid');
-});
-
-type Instance = {
-  driver: string;
-  config: { apiKey?: string; authMethod?: string; binaryPath?: string };
-  environment: { value: string }[];
-};
-type Definition = {
-  instances: {
-    personal_antigravity_proxy: Instance;
-    personal_grok_proxy: Instance;
-  };
-};
-
-test('managed agent instances never carry a real credential or unknown field', async () => {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), 't3-definition-')));
-  const definition = join(dir, 't3.json');
-  const source = await Bun.file(
-    join(import.meta.dir, '../../workstation/agents/t3.json')
-  ).text();
-  await writeFile(definition, source);
-  const rendered = await desired(definition, '/repo', 'node');
   expect(Object.keys(rendered).sort()).toEqual([
-    'personal_antigravity_proxy',
-    'personal_claude_proxy',
-    'personal_codex_proxy',
     'personal_gateway_models',
     'personal_grok_proxy',
   ]);
+  expect(JSON.stringify(rendered)).toContain('test-node');
+  type Definition = {
+    instances: Record<
+      string,
+      { driver: string; environment: { name: string; value: string }[] }
+    >;
+  };
   for (const mutate of [
     (d: Definition) =>
-      (d.instances.personal_antigravity_proxy.config.apiKey = 'AIza-real'),
+      (d.instances['personal_grok_proxy']!.environment[0]!.name = 'API_KEY'),
     (d: Definition) =>
-      (d.instances.personal_grok_proxy.environment[1]!.value = 'xai-real'),
-    (d: Definition) =>
-      (d.instances.personal_antigravity_proxy.config.binaryPath = '/x'),
-    (d: Definition) => (d.instances.personal_grok_proxy.driver = 'pi'),
+      (d.instances['personal_grok_proxy']!.environment[1]!.value = 'xai-real'),
+    (d: Definition) => (d.instances['personal_grok_proxy']!.driver = 'pi'),
   ]) {
     const invalid = JSON.parse(source) as Definition;
     mutate(invalid);
     await writeFile(definition, JSON.stringify(invalid));
-    await expect(desired(definition, '/repo', 'node')).rejects.toThrow(
-      'Invalid'
-    );
+    await expect(
+      desired(definition, '/repo', 'node', async () => [])
+    ).rejects.toThrow('Invalid');
   }
+});
+
+test('every account signed in on the proxy becomes a pinned provider', async () => {
+  const files = await fixture();
+  const definition = join(files.dir, 'definition.json');
+  await writeFile(definition, await tracked());
+  const rendered = await desired(definition, '/repo', 'node', roster);
+  expect(rendered['personal_claude_a_example_com']).toEqual({
+    driver: 'claudeAgent',
+    displayName: 'Claude a@example.com',
+    enabled: true,
+    config: {
+      binaryPath: '/repo/packages/workstation/agents/claude-proxy',
+      homePath: expect.stringContaining('/node/claude/account-a_example_com'),
+    },
+    environment: [
+      { name: 'WS_AGENT_NODE', value: 'node', sensitive: false },
+      { name: 'WS_AGENT_ACCOUNT', value: 'a@example.com', sensitive: false },
+    ],
+  });
+  expect(rendered['personal_antigravity_a_example_com']).toMatchObject({
+    driver: 'opencode',
+    displayName: 'AntiGravity a@example.com',
+  });
+  // No account is ever named in tracked source.
+  expect(await tracked()).not.toContain('@');
+});
+
+test('an unreadable roster fails instead of dropping providers', async () => {
+  const files = await fixture();
+  const definition = join(files.dir, 'definition.json');
+  await writeFile(definition, await tracked());
+  await expect(
+    desired(definition, '/repo', 'node', async () => {
+      throw new Error('proxy down');
+    })
+  ).rejects.toThrow('proxy down');
 });
 
 test('public T3 commands run offline against fixtures, including cleanup and drift status', async () => {

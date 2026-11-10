@@ -37,6 +37,20 @@
       "grok": "grok-4.7",
       "antigravity": "gemini-3.8-flash"
     },
+    "accounts": {
+      "claude": {
+        "provider": "claude",
+        "models": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
+      },
+      "codex": {
+        "provider": "codex",
+        "models": ["gpt-6.1-sol"]
+      },
+      "opencode": {
+        "provider": "antigravity",
+        "models": ["gemini-3.8-flash"]
+      }
+    },
     "routes": {
       "claude": {
         "model": "claude-sonnet-4-6",

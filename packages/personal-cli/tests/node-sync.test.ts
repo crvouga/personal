@@ -8,6 +8,14 @@ const settings = {
   config: '/not-a-real-roster',
 };
 const revision = 'a'.repeat(40);
+const roster = async () => [
+  {
+    tool: 'codex',
+    email: 'a@example.com',
+    prefix: 'codex-a@example.com',
+    models: ['gpt-x'],
+  },
+];
 
 test('dry run resolves a revision but never invokes a mutation', async () => {
   const calls: string[][] = [];
@@ -53,7 +61,7 @@ test('node sync joins profile/launcher/T3 reconciliation and is repeatable', asy
   const fixture = await syncFixture();
   try {
     const result = await syncNode(
-      { id: 'node', t3Home: fixture.t3Home },
+      { id: 'node', t3Home: fixture.t3Home, roster },
       fixture.settings,
       fixture.run
     );
@@ -62,7 +70,7 @@ test('node sync joins profile/launcher/T3 reconciliation and is repeatable', asy
       fixture.t3Home + '/userdata/settings.json'
     ).json();
     expect(
-      t3.providerInstances.personal_codex_proxy.config.binaryPath
+      t3.providerInstances.personal_codex_a_example_com.config.binaryPath
     ).toContain(fixture.directory);
     expect(
       (
@@ -74,7 +82,7 @@ test('node sync joins profile/launcher/T3 reconciliation and is repeatable', asy
     expect(
       (
         await syncNode(
-          { id: 'node', t3Home: fixture.t3Home },
+          { id: 'node', t3Home: fixture.t3Home, roster },
           fixture.settings,
           fixture.run
         )
@@ -94,11 +102,11 @@ test('node sync reports partial progress and does not advance receipt on T3 conf
     await writeFile(
       fixture.t3Home + '/userdata/settings.json',
       JSON.stringify({
-        providerInstances: { personal_codex_proxy: { driver: 'codex' } },
+        providerInstances: { personal_grok_proxy: { driver: 'grok' } },
       })
     );
     const result = await syncNode(
-      { id: 'node', t3Home: fixture.t3Home },
+      { id: 'node', t3Home: fixture.t3Home, roster },
       fixture.settings,
       fixture.run
     );

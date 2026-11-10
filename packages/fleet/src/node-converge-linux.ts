@@ -8,8 +8,6 @@ import {
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
 import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
-import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secrets';
-import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeProxy } from './proxy-converge';
 import { providerNames } from '../../personal-cli/src/t3/names-check';
 import {
@@ -243,9 +241,6 @@ async function convergeT3(
     },
     () => installT3Desktop(root, run)
   );
-  // Before any policy restart, so a restarted T3 reads it at startup.
-  if (checks.every((check) => check.status === 'pass'))
-    checks.push(await syncAntigravityKey(proxyKey));
   if (checks.every((check) => check.status === 'pass'))
     // --maintenance applies a pending policy even while T3 is busy.
     checks.push(

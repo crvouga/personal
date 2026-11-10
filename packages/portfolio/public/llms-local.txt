@@ -545,7 +545,7 @@ A stale plan fails. A second apply with identical inputs performs no settings wr
 A provider instance becomes managed when created by personal, or explicitly imported:
 
 ```sh
-personal t3-apply --import personal_codex_proxy
+personal t3-apply --import personal_grok_proxy
 personal t3-apply
 ```
 
@@ -932,287 +932,34 @@ accounts. T3 launches most through a tracked launcher in
 `packages/workstation/agents/` that injects the shared proxy key from Vault at
 launch; nothing is copied between nodes.
 
-| Agent       | T3 driver     | Route                                                                 |
-| ----------- | ------------- | --------------------------------------------------------------------- |
-| Claude      | `claudeAgent` | CLI proxy (`claude-proxy`, an extension-less launcher for the SDK)    |
-| Codex       | `codex`       | CLI proxy (`codex-proxy.ts`)                                          |
-| Grok        | `grok`        | CLI proxy: Grok Build custom model, `env_key` (`grok-proxy.ts`)       |
-| Antigravity | `antigravity` | CLI proxy: T3's own pinned runtime in Gemini API-key mode (see below) |
-| Muse        | `opencode`    | CLI proxy via OpenCode (`opencode-proxy.ts`)                          |
+| T3 provider                   | T3 driver     | Route                                                           |
+| ----------------------------- | ------------- | --------------------------------------------------------------- |
+| `Claude <account email>`      | `claudeAgent` | One per Claude account on the proxy (`claude-proxy`)            |
+| `Codex <account email>`       | `codex`       | One per Codex account on the proxy (`codex-proxy.ts`)           |
+| `AntiGravity <account email>` | `opencode`    | One per Antigravity account, via OpenCode (`opencode-proxy.ts`) |
+| `Grok CLI Proxy`              | `grok`        | Pooled: Grok Build custom model, `env_key` (`grok-proxy.ts`)    |
+| `OpenCode CLI Proxy`          | `opencode`    | Pooled accounts and Muse via OpenCode (`opencode-proxy.ts`)     |
 
-The CLI proxy multiplexes the provider accounts (fill-first), so every node
-shares them. Cursor is not part of the fleet (its backend cannot be proxied).
-Native Muse Code is not used: it only talks to Meta's own catalog endpoint, so
-Muse models run through OpenCode.
+**Accounts are never listed in this repository.** The proxy's credential files
+are the only source of truth: every sync gives each Claude, Codex and
+Antigravity credential the model prefix `<type>-<email>`
+(`packages/cliproxy-fleet/scripts/accounts.py`, applied through the proxy's own
+API), so the proxy's model list names every signed-in account. Each node reads
+that list with its own proxy key and offers one provider per account, so all
+machines list the same providers. Signing an account in or out on the proxy
+(`bun run cliproxy add-account PROVIDER`, or the dashboard) changes T3 on the
+next `fleet-sync`; an unreachable proxy fails the check and changes nothing.
 
-T3 runs Antigravity with its own pinned runtime (the same on every node for the
-same T3 release), not the `antigravity` CLI. A managed policy may not hold a
-credential, so the instance carries T3's saved-secret marker and each sync
-writes the shared proxy key from that node's Vault session into T3's per-host
-secret store (`t3:antigravity-key`, `userdata/secrets`, mode 0600);
-`GOOGLE_GEMINI_BASE_URL` points it at the proxy. Antigravity sends its catalog
-ids (`gemini-3.8-flash`, `gemini-3.1-flash-lite-preview`); the proxy serves
-them from the Antigravity account through declared model aliases in
-`config.template.yaml`, which every sync applies restart-free (the proxy
-hot-reloads its config). Its default Pro model is not served; pick Gemini 3.8
-Flash in T3.
-
-The built-in Codex and Claude instances use whatever is first on the PATH T3
-inherits from the login shell. Bootstrap keeps the pinned mise shims first
-(also at the end of each shell startup file, after nvm or a vendor installer
-adds its own directory), so they run the locked versions too.
-
-Each sync checks every agent per node (`agent:<name>:version` against the lock
-and `agent:<name>:session`, one tiny prompt through its launcher). Failures do
-not stop other workers. New provider settings need a T3 restart: it happens
-automatically while T3 is idle, or immediately with `fleet-sync --maintenance`.
-
-Claude’s explicit model is `claude-sonnet-4-6`. Pinned Gemini CLI 0.66.0 supports native
-`gateway` authentication with `GOOGLE_GEMINI_BASE_URL` and a runtime Vault key;
-its request protocol is Gemini `generateContent`, not OpenAI Responses. Exact models live in `agents/registry.json` and must
-be present in the authenticated gateway catalog; no automatic model substitution.
-
-Apply runs bounded authenticated inference plus completed Responses streaming
-and a safe echo-tool round trip for each declared provider through the supported
-harness route. The echo probe cannot execute shell commands or access files.
-These consume small model requests; errors are redacted and do not silently retry
-OAuth. Native CLI compatibility and paired T3 execution remain separate gates.
-Live five-provider acceptance is still incomplete. `/models` is not proof that five native clients are authenticated.
-Do not disguise unsupported native clients with wrapper executables. Missing or
-expired unattended Vault authorization remains an explicit dependency; a cached
-interactive token is not a supported long-term credential lifecycle.
-
-## Beszel: stock dashboard and history
-
-Beszel supersedes the unshipped Netdata proposal. No Netdata was deployed by this
-work. Preserve any independently installed Netdata data and prepare an explicit
-migration before removal. The hub is a singleton service, so it runs on the
-manager (`definition.json.services.monitoring`) and agents on every worker report
-to `https://<manager MagicDNS>:8443`. The manager's uptime is the dashboard's
-uptime.
-
-Workstation pins Beszel **0.21.1**: multiarchitecture hub image digest and native
-amd64/arm64 archive SHA-256 values are in `monitoring/lock.json`. Compose binds
-only loopback port 8090 with persistent `~/Library/Application Support/personal-beszel` on the manager (Docker Desktop). Tailscale Serve
-provides private HTTPS port 8443, preserving other handlers and refusing conflicts.
-Docker Desktop must be running on the manager (`BESZEL_DOCKER_DESKTOP_REQUIRED`). Existing different hub images require backup and
-explicit maintenance instead of an automatic restart during routine sync.
-
-The native Linux agent runs as `beszel`, with persistent `/var/lib/beszel-agent`,
-unconditional restart, bounded resource limits and no incoming listener. On macOS
-the same pinned binary runs as a root launchd daemon with `KeepAlive`; it is less
-sandboxed than the systemd unit and is best effort. It uses authenticated outbound
-WebSockets. The selected systemd services are SSH, Tailscale, T3 and manager
-sync where present. Journal access and Docker socket access are disabled by
-default. Do not expose all host journals or Docker root access merely to get a
-collector green. Unavailable service/sensor/GPU/disk-health data is unavailable,
-not healthy.
-
-OpenTofu generates the enrollment credential: `BESZEL_FLEET_AUTH` in
-`secret/personal/prd` is the password of the normal (non-superuser) Beszel account
-`fleet-manager@chrisvouga.dev`. After the vault root has applied, create that
-account once on the hub with the generated password (hub superuser → Users →
-New record, or the PocketBase API) and grant it the fleet systems.
-The hub runs with `SHARE_ALL_SYSTEMS=true`, so systems that account registers are
-visible to every hub login. A legacy JSON
-`{identity, password}` value is still accepted. No Vault policy is seeded by
-setup; never pass the credential on command arguments. Only per-node agent
-tokens cross SSH stdin. Supported systems/fingerprints APIs reuse canonical node
-records, preserve fingerprints, and reject duplicate names or conflicting hosts.
-The account credential remains on the manager. Revoke/rotate it in Beszel and
-the existing secret owner; do not erase agent state to force reenrollment.
-
-`fleet-sync --dry-run --json` and `fleet-status --workers --json` report
-`dashboardUrl` when the enrolled parent can be resolved. Open that private URL in
-a tailnet-connected browser for CPU, memory, disk, network, temperature and
-service history of every node. `fleet-status --workers` also verifies the hub
-answers privately and that each canonical node is registered, connected and
-reporting fresh samples; a manager without a Vault session reports
-`beszel:access` as skipped, never as healthy. Fleet reports deployment/readiness;
-Beszel reports resource history. Hub outages do not stop SSH/T3 or erase last
-working machine configuration, but monitoring stays incomplete.
-
-Supported verification checks authenticated hub version, one canonical record,
-connection state, and a one-minute sample received within 180 seconds (with bounded
-clock-skew tolerance). Immediately after installation the next sample can be
-pending; rerun after its collection interval. Do not count local HTTP health as
-historical metrics acceptance.
-
-In the hub UI, configure network monitors with explicit origins: hub→SSH ports,
-manager-capable agent→private T3 endpoint, and selected agent→management host
-and gateway TCP 443. An unauthenticated gateway `/v1/models` returns 401 and is
-not a suitable unauthenticated HTTP success probe. Do not create all-to-all probes.
-Network monitor UI configuration, alert thresholds and backup settings are not
-reconciled by this implementation. Set sustained CPU/memory pressure, low disk,
-offline and available temperature alerts in the stock UI; configure no external
-notification destination without authorization. Service failure alert behavior
-must be tested for the pinned release before promising it.
-
-Upstream owns tiered metric retention. No arbitrary retention knob or hard disk
-quota is invented here. Compose logs are bounded, but data-volume capacity/backup
-retention requires an explicit operator setting and acceptance. Use PocketBase’s
-supported backup UI/API and approved existing storage, preserving hub identity,
-registrations, alert settings and history. Off-host encrypted backup/restore
-integration remains an operational gate. The pinned upstream fixture has now
-created a backup using `POST /api/backups`, restored it using
-`POST /api/backups/{key}/restore`, and verified the original node ID and agent
-fingerprint survived while a post-backup record disappeared. This is disposable
-API evidence, not an off-host recovery test. See the
-[monitoring runbook](../../workstation/monitoring/README.md) for the stock UI procedure. Never edit the live database.
-
-Official feature references: [native agent](https://beszel.dev/guide/agent-installation),
-[systemd](https://beszel.dev/guide/systemd), [network monitors](https://beszel.dev/guide/network-monitors),
-[REST API](https://beszel.dev/guide/rest-api), and [pinned release](https://github.com/henrygd/beszel/releases/tag/v0.21.1).
-
-## Repeat runs: warm and self-healing
-
-Every step is idempotent, and repeat runs skip work that cannot have changed:
-
-- Ansible playbooks (Ubuntu baseline, Tailscale, T3 desktop, worker recovery,
-  Beszel agents and the manager's hub) record a receipt after a successful apply:
-  a digest of the playbook sources and variables, never their values, under
-  `~/.local/state/personal/fleet/receipts`. A later run with the same digest
-  skips the playbook only while a cheap postcondition probe passes (services
-  active, hub healthy, agent running).
-- Any changed input, failed probe or failed apply runs the playbook in full,
-  and a receipt older than 24 hours is ignored, so drift a probe misses still
-  heals daily. If a skipped baseline's measured boot or resource policy fails,
-  the baseline is reapplied in full in the same run.
-- A node whose locked toolchain already passed for the same revision within a
-  day skips the toolchain bootstrap (`toolchain-ready`); the manager's run
-  checkout does the same (`manager-runs/<sha>.ready`, setup output in
-  `<sha>.setup.log`, printed only on failure).
-- Provider inference and agent session checks run concurrently, and a pass is
-  reused for up to 6 hours while its inputs (node, models, routes, pinned
-  versions, verifier and launcher code) are unchanged
-  (`receipts/verify/`). Every run still makes one live authenticated gateway
-  request with the node's own Vault key; if it fails, everything is verified
-  again. Failures and quota-limited results are never cached. T3 links and
-  Beszel freshness are always checked live.
-- The manager converges alongside the workers (first only with
-  `--maintenance`); the canary worker deploys first, then the remaining workers
-  concurrently.
-- Self-healing: proxy settings the fleet declares are applied restart-free; a
-  T3 policy the running app has not loaded is applied by restarting T3 only
-  when it has been idle for five minutes (no writes to its state database),
-  otherwise it is a non-blocking `T3_POLICY_PENDING_ACTIVE` for the next sync.
-- To force a full apply and verification on one machine, delete its receipt
-  directory (and `toolchain-ready`).
-
-## Failure, retry and recovery
-
-| Stable outcome                                                                           | Read-only diagnosis and source-owned remedy                                                                                                                                                                              |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `FLEET_MANAGER_ENROLLMENT_REQUIRED`                                                      | Inspect canonical membership and private overrides; rerun interactive enrollment. Preserve conflicting files for review.                                                                                                 |
-| `TAILSCALE_ENROLLMENT_REQUIRED` / `TAILSCALE_DEVICE_REPLACED`                            | Verify intended device ID and host fingerprint. Update reviewed private binding only after genuine enrollment.                                                                                                           |
-| `TAILSCALE_NODE_OFFLINE` / `TAILSCALE_NODE_MISSING`                                      | Restore power/connectivity or the trusted LAN route; next manager run catches up.                                                                                                                                        |
-| `ssh:host-key` / `ssh:auth`                                                              | Verify fingerprint or designated user/public key. Never disable host-key checking or copy another host’s keys.                                                                                                           |
-| `SUDO_AUTHORIZATION_REQUIRED`                                                            | Supply initial local privilege through an authorized enrollment step; do not disable SSH authentication.                                                                                                                 |
-| `REMOTE_BOOTSTRAP_INCOMPLETE`                                                            | Inspect the named phase, dpkg state, free disk, DNS and package access. Wait for a real package transaction; never delete locks.                                                                                         |
-| `TOOLCHAIN_MISE_FAILED` / `TOOLCHAIN_T3_FAILED` / `TOOLCHAIN_FROZEN_DEPENDENCIES_FAILED` | Inspect the nonsecret `toolchain-status.json` under remote Fleet state, available disk and signed artifact/registry access. Rerun the approved revision; never replace pins or bypass checksum/frozen-lock verification. |
-| `TOOLCHAIN_CONFIG_CONFLICT` / `TOOLCHAIN_PATH_CONFIGURATION_FAILED`                      | Inspect managed mise ownership and declared shell/PATH settings. Preserve unrelated configuration and resolve the source-owned migration before retrying.                                                                |
-| `FLEET_REMOTE_LOCKED`                                                                    | A remote configuration operation still owns the kernel lock. Inspect its PID and state; wait for completion instead of deleting locks or launching another installer.                                                    |
-| `FLEET_PROMOTION_BLOCKED`                                                                | Resolve discovery/canary failure before promoting the same revision to remaining nodes.                                                                                                                                  |
-| `BESZEL_DUPLICATE_NODE` / host conflict                                                  | Inspect hub registrations. Preserve history/fingerprint and resolve assignment; do not repeatedly create records.                                                                                                        |
-| `BESZEL_METRICS_STALE`                                                                   | Check hub/node clocks, connection, capacity and sampling timestamp.                                                                                                                                                      |
-| `BESZEL_ENROLLMENT_INCOMPLETE`                                                           | Check hub reachability, account grant and Vault renewal. Raw responses/tokens are withheld.                                                                                                                              |
-| `REQUIRED_ACCEPTANCE_UNVERIFIED`                                                         | Run the missing real acceptance check; a skip must never be changed to pass without evidence.                                                                                                                            |
-
-After interruption rerun the same manager command. Manager locks fail closed
-rather than stealing a possibly live operation. Inspect active manager and
-remote processes before removing an abandoned manager `sync.lock`. Its private
-`owner.json` records PID and start time; node `remote-operation.json` records PID,
-node and source revision. `toolchain-status.json` records only the shared installer phase and running/failed/passed status, mode 0600; it contains no raw subprocess output. These are diagnostic hints, never proof that a process
-has stopped or that a phase succeeded. Remote flock
-lives as long as the process tree holds it: a lost SSH connection is not proof that
-APT stopped. No installer deletes APT locks or blindly kills package processes.
-
-To roll configuration back, select the previous approved full SHA in the manager
-and review/apply it. Dirty deployment directories are never reset. Configuration
-rollback is **not** atomic APT rollback, a distribution downgrade, or a restore of
-provider OAuth/application databases. Native identities, T3 conversations, worktrees
-and uncommitted repositories must be preserved. Test the promised restore path
-before replacing a singleton hub or proxy host.
-
-## Agent and release instructions
-
-Inspect `personal commands --json`, `personal commands --json`, this guide and
-`personal fleet-sync --help` first. Use the public manager flow and existing
-owners. Do not create a second installer/manager, run per-node pull schedules,
-substitute discovered peers, patch `/opt` deployment code, or bypass failed gates.
-Keep secrets, pairing URLs, raw environments and whole journals out of reports.
-
-Run affected tests/typechecks/lints, Ansible syntax and disposable Ubuntu integration,
-then `bun run llms:sync`, `bun run check:llms`, npm build and anonymous consumer smoke.
-Use `packages/personal-cli/releasing.md` for publication. The generated local guide is
-`https://www.chrisvouga.dev/llms-local.txt` (linked from `llms.txt`); it never covers
-cloud infrastructure, which has its own `llms-cloud.txt`. Local generation does not prove deployment.
-After an authorized release, fetch public llms.txt, follow the local guide link and test
-the exact published npm version from a clean consumer.
-
-## Agent triage and tracked acceptance issues
-
-Start read-only on the manager:
-
-```sh
-personal fleet-sync --dry-run --json --non-interactive
-personal fleet-sync --schedule status --json
-```
-
-The version 3 report includes a `diagnostics` array per node with stable `code`
-and `checkId`, expected/observed evidence, scope, retryability, action-required
-state and the owning package's remedy. Measured remote phase durations survive
-transport redaction; checks without a measured phase retain null rather than a
-fabricated timing. `scope: unverified` means the origin was
-not established; a null check duration is unknown, not zero. Node duration is
-measured separately. Preflight failures still list every canonical Ubuntu target
-with unknown reachability, rather than fabricating offline results or omitting
-nodes. Human output includes manager-level failures as well as per-node checks.
-
-Use the repository’s **Developer fleet failure** issue form for a new defect.
-For a bug, record package version, approved source SHA, stable check code, whether
-this was preview/apply/maintenance, starting condition and the smallest safe
-reproduction. Attach only the redacted CLI document after inspecting it. Never
-attach `.fleet.local.json`, private SSH config, complete journals, token files,
-pairing links or hub backups. A diagnostic owner points to the existing package;
-fix persistent policy there, add a regression case, promote one reviewed commit,
-and rerun the same manager flow. Do not resolve a failed gate by editing its
-reported status or by an untracked remote shell patch.
-
-Open acceptance issues (these do not imply production machines were fault-tested):
-
-- [#209: multi-target SSH bootstrap and interrupted-run recovery](https://github.com/crvouga/personal/issues/209).
-- [#210: private paired T3 and five shared-provider routes](https://github.com/crvouga/personal/issues/210).
-- [#211: Beszel native lifecycle, private metrics and off-host recovery](https://github.com/crvouga/personal/issues/211).
-
-Each issue has existing evidence and completion criteria. Close a gate only with
-the specified real evidence; mocked transport tests cannot substitute for VM or
-separate-client acceptance. Newly found defects should have one focused issue with
-a reproduction and stable code, linked to the relevant gate.
-
-Canary promotion gates distinguish configuration failure from external acceptance. A failed configuration blocks promotion; missing pairing or monitoring evidence remains an unsuccessful readiness result but does not prevent independent configuration on other enrolled nodes. Native T3 outcomes that need an operator maintenance window (an active listener outside the managed unit, a different running release, a pending policy restart) are reported as failures but likewise do not block other nodes; routine sync never kills active T3 work to clear them. Neither condition advances a fully verified success receipt.
-
-The managed native T3 service uses a stock Tailscale Serve HTTPS route on port
-443 to its loopback port 3773. The manager configures and independently reads
-back the route without restarting T3. Existing handlers and Funnel exposure are
-conflicts requiring reviewed migration; sync never resets Serve. Serve persistence
-is independent of application startup, so temporary VPN loss does not become a
-T3 startup dependency. The manager then makes a fresh TLS-verified HTTPS
-request to the enrolled device. An HTTP 200 proves endpoint transport only; it
-does not establish client compatibility, pairing, or model/tool execution.
-
-Boot-policy verification reads the running logind D-Bus properties, sleep target
-masks and designated-user lingering. It requires the managed power files to
-predate the current kernel boot before recording boot acceptance. Newly staged
-policy reports `UBUNTU_MAINTENANCE_REBOOT_PENDING`; routine convergence never
-restarts logind or reboots active development sessions.
-
-Remote bootstrap requires at least 2 GiB free and 50,000 free inodes before source
-transfer; Workstation then applies its stricter capacity policy. Capacity failures
-never delete repositories or caches. Git bundles are bounded to 512 MiB, and a
-verified clean cached revision avoids retransferring repository history.
-
-The current-manager provider preflight returned `PROVIDER_UNATTENDED_CREDENTIAL_REQUIRED` for all five providers. It performed no inference or native OAuth login. Restore the existing authorized Vault lifecycle before treating any route as live-accepted.
+A provider is pinned to its account: T3 sets `WS_AGENT_ACCOUNT` and the
+launcher routes every request to `<type>-<email>/<model>`. Claude and Codex
+send whichever model is picked, so their launcher runs a loopback relay
+(`account-relay.ts`, alive only while that agent runs) that adds the prefix;
+OpenCode is configured with exactly the account's models. Requests without a
+prefix (Grok, the pooled OpenCode provider, health checks) still use the whole
+pool, fill-first. T3's own Antigravity runtime cannot carry an account, so
+Antigravity accounts run on the OpenCode harness. Cursor is not part of the
+fleet (its backend cannot be proxied). Native Muse Code is not used: it only
+talks to Meta's own catalog endpoint, so Muse models run through OpenCode.
 
 ### Checkout project actions
 
