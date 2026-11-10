@@ -73,7 +73,7 @@ class BackupCommand(unittest.TestCase):
         )
         output = io.StringIO()
 
-        def capture(root, target, compose):
+        def capture(root, target):
             self.events.append("capture-and-resume")
             target.mkdir()
 

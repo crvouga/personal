@@ -21,11 +21,18 @@ export function startAccountRelay(
   };
 }
 
+type RelayOptions = {
+  send?: typeof fetch;
+  pause?: (seconds: number) => Promise<void>;
+};
+const sleep = (seconds: number) =>
+  new Promise<void>((done) => setTimeout(done, seconds * 1000));
+
 export async function forward(
   request: Request,
   endpoint: string,
   prefix: string,
-  send: typeof fetch = fetch
+  { send = fetch, pause = sleep }: RelayOptions = {}
 ): Promise<Response> {
   const url = new URL(request.url);
   const headers = new Headers(request.headers);
@@ -41,23 +48,50 @@ export async function forward(
       });
     body = pinModel(await request.text(), prefix);
   }
-  try {
-    const upstream = await send(endpoint + url.pathname + url.search, {
+  const attempt = () =>
+    send(endpoint + url.pathname + url.search, {
       method: request.method,
       headers,
       ...(body === undefined ? {} : { body }),
       redirect: 'error',
       signal: request.signal,
     });
-    const answered = new Headers(upstream.headers);
-    answered.delete('content-encoding');
-    answered.delete('content-length');
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: answered,
-    });
-  } catch {
+  const upstream = await reachProxy(attempt, request.signal, pause);
+  if (!upstream)
     return new Response('The CLI proxy is unreachable.', { status: 502 });
+  const answered = new Headers(upstream.headers);
+  answered.delete('content-encoding');
+  answered.delete('content-length');
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: answered,
+  });
+}
+
+/** Seconds to wait before each further attempt (about a minute in total). */
+export const RETRY_DELAYS = [1, 2, 4, 8, 15, 30];
+/** The route to the proxy answered instead of the proxy: its connector or the
+ * proxy itself is restarting. 502-504 from a gateway, 520-530 from Cloudflare.
+ */
+const routeDown = (status: number) =>
+  (status >= 502 && status <= 504) || (status >= 520 && status <= 530);
+
+/** A brief outage of the route must not end an agent's turn: nothing has been
+ * sent to the agent yet, so the same request is simply tried again until the
+ * proxy answers or the delays run out. The last answer is returned as it is.
+ */
+async function reachProxy(
+  attempt: () => Promise<Response>,
+  signal: AbortSignal,
+  pause: (seconds: number) => Promise<void>
+): Promise<Response | null> {
+  for (let tries = 0; ; tries++) {
+    const delay = RETRY_DELAYS[tries];
+    const response = await attempt().catch(() => null);
+    if (response && !routeDown(response.status)) return response;
+    if (delay === undefined || signal.aborted) return response;
+    await response?.body?.cancel().catch(() => undefined);
+    await pause(delay);
   }
 }
 

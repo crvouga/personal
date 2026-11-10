@@ -1,5 +1,6 @@
 """Consistent, secret-minimal checkpoints. Runtime state is never executable code."""
 
+import fnmatch
 import hashlib
 import json
 import os
@@ -7,6 +8,7 @@ import pathlib
 import shutil
 import stat
 import subprocess
+import time
 
 STATE_PATHS = (
     "runtime/config.yaml",
@@ -84,49 +86,73 @@ def validate(root):
     return manifest
 
 
-def capture(root, target, compose):
-    """Always resume the originally running services before cloud I/O."""
-    running = compose(
-        "ps", "--status", "running", "--services", capture_output=True
-    ).stdout.split()
-    try:
-        if running:
-            compose("stop", *running)
-        target.mkdir(mode=0o700)
-        (target / "state").mkdir(mode=0o700)
-        for name in STATE_PATHS:
-            source = root / "state" / name
-            if not source.exists() and not source.is_symlink():
-                continue
-            regular_tree(source)
-            destination = target / "state" / name
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if source.is_dir():
-                # Process-local locks and upstream error logs (request
-                # content) are never restored.
-                ignore = (
-                    shutil.ignore_patterns(*AUTH_TRANSIENT)
-                    if name == "runtime/auths"
-                    else None
-                )
-                shutil.copytree(source, destination, ignore=ignore)
-            else:
-                shutil.copyfile(source, destination)
-        shutil.copyfile(root / "INSTALLATION.json", target / "INSTALLATION.json")
-        (target / "CHECKPOINT.json").write_text(
-            json.dumps({"version": 1, "files": hashes(target)}) + "\n"
-        )
-        validate(target)
-    finally:
-        if running:
-            compose(
-                "--profile",
-                "portable-endpoint",
-                "--profile",
-                "public-endpoint",
-                "start",
-                *running,
+def stamps(root):
+    """Size and modification time of every state file whose copy must be whole:
+    the runtime tree and the Tailscale identity. Changing logs are not state."""
+    found = {}
+    for name in ("runtime", "tailscale/tailscaled.state"):
+        source = root / "state" / name
+        paths = [source] if source.is_file() else source.rglob("*") if source.is_dir() else []
+        for path in paths:
+            if path.is_file() and not any(
+                fnmatch.fnmatch(part, pattern)
+                for part in path.relative_to(root).parts
+                for pattern in AUTH_TRANSIENT
+            ):
+                status = path.stat()
+                found[str(path)] = (status.st_size, status.st_mtime_ns)
+    return found
+
+
+def copy_state(root, target):
+    target.mkdir(mode=0o700)
+    (target / "state").mkdir(mode=0o700)
+    for name in STATE_PATHS:
+        source = root / "state" / name
+        if not source.exists() and not source.is_symlink():
+            continue
+        regular_tree(source)
+        destination = target / "state" / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            # Process-local locks and upstream error logs (request
+            # content) are never restored.
+            ignore = (
+                shutil.ignore_patterns(*AUTH_TRANSIENT)
+                if name == "runtime/auths"
+                else None
             )
+            shutil.copytree(source, destination, ignore=ignore)
+        else:
+            shutil.copyfile(source, destination)
+    shutil.copyfile(root / "INSTALLATION.json", target / "INSTALLATION.json")
+    (target / "CHECKPOINT.json").write_text(
+        json.dumps({"version": 1, "files": hashes(target)}) + "\n"
+    )
+    validate(target)
+
+
+def capture(root, target, attempts=6, sleep=time.sleep):
+    """Copies the state of the running stack without ever stopping it: agents
+    use the proxy around the clock, and a stopped connector fails every one of
+    their requests. A copy is consistent when no state file changed while it
+    was taken (the proxy writes a file, including its bbolt store, in one
+    synced step); otherwise it is discarded and taken again. A stack that
+    never holds still fails the backup, which the monitor reports."""
+    for attempt in range(attempts):
+        before = stamps(root)
+        try:
+            copy_state(root, target)
+            if stamps(root) == before:
+                return
+        except (OSError, ValueError):
+            # A file replaced mid-copy; only the last attempt's error counts.
+            if attempt + 1 == attempts:
+                shutil.rmtree(target, ignore_errors=True)
+                raise
+        shutil.rmtree(target, ignore_errors=True)
+        sleep(2)
+    raise ValueError("State kept changing during capture")
 
 
 def locate(restored):

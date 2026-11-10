@@ -1,6 +1,11 @@
 import { expect, test } from 'bun:test';
 import { accountPrefix, accountsFrom, discoverAccounts } from './accounts';
-import { forward, pinModel, startAccountRelay } from './account-relay';
+import {
+  forward,
+  pinModel,
+  RETRY_DELAYS,
+  startAccountRelay,
+} from './account-relay';
 import { pinAccount } from './launch';
 import { select } from './registry';
 
@@ -90,7 +95,7 @@ test('the relay pins the model and leaves everything else alone', async () => {
     }),
     'https://proxy.example',
     'claude-a@b.c',
-    upstream
+    { send: upstream }
   );
   expect(seen).toEqual([
     {
@@ -109,10 +114,59 @@ test('the relay pins the model and leaves everything else alone', async () => {
     }),
     'https://proxy.example',
     'p',
-    upstream
+    { send: upstream }
   );
   expect(compressed.status).toBe(415);
   expect(seen).toHaveLength(1);
+});
+
+test('a route outage is retried until the proxy answers; the agent never sees it', async () => {
+  const statuses = [530, 502, 200];
+  const waits: number[] = [];
+  const bodies: string[] = [];
+  const flaky = (async (_url: string, init: RequestInit) => {
+    bodies.push(String(init.body));
+    const status = statuses.shift()!;
+    return new Response(status === 200 ? 'ok' : 'tunnel error', { status });
+  }) as unknown as typeof fetch;
+  const request = () =>
+    new Request('http://127.0.0.1:1/v1/messages', {
+      method: 'POST',
+      body: '{"model":"m"}',
+    });
+  const response = await forward(
+    request(),
+    'https://proxy.example',
+    'p-a@b.c',
+    {
+      send: flaky,
+      pause: async (seconds) => void waits.push(seconds),
+    }
+  );
+  expect(response.status).toBe(200);
+  expect(await response.text()).toBe('ok');
+  expect(waits).toEqual([1, 2]);
+  expect(new Set(bodies)).toEqual(new Set(['{"model":"p-a@b.c/m"}']));
+  // A real provider error is the proxy's answer: returned at once.
+  const rejected = await forward(request(), 'https://proxy.example', 'p', {
+    send: (async () =>
+      new Response('rate limited', { status: 429 })) as unknown as typeof fetch,
+    pause: async () => {
+      throw new Error('must not wait');
+    },
+  });
+  expect(rejected.status).toBe(429);
+  // An outage longer than every delay returns the last answer.
+  let calls = 0;
+  const down = await forward(request(), 'https://proxy.example', 'p', {
+    send: (async () => {
+      calls++;
+      return new Response('down', { status: 530 });
+    }) as unknown as typeof fetch,
+    pause: async () => {},
+  });
+  expect(down.status).toBe(530);
+  expect(calls).toBe(RETRY_DELAYS.length + 1);
 });
 
 test('a running relay serves a real loopback request', async () => {
