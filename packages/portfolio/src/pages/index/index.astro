@@ -1,0 +1,30 @@
+---
+/**
+ * `/index/`: every host the platform serves, listed on the portfolio or not,
+ * with its status from a probe taken when the site was built. Linked only from
+ * the bottom of the footer; `noindex` and out of the sitemap, since it names
+ * internal tools.
+ */
+import { CONTENT } from '../../content/content';
+import Page from '../../layouts/Page.astro';
+import { DEFAULT_OG_IMAGE } from '../../lib/seo';
+import type { Seo } from '../../lib/seo-types';
+import { SERVICE_INDEX_PATH } from '../../lib/service-index';
+import { loadServiceIndexView } from '../../lib/service-index-view';
+import ServiceIndexScreen from '../../screens/ServiceIndexScreen.astro';
+
+const view = await loadServiceIndexView();
+
+const seo: Seo = {
+  title: `Index — ${CONTENT.PAGE_TITLE}`,
+  description: 'Every service, app and domain this platform serves, with live status.',
+  path: SERVICE_INDEX_PATH,
+  image: DEFAULT_OG_IMAGE,
+  schema: { t: 'none' },
+  noindex: true,
+};
+---
+
+<Page seo={seo}>
+  <ServiceIndexScreen view={view} />
+</Page>

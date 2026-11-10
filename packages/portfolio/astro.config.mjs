@@ -30,9 +30,10 @@ export default defineConfig({
   // they stay out of the sitemap.
   integrations: [
     sitemap({
-      // /roles/ and /gaps/ are Chris's own pages, not pages
-      // for visitors.
-      filter: (page) => !/^\/(a|roles|gaps)\//.test(new URL(page).pathname),
+      // /roles/, /gaps/ and /index/ are Chris's own pages, not pages for
+      // visitors (/index/ names internal tools).
+      filter: (page) =>
+        !/^\/(a|roles|gaps|index)\//.test(new URL(page).pathname),
     }),
     cspHeader(),
   ],

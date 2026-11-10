@@ -30,6 +30,7 @@ const PAGES = [
   '/roles/corporate-large-company-senior-developer/',
   '/gaps/',
   '/gaps/ai-product-engineer/',
+  '/index/',
   '/projects/mockingbird/',
   '/projects/gamezilla/',
   '/projects/workspace-platform/',
