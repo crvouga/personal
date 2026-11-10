@@ -1,6 +1,6 @@
 ---
-import { presentationOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 import { CONTENT } from '../content/content';
 import { logisticsLines } from '../content/hero';
 import IconEmail from '../components/icons/IconEmail.astro';
@@ -9,7 +9,7 @@ import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
 
 interface Props {
   /** Injected by stories and HomeScreen; defaults to the page's presentation. */
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 
 const { voice } = presentationOf(Astro);

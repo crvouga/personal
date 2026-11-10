@@ -5,9 +5,9 @@
  * The rest are claimed here, each with the fact that backs it. A skill that
  * is neither is a gap: the landscape reports it and no presentation shows it.
  */
-import { SKILLS } from '../archetypes/skills';
+import { SKILLS } from '../roles/skills';
 import { PROJECT_FACTS } from './projects';
-import { ROLES } from './roles';
+import { JOBS } from './jobs';
 import type { Capability } from './types';
 
 export const CAPABILITIES: readonly Capability[] = [
@@ -47,9 +47,9 @@ export const CAPABILITIES: readonly Capability[] = [
 /** Every technology a role, an achievement or a listed project names. */
 export const KNOWN_TOPICS: ReadonlySet<string> = new Set([
   ...PROJECT_FACTS.flatMap((project) => project.topics),
-  ...ROLES.flatMap((role) => [
-    ...(role.topics ?? []),
-    ...role.achievements.flatMap((achievement) => achievement.topics),
+  ...JOBS.flatMap((job) => [
+    ...(job.topics ?? []),
+    ...job.achievements.flatMap((achievement) => achievement.topics),
   ]),
 ]);
 

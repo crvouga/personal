@@ -78,8 +78,11 @@ const measure = async (page: Page, html: string): Promise<Overflow> => {
       const emptySections = Array.from(document.querySelectorAll('section'))
         .filter((s) => {
           const heading = s.querySelector('.section-title');
-          // Experience/Projects/Education render `.entry`; Skills `.skill-row`.
-          const rows = s.querySelectorAll('.entry, .skill-row').length;
+          // Experience/Projects/Education render `.entry`; Skills `.skill-row`;
+          // Core Competencies one `.competencies` line.
+          const rows = s.querySelectorAll(
+            '.entry, .skill-row, .competencies'
+          ).length;
           return heading !== null && rows === 0;
         })
         .map((s) => s.querySelector('.section-title')?.textContent ?? '?');

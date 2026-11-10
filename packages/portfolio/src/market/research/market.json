@@ -1,0 +1,631 @@
+{
+  "asOf": "2026-11-09",
+  "trends": [
+    {
+      "id": "senior-ai-led-rebound",
+      "label": "Software postings rebound, led by senior and AI-titled roles",
+      "finding": "US software development postings rose almost 15% after late February 2025, while overall postings fell 7%. They are still 27.5% below the pre-pandemic level. Senior roles accounted for 71% of the increase from May 2025 to May 2026, and jobs with AI in the title accounted for 37%.",
+      "implication": "A senior candidate with real AI-feature work is aimed at the part of the market that is growing. Lead with seniority and AI evidence.",
+      "themes": ["ai-products", "leadership"],
+      "skills": ["llm-apis"],
+      "sources": [0]
+    },
+    {
+      "id": "seniority-tilt",
+      "label": "Software is the most senior-skewed job category",
+      "finding": "In Q1 2026, 69.3% of software development postings were senior-level and 4.5% were entry-level, the highest and lowest shares of any sector Hiring Lab tracks. US senior postings overall were up 14.7% year over year in May 2026.",
+      "implication": "Level deflation pressure falls mostly on juniors. A six-year engineer should present at senior or lead scope (owned systems, decisions, mentoring), not as mid-level.",
+      "themes": ["leadership", "ownership"],
+      "skills": [],
+      "sources": [1]
+    },
+    {
+      "id": "ai-skills-baseline",
+      "label": "AI skills are now listed in most tech postings",
+      "finding": "Dice found at least one AI skill in 73% of US tech postings in May 2026, up from 15% in January 2024. Postings with AI in the title rose 173% year over year in Q1 2026. Indeed found that tech postings mentioning AI were about 45% above February 2020 levels at the end of 2025, while all tech postings were 34% below.",
+      "implication": "Name concrete AI skills (LLM APIs, agents, evals, coding assistants) in résumé text that ATS keyword filters can match. Leaving them out now reads as a gap.",
+      "themes": ["ai-products", "ai-assisted"],
+      "skills": ["llm-apis", "ai-tools"],
+      "sources": [2, 3]
+    },
+    {
+      "id": "ai-assisted-expected-but-distrusted",
+      "label": "AI-assisted coding is expected, and verification is what distinguishes candidates",
+      "finding": "80% of developers use AI tools, but only 29% trust their accuracy. 45% say their top frustration is answers that are 'almost right', and 66% spend more time fixing near-miss AI code. Shopify's CEO made 'reflexive AI usage' a baseline expectation and added it to performance reviews.",
+      "implication": "Show that you use agents with controls: CI gates, review policy, tests. That combination of speed and verification is the criterion employers are looking for.",
+      "themes": ["ai-assisted", "testing-quality", "ci-cd"],
+      "skills": ["ai-tools", "ci-cd"],
+      "sources": [6, 22]
+    },
+    {
+      "id": "ai-allowed-interviews",
+      "label": "Interviews are splitting into AI-allowed rounds and no-AI rounds",
+      "finding": "Canva requires candidates to use AI in coding interviews and scores how they handle ambiguity and fix flaws in AI-generated code. Meta piloted AI-assisted coding rounds. Karat reports that 62% of organisations still ban AI in interviews, and that take-homes and automated tests lose criterion fastest because only the output is visible. Karat's US figures: take-homes used by 45% of companies, live interviews by 79%.",
+      "implication": "Prepare for both formats. Portfolio write-ups about how you verify agent output pre-empt the AI-allowed round. Expect fewer take-homes and more live or in-person rounds.",
+      "themes": ["ai-assisted", "testing-quality"],
+      "skills": ["ai-tools"],
+      "sources": [9, 10, 28]
+    },
+    {
+      "id": "ai-screening-doom-loop",
+      "label": "AI screening, application floods and fraud",
+      "finding": "Greenhouse's 2025 survey: 41% of US job seekers admit using prompt injections in résumés, 22% of hiring managers have caught one, and 65% have caught deceptive AI use. 39% of hiring managers are running more in-person interviews to verify authenticity, and only 21% of recruiters are very confident their AI isn't rejecting qualified people. Gartner predicts that 1 in 4 candidate profiles worldwide could be fake by 2028.",
+      "implication": "Verifiable identity and work carry more weight: a consistent LinkedIn profile, a real GitHub history, a personal domain and named references. Never use hidden-text tricks.",
+      "themes": ["process"],
+      "skills": [],
+      "sources": [11, 12]
+    },
+    {
+      "id": "remote-minority-hybrid-tightening",
+      "label": "Fully remote is a minority, and hybrid is tightening",
+      "finding": "Among US AI-engineering postings that state a work model, 32% are fully remote, 48% hybrid and 20% on-site. In the UK, software development has the highest remote/hybrid share of any occupation (48%), but typical hybrid roles now require 2.3 office days a week, up 0.6 days in two years.",
+      "implication": "A remote-only search narrows the pool sharply. Target remote-first companies and AI-engineering roles, where remote shares are higher, and say 'US citizen, remote, open to travel' up front.",
+      "themes": ["process"],
+      "skills": [],
+      "sources": [14, 13]
+    },
+    {
+      "id": "ai-engineering-hottest-segment",
+      "label": "AI engineering is the fastest-growing engineering segment",
+      "finding": "LinkedIn: AI Engineers' share of software engineering hires is 14x the 2019 level and 10x the 2022 level, and transitions into generative-AI engineer roles have grown about ninefold since 2021, though they are still under 1% of job switches. The Pragmatic Engineer reports many large tech companies have 50–100% more AI-engineering listings than a year earlier.",
+      "implication": "Moving from product engineer to AI product engineer is the highest-leverage repositioning available to a TypeScript product engineer.",
+      "themes": ["ai-products"],
+      "skills": ["llm-apis", "python"],
+      "sources": [4, 5]
+    },
+    {
+      "id": "skill-mix-shift",
+      "label": "Hiring outcomes favour Python, cloud and data over classic web skills",
+      "finding": "The top skills among US software engineering hires (2021–2025) are Python, AWS, SQL, JavaScript and React. The fastest-growing are AI, Tailwind CSS, Azure Databricks, Google BigQuery and Azure SQL. Five years earlier, JavaScript, CSS and HTML led.",
+      "implication": "Pair the TypeScript/React core with visible Python, cloud and data work. Pure frontend positioning is weakening.",
+      "themes": ["cloud-infra", "data"],
+      "skills": ["python", "aws", "sql", "react", "azure", "gcp"],
+      "sources": [4]
+    },
+    {
+      "id": "typescript-number-one",
+      "label": "TypeScript became GitHub's most-used language",
+      "finding": "In August 2025, TypeScript passed Python and JavaScript in monthly contributors on GitHub. It added more than one million contributors, which GitHub links to AI-assisted development and typed defaults in frameworks.",
+      "implication": "A TypeScript-first profile is mainstream and fits AI-assisted workflows well. Frame it as an asset in agent-heavy teams.",
+      "themes": ["ai-assisted", "frontend-craft"],
+      "skills": ["typescript"],
+      "sources": [8]
+    },
+    {
+      "id": "forward-deployed-rise",
+      "label": "Forward deployed engineering became a hot AI-era role",
+      "finding": "The Pragmatic Engineer documents startups and scaleups hiring forward deployed engineers in large numbers. These are software engineers embedded with customers who also work on the core product, a role Palantir pioneered and AI companies have adopted. Its 2026 market report says AI and FDE roles are surging while mobile and frontend demand drops.",
+      "implication": "Integration-heavy, customer-facing builders are in demand. The candidate's API emulator, third-party integration work and stakeholder-facing tech-lead experience map directly to it.",
+      "themes": ["integrations", "stakeholders", "ai-products"],
+      "skills": ["llm-apis", "rest"],
+      "sources": [25, 5]
+    },
+    {
+      "id": "ai-pay-premium-by-level",
+      "label": "The AI pay premium grows with seniority",
+      "finding": "Levels.fyi measured the AI-engineer premium over non-AI peers in 2025 at 6.2% for entry level, 11.9% for engineer, 14.2% for senior and 18.7% for staff. Axial Search reports a $176,000 median posted salary across 43,480 US AI-engineering postings in 2026.",
+      "implication": "For a senior engineer, credible AI positioning is worth real money, and the premium grows at staff level.",
+      "themes": ["ai-products"],
+      "skills": ["llm-apis"],
+      "sources": [15, 14]
+    },
+    {
+      "id": "referrals-and-network",
+      "label": "Cold applications convert poorly, and warm paths matter more",
+      "finding": "The Pragmatic Engineer reports experienced engineers who only get interviews when they know someone at the company. Ashby data shows referrals are about 1% of applications but convert to interviews at 40%. Greenhouse reports recruiters spending up to half their week filtering junk applications.",
+      "implication": "Spend a meaningful share of search time on referrals, communities (AI Engineer meetups, OSS maintainers) and direct outreach to hiring managers.",
+      "themes": ["stakeholders"],
+      "skills": [],
+      "sources": [5, 17, 11]
+    },
+    {
+      "id": "k8s-ai-runtime",
+      "label": "Kubernetes is the default production platform, including for AI inference",
+      "finding": "CNCF's 2025 survey: 82% of container users run Kubernetes in production, and 66% of organisations running generative-AI models use Kubernetes for inference.",
+      "implication": "Kubernetes appears as an assumed requirement in many senior backend and platform roles. Hands-on proof closes the most common gap at moderate cost.",
+      "themes": ["cloud-infra"],
+      "skills": ["kubernetes", "docker"],
+      "sources": [23]
+    }
+  ],
+  "universalCriteria": [
+    {
+      "id": "quantified-impact",
+      "label": "Quantified impact",
+      "why": "Hiring managers use numbers to judge both the size of the outcome and whether the candidate can measure their own work.",
+      "themes": ["ownership", "product-sense"],
+      "howToDemonstrate": "Give each role two or three bullets with a measured result (latency, cost, conversion, incidents, time saved), with the baseline stated.",
+      "sources": [21]
+    },
+    {
+      "id": "title-alignment",
+      "label": "Title that matches the posting",
+      "why": "Jobscan found a 10.6x higher interview rate when the résumé title matched the target title, and 55%+ of recruiters filter by title.",
+      "themes": ["process"],
+      "howToDemonstrate": "Keep résumé variants whose headline uses the exact posted title (Senior Software Engineer / AI Engineer / Product Engineer) where it is truthful.",
+      "sources": [16]
+    },
+    {
+      "id": "runnable-public-proof",
+      "label": "Public proof that runs",
+      "why": "Reviewers clone repos and follow READMEs, and AI-generated portfolios have made verifiable work more valuable.",
+      "themes": ["open-source", "documentation"],
+      "howToDemonstrate": "Pin one to three repos with a clean quickstart, tests, CI badge and a short design note.",
+      "sources": [26, 11]
+    },
+    {
+      "id": "verified-ai-workflow",
+      "label": "Disciplined AI-assisted workflow",
+      "why": "Employers expect AI use but distrust unverified output, and AI-allowed interviews score how candidates catch AI mistakes.",
+      "themes": ["ai-assisted", "testing-quality"],
+      "howToDemonstrate": "Write up the AGENTS.md policy, the CI gates, and one concrete bug the gates caught.",
+      "sources": [6, 9, 10]
+    },
+    {
+      "id": "warm-introductions",
+      "label": "Referrals and warm introductions",
+      "why": "Referred applicants convert to interviews at about 40% in Ashby data, far above the flood of cold AI-assisted applications.",
+      "themes": ["stakeholders"],
+      "howToDemonstrate": "Keep a target list of 20–30 companies and ask former colleagues, OSS contacts and meetup peers for introductions.",
+      "sources": [17, 5]
+    },
+    {
+      "id": "linkedin-presence",
+      "label": "Consistent, optimised LinkedIn profile",
+      "why": "73.3% of recruiters always or often check LinkedIn, an optimised profile came with a 2.2x interview rate, and authenticity checks are rising because of candidate fraud.",
+      "themes": ["process"],
+      "howToDemonstrate": "Use the same title, dates and headline metrics as the résumé, with links to the portfolio and GitHub.",
+      "sources": [16, 11]
+    },
+    {
+      "id": "written-decisions",
+      "label": "Written reasoning (ADRs, write-ups)",
+      "why": "Hiring managers ask candidates to defend architecture and model choices, and writing shows judgement that code alone doesn't.",
+      "themes": ["documentation", "architecture"],
+      "howToDemonstrate": "Publish two or three short decision records or blog posts (for example, why OpenTofu, or the LLM proxy's routing policy).",
+      "sources": [26, 31]
+    },
+    {
+      "id": "tailored-cover-note",
+      "label": "Short tailored cover note",
+      "why": "Jobscan measured a 3.4x higher interview rate when a cover letter was included.",
+      "themes": ["stakeholders"],
+      "howToDemonstrate": "Write three or four sentences linking one portfolio case study to the company's product problem.",
+      "sources": [16]
+    }
+  ],
+  "resumeRules": [
+    {
+      "rule": "Mirror the target job title in the headline and summary.",
+      "why": "A matching title came with a 10.6x higher interview rate in Jobscan's 2025 data.",
+      "sources": [16]
+    },
+    {
+      "rule": "Write the posting's hard-skill keywords literally (for example 'Kubernetes', 'LLM APIs', 'TypeScript'), not only synonyms.",
+      "why": "Over 99.7% of surveyed recruiters use ATS filters, and 76.4% start by filtering on skills. Workday, the most common Fortune 500 ATS, is used by over 39% of them.",
+      "sources": [16, 30]
+    },
+    {
+      "rule": "Use a single-column layout with no tables, text boxes, graphics or headers/footers holding key data. Submit PDF or DOCX.",
+      "why": "Greenhouse's support documentation lists layout elements and oversized files (over 2.5MB) as causes of failed résumé parsing.",
+      "sources": [20]
+    },
+    {
+      "rule": "Two pages are fine for a senior engineer, but page one must carry the case.",
+      "why": "In ResumeGo's 2018 simulation, recruiters were 2.3x as likely to prefer two-page résumés, though the study has limits. Ladders' eye-tracking found the first scan lasts about 7.4 seconds and focuses on titles and subheads.",
+      "sources": [18, 19]
+    },
+    {
+      "rule": "Make the top third do the work: title, a two-line summary with the strongest proof, then the most relevant role.",
+      "why": "Recruiters' initial scan focuses on job titles and section heads in a few seconds.",
+      "sources": [19]
+    },
+    {
+      "rule": "Use the bullet formula verb + system/scope + measured outcome + how.",
+      "why": "Orosz advises numbers and specifics because they show impact and the ability to quantify it.",
+      "sources": [21]
+    },
+    {
+      "rule": "Weight recent work. Go deep on the last 5–6 years and compress older work.",
+      "why": "Recruiters cited in Jobscan's report focus on recent career accomplishments, roughly the last 15 years at most.",
+      "sources": [16]
+    },
+    {
+      "rule": "Link LinkedIn, GitHub and a portfolio, and keep them consistent with the résumé.",
+      "why": "73.3% of recruiters check LinkedIn, and rising fraud makes cross-checkable identity a trust criterion.",
+      "sources": [16, 11]
+    },
+    {
+      "rule": "Never hide keywords or prompt-injection text.",
+      "why": "22% of hiring managers have already caught hidden prompt injections, and 65% have caught deceptive AI use. Getting caught ends the candidacy.",
+      "sources": [11]
+    },
+    {
+      "rule": "Name AI tools concretely and pair them with how output is verified.",
+      "why": "Most tech postings now list AI skills, but employers distrust unverified AI output and test verification in interviews.",
+      "sources": [3, 6, 10]
+    },
+    {
+      "rule": "Include a short tailored cover letter when the form allows one.",
+      "why": "Jobscan measured a 3.4x higher interview rate with a cover letter.",
+      "sources": [16]
+    },
+    {
+      "rule": "Link only repos that run from a clean clone.",
+      "why": "Hiring managers clone public projects and follow the README. A broken repo counts against the candidate.",
+      "sources": [26]
+    }
+  ],
+  "skillOutlook": [
+    {
+      "skill": "kubernetes",
+      "direction": "rising",
+      "note": "82% of container users run it in production (CNCF 2025), and it is the default runtime for generative-AI inference at 66% of orgs running those models. 30.1% of professional developers use it.",
+      "sources": [23, 7]
+    },
+    {
+      "skill": "java",
+      "direction": "steady",
+      "note": "Java is #2 among skills in US software engineering postings (LinkedIn 2021–25) and used by 29.6% of professional developers. It is entrenched in enterprises but not among the fastest-growing skills.",
+      "sources": [4, 7, 24]
+    },
+    {
+      "skill": "azure",
+      "direction": "rising",
+      "note": "Azure Databricks and Azure SQL are among the fastest-growing skills of US software engineering hires (LinkedIn). 27.2% of professional developers use Azure.",
+      "sources": [4, 7]
+    },
+    {
+      "skill": "gcp",
+      "direction": "steady",
+      "note": "Used by 24.3% of professional developers. Google BigQuery is among the fastest-growing skills of SWE hires, so the pull is mainly through data platforms.",
+      "sources": [4, 7]
+    },
+    {
+      "skill": "microservices",
+      "direction": "steady",
+      "note": "Still assumed in many enterprise backend postings alongside Kubernetes. Widely reported moves toward consolidation and modular monoliths could not be confirmed against a primary 2025 survey.",
+      "sources": [23]
+    },
+    {
+      "skill": "kafka",
+      "direction": "steady",
+      "note": "In Confluent's own 2025 survey of 4,175 IT leaders, 87% expect data-streaming platforms to feed AI systems. This is a vendor source, and no independent posting-share data was found.",
+      "sources": [29]
+    },
+    {
+      "skill": "llm-apis",
+      "direction": "rising",
+      "note": "AI skills appear in 73% of US tech postings (Dice, May 2026). AI-titled jobs drove 37% of the 2025–26 software posting gain, and 51% of AI-engineering postings name foundation models.",
+      "sources": [3, 0, 14]
+    },
+    {
+      "skill": "ai-tools",
+      "direction": "rising",
+      "note": "80% of developers use AI tools, and companies like Shopify and Canva make AI use an expectation or require it in interviews.",
+      "sources": [6, 22, 10]
+    },
+    {
+      "skill": "typescript",
+      "direction": "rising",
+      "note": "TypeScript became the #1 language on GitHub by monthly contributors in August 2025, and 48.8% of professional developers use it.",
+      "sources": [8, 7]
+    },
+    {
+      "skill": "react",
+      "direction": "steady",
+      "note": "A top-5 skill among US software engineering hires and used by 46.9% of professional developers. Mature, with demand holding.",
+      "sources": [4, 7]
+    },
+    {
+      "skill": "python",
+      "direction": "rising",
+      "note": "Usage rose 7 points in the 2025 Stack Overflow survey. Python is the #1 skill among SWE hires (LinkedIn) and appears in 62% of AI-engineering postings.",
+      "sources": [7, 4, 14]
+    },
+    {
+      "skill": "go",
+      "direction": "steady",
+      "note": "Used by 17.4% of professional developers. It has a niche in infrastructure and backend work, with no sourced evidence of a demand surge.",
+      "sources": [7]
+    },
+    {
+      "skill": "rust",
+      "direction": "steady",
+      "note": "The most admired language (72%) but used by only 14.5% of professional developers. Admiration far outruns posting demand.",
+      "sources": [7]
+    },
+    {
+      "skill": "terraform",
+      "direction": "steady",
+      "note": "Used by 18.7% of professional developers. It is a common infrastructure-as-code requirement, and OpenTofu experience transfers directly.",
+      "sources": [7]
+    },
+    {
+      "skill": "observability",
+      "direction": "rising",
+      "note": "Named as a core AI-engineering skill. The Pragmatic Engineer reports observability companies hiring AI engineers fastest.",
+      "sources": [14, 5]
+    }
+  ],
+  "recommendations": [
+    {
+      "gap": "No public evals or AI case study",
+      "move": "Build an eval harness for the LLM proxy or one Geviti-style feature: read 20–50 traces, write a failure taxonomy, add binary checks and one judge validated against human labels, and publish a case study with before/after numbers.",
+      "effort": "weeks",
+      "payoff": "Directly addresses the top AI-engineer screening question ('how did you know it worked?') and opens the AI product engineer role.",
+      "sources": [27, 26, 31]
+    },
+    {
+      "gap": "LLM work lacks cost and latency numbers",
+      "move": "Instrument the LLM proxy to record tokens, cost per request, p50/p95 latency and routing decisions per provider, then publish a dashboard screenshot and a short write-up.",
+      "effort": "days",
+      "payoff": "Turns an existing project into evidence of production AI work and pre-empts token-cost interview exercises.",
+      "sources": [31, 26]
+    },
+    {
+      "gap": "Impact not quantified",
+      "move": "Re-mine One Origin and Geviti work for measurable outcomes (latency, release frequency, incidents, user counts, cost) and rewrite every bullet with the verb + scope + metric formula.",
+      "effort": "days",
+      "payoff": "Raises résumé conversion across every role at near-zero cost.",
+      "sources": [21, 16]
+    },
+    {
+      "gap": "Kubernetes (missing in 24% of target postings)",
+      "move": "Deploy the open-source API emulator to a managed Kubernetes cluster with OpenTofu plus a Helm chart, with health checks, autoscaling and an ADR. Skip the CKA unless targeting platform roles.",
+      "effort": "weeks",
+      "payoff": "Converts the biggest keyword gap into truthful, demonstrable experience. Kubernetes runs in production at 82% of container users.",
+      "sources": [23, 31]
+    },
+    {
+      "gap": "Java (missing in 21% of target postings)",
+      "move": "Only if targeting enterprise or contractor roles: build one small Spring Boot service (for example a Java client or adapter for the emulator) with tests and CI. Otherwise deprioritise it, because Java demand is steady, not growing.",
+      "effort": "months",
+      "payoff": "Passes Java keyword filters for enterprise roles. Low return for AI or startup targets.",
+      "sources": [4, 24]
+    },
+    {
+      "gap": "Azure / GCP (16% each)",
+      "move": "Port one OpenTofu stack to a second cloud and write up the differences. Consider a single associate-level cert only when applying to Azure-heavy enterprises, because ATS keyword filters match certification names but senior hiring weighs hands-on work.",
+      "effort": "weeks",
+      "payoff": "Moves from single-cloud to multi-cloud credibility. Azure skills are among the fastest-growing among SWE hires.",
+      "sources": [4, 16]
+    },
+    {
+      "gap": "AI-assisted workflow is invisible to employers",
+      "move": "Publish the AGENTS.md policy and CI gates as a blog post or README section ('how I ship with coding agents safely'), including a defect the gates caught.",
+      "effort": "days",
+      "payoff": "Directly matches what AI-allowed interviews score (verifying AI output) and differentiates from unverified 'vibe coding'.",
+      "sources": [10, 9, 6]
+    },
+    {
+      "gap": "Limited public OSS footprint in the AI tooling ecosystem",
+      "move": "Make two or three meaningful contributions to an eval or observability library the candidate already uses (bug fixes, TypeScript SDK improvements, docs with examples).",
+      "effort": "weeks",
+      "payoff": "Public, verifiable proof in exactly the area AI teams hire for, plus warm contacts with maintainers.",
+      "sources": [26, 27]
+    },
+    {
+      "gap": "Python secondary to TypeScript",
+      "move": "Write the eval harness or one small FastAPI service in Python and list Python credibly alongside TypeScript.",
+      "effort": "weeks",
+      "payoff": "Python is in 62% of AI-engineering postings and is the top skill among SWE hires.",
+      "sources": [14, 4]
+    },
+    {
+      "gap": "Microservices / Kafka (11% / 8%)",
+      "move": "Add an event stream (for example, webhook events from the emulator published to a Kafka-compatible broker) with one consumer service, documented in an ADR. Treat it as a low priority.",
+      "effort": "weeks",
+      "payoff": "Clears keyword filters for event-driven backend roles. A smaller gap, so a smaller return.",
+      "sources": [29]
+    },
+    {
+      "gap": "Cold-application dependence",
+      "move": "Build a target list of 20–30 remote-friendly AI or product companies and ask former colleagues and OSS or meetup contacts for introductions before applying.",
+      "effort": "days",
+      "payoff": "Referrals convert to interviews at about 40% in Ashby's data, versus the noise of cold AI-assisted applications.",
+      "sources": [17, 5]
+    },
+    {
+      "gap": "Titles don't match postings",
+      "move": "Keep three résumé variants (Senior Software Engineer, Senior Full-Stack Engineer, AI Product Engineer) whose headlines match posted titles truthfully.",
+      "effort": "days",
+      "payoff": "Title match came with a 10.6x interview-rate lift in Jobscan's data.",
+      "sources": [16]
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://hiringlab.indeed.com/?p=20708",
+      "title": "AI and Job Postings: From Destruction to Creation?",
+      "publisher": "Indeed Hiring Lab",
+      "year": 2026
+    },
+    {
+      "url": "https://hiringlab.indeed.com/2026/07/23/the-labor-market-is-tilting-toward-seniority/",
+      "title": "The Labor Market Is Tilting Toward Seniority",
+      "publisher": "Indeed Hiring Lab",
+      "year": 2026
+    },
+    {
+      "url": "https://www.hiringlab.org/2026/01/22/january-labor-market-update-jobs-mentioning-ai-are-growing-amid-broader-hiring-weakness",
+      "title": "January 2026 US Labor Market Update: Jobs Mentioning AI Are Growing Amid Broader Hiring Weakness",
+      "publisher": "Indeed Hiring Lab",
+      "year": 2026
+    },
+    {
+      "url": "https://www.hrdive.com/news/dice-report-tech-hiring-AI/824902/",
+      "title": "AI skills now listed in 73% of tech job postings (Dice)",
+      "publisher": "HR Dive",
+      "year": 2026
+    },
+    {
+      "url": "https://economicgraph.linkedin.com/content/dam/me/economicgraph/en-us/PDF/us-software-engineer-talent-landscape-2026.pdf",
+      "title": "U.S. Software Engineer Talent Landscape",
+      "publisher": "LinkedIn Economic Graph",
+      "year": 2026
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/state-of-the-job-market-2026",
+      "title": "State of the software engineering job market in 2026",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2026
+    },
+    {
+      "url": "https://stackoverflow.blog/2025/07/29/developers-remain-willing-but-reluctant-to-use-ai-the-2025-developer-survey-results-are-here",
+      "title": "Developers remain willing but reluctant to use AI: the 2025 Developer Survey results are here",
+      "publisher": "Stack Overflow",
+      "year": 2025
+    },
+    {
+      "url": "https://survey.stackoverflow.co/2025/technology",
+      "title": "2025 Developer Survey: Technology",
+      "publisher": "Stack Overflow",
+      "year": 2025
+    },
+    {
+      "url": "https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/",
+      "title": "Octoverse: A new developer joins GitHub every second as AI leads TypeScript to #1",
+      "publisher": "GitHub",
+      "year": 2025
+    },
+    {
+      "url": "https://karat.com/engineering-interview-trends-2026/",
+      "title": "Engineering Interviews in 2026: 3 Trends Hiring Leaders Must Prepare For",
+      "publisher": "Karat",
+      "year": 2026
+    },
+    {
+      "url": "https://canva.dev/blog/engineering/yes-you-can-use-ai-in-our-interviews",
+      "title": "Yes, you can use AI in our interviews",
+      "publisher": "Canva Engineering",
+      "year": 2025
+    },
+    {
+      "url": "https://www.greenhouse.com/newsroom/an-ai-trust-crisis-70-of-hiring-managers-trust-ai-to-make-faster-and-better-hiring-decisions-only-8-of-job-seekers-call-it-fair",
+      "title": "An AI trust crisis: 70% of hiring managers trust AI ... only 8% of job seekers call it fair (2025 AI in Hiring Report)",
+      "publisher": "Greenhouse",
+      "year": 2025
+    },
+    {
+      "url": "https://www.gartner.com/en/newsroom/press-releases/2025-07-31-gartner-survey-shows-just-26-percent-of-job-applicants-trust-ai-will-fairly-evaluate-them",
+      "title": "Gartner Survey Shows Just 26% of Job Applicants Trust AI Will Fairly Evaluate Them",
+      "publisher": "Gartner",
+      "year": 2025
+    },
+    {
+      "url": "https://hiringlab.indeed.com/uk/blog/2025/09/24/hybrid-work-tightens/",
+      "title": "Hybrid Work Tightens: 2-3 Days a Week in the Office Has Become the Norm",
+      "publisher": "Indeed Hiring Lab UK",
+      "year": 2025
+    },
+    {
+      "url": "https://axialsearch.com/insights/ai-ml-engineering-jobs/",
+      "title": "Inside the AI Engineering Job Market: 43,500 Postings Analyzed",
+      "publisher": "Axial Search",
+      "year": 2026
+    },
+    {
+      "url": "https://www.levels.fyi/blog/ai-engineer-compensation-trends-q3-2025.html",
+      "title": "AI Engineer Compensation Trends Q3 2025",
+      "publisher": "Levels.fyi",
+      "year": 2025
+    },
+    {
+      "url": "https://www.jobscan.co/state-of-the-job-search",
+      "title": "The State of the Job Search in 2025",
+      "publisher": "Jobscan",
+      "year": 2025
+    },
+    {
+      "url": "https://www.ashbyhq.com/talent-trends-report/reports/referrals",
+      "title": "Talent Trends Report: Referrals",
+      "publisher": "Ashby",
+      "year": 2025
+    },
+    {
+      "url": "https://resumego.net/research/one-or-two-page-resumes",
+      "title": "Settling the Debate: One or Two Page Resumes",
+      "publisher": "ResumeGo",
+      "year": 2018
+    },
+    {
+      "url": "https://www.hrdive.com/news/eye-tracking-study-shows-recruiters-look-at-resumes-for-7-seconds/541582/",
+      "title": "Eye-tracking study shows recruiters look at resumes for 7 seconds",
+      "publisher": "HR Dive (Ladders study)",
+      "year": 2018
+    },
+    {
+      "url": "https://support.greenhouse.io/hc/en-us/articles/200989175-Unsuccessful-resume-parse",
+      "title": "Unsuccessful resume parse",
+      "publisher": "Greenhouse Support",
+      "year": 2025
+    },
+    {
+      "url": "https://www.freecodecamp.org/news/how-to-write-a-developer-resume-recruiters-will-read/",
+      "title": "How to Write a Developer Resume Recruiters Will Read",
+      "publisher": "freeCodeCamp (Gergely Orosz)",
+      "year": 2020
+    },
+    {
+      "url": "https://www.digitalcommerce360.com/2025/04/08/internal-memo-shopify-ceo-declares-ai-non-optional/",
+      "title": "Internal memo: Shopify CEO declares AI non-optional",
+      "publisher": "Digital Commerce 360",
+      "year": 2025
+    },
+    {
+      "url": "https://www.cncf.io/reports/the-cncf-annual-survey-2025/",
+      "title": "The CNCF Annual Cloud Native Survey: The Infrastructure of AI's Future",
+      "publisher": "CNCF",
+      "year": 2026
+    },
+    {
+      "url": "https://www.businesswire.com/news/home/20250128807209/en",
+      "title": "Azul 2025 State of Java Survey & Report",
+      "publisher": "Azul / Business Wire",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/forward-deployed-engineers",
+      "title": "Forward deployed engineers",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2025
+    },
+    {
+      "url": "https://www.louisbouchard.ai/what-i-look-for-when-hiring-ai-engineers/",
+      "title": "What I Look For When Hiring AI Engineers",
+      "publisher": "Louis-François Bouchard",
+      "year": 2026
+    },
+    {
+      "url": "https://hamel.dev/blog/posts/evals-faq/",
+      "title": "AI Evals: Everything You Need to Know (FAQ)",
+      "publisher": "Hamel Husain & Shreya Shankar",
+      "year": 2026
+    },
+    {
+      "url": "https://www.techradar.com/pro/meta-is-going-to-let-candidates-use-ai-in-job-interviews",
+      "title": "Meta says it will let candidates use AI in some job interviews",
+      "publisher": "TechRadar",
+      "year": 2025
+    },
+    {
+      "url": "https://www.confluent.io/blog/2025-data-streaming-report/",
+      "title": "2025 Data Streaming Report",
+      "publisher": "Confluent",
+      "year": 2025
+    },
+    {
+      "url": "https://www.jobscan.co/blog/Fortune-500-use-applicant-tracking-systems/",
+      "title": "Applicant Tracking Systems used by the Fortune 500",
+      "publisher": "Jobscan",
+      "year": 2025
+    },
+    {
+      "url": "https://tianpan.co/blog/2026-04-16-hiring-llm-engineers-interview-what-to-test",
+      "title": "Hiring for LLM Engineering: What the Interview Actually Needs to Test",
+      "publisher": "Tian Pan",
+      "year": 2026
+    }
+  ]
+}

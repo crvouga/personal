@@ -1,0 +1,421 @@
+{
+  "role": "tech-company-staff-engineer",
+  "asOf": "2026-11-09",
+  "summary": "Staff/Principal hiring at product companies in 2026 buys cross-team leverage, not faster coding: leaner, senior-heavy orgs want a 'Super IC' who sets technical direction, writes the design docs others build from, grows engineers, and turns AI agents into a multiplier without letting quality slide. Evaluators judge scope, judgment and influence through artifacts (design docs/RFCs, strategy, mentorship outcomes) and through deep-dive and presentation interviews, so a senior candidate stretching up must reframe shipped work as decisions, adoption and organizational effect.",
+  "readers": [
+    {
+      "who": "Recruiter / sourcer (often a dedicated senior-IC recruiter)",
+      "firstPassSeconds": 7.4,
+      "scansFor": "Staff/Lead/Tech Lead titles, years, cross-team scope words (led, set direction, across N teams), stack match, AI-assisted engineering"
+    },
+    {
+      "who": "Hiring manager (Director/VP Eng)",
+      "firstPassSeconds": null,
+      "scansFor": "Which staff role you are (tech lead, architect, solver), outcomes judged by success not effort, alignment with company priorities, evidence of written design and mentorship"
+    },
+    {
+      "who": "Staff/Principal peer interviewers",
+      "firstPassSeconds": null,
+      "scansFor": "Depth they can probe for 10 minutes per claim: design docs, trade-offs, failure modes, how you talk about colleagues, code-review quality"
+    },
+    {
+      "who": "Calibration / leveling committee",
+      "firstPassSeconds": null,
+      "scansFor": "Whether evidence clears staff bar vs. senior: scope across teams, durable decisions adopted by others, multiplier effect, advocates"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "cross-team-technical-direction",
+      "label": "Sets technical direction across teams",
+      "why": "Staff scope is outcomes across multiple teams, systems or domains rather than deep execution within one team.",
+      "weight": 3,
+      "themes": ["leadership", "architecture"],
+      "skills": [],
+      "howToDemonstrate": "Case study of a direction you set (e.g. platform architecture for the transfer-credit product) showing the problem, the decision, who adopted it, and the measurable effect after adoption.",
+      "sources": [0, 12, 13]
+    },
+    {
+      "id": "design-docs-rfcs",
+      "label": "Design docs, RFCs and ADRs",
+      "why": "Most Big Tech companies and high-growth startups plan through written design docs/RFCs, and staff packets explicitly link design documents as evidence.",
+      "weight": 3,
+      "themes": ["documentation", "architecture"],
+      "skills": [],
+      "howToDemonstrate": "Publish 2-3 real (sanitized) design docs/ADRs from the platform monorepo with context, options considered, decision and retrospective on how the build diverged from the plan.",
+      "sources": [1, 4, 14, 18]
+    },
+    {
+      "id": "staff-project-outcome",
+      "label": "Delivered a high-stakes project to a well-defined goal",
+      "why": "Staff engineers are judged by success and failure, not effort, and packets lead with impact against a well-defined goal and what made it complex.",
+      "weight": 3,
+      "themes": ["ownership", "product-sense"],
+      "skills": [],
+      "howToDemonstrate": "One flagship 'staff project' write-up: goal, why it was hard, your role as technical lead, result with a number, and links to the docs behind it.",
+      "sources": [1, 9, 18]
+    },
+    {
+      "id": "multiplier-mentorship",
+      "label": "Levels up engineers around you",
+      "why": "Leveling up others is one of Reilly's three staff pillars and a dedicated 'mentorship panel' criterion in Larson's loop.",
+      "weight": 3,
+      "themes": ["leadership"],
+      "skills": [],
+      "howToDemonstrate": "Name who you mentored and what they then accomplished (promotions, ownership of a subsystem); review guides or onboarding you wrote.",
+      "sources": [3, 10, 18]
+    },
+    {
+      "id": "ai-agent-leverage",
+      "label": "AI-native engineering with guardrails",
+      "why": "Staff+ engineers are the heaviest regular agent users (63.5% vs 49.7% for regular engineers) and reviewing AI-generated code is now a quality burden that lands on senior people.",
+      "weight": 3,
+      "themes": ["ai-assisted", "testing-quality", "process"],
+      "skills": ["ai-tools", "ci-cd", "github-actions"],
+      "howToDemonstrate": "Show AGENTS.md policy plus the CI gates that keep agent-written code reviewable and correct; frame it as an org-level workflow others can adopt, with a before/after metric if you have one.",
+      "sources": [7, 8, 6]
+    },
+    {
+      "id": "org-improvements-glue",
+      "label": "Organizational improvements and glue work, made visible",
+      "why": "Packets explicitly ask for high-leverage org improvements and glue work, and glue work should be credited as leading rather than helping.",
+      "weight": 2,
+      "themes": ["process", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "Bullets that name the process you introduced (CI gates, observability contract, review standards), who adopted it, and what changed.",
+      "sources": [1, 11]
+    },
+    {
+      "id": "architecture-judgment",
+      "label": "Architecture and trade-off judgment",
+      "why": "Larson's staff loop centers on data modeling, interfaces and architecture that must evolve, and judgment in mediating trade-off disputes.",
+      "weight": 2,
+      "themes": ["architecture", "performance-scale"],
+      "skills": ["postgres", "aws", "typescript"],
+      "howToDemonstrate": "Architecture diagram plus decision log for a system that changed under new requirements; call out reversibility and failure modes.",
+      "sources": [3, 0]
+    },
+    {
+      "id": "business-alignment",
+      "label": "Works on what the company cares about",
+      "why": "Projects the company does not prioritize rarely lead to staff recognition; architects stay close to business needs and user goals.",
+      "weight": 2,
+      "themes": ["product-sense", "stakeholders"],
+      "skills": [],
+      "howToDemonstrate": "Tie each case study to a business metric or user outcome (e.g. transfer-credit evaluations processed, time-to-decision) and the partner (PM, ops) you aligned with.",
+      "sources": [9, 0, 12]
+    },
+    {
+      "id": "operational-ownership",
+      "label": "Ownership of operational systems and reliability",
+      "why": "Dropbox's ladder update strengthened expectations for ownership over code, processes and operational systems.",
+      "weight": 2,
+      "themes": ["ownership", "cloud-infra", "performance-scale"],
+      "skills": ["observability", "terraform", "aws"],
+      "howToDemonstrate": "Observability contract and infra-as-code (OpenTofu-only) story: what it prevents, incidents caught, toil removed.",
+      "sources": [15, 13]
+    },
+    {
+      "id": "communication-presentation",
+      "label": "Clear structured communication",
+      "why": "Staff loops use structured presentations and deep-dives to test communication, and a presentation opportunity is how candidates demonstrate staff expertise.",
+      "weight": 2,
+      "themes": ["stakeholders", "documentation"],
+      "skills": [],
+      "howToDemonstrate": "A short written or recorded talk on a past decision, structured as context, options, decision, outcome; reusable as the interview presentation.",
+      "sources": [2, 3]
+    },
+    {
+      "id": "advocates",
+      "label": "Advocates who vouch for your work",
+      "why": "Packets list advocates, and management quietly asks trusted engineers about candidates, so reputation is part of the bar.",
+      "weight": 1,
+      "themes": ["stakeholders"],
+      "skills": [],
+      "howToDemonstrate": "Short attributed quotes from a former EM/CTO or peer staff engineer about the scope you carried.",
+      "sources": [1, 9]
+    },
+    {
+      "id": "external-criterion",
+      "label": "External criterion: open source, writing, talks",
+      "why": "Staff resume guidance treats missing external criteria (talks, publications, open source) as a reason a resume reads as senior.",
+      "weight": 1,
+      "themes": ["open-source", "documentation"],
+      "skills": [],
+      "howToDemonstrate": "The open-source API emulator with adoption/usage notes, plus engineering essays derived from your design docs.",
+      "sources": [13]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "Reads like an extended senior resume",
+      "why": "More shipped features with no strategic, mentorship or external bullets reads as senior regardless of title.",
+      "sources": [13]
+    },
+    {
+      "label": "Vague leadership claims",
+      "why": "Statements like 'led the strategic direction' without a decision, adopters or result are treated as filler; specific statements create alignment, generic ones only the illusion of it.",
+      "sources": [13, 4]
+    },
+    {
+      "label": "Effort instead of outcomes",
+      "why": "Staff engineers are judged by success and failure, not effort; projects that did not land or were not company priorities do not count.",
+      "sources": [9]
+    },
+    {
+      "label": "Overclaiming the title",
+      "why": "You can't fake staff by changing a headline; guidance for seniors is to show multi-team work rather than staff framing that interviews will not support.",
+      "sources": [12]
+    },
+    {
+      "label": "Mentoring-only case for staff",
+      "why": "Mentoring or leadership alone does not get you to staff; delivering company value through shipped projects is required.",
+      "sources": [9]
+    },
+    {
+      "label": "Passive 'responsible for' bullets and junior filler",
+      "why": "Passive duty statements, coursework, GPA and hackathons criterion the wrong level.",
+      "sources": [13]
+    },
+    {
+      "label": "Unchecked AI output",
+      "why": "AI-heavy shipping without review adds tech debt faster and dumps AI-generated code review on senior builders, which staff hirers are wary of.",
+      "sources": [7]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "technical direction",
+      "across teams",
+      "design doc",
+      "RFC",
+      "architecture decision record",
+      "trade-offs",
+      "technical strategy",
+      "ownership",
+      "adopted by",
+      "multiplier",
+      "mentored",
+      "leveled up",
+      "ambiguous problems",
+      "operational excellence",
+      "reliability",
+      "durable decisions",
+      "AI-assisted workflows",
+      "agent guardrails",
+      "business impact",
+      "cross-functional partners"
+    ],
+    "avoid": [
+      "responsible for",
+      "rockstar / ninja",
+      "10x engineer",
+      "helped with",
+      "worked on",
+      "passionate about",
+      "vibe coding",
+      "AI wrote",
+      "visionary",
+      "led the strategic direction (unqualified)",
+      "hackathon winner"
+    ],
+    "verbs": [
+      "Set",
+      "Led",
+      "Architected",
+      "Authored",
+      "Aligned",
+      "Drove",
+      "Standardized",
+      "Unblocked",
+      "Mentored",
+      "Migrated",
+      "De-risked",
+      "Instituted"
+    ],
+    "titles": [
+      "Staff Software Engineer",
+      "Senior Staff Software Engineer",
+      "Principal Software Engineer",
+      "Staff Full Stack Engineer",
+      "Lead Software Engineer",
+      "Technical Lead",
+      "Staff Engineer, Platform"
+    ]
+  },
+  "resume": {
+    "pages": 1,
+    "summaryStyle": "Two lines that name the role (tech lead / architect for product platforms), the domain, the scope carried (teams, systems), and one organization-level result; then the AI-native-with-guardrails angle. Position as 'senior engineer operating at staff scope' rather than claiming the title.",
+    "sectionOrder": [
+      "summary",
+      "experience",
+      "projects",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "verb + scope marker (teams/systems/users) + decision or artifact you authored + who adopted it + measurable outcome",
+    "keywordStrategy": "Mirror posting language that dominates this segment: technical leadership, mentoring, system design/architecture, ownership, reliability/performance, stakeholders, AI-assisted engineering. Put 'technical lead' and 'design docs/RFCs' in literal form for recruiter scans; keep stack keywords (TypeScript, React, Node, Postgres, AWS) in a compact skills line since staff screens weight scope over stack.",
+    "notes": [
+      "Staff/principal guides call two pages standard for long careers; at ~6 years a dense single page that is all scope-and-outcome bullets reads stronger than padded second page, and the portfolio carries the long-form evidence.",
+      "Lead each role with the most staff-shaped bullet (direction, design, multiplier), not the most technical one.",
+      "Every bullet should survive a 10-minute probe by a staff interviewer.",
+      "Link a 'selected artifacts' line (design docs, AGENTS.md, OSS emulator) since packets link design docs as proof.",
+      "Recruiters skim in seconds and favor clear section headings, bold titles and single-column layouts."
+    ],
+    "sources": [13, 12, 1, 17]
+  },
+  "portfolio": {
+    "leadWith": "A flagship staff-style case study written like a design doc: the problem at One Origin's transfer-credit platform, the architecture and process decisions you set as technical lead, who adopted them, and the measurable result; immediately followed by the AI-agent engineering system (AGENTS.md + CI gates + observability contract) framed as an org-level multiplier.",
+    "mustHave": [
+      "Role statement: which staff role you operate as (tech lead / architect) and in what domain",
+      "2-3 design docs / ADRs with context, options, decision and retrospective",
+      "Mentorship and multiplier evidence: who grew and what they shipped",
+      "AI-assisted engineering with guardrails: policy, gates, review practice, results",
+      "Operational ownership: reliability/observability story with a number",
+      "Short endorsements from an EM/CTO or peer",
+      "Open-source emulator as external criterion"
+    ],
+    "notes": [
+      "Structure case studies like a promo packet: goal, complexity, impact, linked design docs.",
+      "Write for a reader who will pick one claim and probe it: show trade-offs and what you would do differently.",
+      "Turn the portfolio narrative into the 20-30 minute structured presentation many staff loops ask for.",
+      "Frame glue work as leadership: name the process you instituted and its adopters."
+    ],
+    "sources": [1, 3, 2, 11, 4]
+  },
+  "visual": {
+    "tone": "editorial, considered, quietly authoritative",
+    "scheme": "light",
+    "hue": 255,
+    "chroma": "muted",
+    "display": "serif",
+    "accent": "mono",
+    "corners": "square",
+    "density": "comfortable",
+    "rationale": "Staff readers are evaluating judgment and writing, so the page should read like a well-set design doc or essay rather than a product landing page: a light, high-contrast reading surface; a formal serif display (Errol Morris's NYT experiment found readers slightly more likely to believe text set in Baskerville, attributed to its formality and gravitas, though the effect is small and uncontrolled); monospace labels to criterion engineering artifacts (ADR ids, file names); a muted ink-blue accent for restraint; square corners and generous whitespace with clear headings, since recruiter eye-tracking favored simple single-column layouts with clear section headings and penalized clutter.",
+    "sources": [16, 17]
+  },
+  "interview": [
+    "Expect a structured 20-30 minute presentation on a past project: prepare one from the flagship case study, covering context, options, decision, outcome and what you'd change.",
+    "Deep-dive on past accomplishments: every portfolio claim should have a design doc or decision log behind it.",
+    "Architecture interview on a system that must evolve as requirements change: rehearse data modeling, interfaces and migration paths.",
+    "Code review exercise judged on empathy, clarity and usefulness: show review guidelines and how you review AI-generated PRs.",
+    "Mentorship/behavioral criteria: self-awareness about mistakes, judgment in ambiguity, collaboration with execs and juniors; ask who is on the panel and how leveling is finalized."
+  ],
+  "sources": [
+    {
+      "url": "https://staffeng.com/guides/staff-roles/",
+      "title": "Staff archetypes",
+      "publisher": "StaffEng (Will Larson)",
+      "year": 2020
+    },
+    {
+      "url": "https://staffeng.com/guides/promo-packets",
+      "title": "Promotion packets",
+      "publisher": "StaffEng (Will Larson)",
+      "year": 2020
+    },
+    {
+      "url": "https://staffeng.com/guides/interviewing-staff-plus-roles",
+      "title": "Interviewing for Staff-plus roles",
+      "publisher": "StaffEng (Will Larson)",
+      "year": 2020
+    },
+    {
+      "url": "https://lethain.com/staff-plus-interview-process/",
+      "title": "Staff-plus interview process",
+      "publisher": "Irrational Exuberance (Will Larson)",
+      "year": 2021
+    },
+    {
+      "url": "https://staffeng.com/guides/engineering-strategy/",
+      "title": "Writing engineering strategy",
+      "publisher": "StaffEng (Will Larson)",
+      "year": 2020
+    },
+    {
+      "url": "https://staffeng.com/guides/getting-the-title-where-you-are/",
+      "title": "Getting the title where you are",
+      "publisher": "StaffEng (Will Larson)",
+      "year": 2020
+    },
+    {
+      "url": "https://signalfire.com/blog/signalfire-state-of-talent-report-2026",
+      "title": "SignalFire State of Talent Report 2026",
+      "publisher": "SignalFire",
+      "year": 2026
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/the-impact-of-ai-on-software-engineers-2026",
+      "title": "The impact of AI on software engineers in 2026",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2026
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/i/189777574/2-most-used-ai-tools",
+      "title": "AI tooling for software engineers in 2026: most-used AI tools",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2026
+    },
+    {
+      "url": "https://seangoedecke.com/staff-engineer-promotions",
+      "title": "Staff engineer promotions",
+      "publisher": "Sean Goedecke",
+      "year": 2025
+    },
+    {
+      "url": "https://www.oreilly.com/library/view/the-staff-engineers/9781098118723/",
+      "title": "The Staff Engineer's Path (Tanya Reilly)",
+      "publisher": "O'Reilly Media",
+      "year": 2022
+    },
+    {
+      "url": "https://www.noidea.dog/glue",
+      "title": "Being Glue",
+      "publisher": "Tanya Reilly (noidea.dog)",
+      "year": 2019
+    },
+    {
+      "url": "https://underdog.io/blog/staff-engineer-vs-senior-engineer",
+      "title": "Staff Engineer vs Senior Engineer: Your 2026 Career Guide",
+      "publisher": "Underdog.io",
+      "year": 2026
+    },
+    {
+      "url": "https://www.techinterview.org/post/3233474617/staff-principal-engineer-resume/",
+      "title": "Staff and Principal Engineer Resume Guide: Strategic Narrative, Not Just Shipped Work",
+      "publisher": "techinterview.org",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/rfcs-and-design-docs",
+      "title": "Engineering Planning with RFCs, Design Documents and ADRs",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2022
+    },
+    {
+      "url": "https://dropbox.tech/culture/our-updated-engineering-career-framework",
+      "title": "Here's the latest version of our Engineering Career Framework",
+      "publisher": "Dropbox Tech Blog",
+      "year": 2023
+    },
+    {
+      "url": "https://eyeondesign.aiga.org/can-a-font-make-us-believe-something-is-true/",
+      "title": "Can a Font Make Us Believe Something Is True?",
+      "publisher": "AIGA Eye on Design",
+      "year": 2017
+    },
+    {
+      "url": "https://www.hrdive.com/news/eye-tracking-study-shows-recruiters-look-at-resumes-for-7-seconds/541582/",
+      "title": "Eye-tracking study shows recruiters look at resumes for 7 seconds",
+      "publisher": "HR Dive",
+      "year": 2018
+    },
+    {
+      "url": "https://lethain.com/promo-packets/",
+      "title": "Promo packets",
+      "publisher": "Irrational Exuberance (Will Larson)",
+      "year": 2020
+    }
+  ]
+}

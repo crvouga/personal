@@ -1,11 +1,10 @@
 ---
-import { presentationOf, sectionOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf, sectionOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 import { CONTENT } from '../content/content';
 import { loadGitHubInsights } from '../lib/github-insights';
 import {
   PROOF_EXCLUSIONS,
-  PROOF_TILES,
   VERIFICATION,
   VERIFICATION_REPO_URL,
   VERIFICATION_WINDOW,
@@ -21,7 +20,7 @@ import ContributionCalendar from './ContributionCalendar.astro';
 // `astro dev` a missing token degrades to a notice card instead of failing.
 interface Props {
   /** Injected by stories and HomeScreen; defaults to the page's presentation. */
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 
 const envToken = import.meta.env.PORTFOLIO_GITHUB_TOKEN;
@@ -88,7 +87,7 @@ const provenance = ((): string => {
     </div>
     <p class="lede">{CONTENT.PROOF_LEDE}</p>
     <ul class="tiles">
-      {PROOF_TILES.map((tile) => (
+      {presentation.proofTiles.map((tile) => (
         <li class="card tile">
           <span class="value">{tile.value}</span>
           <span class="label">{tile.label}</span>

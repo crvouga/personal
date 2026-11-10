@@ -1,0 +1,417 @@
+{
+  "role": "tech-company-senior-developer",
+  "asOf": "2026-11-09",
+  "summary": "In late 2026 the software-company market is two-speed: junior postings have collapsed while senior/lead demand and share of hires have grown, because AI made code cheap and judgment (review, architecture, failure modes, product trade-offs) scarce. Senior product-company readers screen for scope and outcomes they can verify — what you owned end to end, for whom, what changed, and the decisions behind it — and increasingly for disciplined, verifiable AI-assisted delivery rather than raw output.",
+  "readers": [
+    {
+      "who": "Recruiter / talent partner working an ATS (Greenhouse, Ashby, Lever) search or AI-ranked queue",
+      "firstPassSeconds": 7.4,
+      "scansFor": "Current title + company, recent title progression, years, the posting's core stack and requirement terms (end-to-end ownership, system design, TypeScript/React/Node, Postgres, AWS), US remote eligibility, clean single-column parse."
+    },
+    {
+      "who": "Hiring manager (engineering manager of the product team)",
+      "firstPassSeconds": null,
+      "scansFor": "Scope — what you built, for whom, and the measurable impact; evidence of ownership through launch and operation; product judgment and cross-functional work; a summary tailored to their role; bullets they could defend in a scorecard."
+    },
+    {
+      "who": "Senior/staff engineers on the interview panel",
+      "firstPassSeconds": null,
+      "scansFor": "Concrete technical claims they can probe for 10 minutes: architecture and trade-offs, reliability/performance numbers, testing and CI discipline, how AI output is verified, linked repos/PRs/write-ups with real READMEs."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "end-to-end-ownership",
+      "label": "End-to-end ownership of product features",
+      "why": "Product-minded engineers own features from problem framing to launch and iteration, and ladders explicitly expect seniors to own problems, mistakes and operational issues.",
+      "weight": 3,
+      "themes": ["ownership", "product-sense"],
+      "skills": ["typescript", "react", "nodejs", "postgres"],
+      "howToDemonstrate": "Lead case study of one shipped feature/system: the problem, the user, your decisions, the rollout, and the after-launch metric (e.g. transfer-credit evaluations processed, time-to-decision cut).",
+      "sources": [0, 5, 11]
+    },
+    {
+      "id": "scope-and-measured-impact",
+      "label": "Scope: what you did, for whom, what changed",
+      "why": "Hiring managers say scope is the main thing they look for and that results-first, quantified bullets are what separate seniors from task lists.",
+      "weight": 3,
+      "themes": ["ownership", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "Every résumé bullet and case study names users/scale (institutions, students, requests, members) and a before/after number; title progression to tech lead made explicit.",
+      "sources": [1, 2, 3, 14]
+    },
+    {
+      "id": "judgment-over-output-ai",
+      "label": "AI-assisted engineering with verification and guardrails",
+      "why": "With code commoditised, employers pay seniors to direct AI agents, review their output in proportion to risk and stop AI mistakes spreading; interviewers say speed alone tells them little.",
+      "weight": 3,
+      "themes": ["ai-assisted", "testing-quality", "ci-cd"],
+      "skills": ["ai-tools", "ci-cd", "github-actions"],
+      "howToDemonstrate": "A short write-up of the agent workflow: what agents do, the CI gates/tests/review that verify their output, what stays under human control, and a throughput/defect outcome.",
+      "sources": [6, 7, 8, 12]
+    },
+    {
+      "id": "system-design-trade-offs",
+      "label": "System design and explicit trade-offs",
+      "why": "System design rounds probe how you decompose problems, reason about architecture, scaling and failure modes; ladders expect seniors to design components and decompose larger problems.",
+      "weight": 3,
+      "themes": ["architecture", "performance-scale"],
+      "skills": ["aws", "postgres", "microservices"],
+      "howToDemonstrate": "Architecture diagram + ADR-style 'decisions and alternatives rejected' section in each case study; name failure modes and how they are handled.",
+      "sources": [4, 11, 12, 3]
+    },
+    {
+      "id": "product-sense-cross-functional",
+      "label": "Product sense and cross-functional partnership",
+      "why": "Hiring-manager rounds test product thinking, scoping, prioritisation and stakeholder collaboration; product-minded engineers offer product/engineering trade-offs up front and work well with non-engineers.",
+      "weight": 3,
+      "themes": ["product-sense", "stakeholders"],
+      "skills": [],
+      "howToDemonstrate": "Case study beats showing a scoping decision made with PM/design/customers (e.g. university partners), the trade-off offered, and the user outcome.",
+      "sources": [0, 4, 5]
+    },
+    {
+      "id": "reliability-performance-numbers",
+      "label": "Performance, scale and reliability with numbers",
+      "why": "Concrete metrics like p95 latency or request volume tell a reader exactly what kind of work you did, where 'high-traffic' says nothing.",
+      "weight": 2,
+      "themes": ["performance-scale", "cloud-infra"],
+      "skills": ["aws", "postgres", "observability", "terraform"],
+      "howToDemonstrate": "Metric callouts (latency, uptime, job throughput, cost) plus the infra-as-code platform (OpenTofu-managed) described as an operated system, not a hobby.",
+      "sources": [3, 12]
+    },
+    {
+      "id": "testing-and-ci-discipline",
+      "label": "Automated testing and CI gates",
+      "why": "Interviewers test clean, tested code against a real problem and AI-era readers want concrete validation rather than 'we'll validate the output'.",
+      "weight": 2,
+      "themes": ["testing-quality", "ci-cd"],
+      "skills": ["jest", "playwright", "github-actions", "ci-cd"],
+      "howToDemonstrate": "Link a repo whose README shows test layers and CI checks; quantify coverage of critical paths or regressions caught.",
+      "sources": [4, 7, 12]
+    },
+    {
+      "id": "inspectable-evidence",
+      "label": "Inspectable evidence: repos, PRs, write-ups",
+      "why": "Readers want every claim backed by an exhibit a stranger can open; GitHub is the artefact developers and reviewers rate most, and portfolio quality matters more than the site itself.",
+      "weight": 2,
+      "themes": ["open-source", "documentation"],
+      "skills": ["git", "typescript"],
+      "howToDemonstrate": "Mockingbird (open-source API emulator) with a clone-to-running README, design notes and honest limitations; 2–3 finished projects max.",
+      "sources": [12, 13, 5, 2]
+    },
+    {
+      "id": "apis-integrations",
+      "label": "APIs and third-party integrations",
+      "why": "Product companies hire seniors to connect systems; production judgement about failures, security and latency at boundaries is what portfolios should show.",
+      "weight": 2,
+      "themes": ["integrations", "architecture"],
+      "skills": ["rest", "nodejs", "oauth"],
+      "howToDemonstrate": "Case study of an integration (SIS/partner data feeds, health-tech vendors) covering contracts, retries, idempotency and how it was tested — Mockingbird as the tool built for exactly this.",
+      "sources": [12, 8]
+    },
+    {
+      "id": "technical-leadership-mentoring",
+      "label": "Tech lead, mentoring and raising the bar",
+      "why": "Ladders expect seniors to mentor, run effective code reviews and help interview; résumés that omit direction-setting read as 'advanced mid-level'.",
+      "weight": 2,
+      "themes": ["leadership", "documentation"],
+      "skills": [],
+      "howToDemonstrate": "One bullet each for design docs/RFCs authored, engineers mentored or onboarded, review/process standards set as tech lead at One Origin.",
+      "sources": [3, 11]
+    },
+    {
+      "id": "writing-about-work",
+      "label": "Writes about what they built and why",
+      "why": "Product-company hiring guides say a habit of writing about decisions and tools builds the narrative that earns interviews.",
+      "weight": 1,
+      "themes": ["documentation", "product-sense"],
+      "skills": [],
+      "howToDemonstrate": "Short engineering notes on the site (why OpenTofu, how agents are gated in CI, emulator design).",
+      "sources": [5]
+    },
+    {
+      "id": "pace-and-pragmatism",
+      "label": "Ships fast and iterates with real users",
+      "why": "Product engineers are described as caring more about outcomes than perfect code and validating quickly with real users; interview values reward pace.",
+      "weight": 1,
+      "themes": ["speed", "product-sense"],
+      "skills": [],
+      "howToDemonstrate": "Timeline facts (idea-to-production in N weeks, release cadence) and freelance work shipped for paying clients.",
+      "sources": [0, 4, 5]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "Task-list bullets with no outcome",
+      "why": "Activity without results ('worked on', 'fixed bugs', 'implemented features as assigned') reads as junior or mid-level and is interchangeable with any other candidate.",
+      "sources": [2, 3, 1]
+    },
+    {
+      "label": "Generic, AI-sounding application materials",
+      "why": "Heavily AI-generated materials are now the #2 hiring-manager red flag (49%) and vague/generic job descriptions are cited by 42%; Meta reviewers say not to let AI write your summary.",
+      "sources": [14, 2]
+    },
+    {
+      "label": "Buzzwords and inflated scope",
+      "why": "'Results-driven', 'synergy', 'leverage' are filler; claiming org-wide strategy at senior level, or a Senior title without matching substance, reads as inflation.",
+      "sources": [2, 3, 1]
+    },
+    {
+      "label": "Hard-to-parse or ornate layout",
+      "why": "Multi-column layouts, tables, header text and rating bars break ATS parsing; cluttered designs and long sentences underperform in recruiter eye-tracking.",
+      "sources": [9, 17, 2]
+    },
+    {
+      "label": "Claims with no inspectable evidence",
+      "why": "Reviewers want each claim backed by a repo, PR, demo or write-up; half-finished or 'coming soon' projects hurt more than they help.",
+      "sources": [12, 13]
+    },
+    {
+      "label": "Treating AI as magic or speed as the result",
+      "why": "Interviewers mark down answers that put AI in the middle of an architecture without validation, and speed alone doesn't criterion seniority.",
+      "sources": [7, 8]
+    },
+    {
+      "label": "Unexplained gaps and short stints",
+      "why": "Job-hopping (65%) and long unexplained gaps (43%) top hiring-manager red flags; a one-line explanation (freelance, startup folded) prevents bad assumptions.",
+      "sources": [14, 2, 5]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "end-to-end ownership",
+      "shipped",
+      "in production",
+      "product-minded",
+      "trade-offs",
+      "system design",
+      "scope",
+      "impact",
+      "reliability",
+      "p95 latency",
+      "observability",
+      "automated tests",
+      "CI gates",
+      "code review",
+      "AI-assisted development",
+      "agentic workflows with human review",
+      "cross-functional",
+      "design docs / ADRs",
+      "APIs and integrations",
+      "mentored"
+    ],
+    "avoid": [
+      "results-driven",
+      "synergy",
+      "leverage (as filler)",
+      "rockstar / ninja",
+      "passionate about technology",
+      "responsible for",
+      "helped with",
+      "worked on",
+      "10x with AI",
+      "vibe coding",
+      "set technical strategy for the entire organization",
+      "expert in everything"
+    ],
+    "verbs": [
+      "Shipped",
+      "Owned",
+      "Designed",
+      "Architected",
+      "Led",
+      "Built",
+      "Cut",
+      "Scaled",
+      "Automated",
+      "Integrated",
+      "Mentored",
+      "Migrated"
+    ],
+    "titles": [
+      "Senior Software Engineer",
+      "Senior Full-Stack Engineer",
+      "Senior Product Engineer",
+      "Senior Software Engineer, Product",
+      "Senior Frontend Engineer",
+      "Senior Backend Engineer",
+      "Software Engineer III / Senior"
+    ]
+  },
+  "resume": {
+    "pages": 1,
+    "summaryStyle": "2–3 hand-written sentences tailored to the role: senior product engineer, ~6 years, the domain/scale he owned (transfer-credit platform as tech lead; health-tech member app), the stack in the posting's words, and one distinctive proof (AI agents behind CI gates; open-source API emulator). No adjectives without evidence.",
+    "sectionOrder": [
+      "summary",
+      "experience",
+      "projects",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "Strong verb + what you owned (system/feature, for whom, at what scale) + how (key decision or stack) + measurable outcome; results first where possible. Each bullet must survive a 10-minute probe.",
+    "keywordStrategy": "Greenhouse/Ashby do not auto-reject on keywords but recruiters search parsed text and AI match scores rank against the role's criteria, so mirror the posting's exact terms (TypeScript, React, Node.js, PostgreSQL, AWS, system design, APIs, automated testing, AI-assisted development) naturally inside bullets and a plain skills line. Single column, standard headings, no tables/graphics, text-extractable PDF. Only list skills you can discuss in depth.",
+    "notes": [
+      "Give recent roles (Geviti, One Origin) most space; compress freelance 2020–22 to 1–2 bullets framed as paid client products shipped.",
+      "Make the senior → technical lead progression at One Origin explicit; progression criteria more than titles.",
+      "Include a tech-lead/mentoring/design-doc bullet so the résumé doesn't read 'advanced mid-level'.",
+      "One bullet on AI-assisted engineering that names the verification mechanism (tests, CI gates, review), not just the tools.",
+      "No photo, full address or hobbies; LinkedIn + GitHub + portfolio links only, consistent with LinkedIn.",
+      "Projects section: Mockingbird and the OpenTofu platform only — deployed, documented repos."
+    ],
+    "sources": [1, 2, 3, 9, 17, 5, 14]
+  },
+  "portfolio": {
+    "leadWith": "One flagship product case study of end-to-end ownership with numbers (the transfer-credit platform as tech lead: problem, users, architecture, trade-offs, results), immediately followed by how he ships with AI agents behind CI gates — the 2026 differentiator.",
+    "mustHave": [
+      "Above-the-fold one-liner: senior product engineer + scope + stack, with résumé PDF and GitHub links",
+      "2–3 case studies, each: context, role, decisions and rejected alternatives, architecture sketch, failure modes, measured outcome, honest limitations",
+      "AI-assisted engineering section: workflow, guardrails, what humans review, outcome",
+      "Mockingbird with clone-to-run README, tests and CI visible",
+      "Infra/reliability evidence (OpenTofu-managed platform, observability, CI)",
+      "Fast, accessible, mobile-correct site — it is itself a frontend craft sample"
+    ],
+    "notes": [
+      "Hiring managers spend seconds on a portfolio and treat it as a tie-breaker; 93% would look if offered but quality of projects matters more than the site — keep it scannable.",
+      "Every claim should link to an exhibit a stranger can open.",
+      "Remove anything unfinished or 'coming soon'.",
+      "Short engineering write-ups help build a narrative for product companies."
+    ],
+    "sources": [12, 13, 5, 7, 8]
+  },
+  "visual": {
+    "tone": "precise, technical, calm, product-grade",
+    "scheme": "auto",
+    "hue": 255,
+    "chroma": "moderate",
+    "display": "sans",
+    "accent": "mono",
+    "corners": "soft",
+    "density": "comfortable",
+    "rationale": "This reader lives in dev tools whose shared convention (Vercel/Geist, Linear) is near-black surfaces, a clean geometric sans for UI and monospace for code and labels, small consistent radii and information density over decoration — matching it criteria 'one of us'. Respect the OS theme rather than forcing dark, since NN/g reports light mode reads better for most users while dark should be available. A cool blue/indigo accent fits both the dev-tool palette and branding research associating blue with competence, intelligence and success; keep chroma moderate so content, not colour, leads.",
+    "sources": [15, 16, 18]
+  },
+  "interview": [
+    "Product/hiring-manager round: work through a hypothetical project — scoping, prioritisation, technical vs product trade-offs, stakeholder handling. Case studies should model this reasoning explicitly.",
+    "Practical coding against a real problem with tests, judged on clean code and narrated reasoning — link repos that show tests and readable code.",
+    "System design on a real product challenge: decomposition, trade-offs, scaling, failure modes — pre-empt with architecture diagrams and failure-mode notes in case studies.",
+    "AI-era probes: how you validate AI output, scale review depth to risk, and handle unfamiliar problem shapes; process matters as much as the final answer.",
+    "Every résumé bullet becomes a question — only claim what you can defend in depth for ~10 minutes."
+  ],
+  "sources": [
+    {
+      "url": "https://blog.pragmaticengineer.com/the-product-minded-engineer/",
+      "title": "The Product-Minded Software Engineer",
+      "publisher": "The Pragmatic Engineer (Gergely Orosz)",
+      "year": 2022
+    },
+    {
+      "url": "https://swizec.com/blog/put-scope-on-your-resume/",
+      "title": "Put scope on your resume",
+      "publisher": "Swizec Teller",
+      "year": 2026
+    },
+    {
+      "url": "https://newsletter.systemdesign.one/p/software-engineer-resume",
+      "title": "I rejected 1000s of resumes at Meta",
+      "publisher": "The System Design Newsletter (Austen McDonald, Neo Kim)",
+      "year": 2026
+    },
+    {
+      "url": "https://www.techinterview.org/post/3233474616/senior-engineer-resume/",
+      "title": "Senior Engineer Resume Guide: Scope, Leadership, Cross-Team Impact",
+      "publisher": "techinterview.org",
+      "year": 2026
+    },
+    {
+      "url": "https://incident.io/blog/how-we-interview-engineers-in-2025",
+      "title": "How we interview engineers in 2025",
+      "publisher": "incident.io",
+      "year": 2025
+    },
+    {
+      "url": "https://posthog.com/newsletter/finding-a-job-product-engineer",
+      "title": "Finding a job as a product engineer",
+      "publisher": "PostHog (Andy Vandervell)",
+      "year": 2025
+    },
+    {
+      "url": "https://stackoverflow.blog/2026/10/22/is-ai-really-reshaping-the-developer-market/",
+      "title": "Is AI really reshaping the developer market?",
+      "publisher": "Stack Overflow Blog",
+      "year": 2026
+    },
+    {
+      "url": "https://formation.dev/blog/5-ways-ai-is-changing-what-interviewers-expect-from-senior-engineers",
+      "title": "5 ways AI is changing what interviewers expect from senior engineers",
+      "publisher": "Formation",
+      "year": 2026
+    },
+    {
+      "url": "https://builtin.com/articles/senior-hiring-software-engineering",
+      "title": "AI Makes Code Cheap — and Engineers More Expensive",
+      "publisher": "Built In (Drew Naukam)",
+      "year": 2026
+    },
+    {
+      "url": "https://www.jobscan.co/blog/greenhouse-ats-what-job-seekers-need-to-know/",
+      "title": "Greenhouse ATS: what job seekers need to know",
+      "publisher": "Jobscan",
+      "year": 2026
+    },
+    {
+      "url": "https://dropbox.tech/culture/our-updated-engineering-career-framework",
+      "title": "Here's the latest version of our Engineering Career Framework",
+      "publisher": "Dropbox Tech Blog",
+      "year": 2023
+    },
+    {
+      "url": "https://dropbox.github.io/dbx-career-framework/ic3_software_engineer.html",
+      "title": "IC3 Software Engineer — Dropbox Engineering Career Framework",
+      "publisher": "Dropbox",
+      "year": 2023
+    },
+    {
+      "url": "https://underdog.io/blog/software-engineer-portfolio",
+      "title": "Software Engineer Portfolio That Proves You Can Ship",
+      "publisher": "Underdog.io",
+      "year": 2026
+    },
+    {
+      "url": "https://scrimba.com/articles/how-to-build-a-web-developer-portfolio-that-gets-you-hired",
+      "title": "How to Build a Web Developer Portfolio That Gets You Hired",
+      "publisher": "Scrimba",
+      "year": 2026
+    },
+    {
+      "url": "https://www.cpapracticeadvisor.com/2026/08/13/ai-written-applications-are-now-the-2-red-flag-in-hiring/188492/",
+      "title": "AI-Written Applications Are Now the #2 Red Flag in Hiring (Resume Genius 2026 Hiring Trends Report)",
+      "publisher": "CPA Practice Advisor",
+      "year": 2026
+    },
+    {
+      "url": "https://blakecrosley.com/guides/design/vercel",
+      "title": "Vercel design guide (Geist)",
+      "publisher": "Blake Crosley",
+      "year": 2026
+    },
+    {
+      "url": "https://www.nngroup.com/articles/dark-mode/",
+      "title": "Dark Mode vs. Light Mode: Which Is Better?",
+      "publisher": "Nielsen Norman Group",
+      "year": 2020
+    },
+    {
+      "url": "https://www.hrdive.com/news/eye-tracking-study-shows-recruiters-look-at-resumes-for-7-seconds/541582/",
+      "title": "Eye-tracking study shows recruiters look at resumes for 7 seconds",
+      "publisher": "HR Dive (Ladders 2018 study)",
+      "year": 2018
+    },
+    {
+      "url": "https://www.progress.com/blogs/using-color-psychology-education-web-design",
+      "title": "Using Color Psychology for Education Web Design (citing McKenney 2020, Color in Higher Education Branding)",
+      "publisher": "Progress",
+      "year": 2025
+    }
+  ]
+}

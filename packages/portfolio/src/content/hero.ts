@@ -4,12 +4,12 @@ import {
   WORK_PREFERENCE,
   type Logistics as KnownLogistics,
 } from '../knowledge/identity';
-import { DEFAULT_ARCHETYPE_ID } from '../archetypes/definitions';
-import { VOICES } from '../archetypes/voice';
+import { DEFAULT_ROLE_ID } from '../roles/definitions';
+import { VOICES } from '../roles/voice';
 import type { Topic } from './topic';
 
-/** `/` speaks in the default archetype's voice; so does every feed. */
-const VOICE = VOICES[DEFAULT_ARCHETYPE_ID];
+/** `/` speaks in the default role's voice; so does every feed. */
+const VOICE = VOICES[DEFAULT_ROLE_ID];
 
 /**
  * Identity is declared once. The page title, the eyebrow, the footer, the

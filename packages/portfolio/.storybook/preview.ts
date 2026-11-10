@@ -1,16 +1,13 @@
 /**
  * Every story renders inside a ThemeProvider: the theme of the story's
- * `archetype` arg, in the colour scheme its `scheme` parameter names. That is
+ * `role` arg, in the colour scheme its `scheme` parameter names. That is
  * the design system's injection point; components themselves never pick a
  * theme.
  */
 import '../src/styles/global.css';
 
-import {
-  isArchetypeId,
-  DEFAULT_ARCHETYPE_ID,
-} from '../src/archetypes/definitions';
-import { THEMES } from '../src/archetypes/theme';
+import { isRoleId, DEFAULT_ROLE_ID } from '../src/roles/definitions';
+import { THEMES } from '../src/roles/theme';
 import ThemeProvider from '../src/design-system/ThemeProvider.astro';
 
 type Context = {
@@ -19,11 +16,9 @@ type Context = {
 };
 
 const themed = (_story: unknown, context: Context) => {
-  const value = context.args['archetype'];
+  const value = context.args['role'];
   const id =
-    typeof value === 'string' && isArchetypeId(value)
-      ? value
-      : DEFAULT_ARCHETYPE_ID;
+    typeof value === 'string' && isRoleId(value) ? value : DEFAULT_ROLE_ID;
   return {
     component: ThemeProvider,
     props: {

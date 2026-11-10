@@ -1,0 +1,411 @@
+{
+  "role": "corporate-large-company-senior-developer",
+  "asOf": "2026-11-09",
+  "summary": "Large non-software enterprises (banks, insurers, health systems, retailers, universities) hire mid/senior developers through Workday, iCIMS and Taleo pipelines where knockout questions, recruiter keyword/title filters and, increasingly, LLM-based qualification grading (Workday HiredScore, Aug 2026) decide who a human ever sees. In a defensive 2026 market where employers hold the power, these readers want a low-risk hire: someone who matches the posted title and basic qualifications, works inside Agile/SDLC and change-control discipline, ships tested integrations on cloud platforms, and understands regulated data (HIPAA, FERPA, PCI, SOX). Plain, conservative, evidence-dense résumés win; flashy design and startup self-description lose.",
+  "readers": [
+    {
+      "who": "ATS + knockout screen (Workday/HiredScore, iCIMS, Taleo): parsed profile, application fields and screening questions",
+      "firstPassSeconds": null,
+      "scansFor": "Work authorization, location, minimum years, degree; each posted basic qualification found in parsed experience/skills (HiredScore grades A/B only if ALL basic quals are met); exact posted title and exact skill strings for recruiter Boolean searches"
+    },
+    {
+      "who": "Corporate/HR recruiter or talent-acquisition partner (often non-technical, high volume)",
+      "firstPassSeconds": 6,
+      "scansFor": "Current and previous titles, employers, dates/tenure, education; whether the title and required skills on the requisition literally appear; clean, stable work history without unexplained gaps or rapid hops"
+    },
+    {
+      "who": "Engineering/application development manager on the hiring team",
+      "firstPassSeconds": null,
+      "scansFor": "Evidence of delivery inside an Agile/SDLC process: tested, documented integrations and APIs, CI/CD, cloud, production support, regulated-data handling, cross-team collaboration with business stakeholders, and whether gaps (e.g. Java/.NET/Azure) are learnable"
+    },
+    {
+      "who": "Interview panel (senior engineers, architect, sometimes business partner)",
+      "firstPassSeconds": null,
+      "scansFor": "Depth behind each bullet: design trade-offs, testing strategy, how changes get approved and deployed, incident handling, communication with non-technical stakeholders"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "posted-title-and-basic-quals-match",
+      "label": "Meets all basic qualifications / title match",
+      "why": "HiredScore grades candidates A/B only when every basic qualification is met, and Jobscan found a resume title matching the posting correlated with a 10.6x interview rate.",
+      "weight": 3,
+      "themes": ["process", "architecture"],
+      "skills": [],
+      "howToDemonstrate": "Headline and summary use the posting's exact title (e.g. 'Senior Software Engineer'); each required qualification (years, degree, Agile, testing, CI/CD, APIs, cloud) is visibly evidenced in a dated job, not only in a skills list.",
+      "sources": [0, 1, 2]
+    },
+    {
+      "id": "regulated-data-compliance",
+      "label": "Experience in regulated environments (HIPAA, FERPA, PCI, SOX)",
+      "why": "Health, finance and education postings name compliance frameworks and expect engineers to build controls into delivery, which is decisive for risk-averse employers.",
+      "weight": 3,
+      "themes": ["regulated", "integrations"],
+      "skills": ["oauth"],
+      "howToDemonstrate": "Bullets naming the framework and the control: FERPA-protected student records and SSO at Arizona State University, PCI-scoped payment flows, HIPAA/PHI handling in health-tech; one case study on access control, audit logging and data minimization.",
+      "sources": [11, 12, 15]
+    },
+    {
+      "id": "sdlc-change-control",
+      "label": "Agile/Scrum delivery within the SDLC and change management",
+      "why": "SOX/ITGC and university SDLC policies require authorized, tested, reviewed changes with segregated environments, so managers look for engineers who already work that way.",
+      "weight": 3,
+      "themes": ["process", "documentation"],
+      "skills": ["agile", "git"],
+      "howToDemonstrate": "Describe sprint cadence, peer code review with separation of duties, dev/test/prod promotion, release notes and change tickets; mention backlog refinement and estimation with product owners.",
+      "sources": [12, 15]
+    },
+    {
+      "id": "automated-testing",
+      "label": "Unit, integration and end-to-end test automation",
+      "why": "Automated testing is among the most-requested items in the scraped postings and is how regulated teams produce change evidence.",
+      "weight": 3,
+      "themes": ["testing-quality", "ci-cd"],
+      "skills": ["playwright", "jest"],
+      "howToDemonstrate": "Quantified bullets: test suites added (Jest unit, Playwright E2E), defects prevented, coverage of critical payment/grade-sync paths, tests gating merges in CI.",
+      "sources": [11, 12]
+    },
+    {
+      "id": "ci-cd-pipelines",
+      "label": "CI/CD pipelines and release automation",
+      "why": "Enterprise postings list CI/CD tools explicitly (Azure DevOps, GitHub Actions, Jenkins) and treat them as interchangeable alternatives.",
+      "weight": 3,
+      "themes": ["ci-cd", "cloud-infra"],
+      "skills": ["github-actions", "ci-cd", "docker"],
+      "howToDemonstrate": "Pipeline you built in GitHub Actions: build, test, scan, deploy stages, approvals; deployment frequency or lead-time improvement; note equivalence to Azure DevOps/Jenkins pipelines.",
+      "sources": [11]
+    },
+    {
+      "id": "enterprise-integrations-apis",
+      "label": "APIs and system integrations with enterprise platforms",
+      "why": "Non-software enterprises spend much of their engineering on connecting systems of record (CRM, LMS, ERP, payments), so integration track records map directly to the work.",
+      "weight": 3,
+      "themes": ["integrations", "data"],
+      "skills": ["rest", "salesforce", "nodejs", "sql"],
+      "howToDemonstrate": "Case studies: Salesforce enrollment sync, LMS grade sync, SSO; show volumes, error handling, idempotency, reconciliation and monitoring.",
+      "sources": [11, 4]
+    },
+    {
+      "id": "cloud-platform",
+      "label": "Cloud services (AWS; Azure equivalents)",
+      "why": "Postings ask for cloud resource management, monitoring, identity and databases, often accepting AWS or Azure options in the same requirement line.",
+      "weight": 2,
+      "themes": ["cloud-infra"],
+      "skills": ["aws", "dynamodb", "postgres", "terraform"],
+      "howToDemonstrate": "Name the AWS services used in production and, where honest, the Azure analogue in parentheses only in a skills note (e.g. 'AWS (Lambda, DynamoDB, CloudWatch); ramping on Azure'); IaC example if any.",
+      "sources": [11, 10]
+    },
+    {
+      "id": "stable-tenure",
+      "label": "Stable, progressive work history",
+      "why": "42% of employers (47% in private sector) are less likely to hire frequent job changers, and some recruiters reject 'job-hoppy' inbound candidates outright.",
+      "weight": 2,
+      "themes": ["ownership", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "Show multi-year tenure at One Origin with progression (engineer to senior/tech lead) on one dated line per role; group client engagements under the employer rather than listing them as separate jobs.",
+      "sources": [6, 7, 8]
+    },
+    {
+      "id": "stakeholder-communication",
+      "label": "Collaboration with business stakeholders and cross-functional teams",
+      "why": "Hiring managers rank communication/collaboration as the most-valued skill (48%) and enterprise developers serve non-technical business owners.",
+      "weight": 2,
+      "themes": ["stakeholders", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "Bullets on gathering requirements with university registrar/finance teams, demoing to product owners, writing runbooks for support teams.",
+      "sources": [4]
+    },
+    {
+      "id": "documentation-discipline",
+      "label": "Technical documentation and design artifacts",
+      "why": "Missing documentation is a frequent audit failure, and secure-SDLC guidance calls for mapped architecture and data flows during design.",
+      "weight": 2,
+      "themes": ["documentation", "architecture"],
+      "skills": [],
+      "howToDemonstrate": "Link a sanitized architecture diagram, data-flow diagram and a short design doc/ADR for one integration; mention runbooks and onboarding docs authored.",
+      "sources": [12, 15]
+    },
+    {
+      "id": "production-support-reliability",
+      "label": "Production support, monitoring and incident resolution",
+      "why": "Enterprise roles include on-call/production support and list monitoring tools (CloudWatch, Datadog, Splunk, Azure Monitor) among required experience.",
+      "weight": 2,
+      "themes": ["performance-scale", "ownership"],
+      "skills": ["observability"],
+      "howToDemonstrate": "Bullet with an incident you resolved, a monitor/alert you added, and an uptime or error-rate outcome.",
+      "sources": [11]
+    },
+    {
+      "id": "domain-knowledge",
+      "label": "Industry/domain knowledge (higher ed, healthcare, payments)",
+      "why": "42% of hiring managers name industry or domain knowledge among the most-valued skills.",
+      "weight": 2,
+      "themes": ["regulated", "product-sense"],
+      "skills": [],
+      "howToDemonstrate": "Lead each role with one line of domain context (Arizona State University student platforms; health-tech patient platform) before technical bullets.",
+      "sources": [4]
+    },
+    {
+      "id": "degree-and-credentials",
+      "label": "Bachelor's degree / certifications",
+      "why": "59.7% of recruiters filter by education and 50.6% by certifications, and a bachelor's correlated with a 6.1x interview rate.",
+      "weight": 1,
+      "themes": ["process"],
+      "skills": [],
+      "howToDemonstrate": "List 'B.S., Mathematics & Statistics' in a standard Education section; add a cloud certification (e.g. AWS or Azure fundamentals) only once earned.",
+      "sources": [0]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "Missing a posted basic qualification or exact skill string",
+      "why": "Missing required skills is the top rejection reason (42%); HiredScore drops anyone lacking a basic qualification to C/D; Taleo searches don't match variants or acronyms.",
+      "sources": [1, 3, 4]
+    },
+    {
+      "label": "Heavy color, graphics, columns or text boxes",
+      "why": "62% of hiring managers say heavy color/visual elements hurt their view of a candidate and only 13% say their ATS handles image-heavy layouts; Taleo guidance says avoid tables and graphics.",
+      "sources": [3, 4]
+    },
+    {
+      "label": "Generic, AI-sounding or buzzword-heavy copy",
+      "why": "80% of hiring managers say they can often tell AI-written resumes; giveaways include buzzwords, vague or inflated claims and repetitive wording.",
+      "sources": [4]
+    },
+    {
+      "label": "Frequent short stints / unclear work history",
+      "why": "Unclear or incomplete work history is a top-three rejection reason (33%), and 42% of employers hesitate to hire job hoppers.",
+      "sources": [4, 6, 7]
+    },
+    {
+      "label": "Claiming tools you haven't used to pass filters",
+      "why": "Managers report AI-tailored applications that mirror postings without real qualifications and screen harder for them; an LLM Fit & Gap view now points recruiters to the evidence behind each claim.",
+      "sources": [2, 8]
+    },
+    {
+      "label": "Startup self-presentation (move fast, hustle, 'ninja', growth-hacking)",
+      "why": "Regulated employers need authorized, tested, reviewed change with segregation of duties; 'move fast and break things' framing criteria risk to them.",
+      "sources": [12, 15]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "Senior Software Engineer",
+      "software development life cycle (SDLC)",
+      "Agile/Scrum",
+      "automated testing",
+      "CI/CD pipelines",
+      "RESTful APIs",
+      "system integrations",
+      "cross-functional collaboration",
+      "business stakeholders",
+      "requirements gathering",
+      "code reviews",
+      "technical documentation",
+      "production support",
+      "change management",
+      "regulatory compliance (HIPAA, FERPA, PCI DSS)",
+      "data security and access controls",
+      "Amazon Web Services (AWS)",
+      "single sign-on (SSO)",
+      "scalable, maintainable solutions",
+      "mentoring"
+    ],
+    "avoid": [
+      "move fast and break things",
+      "hustle",
+      "rockstar / ninja",
+      "10x engineer",
+      "hacked together",
+      "growth hacking",
+      "0-to-1",
+      "vibe coding",
+      "passionate self-starter",
+      "results-driven",
+      "disrupt",
+      "blitzscaling"
+    ],
+    "verbs": [
+      "Developed",
+      "Designed",
+      "Implemented",
+      "Integrated",
+      "Led",
+      "Delivered",
+      "Automated",
+      "Migrated",
+      "Maintained",
+      "Collaborated",
+      "Documented",
+      "Mentored"
+    ],
+    "titles": [
+      "Senior Software Engineer",
+      "Software Engineer III",
+      "Senior Software Developer",
+      "Senior Application Developer",
+      "Senior Full Stack Developer",
+      "Lead Software Engineer",
+      "Senior Applications Systems Analyst/Developer",
+      "Software Engineer, Senior"
+    ]
+  },
+  "resume": {
+    "pages": 1,
+    "summaryStyle": "Three to four plain sentences headed by the exact target title: 'Senior Software Engineer with 6 years building and integrating web applications for higher education and healthcare...' then years, domain (regulated data: FERPA, HIPAA, PCI), core stack, and SDLC practice (Agile, automated testing, CI/CD). No adjectives about personality; one concrete outcome.",
+    "sectionOrder": [
+      "summary",
+      "competencies",
+      "experience",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "Past-tense action verb + what was built/changed in the posting's terms + system/stakeholder scope + process or control used (tests, review, CI/CD, compliance) + measurable outcome",
+    "keywordStrategy": "Mirror each posting's exact title and required-skill strings; write both spelled-out and acronym forms once (e.g. 'Continuous Integration/Continuous Delivery (CI/CD)', 'Amazon Web Services (AWS)'); put skills in a plain 'Technical Skills' list AND inside dated experience bullets so parsed-profile graders find evidence; fill every Workday/iCIMS form field (skills, education, work history) since recruiters filter on fields. For missing Java/.NET/Azure/Kubernetes: do not list them as skills; show adjacent evidence (typed OO languages: TypeScript, PHP; AWS equivalents; Docker/GitHub Actions) and, if true, a short 'Currently learning: Azure' line or certification in progress.",
+    "notes": [
+      "Single column, standard headings ('Professional Summary', 'Core Competencies', 'Professional Experience', 'Technical Skills', 'Education'), no tables/text boxes/icons/photo; submit text-based PDF or .docx.",
+      "Core Competencies: 9-12 keyword phrases in 2-3 short lines drawn from the requisition (Agile/Scrum, API Integration, Automated Testing, CI/CD, Cloud (AWS), Regulatory Compliance, Technical Documentation...), each one backed by an experience bullet.",
+      "Dates as Month YYYY - Month YYYY; title, employer, location on one line; group One Origin client work (ASU) under one employer entry to show tenure.",
+      "Recruiters' 6-second first pass lands on titles, employers, dates and education, so those must be instantly scannable.",
+      "ResumeGo's simulation found reviewers preferred two pages for mid-level roles (2.6x); the site's one-page format is acceptable but must not sacrifice required keywords, so cut adjectives before cutting qualifications.",
+      "Answer knockout questions truthfully: US citizen, no sponsorship needed is an asset worth stating in application fields.",
+      "Write in plain specific language; vague inflated claims and buzzwords are read as AI-generated."
+    ],
+    "sources": [0, 1, 2, 3, 4, 5, 14]
+  },
+  "portfolio": {
+    "leadWith": "A sober one-line positioning statement with the exact title ('Senior Software Engineer: secure integrations and web applications for regulated institutions') followed by two or three enterprise case studies (ASU SSO + LMS grade sync under FERPA; Salesforce enrollment sync; PCI-scoped payments) written as problem / constraints & compliance / approach / testing & release / outcome.",
+    "mustHave": [
+      "Downloadable ATS-safe résumé (text PDF and .docx) matching the page content",
+      "Case studies that show process: requirements, design doc or diagram, test strategy, CI/CD, change approval and rollout, monitoring",
+      "Explicit compliance and data-protection notes per project (FERPA, HIPAA, PCI DSS), without disclosing confidential details",
+      "Clear dated employment timeline showing tenure and progression to senior/tech lead",
+      "Skills grouped as Languages / Frameworks / Cloud & DevOps / Data / Testing / Practices, with honest 'learning' items labelled separately",
+      "Contact details, location/remote preference, and work authorization (US citizen)"
+    ],
+    "notes": [
+      "Readers are not impressed by visual novelty; clarity, consistency and evidence are the trust criteria.",
+      "Frame Java/.NET/Azure/Kubernetes gaps as adjacency, not substitution: typed OO backend work, AWS services mapped to Azure equivalents, containerised CI. Never imply production use you don't have.",
+      "Metrics should be business-legible (students served, records synced, payment volume, defect or incident reduction) rather than engineering vanity metrics.",
+      "Keep AI-assisted development as a modest productivity note; hiring managers want proof through work examples rather than claims."
+    ],
+    "sources": [2, 4, 8, 11, 12]
+  },
+  "visual": {
+    "tone": "conservative, trustworthy, orderly, institutional",
+    "scheme": "light",
+    "hue": 255,
+    "chroma": "muted",
+    "display": "serif",
+    "accent": "sans",
+    "corners": "soft",
+    "density": "comfortable",
+    "rationale": "Blue is the colour most associated with competence and trust in brand-personality research, and lower saturation reads calmer; banks, insurers and universities use navy as their institutional default, so a muted navy accent on a white page looks native to this reader. 62% of hiring managers penalise heavy colour and visual elements, so restrict colour to one accent, use a conservative serif for headings with a plain sans for labels and body, and keep a clean single-column rhythm that mirrors a traditional résumé.",
+    "sources": [4, 13]
+  },
+  "interview": [
+    "Recruiter phone screen confirms knockout items again (authorization, location/hybrid, salary band, years with the required stack); have a crisp honest answer for Java/.NET/Azure ('adjacent experience X, ramp plan Y').",
+    "Behavioral/competency rounds (STAR format) probe collaboration with business stakeholders, handling changing requirements, conflict, and production incidents.",
+    "Technical rounds favour practical design and code discussion over puzzles: walk through an integration end to end, API design, data modelling in SQL, error handling and testing strategy.",
+    "Expect questions on how code reaches production in a controlled environment: code review, environments, approvals, rollback, audit trail, and how you'd handle PHI/PII or cardholder data.",
+    "Panels may include an architect or business partner; explain trade-offs in plain language and connect technical decisions to risk and compliance."
+  ],
+  "sources": [
+    {
+      "url": "https://www.jobscan.co/state-of-the-job-search",
+      "title": "The State of the Job Search in 2025",
+      "publisher": "Jobscan",
+      "year": 2025
+    },
+    {
+      "url": "https://doc.workday.com/hiredscore/en-us/workday-hiredscore/recruiter-productivity-/reference--candidate-grades.html",
+      "title": "HiredScore Candidate Grades (reference)",
+      "publisher": "Workday",
+      "year": 2026
+    },
+    {
+      "url": "https://doc.workday.com/hiredscore/en-us/workday-hiredscore/hiredscore-release-notes/2026/august/wednesday--5th-august.html",
+      "title": "HiredScore release notes, 5 August 2026 (LLM-based qualification grading, Fit & Gap)",
+      "publisher": "Workday",
+      "year": 2026
+    },
+    {
+      "url": "https://www.jobscan.co/blog/taleo-popular-ats-ranks-job-applications/",
+      "title": "How Taleo ranks job applications",
+      "publisher": "Jobscan",
+      "year": 2026
+    },
+    {
+      "url": "https://resumegenius.com/blog/job-hunting/hiring-insights-report",
+      "title": "Hiring Insights Report (survey of 1,000 US hiring managers)",
+      "publisher": "Resume Genius",
+      "year": 2026
+    },
+    {
+      "url": "https://www.resumego.net/research/one-or-two-page-resumes/",
+      "title": "Settling the Debate: One or Two Page Resumes",
+      "publisher": "ResumeGo",
+      "year": 2018
+    },
+    {
+      "url": "https://www.hays.co.uk/media-centre/press-releases/content/employer-attitudes-to-job-hopping",
+      "title": "Over four in ten (42%) employers hesitant to hire a 'job-hopping' applicant",
+      "publisher": "Hays",
+      "year": 2025
+    },
+    {
+      "url": "https://builtin.com/software-engineering-perspectives/job-hopping",
+      "title": "Does Job Hopping Still Raise Red Flags for Engineering Managers?",
+      "publisher": "Built In",
+      "year": 2020
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/state-of-the-tech-market-in-2025-hiring-managers",
+      "title": "State of the tech market in 2025: hiring managers' view",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2025
+    },
+    {
+      "url": "https://www.dice.com/recruiting/ebooks/explore-tech-sentiment-report/",
+      "title": "The Defensive Job Market: Dice Tech Sentiment Report",
+      "publisher": "Dice",
+      "year": 2026
+    },
+    {
+      "url": "https://www.dice.com/career-advice/2025-dice-tech-salary-report-is-here-what-you-need-to-know",
+      "title": "2025 Dice Tech Salary Report is Here: What You Need to Know",
+      "publisher": "Dice",
+      "year": 2025
+    },
+    {
+      "url": "https://www.builtinchicago.org/job/senior-software-engineer-2378720/10353561",
+      "title": "Senior Software Engineer (Req. 2378720), Optum: Azure, CI/CD, HIPAA/HITRUST",
+      "publisher": "Built In Chicago / Optum",
+      "year": 2026
+    },
+    {
+      "url": "https://www.vanderbilt.edu/cybersecurity/guidelines/ssdlc-guideline/",
+      "title": "Secure Software Development Life Cycle Guideline",
+      "publisher": "Vanderbilt University",
+      "year": 2026
+    },
+    {
+      "url": "https://link.springer.com/content/pdf/10.1007/s11747-010-0245-y.pdf",
+      "title": "Exciting red and competent blue: the importance of color in marketing",
+      "publisher": "Journal of the Academy of Marketing Science (Labrecque & Milne)",
+      "year": 2012
+    },
+    {
+      "url": "https://prnewswire.com/news-releases/theladders-reveals-that-job-seekers-have-six-seconds-to-succeed-143629046.html",
+      "title": "TheLadders Reveals That Job Seekers Have Six Seconds To Succeed (eye-tracking study)",
+      "publisher": "TheLadders via PR Newswire",
+      "year": 2012
+    },
+    {
+      "url": "https://www.pcc.edu/policy/information-technology/bp-8111/",
+      "title": "BP 8111 Software Development (PCI DSS, SOX, change management for production promotion)",
+      "publisher": "Portland Community College",
+      "year": 2025
+    }
+  ]
+}

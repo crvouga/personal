@@ -1,0 +1,36 @@
+---
+import {
+  VARIANT_PRESENTATIONS,
+  type Presentation,
+} from '../../../roles/presentation';
+import Page from '../../../layouts/Page.astro';
+import ProjectsScreen from '../../../screens/ProjectsScreen.astro';
+import { CONTENT } from '../../../content/content';
+import { PROJECT_TOTALS } from '../../../lib/projects-view';
+import { seoForIndex } from '../../../lib/seo';
+
+/**
+ * Every project for one role, at `/a/<id>/projects/`, ranked for its
+ * audience. Like its homepage, it keeps `/projects/` as the canonical URL.
+ */
+export const getStaticPaths = () =>
+  VARIANT_PRESENTATIONS.map((presentation) => ({
+    params: { role: presentation.id },
+    props: { presentation },
+  }));
+
+interface Props {
+  presentation: Presentation;
+}
+Astro.locals.presentation = Astro.props.presentation;
+
+const seo = seoForIndex({
+  title: `All projects — ${CONTENT.PAGE_TITLE}`,
+  description: `${String(PROJECT_TOTALS.listed)} projects: production platforms in education and health, developer tools, and the infrastructure behind them.`,
+  path: '/projects/',
+});
+---
+
+<Page seo={seo}>
+  <ProjectsScreen />
+</Page>
