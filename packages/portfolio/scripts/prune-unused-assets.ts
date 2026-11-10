@@ -64,6 +64,8 @@ const ALWAYS_KEEP: readonly string[] = [
   '/humans.txt',
   '/.well-known/security.txt',
   '/llms-infra.txt',
+  '/llms-local.txt',
+  '/llms-cloud.txt',
 ];
 
 const DERIVATIVE_SUFFIX = '.optimized.webp';

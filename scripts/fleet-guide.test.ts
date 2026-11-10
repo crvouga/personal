@@ -1,12 +1,12 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { renderLlmsTxt } from './llms-txt';
+import { renderGuide } from './llms-txt';
 import { execute } from '../packages/personal-cli/src/program';
 
 const root = join(import.meta.dir, '..');
 test('published guide inputs include the fleet flow and honest acceptance status', () => {
-  const guide = renderLlmsTxt();
+  const guide = renderGuide('local');
   expect(guide).toContain('npx @crvouga/personal fleet-sync');
   expect(guide).toContain(
     '# Developer fleet: one manager (macOS) and stateless workers (Ubuntu)'
