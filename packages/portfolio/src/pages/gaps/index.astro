@@ -1,0 +1,26 @@
+---
+/**
+ * Where Chris needs to improve: the personal knowledge base set against the
+ * market knowledge base. Not for visitors: unlinked, `noindex`, and left out
+ * of the sitemap.
+ */
+import { CONTENT } from '../../content/content';
+import Page from '../../layouts/Page.astro';
+import { DEFAULT_OG_IMAGE } from '../../lib/seo';
+import type { Seo } from '../../lib/seo-types';
+import GapsScreen from '../../screens/GapsScreen.astro';
+
+const seo: Seo = {
+  title: `Where to improve — ${CONTENT.PAGE_TITLE}`,
+  description:
+    'The gaps between what the job market asks for and what the knowledge base can show.',
+  path: '/gaps/',
+  image: DEFAULT_OG_IMAGE,
+  schema: { t: 'none' },
+  noindex: true,
+};
+---
+
+<Page seo={seo}>
+  <GapsScreen />
+</Page>

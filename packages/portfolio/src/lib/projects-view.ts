@@ -1,5 +1,5 @@
-import { DEFAULT_DEMAND, type Demand } from '../archetypes/demand';
-import { rankBy } from '../archetypes/rank';
+import { DEFAULT_DEMAND, type Demand } from '../roles/demand';
+import { rankBy } from '../roles/rank';
 import { caseStudyFor } from '../content/case-studies';
 import { CONTENT } from '../content/content';
 import type { Project } from '../content/project';
@@ -41,6 +41,16 @@ export const isReviewable = (project: Project): boolean =>
  */
 const CASE_STUDY_STRENGTH = 1.5;
 
+/**
+ * A product a reviewer can open running is stronger evidence than source
+ * alone; every research brief asks for live links.
+ */
+const NOT_LIVE_STRENGTH = 0.85;
+
+const strengthOf = (project: Project): number =>
+  (caseStudyFor(project.id) === undefined ? 1 : CASE_STUDY_STRENGTH) *
+  (project.deployment.t === 'public' ? 1 : NOT_LIVE_STRENGTH);
+
 export const REVIEWABLE_PROJECTS: readonly Project[] =
   LISTED_PROJECTS.filter(isReviewable);
 
@@ -49,12 +59,26 @@ export const REVIEWABLE_PROJECTS: readonly Project[] =
  * the strongest evidence of what its postings ask for. Ties keep registry
  * order, which is the curated priority.
  */
-export const visibleProjectsFor = (demand: Demand): readonly Project[] =>
-  rankBy(REVIEWABLE_PROJECTS, demand, (project) => ({
+export const visibleProjectsFor = (
+  demand: Demand,
+  count: number = VISIBLE_PROJECT_COUNT
+): readonly Project[] =>
+  rankProjects(REVIEWABLE_PROJECTS, demand).slice(0, count);
+
+/**
+ * Any list of projects, strongest evidence for this audience first: what its
+ * postings and research ask for, scaled by depth (a case study, a live
+ * product). Ties keep registry order, the curated priority.
+ */
+export const rankProjects = (
+  projects: readonly Project[],
+  demand: Demand
+): Project[] =>
+  rankBy(projects, demand, (project) => ({
     themes: project.themes,
     topics: project.topics,
-    strength: caseStudyFor(project.id) === undefined ? 1 : CASE_STUDY_STRENGTH,
-  })).slice(0, VISIBLE_PROJECT_COUNT);
+    strength: strengthOf(project),
+  }));
 
 /** The default presentation's flagships; the feeds and the share card use it. */
 export const VISIBLE_PROJECTS: readonly Project[] =

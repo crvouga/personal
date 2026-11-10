@@ -3,7 +3,7 @@
  * The homepage document for one presentation. The page that renders this
  * sets `Astro.locals.presentation` first; the body is `HomeScreen`.
  */
-import { presentationOf } from '../archetypes/presentation';
+import { presentationOf } from '../roles/presentation';
 import Base from '../layouts/Base.astro';
 import HomeScreen from '../screens/HomeScreen.astro';
 
@@ -11,5 +11,5 @@ const presentation = presentationOf(Astro);
 ---
 
 <Base>
-  <HomeScreen archetype={presentation.id} />
+  <HomeScreen role={presentation.id} />
 </Base>

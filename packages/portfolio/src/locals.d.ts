@@ -1,4 +1,4 @@
-import type { Presentation } from './archetypes/presentation';
+import type { Presentation } from './roles/presentation';
 
 declare global {
   namespace App {

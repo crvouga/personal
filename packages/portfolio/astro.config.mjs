@@ -30,10 +30,10 @@ export default defineConfig({
   // they stay out of the sitemap.
   integrations: [
     sitemap({
-      // /archetypes/ and /index/ are Chris's own indexes, not pages for
+      // /roles/, /gaps/ and /index/ are Chris's own pages, not pages for
       // visitors (/index/ names internal tools).
       filter: (page) =>
-        !/^\/(a|archetypes|index)\//.test(new URL(page).pathname),
+        !/^\/(a|roles|gaps|index)\//.test(new URL(page).pathname),
     }),
     cspHeader(),
   ],

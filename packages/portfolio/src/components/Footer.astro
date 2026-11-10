@@ -23,11 +23,9 @@ const year = built.getFullYear();
       <a href={CONTENT.SITE_SOURCE_CODE_URL} rel="noopener" target="_blank">
         This site's source
       </a>
+      {/* Last link on the page. Unstyled: the homepage is at its size budget. */}
+      <a href={SERVICE_INDEX_PATH}>Service index</a>
     </nav>
-  </div>
-  {/* Last thing on the page, and quiet: /index/ is for Chris, not visitors. */}
-  <div class="container last">
-    <a class="quiet" href={SERVICE_INDEX_PATH}>index</a>
   </div>
 </footer>
 
@@ -57,18 +55,6 @@ const year = built.getFullYear();
     align-items: center;
     min-height: var(--tap);
     color: var(--text-muted);
-  }
-  .last {
-    display: flex;
-    justify-content: center;
-    margin-top: var(--space-4);
-    font-family: var(--font-accent);
-    font-size: var(--text-xs);
-  }
-  footer a.quiet {
-    min-width: var(--tap);
-    justify-content: center;
-    color: var(--text-subtle);
   }
   footer a:hover {
     color: var(--accent);

@@ -67,6 +67,13 @@ const dropSecondSummarySentence: Reduce = (content) =>
     ? { ...content, summary: content.summary.slice(0, 1) }
     : null;
 
+const trimCompetencies: Reduce = (content) => {
+  const competencies = content.competencies ?? [];
+  return competencies.length > 4
+    ? { ...content, competencies: competencies.slice(0, -1) }
+    : null;
+};
+
 export const REDUCTIONS: readonly Reduction[] = [
   { name: 'trim a 4th+ bullet', apply: trimBullets(3) },
   { name: 'drop the last project', apply: dropLastProject(3) },
@@ -74,6 +81,7 @@ export const REDUCTIONS: readonly Reduction[] = [
     name: 'drop the second summary sentence',
     apply: dropSecondSummarySentence,
   },
+  { name: 'trim a competency', apply: trimCompetencies },
   { name: 'trim a 3rd bullet', apply: trimBullets(2) },
   { name: 'drop the last skill row', apply: dropLastSkillRow },
   { name: 'drop the last project', apply: dropLastProject(2) },

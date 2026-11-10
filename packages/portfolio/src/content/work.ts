@@ -1,6 +1,6 @@
-import { DEFAULT_DEMAND, type Demand } from '../archetypes/demand';
-import { rankBy } from '../archetypes/rank';
-import { ROLES, ROLE_GAP_NOTE } from '../knowledge/roles';
+import { DEFAULT_DEMAND, type Demand } from '../roles/demand';
+import { rankBy } from '../roles/rank';
+import { JOBS, JOB_GAP_NOTE } from '../knowledge/jobs';
 import { toHtml } from '../knowledge/text';
 import type { YearMonth as KnowledgeYearMonth } from '../knowledge/types';
 import { a } from './a';
@@ -78,31 +78,31 @@ const NO_MEDIA: WorkMedia = { imageSrc: [], imageAlt: '', galleryImageSrc: [] };
 export const factHtml = (text: string): string => toHtml(text, a);
 
 /**
- * The roles in `src/knowledge/roles.ts`, as the site renders them for one
+ * The roles in `src/knowledge/jobs.ts`, as the site renders them for one
  * audience: roles stay in date order, and inside each role the achievements
  * that audience's postings ask for most come first. Nothing is dropped.
  */
 export const buildWork = (demand: Demand): Work[] =>
-  ROLES.map((role) => ({
-    id: role.id,
-    name: role.employer,
-    ...(role.employerUrl === undefined ? {} : { infoUrl: role.employerUrl }),
-    jobTitle: role.title,
-    highlights: rankBy(role.achievements, demand, (fact) => fact).map(
+  JOBS.map((job) => ({
+    id: job.id,
+    name: job.employer,
+    ...(job.employerUrl === undefined ? {} : { infoUrl: job.employerUrl }),
+    jobTitle: job.title,
+    highlights: rankBy(job.achievements, demand, (fact) => fact).map(
       (achievement) => factHtml(achievement.text)
     ),
-    start: role.start,
-    end: role.end,
-    ...(role.awards === undefined ? {} : { awards: [...role.awards] }),
-    ...(role.topics === undefined ? {} : { topics: [...role.topics] }),
-    ...(WORK_MEDIA[role.id] ?? NO_MEDIA),
+    start: job.start,
+    end: job.end,
+    ...(job.awards === undefined ? {} : { awards: [...job.awards] }),
+    ...(job.topics === undefined ? {} : { topics: [...job.topics] }),
+    ...(WORK_MEDIA[job.id] ?? NO_MEDIA),
   }));
 
 /** The default presentation's roles; every machine-readable surface uses it. */
 export const WORK: Work[] = buildWork(DEFAULT_DEMAND);
 
 /** One honest line about the time between the last two roles; see roles.ts. */
-export const WORK_GAP_NOTE: string | undefined = ROLE_GAP_NOTE;
+export const WORK_GAP_NOTE: string | undefined = JOB_GAP_NOTE;
 
 /** The role the hero and résumé headline describe. */
 export const CURRENT_WORK: Work | undefined = WORK.find(

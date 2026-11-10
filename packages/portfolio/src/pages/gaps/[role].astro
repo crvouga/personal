@@ -1,0 +1,30 @@
+---
+/**
+ * One role's gaps. Not for visitors: unlinked, `noindex`, and left out
+ * of the sitemap.
+ */
+import { ROLE_IDS } from '../../roles/definitions';
+import { CONTENT } from '../../content/content';
+import Page from '../../layouts/Page.astro';
+import { DEFAULT_OG_IMAGE } from '../../lib/seo';
+import type { Seo } from '../../lib/seo-types';
+import GapsRoleScreen from '../../screens/GapsRoleScreen.astro';
+
+export const getStaticPaths = () =>
+  ROLE_IDS.map((id) => ({ params: { role: id } }));
+
+const { role } = Astro.params;
+
+const seo: Seo = {
+  title: `${role} — Where to improve — ${CONTENT.PAGE_TITLE}`,
+  description: `What ${role} readers scan for, graded against the knowledge base.`,
+  path: `/gaps/${role}/`,
+  image: DEFAULT_OG_IMAGE,
+  schema: { t: 'none' },
+  noindex: true,
+};
+---
+
+<Page seo={seo}>
+  <GapsRoleScreen subject={role} />
+</Page>

@@ -1,4 +1,4 @@
-import { ARCHETYPE_ARG_TYPES, VARIANTS } from './variants';
+import { ROLE_ARG_TYPES, variant } from './variants';
 import GalleryDemo from './GalleryDemo.astro';
 
 export default {
@@ -7,14 +7,17 @@ export default {
   args: { projectId: 'mockingbird' },
   // The screenshot script opens the dialog from the card's Images button.
   tags: ['opens-gallery'],
-  argTypes: ARCHETYPE_ARG_TYPES,
+  argTypes: ROLE_ARG_TYPES,
 };
 
-export const SeniorDark = VARIANTS.SeniorDark;
-export const SeniorLight = VARIANTS.SeniorLight;
-export const StaffDark = VARIANTS.StaffDark;
-export const StaffLight = VARIANTS.StaffLight;
-export const StartupDark = VARIANTS.StartupDark;
-export const StartupLight = VARIANTS.StartupLight;
-export const Corporate = VARIANTS.Corporate;
-export const Contractor = VARIANTS.Contractor;
+// role-variants:start (bun run roles:sync)
+export const AIDark = variant('AIDark');
+export const AILight = variant('AILight');
+export const Contractor = variant('Contractor');
+export const Corporate = variant('Corporate');
+export const StartupDark = variant('StartupDark');
+export const StartupLight = variant('StartupLight');
+export const SeniorDark = variant('SeniorDark');
+export const SeniorLight = variant('SeniorLight');
+export const Staff = variant('Staff');
+// role-variants:end

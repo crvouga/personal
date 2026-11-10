@@ -2,9 +2,9 @@
 
 # Chris Vouga
 
-**I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct.**
+**I own product features end to end, from design doc to reliable production, and ship with AI coding agents behind automated tests and human review.**
 
-Senior full-stack engineer on member-facing health and education products. Previously technical lead on a university transfer-credit platform.
+Senior full-stack engineer on member-facing health and education products; previously technical lead on a university transfer-credit platform, from design through rollout.
 
 ## Flagships
 

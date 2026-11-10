@@ -13,7 +13,7 @@ const MARKER = '{{NEEDS_INPUT';
 const PACKAGE_ROOT = resolve(import.meta.dir, '../..');
 const SCANNED = [
   'src/knowledge',
-  'src/archetypes',
+  'src/roles',
   'src/content',
   'src/pages',
   'src/components',

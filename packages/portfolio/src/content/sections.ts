@@ -12,7 +12,7 @@ export type Section = {
 
 /**
  * Declaration order is the default page order and the header order (an
- * archetype's voice may reorder it; see `sectionsFor`); `number` is derived from it so the two can never drift apart.
+ * role's voice may reorder it; see `sectionsFor`); `number` is derived from it so the two can never drift apart.
  *
  * Education is deliberately not a section: a diploma image in its own numbered
  * slot reads as credential anxiety at this much experience, so the degree is

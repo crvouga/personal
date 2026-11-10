@@ -1,13 +1,13 @@
 /**
  * The static Storybook build (`storybook-static/`, from `bun run
- * storybook:build`): every story was prerendered, inside its archetype's
+ * storybook:build`): every story was prerendered, inside its role's
  * theme, with nothing failing to render.
  */
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ARCHETYPE_IDS } from '../src/archetypes/definitions';
+import { ROLE_IDS } from '../src/roles/definitions';
 
 const STATIC = join(import.meta.dir, '..', 'storybook-static');
 if (!existsSync(join(STATIC, 'index.json'))) {
@@ -36,18 +36,18 @@ describe('static storybook', () => {
     );
   });
 
-  test('every story renders inside an archetype theme', () => {
+  test('every story renders inside a role theme', () => {
     const unthemed = entries.filter(
       (entry) =>
-        !ARCHETYPE_IDS.some((id) =>
+        !ROLE_IDS.some((id) =>
           (rendered[entry.id] ?? '').includes(`data-theme="${id}"`)
         )
     );
     expect(unthemed.map((entry) => entry.id)).toEqual([]);
   });
 
-  test('every archetype is shown in every screen', () => {
-    for (const id of ARCHETYPE_IDS) {
+  test('every role is shown in every screen', () => {
+    for (const id of ROLE_IDS) {
       const home = entries.filter(
         (entry) =>
           entry.id.startsWith('screens-home--') &&

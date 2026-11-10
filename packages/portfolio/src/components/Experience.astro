@@ -1,12 +1,12 @@
 ---
-import { presentationOf, sectionOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf, sectionOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 import { CONTENT } from '../content/content';
 import { workDateRange, workGalleryFor } from '../lib/work-view';
 
 interface Props {
   /** Injected by stories and HomeScreen; defaults to the page's presentation. */
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 
 const presentation = presentationOf(Astro);

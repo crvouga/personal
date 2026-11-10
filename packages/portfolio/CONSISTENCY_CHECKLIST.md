@@ -6,11 +6,11 @@ The site, the résumé PDF, `/resume.json`, `/llms.txt`, the JSON-LD and the Git
 
 ## LinkedIn headline
 
-Senior Software Engineer · I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct.
+Senior Software Engineer · I own product features end to end, from design doc to reliable production, and ship with AI coding agents behind automated tests and human review.
 
 ## About
 
-I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct. Senior full-stack engineer on member-facing health and education products. Previously technical lead on a university transfer-credit platform.
+I own product features end to end, from design doc to reliable production, and ship with AI coding agents behind automated tests and human review. Senior full-stack engineer on member-facing health and education products; previously technical lead on a university transfer-credit platform, from design through rollout.
 
 ## Experience (titles and dates exactly)
 
@@ -18,11 +18,11 @@ I own product features end to end, from design to reliable production, and build
   - Built the path from a member's lab results to their personalized protocol: metrics they track over time, tied to the therapies their care team prescribes.
   - Shipped member-facing features on web and mobile for the Geviti member app: lab results, personalized protocols, prescriptions, and care-team coordination.
 - **Senior Software Engineer**, One Origin, 2022 – 2025
-  - Technical lead on Triangulator, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.
   - Designed and built the learning-management-system integration for Orchard, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.
+  - Technical lead on Triangulator, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.
   - Rebuilt payment processing for Study Hall, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.
-  - Reworked the backend of ASU Earned Admissions, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.
   - Built the interactive schedule and news features of Sun Devils, ASU's athletics site.
+  - Reworked the backend of ASU Earned Admissions, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.
 - **Software Engineer**, Freelancing, 2020 – 2022
   - Delivered custom websites and web applications for small businesses, from scoping through launch and handoff.
   - Owned the client relationship alongside the code: requirements, timelines, and post-launch support.
@@ -37,10 +37,10 @@ I own product features end to end, from design to reliable production, and build
 
 - AI-assisted engineering: Claude Code, Cursor, spec-driven development, CI-gated agent workflows, property-based testing
 - Languages: TypeScript, Python, JavaScript, Go, PHP, Rust
-- Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
-- Backend: Express, Flask, Node.js, GraphQL, Bun, Graphene, WebSockets
-- Data: Postgres, SQLite, MySQL, DynamoDB, Neo4j
 - Infra & CI: AWS, OpenTofu, GitHub Actions, Docker, Cloudflare, NixOS, OpenBao, Playwright, Railway, S3
+- Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
+- Data: Postgres, SQLite, MySQL, DynamoDB, Neo4j
+- Backend: Express, Flask, Node.js, GraphQL, Bun, Graphene, WebSockets
 
 ## Open to work
 
