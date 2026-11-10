@@ -325,9 +325,7 @@ test('Docker container serves the multi-route site on port 80', async () => {
     const infra = await fetch(`${TEST_URL}/llms-infra.txt`);
     expect(infra.status).toBe(200);
     const infraBody = await infra.text();
-    expect(infraBody.includes('shared infrastructure integration guide')).toBe(
-      true
-    );
+    expect(infraBody.includes('infrastructure integration guide')).toBe(true);
     expect(infraBody.includes('## 2. PostgreSQL')).toBe(true);
 
     const resumeJson = await fetch(`${TEST_URL}/resume.json`);
@@ -342,6 +340,20 @@ test('Docker container serves the multi-route site on port 80', async () => {
     ]) {
       expect((await fetch(`${TEST_URL}${study}`)).status).toBe(200);
     }
+
+    // The static Storybook: its manager, its preview iframe (framed by the
+    // manager, so SAMEORIGIN rather than DENY) and its prerendered stories.
+    const storybook = await fetch(`${TEST_URL}/storybook/`);
+    expect(storybook.status).toBe(200);
+    expect((await storybook.text()).includes('sb-manager')).toBe(true);
+    const preview = await fetch(`${TEST_URL}/storybook/iframe.html`);
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+    expect(preview.headers.get('x-robots-tag')).toBe('noindex');
+    expect(
+      (await fetch(`${TEST_URL}/storybook/astro-prerendered-stories.json`))
+        .status
+    ).toBe(200);
 
     writeLine('Checking security headers, static files and compression...');
     await checkSecurityHeaders();

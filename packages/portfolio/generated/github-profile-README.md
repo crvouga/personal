@@ -2,9 +2,9 @@
 
 # Chris Vouga
 
-**I build reliable software with AI coding agents, and the automated checks that keep it correct.**
+**I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct.**
 
-Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.
+Senior full-stack engineer on member-facing health and education products. Previously technical lead on a university transfer-credit platform.
 
 ## Flagships
 
@@ -22,6 +22,6 @@ Senior engineer in health and education software. Previously technical lead on a
 
 ## Contact
 
-Open to senior and staff roles · Phoenix, AZ · open to remote
+Open to senior product engineering roles · Phoenix, AZ · open to remote
 
 [crvouga@gmail.com](mailto:crvouga@gmail.com) · [Website](https://www.chrisvouga.dev) · [Résumé](https://www.chrisvouga.dev/chris-vouga-resume.pdf) · [LinkedIn](https://www.linkedin.com/in/chris-vouga)

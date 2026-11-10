@@ -1,9 +1,12 @@
 ---
 import { presentationOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import { publishedPosts } from '../lib/published-posts';
 
 interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
   /** Sub-pages need absolute anchors; the homepage keeps same-page ones. */
   variant?: 'home' | 'sub';
 }
@@ -60,7 +63,7 @@ const homeLabel =
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-weight: 700;
     font-size: var(--text-md);
     color: var(--accent);
@@ -80,7 +83,7 @@ const homeLabel =
     min-height: var(--tap);
     min-width: var(--tap);
     white-space: nowrap;
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--text-muted);
   }
@@ -91,7 +94,7 @@ const homeLabel =
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     padding: var(--space-2) var(--space-4);
     border: 1px solid var(--paper-border);

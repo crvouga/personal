@@ -43,6 +43,10 @@ GitHub outage).
 - Never stage secrets: `.env`, `.vault-token`, `VAULT_TOKEN`, `RAILWAY_TOKEN`,
   deploy tokens. `commit` stages everything (`git add --all`) unless you pass
   `--path`, so check `status.worktree.files` first.
+- Portfolio UI changes (anything under `packages/portfolio/src` that renders)
+  need Storybook screenshots on the PR: after opening it, run
+  `bun run --filter @pkgs/portfolio storybook:build`, then `storybook:screenshots`
+  and `storybook:pr-comment <pr>` in `packages/portfolio`. Re-post after UI fixes.
 - Merges to `main` publish and deploy. Never run Railway, Cloudflare, DNS, or
   `tofu apply` from a feature branch.
 

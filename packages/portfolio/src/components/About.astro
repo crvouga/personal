@@ -1,7 +1,13 @@
 ---
 import { presentationOf, sectionOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import { ALSO_SHIPPED_WITH, skillProfileFor } from '../lib/skills-view';
+
+interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
+}
 
 const presentation = presentationOf(Astro);
 const section = sectionOf(presentation, 'about');
@@ -75,7 +81,7 @@ const skillProfile = skillProfileFor(presentation);
     color: var(--text-muted);
   }
   .credential-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
     text-transform: uppercase;
@@ -89,7 +95,7 @@ const skillProfile = skillProfileFor(presentation);
     gap: var(--space-3);
   }
   .toolbox-title {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-lg);
     font-weight: 600;
   }
@@ -108,7 +114,7 @@ const skillProfile = skillProfileFor(presentation);
     }
   }
   .tool-cat {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--accent);
   }
@@ -121,12 +127,12 @@ const skillProfile = skillProfileFor(presentation);
     align-items: center;
     min-height: var(--tap);
     cursor: pointer;
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--accent);
   }
   .tool-items {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--text-muted);
   }

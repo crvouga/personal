@@ -1,0 +1,20 @@
+---
+/**
+ * The frame of every page but the homepage: header, `<main>`, footer. Kept
+ * apart from `Base` (the document) so Storybook can render a whole screen.
+ */
+import Footer from '../components/Footer.astro';
+import Nav from '../components/Nav.astro';
+import type { ArchetypeId } from '../archetypes/definitions';
+
+interface Props {
+  archetype?: ArchetypeId;
+}
+const { archetype } = Astro.props;
+---
+
+<Nav variant="sub" archetype={archetype} />
+<main id="main">
+  <slot />
+</main>
+<Footer />

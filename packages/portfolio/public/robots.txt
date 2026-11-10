@@ -1,4 +1,4 @@
 User-agent: *
-Disallow:
+Disallow: /storybook/
 
 Sitemap: https://www.chrisvouga.dev/sitemap-index.xml

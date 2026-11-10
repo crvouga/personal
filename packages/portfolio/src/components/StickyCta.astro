@@ -63,13 +63,24 @@ const mailto = `mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COP
   // Starts hidden (the hero's buttons are on screen at load) and shows only
   // once neither the hero buttons nor the contact section is visible. Without
   // IntersectionObserver it simply stays hidden; both pairs remain in the page.
-  document.addEventListener('DOMContentLoaded', () => {
+  // Runs now if the document is already parsed (Storybook inserts stories
+  // after load), else once it is.
+  ((init) =>
+    document.readyState === 'loading'
+      ? document.addEventListener('DOMContentLoaded', init)
+      : init())(() => {
     const bar = document.querySelector('[data-sticky-cta]');
     const targets = [
       document.querySelector('[data-hero-ctas]'),
       document.getElementById('contact'),
     ].filter(Boolean);
-    if (!bar || targets.length === 0 || !('IntersectionObserver' in window)) return;
+    if (!bar) return;
+    // Nothing on the page repeats its action (a story, a bare render): show it.
+    if (targets.length === 0) {
+      bar.removeAttribute('data-hidden');
+      return;
+    }
+    if (!('IntersectionObserver' in window)) return;
     const visible = new Set();
     const observer = new IntersectionObserver(
       (entries) => {

@@ -1,0 +1,298 @@
+---
+/** `/archetypes/<id>/`: one archetype and the market evidence behind it. */
+import type { ArchetypeId } from '../archetypes/definitions';
+import {
+  ARCHETYPE_CARDS,
+  LANDSCAPE_SUMMARY,
+  cardById,
+  percent,
+} from '../archetypes/index-view';
+
+interface Props {
+  /** The archetype this page is about (not the theme it is shown in). */
+  subject: ArchetypeId;
+}
+const card = cardById(Astro.props.subject);
+const summary = LANDSCAPE_SUMMARY;
+const total = ARCHETYPE_CARDS.length;
+// An SVG attribute, not a style attribute: the CSP allows no inline styles.
+const width = (share: number): string => `${String(Math.round(share * 100))}%`;
+---
+
+<section class="container detail" aria-labelledby="archetype-title">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/archetypes/">Archetypes</a> <span aria-hidden="true">/</span>
+    <span>#{card.rank} of {total}</span>
+  </nav>
+
+  <header class="head">
+    <div class="title-row">
+      <h1 id="archetype-title">{card.id}</h1>
+      {card.isDefault && <span class="badge">Default</span>}
+    </div>
+    <p class="audience">{card.audience}</p>
+    <div class="actions">
+      <a class="btn btn-contained" href={card.href} aria-label={`Open presentation: ${card.id}`} data-keep-href>
+        <span class="btn-label">Open presentation</span>
+      </a>
+      <a class="action" href={card.resumeHref} target="_blank" rel="noopener" aria-label={`Résumé PDF: ${card.id}`}
+        data-keep-href>
+        Résumé PDF
+      </a>
+      <code class="url">{card.href}</code>
+    </div>
+  </header>
+
+  <p class="description">{card.description}</p>
+  <p class="why">
+    <span class="label">Why it exists</span>
+    {card.justification}
+  </p>
+
+  <dl class="stats">
+    {card.stats.map((stat) => (
+      <div class="stat">
+        <dt>{stat.label}</dt>
+        <dd>{stat.value}</dd>
+      </div>
+    ))}
+  </dl>
+
+  <div class="columns">
+    <div>
+      <h2>What its postings ask for</h2>
+      <ul class="bars">
+        {card.themes.map((bar) => (
+          <li>
+            <span class="bar-label">{bar.label}</span>
+            <span class="bar-value">
+              {percent(bar.share)} · {bar.lift.toFixed(1)}×
+            </span>
+            <svg class="track" aria-hidden="true" focusable="false">
+              <rect class="fill" width={width(bar.share)} height="100%" />
+            </svg>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <div>
+      <h2>Skills they name</h2>
+      <ul class="bars">
+        {card.skills.map((bar) => (
+          <li class:list={{ gap: !bar.have }}>
+            <span class="bar-label">
+              {bar.label}
+              {!bar.have && <span class="gap-mark"> · no evidence</span>}
+            </span>
+            <span class="bar-value">{percent(bar.share)}</span>
+            <svg class="track" aria-hidden="true" focusable="false">
+              <rect class="fill" width={width(bar.share)} height="100%" />
+            </svg>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+
+  <p class="pitch">
+    <span class="label">Leads with</span>
+    “{card.statement}” <span class="availability">{card.availability}</span>
+  </p>
+
+  <div class="samples">
+    <h2>Sample postings</h2>
+    <ul>
+      {card.samples.map((sample) => (
+        <li>
+          <a href={sample.url} rel="noopener noreferrer" target="_blank">
+            {sample.title}
+          </a>{' '}
+          <span class="company">{sample.company}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+
+  <p class="covers">
+    Segments: {card.covers.join(' · ')}. Market landscape of {summary.date}.
+  </p>
+</section>
+
+
+<style>
+  .detail {
+    padding-block: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+  .crumbs {
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    color: var(--text-subtle);
+  }
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(24px, 4vw, 40px);
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+  }
+  .badge {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+  }
+  .audience {
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    color: var(--accent);
+  }
+  .description,
+  .why,
+  .pitch {
+    max-width: 85ch;
+    color: var(--text-muted);
+  }
+  .label {
+    display: block;
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .pitch {
+    color: var(--text);
+  }
+  .availability {
+    display: block;
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+  }
+  .stat {
+    padding: var(--space-3);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+  }
+  dt {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  dd {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--text);
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+  @media (min-width: 800px) {
+    .columns {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .bars {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .bars li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .bar-value {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .track {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--paper-border);
+  }
+  .fill {
+    fill: var(--accent);
+  }
+  .gap .fill {
+    fill: var(--text-subtle);
+  }
+  .gap-mark {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .samples ul {
+    margin: 0;
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .company {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .covers {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .action {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+  }
+  .url {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+    overflow-wrap: anywhere;
+  }
+</style>

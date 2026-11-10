@@ -6,11 +6,11 @@ The site, the résumé PDF, `/resume.json`, `/llms.txt`, the JSON-LD and the Git
 
 ## LinkedIn headline
 
-Senior Software Engineer · I build reliable software with AI coding agents, and the automated checks that keep it correct.
+Senior Software Engineer · I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct.
 
 ## About
 
-I build reliable software with AI coding agents, and the automated checks that keep it correct. Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.
+I own product features end to end, from design to reliable production, and build with AI coding agents behind the automated checks that keep them correct. Senior full-stack engineer on member-facing health and education products. Previously technical lead on a university transfer-credit platform.
 
 ## Experience (titles and dates exactly)
 
@@ -44,5 +44,5 @@ I build reliable software with AI coding agents, and the automated checks that k
 
 ## Open to work
 
-- Open to senior and staff roles; Phoenix, AZ · open to remote; US citizen · no sponsorship needed; UTC−7 (Arizona, no daylight saving)
+- Open to senior product engineering roles; Phoenix, AZ · open to remote; US citizen · no sponsorship needed; UTC−7 (Arizona, no daylight saving)
 - Titles: Senior Software Engineer, Staff Software Engineer

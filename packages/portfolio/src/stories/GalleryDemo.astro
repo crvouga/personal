@@ -1,0 +1,28 @@
+---
+/**
+ * Story wrapper: a project card with its gallery, so the dialog can be opened
+ * from its own Images button (the screenshot script clicks it).
+ */
+import GalleryDialog from '../components/GalleryDialog.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { PROJECTS } from '../content/project';
+import { galleryFor } from '../lib/projects-view';
+
+interface Props {
+  projectId: string;
+}
+const project = PROJECTS.find((candidate) => candidate.id === Astro.props.projectId);
+if (project === undefined) throw new Error(`Unknown project: ${Astro.props.projectId}`);
+---
+
+<div class="container demo">
+  <ProjectCard project={project} galleryIndex={0} />
+</div>
+<GalleryDialog galleries={[galleryFor(project)]} />
+
+<style>
+  .demo {
+    max-width: 520px;
+    padding-block: var(--space-6);
+  }
+</style>

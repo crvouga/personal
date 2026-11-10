@@ -48,6 +48,11 @@ RUN --mount=type=secret,id=github_token,required=true \
   PORTFOLIO_GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
   bun run build
 
+# The static Storybook (every component and screen in every archetype's
+# theme), served at /storybook/ with its own headers (nginx/storybook-headers.conf).
+# Built after the site, so the site's CSP hashes never include its scripts.
+RUN bun run storybook:build && mv storybook-static dist/storybook
+
 # Pre-compress text assets for nginx's gzip_static. No .br: nginx:alpine has no
 # Brotli module to serve them. The build also wrote the hashed CSP snippet to
 # .astro/csp-header.conf (see scripts/csp.ts); fail here if it is missing.
@@ -65,6 +70,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 COPY packages/portfolio/nginx.conf /etc/nginx/conf.d/
 # Snippets live outside conf.d, which nginx.conf includes at http level.
 COPY packages/portfolio/nginx/security-headers.conf /etc/nginx/snippets/
+COPY packages/portfolio/nginx/storybook-headers.conf /etc/nginx/snippets/
 COPY --from=build /app/packages/portfolio/.astro/csp-header.conf /etc/nginx/snippets/
 
 COPY --from=build /app/packages/portfolio/dist /usr/share/nginx/html

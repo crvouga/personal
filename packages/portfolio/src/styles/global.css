@@ -1,5 +1,6 @@
-/* Design tokens. Every text/background pair is held to WCAG AA (4.5:1) by
-   src/styles/contrast.test.ts, in both themes. */
+/* Global styles. Theme tokens (colour, type, shape) come from
+   src/design-system/; src/design-system/themes.test.ts holds every theme's
+   text/background pairs to WCAG AA (4.5:1). */
 
 @font-face {
   font-family: 'Inter Variable';
@@ -18,62 +19,9 @@
 }
 
 :root {
-  --font-sans:
-    'Inter Variable', -apple-system, 'system-ui', 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
-  --font-mono:
-    'JetBrains Mono Variable', 'SF Mono', 'Menlo', 'Consolas',
-    'Liberation Mono', monospace;
-
-  --bg: #0a0a0b;
-  --paper: #101013;
-  --paper-border: #1f1f25;
-  --paper-border-hover: #2e2e36;
-  --text: #f2f4f8;
-  --text-muted: #a3abba;
-  /* 5.6:1 on --paper; the old #727a88 measured 4.39:1 and failed AA. */
-  --text-subtle: #848c9a;
-
-  --accent: #7fb3ff;
-  --accent-strong: #4c8de8;
-  --accent-deep: #1e5baf;
-  --accent-soft: rgba(127, 179, 255, 0.12);
-  --accent-glow: rgba(127, 179, 255, 0.18);
-  --accent-hover: #a6cbff;
-  /* Primary button hover: white text keeps 8:1 (the brighter strong accent
-     dropped it to 3.3:1). */
-  --accent-deep-hover: #1a4f99;
-  --on-accent: #ffffff;
-  --success: #3fb950;
-  --nav-bg: rgba(10, 10, 11, 0.85);
-  --scrim: rgba(10, 10, 11, 0.8);
-  --handwritten-text-a: #b388ff;
-  --handwritten-text-b: #e0ccff;
-  /* Hand-written work: purple, cool like the palette but never mistaken for
-     the blue of a link or the green of a live status. */
-  --handwritten: #51278a;
-  --handwritten-soft: rgba(168, 112, 255, 0.14);
-  --handwritten-border: var(--handwritten);
-  --handwritten-shine: #7545ae;
-  /* A flat purple border with one soft highlight;
-     drawn three times wider than the element so the
-     highlight spends most of each cycle off-stage. */
-  --handwritten-sheen: linear-gradient(
-    110deg,
-    var(--handwritten-border) 0%,
-    var(--handwritten-border) 38%,
-    var(--handwritten-shine) 50%,
-    var(--handwritten-border) 62%,
-    var(--handwritten-border) 100%
-  );
-
-  /* GitHub heatmap ramp: a quiet zero below --paper, then even luminance steps. */
-  --gh-0: #16161c;
-  --gh-1: #143f74;
-  --gh-2: #2361ab;
-  --gh-3: #3f87e2;
-  --gh-4: #86baff;
-
+  /* Colours, typefaces and corners are theme tokens: see src/design-system/.
+     Base.astro (pages) and ThemeProvider (stories) inject them. What follows
+     is the same for every theme: a theme restyles, it never re-lays out. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -104,37 +52,6 @@
   --tap: 44px;
 }
 
-/* Light theme: the same tokens, chosen for the same contrast floor. The share
-   card and the résumé are light already, so this is the brand in daylight. */
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f4f6f9;
-    --paper: #ffffff;
-    --paper-border: #d9dee6;
-    --paper-border-hover: #b9c1cd;
-    --text: #0d1117;
-    --text-muted: #424a57;
-    --text-subtle: #59616e;
-    --accent: #1557b0;
-    --accent-strong: #1e5baf;
-    --accent-deep: #1e5baf;
-    --accent-deep-hover: #0d3f86;
-    --accent-soft: rgba(21, 87, 176, 0.08);
-    --accent-glow: rgba(21, 87, 176, 0.2);
-    --accent-hover: #0d3f86;
-    --success: #1f7a33;
-    --nav-bg: rgba(244, 246, 249, 0.88);
-    --scrim: rgba(13, 17, 23, 0.6);
-    --handwritten-text-a: #6b3fb5;
-    --handwritten-text-b: #9a6be0;
-    --gh-0: #e6e9ee;
-    --gh-1: #b6d3fb;
-    --gh-2: #6aa5f0;
-    --gh-3: #2f74d0;
-    --gh-4: #134b9c;
-  }
-}
-
 *,
 *::before,
 *::after {
@@ -154,7 +71,7 @@ html {
 
 body {
   margin: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-size: var(--text-md);
   line-height: 1.6;
   color: var(--text);
@@ -286,16 +203,17 @@ section {
 }
 
 .section-heading .number {
-  font-family: var(--font-mono);
+  display: var(--section-number-display);
+  font-family: var(--font-accent);
   font-size: var(--text-sm);
   color: var(--accent);
 }
 
 .section-heading h2 {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
 }
 
 .card {
@@ -314,7 +232,7 @@ section {
   align-items: center;
   gap: var(--space-2);
   min-height: var(--tap);
-  font-family: var(--font-mono);
+  font-family: var(--font-accent);
   font-size: var(--text-sm);
   font-weight: 500;
   padding: var(--space-2) var(--space-4);
@@ -357,7 +275,7 @@ section {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-accent);
   font-size: 11px;
   color: var(--text-muted);
   padding: 3px 9px;
@@ -401,7 +319,7 @@ section {
   gap: var(--space-2);
   padding: 6px var(--space-4);
   color: #fff;
-  font-family: var(--font-mono);
+  font-family: var(--font-accent);
   font-size: 14px;
   font-weight: 800;
   line-height: 1.4;
@@ -431,7 +349,7 @@ section {
   padding: 0;
   background: none;
   border: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-accent);
   font-size: var(--text-sm);
   color: var(--accent);
   cursor: pointer;
@@ -460,16 +378,7 @@ section {
 /* Print: reviewers print pages. Black on white, every external link's address
    spelled out, and nothing that only works on a screen. */
 @media print {
-  :root {
-    --bg: #ffffff;
-    --paper: #ffffff;
-    --paper-border: #c9ced6;
-    --text: #000000;
-    --text-muted: #1f242c;
-    --text-subtle: #3a414c;
-    --accent: #0b3d82;
-    --accent-hover: #0b3d82;
-  }
+  /* The print palette is a design-system token set (PRINT_COLORS). */
   html,
   body {
     background: #ffffff;
@@ -497,7 +406,7 @@ section {
   }
   .print-only {
     display: block !important;
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     margin-top: 12px;
   }
   .btn {
@@ -523,35 +432,4 @@ section {
   .handwritten-footer {
     animation: none;
   }
-}
-
-/* Archetype looks. A presentation's theme (src/archetypes/theme.ts) sets its
-   palette inline and switches these on with `data-look` on <html>. They
-   restyle; they never move or hide content a reader needs. */
-:root {
-  --font-serif:
-    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
-    'Times New Roman', serif;
-}
-
-/* One typeface throughout: the monospace accents become the body sans. */
-:root[data-look~='sans'] {
-  --font-mono: var(--font-sans);
-}
-
-/* Document headings: serif, set a little larger to match the mono's weight. */
-:root[data-look~='serif-display'] :is(h1, h2, h3) {
-  font-family: var(--font-serif);
-  letter-spacing: 0;
-}
-
-/* Section numbers are a code-editor flourish; a document has none. */
-:root[data-look~='plain-headings'] .section-heading .number {
-  display: none;
-}
-
-:root[data-look~='square'] {
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
 }

@@ -39,3 +39,5 @@ __pycache__
 **/*.env
 **/.env
 **/.env.*
+packages/portfolio/storybook-static
+packages/portfolio/storybook-screenshots

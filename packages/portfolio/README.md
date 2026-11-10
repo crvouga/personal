@@ -4,6 +4,15 @@ Source for [www.chrisvouga.dev](https://www.chrisvouga.dev): an Astro 7 static s
 
 The package is a Bun workspace inside `crvouga/workspace`. The production image (`ghcr.io/crvouga/chrisvouga-portfolio`) is built from the repository root by CI using `packages/portfolio/Dockerfile`, then served by nginx. Hosting is declared in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](../infra/tofu/modules/inventory/inventory.tf.json) (`id: portfolio`).
 
+## UI development: Storybook first
+
+All UI work happens in Storybook (`bun run storybook`, port 6006): build and review a component or screen there, in every archetype's theme, before it reaches a page. The deployed site serves the same static build at [`/storybook/`](https://www.chrisvouga.dev/storybook/) (built in the Docker image; its own headers in `nginx/storybook-headers.conf`, which allow its same-origin preview iframe; `noindex`). The static build (`bun run storybook:build` → `storybook-static/`) prerenders every story to HTML with [`@storybook-astro/framework`](https://storybook-astro.org) in `static` mode, so it needs no server and no network (the proof section reads the committed GitHub snapshot).
+
+- **Design system** (`src/design-system/`): typed tokens (`tokens.ts`), a base theme and `createTheme` (`base-theme.ts`), CSS generation (`css.ts`) and `ThemeProvider.astro`, which injects a theme into anything inside it. A theme is colour (dark and light), typefaces by role (`--font-body`, `--font-accent`, `--font-display`), heading weight and tracking, section numbers, and corner radii. Components read only these tokens. Spacing, type sizes and layout are fixed in `src/styles/global.css`, so a theme restyles but never re-lays out.
+- **Archetype themes** (`src/archetypes/theme.ts`): one theme per archetype. Pages put `data-theme` on `<html>`; stories get it from the preview decorator (`.storybook/preview.ts`), keyed by the story's `archetype` arg. `src/design-system/themes.test.ts` holds every theme to WCAG AA in each scheme it shows.
+- **Stories**: next to their component (`*.stories.ts`). Each file exports all of `VARIANTS` (`src/stories/variants.ts`): every archetype in every scheme its theme shows. Screens (`src/screens/`) are page bodies without the document; pages only add `Base`/`Page` around them. `src/stories/stories.test.ts` fails a component or screen without stories, or a story file missing a variant; `test/storybook.test.ts` checks the static build.
+- **Review**: every PR that changes UI posts screenshots of every story: `bun run storybook:build && bun run storybook:screenshots && bun run storybook:pr-comment <pr>`. The images go to an orphan `pr-assets/<pr>-storybook` branch (never merged); `--dry-run` previews the comments. `storybook:screenshots [out-dir] [--filter <id>]` alone writes them locally.
+
 ## Architecture
 
 Astro static output emits a small set of HTML pages — `/`, `/projects/`, one case study per flagship at `/projects/<slug>/`, `/404`, and `/writing/` once a post is published — each with its CSS inlined and no client framework. Runtime JavaScript is limited to copy-to-clipboard feedback, the native project gallery dialog, the phone action bar and parking the heatmap at its latest week. A page load makes no third-party request (`test/site.test.ts` enforces it); YouTube is contacted only when a visitor opens a project's video in the gallery. There is no analytics: no cookies and no client-side tracking.
@@ -26,7 +35,7 @@ The site is tailored to the kind of job a visitor is hiring for. Three layers, e
 
 **Themes are the join.** `src/knowledge/themes.ts` is one vocabulary: `scripts/market/taxonomy.ts` measures how often postings ask for each theme, and every fact is tagged with the themes it proves. `src/archetypes/rank.ts` scores a fact as the demand for everything it is evidence of, so a market refresh or a new fact re-ranks every presentation on the next build with no model involved. Only an archetype's voice and theme are hand-written (`voice.ts`, `theme.ts`), and `archetypes.test.ts` holds them to the copy rules and to WCAG AA.
 
-**Archetypes** (`src/archetypes/definitions.ts`) are sets of landscape segments. `/?archetype=<id>` selects one; `/` and any missing or unknown value serve `DEFAULT_ARCHETYPE_ID`. The site is static, so each non-default presentation is prerendered under `dist/a/<id>/` and `nginx.conf` maps the query parameter onto it with `try_files` (a `map` admits only id-shaped values; `/a/…` itself is `internal`). `astro dev` does the same with a small middleware. A presentation keeps the homepage's canonical URL, so search engines see one page. Shared pages (`/projects/`, case studies) carry every theme and apply the one named in the URL; a script carries the parameter across same-site links.
+**Archetypes** (`src/archetypes/definitions.ts`) are sets of landscape segments. `/` serves `DEFAULT_ARCHETYPE_ID`; every other presentation is a plain static page at `/a/<id>/`, with its résumé at `/a/<id>/chris-vouga-resume.pdf`, so any static host serves it without routing. Old `/?archetype=<id>` links redirect to the path (`nginx.conf`, plus a script on `/` for hosts that ignore the query). A presentation keeps the homepage's canonical URL, so search engines see one page. Shared pages (`/projects/`, case studies) carry every theme and apply the one named by `?archetype=<id>`; a script carries it across same-site links and points home and résumé links back at the presentation's paths. `/archetypes/` (unlinked, `noindex`) lists every archetype; `/archetypes/<id>/` shows the market evidence behind each.
 
 The default presentation is also the one story every machine-readable surface tells (`/resume.json`, `/llms.txt`, JSON-LD, the profile README, the LinkedIn checklist).
 
@@ -128,7 +137,7 @@ Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace'
 | `src/styles/global.css`                        | Dark design tokens, typography, layout primitives, focus styles.                                       |
 | `src/knowledge/`                               | The knowledge base: every fact, tagged with themes and topics; no presentation.                        |
 | `src/archetypes/`                              | Archetype definitions, voices, themes, ranking and the resolved `Presentation`.                        |
-| `src/pages/a/[archetype]/`                     | Per-archetype homepage and résumé PDF, served for `?archetype=<id>`.                                   |
+| `src/pages/a/[archetype]/`                     | Per-archetype homepage and résumé PDF at `/a/<id>/`.                                                   |
 | `scripts/market/`, `scripts/market-refresh.ts` | Job-posting fetchers, feature extraction and the landscape aggregator.                                 |
 | `src/data/market/landscape.json`               | Committed market landscape (generated by `market:refresh`).                                            |
 | `src/content/`                                 | The site's view of the knowledge base: facts joined with media, topics, skills.                        |
@@ -172,7 +181,10 @@ Run from the repository root with `bun run --filter @pkgs/portfolio <script>`, o
 | `lint`                                                        | ESLint with the shared workspace rules.                                                               |
 | `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                         |
 | `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                       |
-| `test:site`                                                   | The built `dist/` in Chromium: axe (both themes), layout at 320/390/1440, budgets, link names.        |
+| `test:site`                                                   | The built `dist/` in Chromium (axe, layout, budgets, link names), then the static Storybook build.    |
+| `storybook` / `storybook:build`                               | Storybook dev server on port 6006 / static build into `storybook-static/`.                            |
+| `storybook:screenshots`                                       | Screenshot every story of `storybook-static/` into `storybook-screenshots/`.                          |
+| `storybook:pr-comment <pr>`                                   | Post those screenshots on a PR (images on `pr-assets/<pr>-storybook`); `--dry-run` previews.          |
 | `gamezilla-facts`                                             | Recount gamezilla's specs from its private repository into `src/data/gamezilla-facts.json` (by hand). |
 | `gen:profile-readme`                                          | Regenerate `generated/github-profile-README.md` from the registry (drift-tested).                     |
 | `refresh-verification`                                        | Refresh the committed verification snapshot; exits non-zero on any API or clone failure.              |
@@ -246,7 +258,7 @@ Work highlights are authored as achievements in `src/knowledge/roles.ts` and are
 
 ### Résumé variants
 
-Every archetype has its own PDF at `/chris-vouga-resume.pdf?archetype=<id>`, built from the same presentation as its page and held to the same one-page checks.
+Every archetype has its own PDF at `/a/<id>/chris-vouga-resume.pdf`, built from the same presentation as its page and held to the same one-page checks.
 
 The public `/chris-vouga-resume.pdf` omits the phone number, because it sits on an indexable URL. For a direct application, build the full copy with `RESUME_INCLUDE_PHONE=1 bun run build` and send `dist/chris-vouga-resume.pdf`. The PDF carries `/Author`, `/Subject` and `/Keywords` (from the Skills rows), and `src/resume/ats.test.ts` reads its text layer with `pdftotext` the way an applicant tracking system does.
 

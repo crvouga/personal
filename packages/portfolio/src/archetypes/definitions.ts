@@ -6,7 +6,7 @@
  * archetype is backed by enough postings to measure, and its demand profile
  * differs from the others enough to change what a page should lead with.
  *
- * Ids are public: `/?archetype=<id>` selects a presentation, so an id is only
+ * Ids are public: `/a/<id>/` is a presentation's URL, so an id is only
  * renamed or removed deliberately (the `/portfolio-refresh` command), never by
  * a data refresh. `bun run archetypes:status` reports when the data argues for
  * a different set or a different default.
@@ -76,14 +76,14 @@ export const ARCHETYPE_IDS: readonly ArchetypeId[] = ARCHETYPES.map(
 );
 
 /**
- * Served at `/` and for a missing or unknown `?archetype=`. The largest
+ * Served at `/`; every other archetype is at `/a/<id>/`. The largest
  * segment of the landscape that the knowledge base fits well, at the level
  * currently held; `archetypes:status` recomputes the argument.
  */
 export const DEFAULT_ARCHETYPE_ID: ArchetypeId =
   'tech-company-senior-developer';
 
-/** What a valid `?archetype=` value looks like; nginx applies the same test. */
+/** What a valid archetype id looks like; nginx applies the same test. */
 export const ARCHETYPE_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
 
 export const isArchetypeId = (value: string): value is ArchetypeId =>

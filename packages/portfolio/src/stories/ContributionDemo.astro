@@ -1,0 +1,19 @@
+---
+/**
+ * Story wrapper: the contribution calendar or heatmap over the committed
+ * GitHub snapshot, read on the server so stories stay offline.
+ */
+import ContributionCalendar from '../components/ContributionCalendar.astro';
+import ContributionHeatmap from '../components/ContributionHeatmap.astro';
+import { readSnapshot } from '../lib/github-cache';
+
+interface Props {
+  kind: 'calendar' | 'heatmap';
+}
+const range = readSnapshot()?.ranges[0];
+if (range === undefined) throw new Error('No committed GitHub snapshot to render');
+---
+
+<div class="container">
+  {Astro.props.kind === 'calendar' ? <ContributionCalendar range={range} /> : <ContributionHeatmap range={range} />}
+</div>

@@ -52,7 +52,7 @@ voices the report does not name.
   `ARCHETYPES` (id shaped `<context>-<company>-<level>-<role>`), then a voice
   and a theme for it; TypeScript will not compile until all three exist.
   Remove an archetype only when its postings fall under the test's minimum,
-  and say so: its id is a public URL (`/?archetype=<id>`).
+  and say so: its id is a public URL (`/a/<id>/`).
 - **`no fact is tagged <theme>`** / skill gaps — the market asks for something
   the knowledge base cannot back. Tag an existing fact if it genuinely is
   evidence. Otherwise add the question to `CONTENT_QUESTIONS.md` and tell

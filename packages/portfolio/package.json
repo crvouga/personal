@@ -28,13 +28,19 @@
     "test": "bun test src --pass-with-no-tests",
     "test:docker": "bun test test/server.test.ts",
     "gen:profile-readme": "bun run scripts/gen-profile-readme.ts",
-    "test:site": "bun test test/site.test.ts",
-    "gamezilla-facts": "bun run scripts/gamezilla-facts.ts"
+    "test:site": "bun test test/site.test.ts && bun run storybook:build && bun test test/storybook.test.ts",
+    "gamezilla-facts": "bun run scripts/gamezilla-facts.ts",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "storybook:build": "storybook build -o storybook-static --quiet",
+    "storybook:screenshots": "bun run scripts/storybook-screenshots.ts",
+    "storybook:pr-comment": "bun run scripts/storybook-pr-comment.ts"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/sitemap": "^3.7.4",
     "@axe-core/playwright": "^4.14.0",
+    "@storybook-astro/framework": "1.15.0",
+    "@storybook/builder-vite": "10.6.6",
     "@types/bun": "catalog:",
     "astro": "^7.3.3",
     "cspell": "^10.4.0",
@@ -44,6 +50,7 @@
     "picocolors": "^1.1.1",
     "playwright": "^1.48.0",
     "pretty-ms": "^9.3.0",
+    "storybook": "10.6.6",
     "typescript": "catalog:"
   }
 }

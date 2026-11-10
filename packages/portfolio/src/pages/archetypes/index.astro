@@ -1,0 +1,25 @@
+---
+/**
+ * Chris's own index of the presentations. Not for visitors: unlinked,
+ * `noindex`, and left out of the sitemap.
+ */
+import { CONTENT } from '../../content/content';
+import Page from '../../layouts/Page.astro';
+import { DEFAULT_OG_IMAGE } from '../../lib/seo';
+import type { Seo } from '../../lib/seo-types';
+import ArchetypesIndexScreen from '../../screens/ArchetypesIndexScreen.astro';
+
+const seo: Seo = {
+  title: `Archetypes — ${CONTENT.PAGE_TITLE}`,
+  description:
+    'The job archetypes this portfolio is presented for, with the market data behind each.',
+  path: '/archetypes/',
+  image: DEFAULT_OG_IMAGE,
+  schema: { t: 'none' },
+  noindex: true,
+};
+---
+
+<Page seo={seo}>
+  <ArchetypesIndexScreen />
+</Page>

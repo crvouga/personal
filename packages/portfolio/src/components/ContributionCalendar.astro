@@ -34,7 +34,7 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
 
 <style>
   .panel-total {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-base);
     color: var(--text-muted);
     margin-bottom: var(--space-3);
@@ -55,7 +55,7 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
   }
   .panel-meta {
     margin-top: var(--space-2);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
   }
@@ -64,7 +64,7 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
     align-items: center;
     gap: var(--space-1);
     justify-content: flex-end;
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
     margin-top: var(--space-2);
@@ -105,7 +105,12 @@ const LEVEL_CLASSES = ['c0', 'c1', 'c2', 'c3', 'c4'];
   // Progressive enhancement only: park the grid at its most recent week, which
   // is the part people look at. Without JavaScript it simply starts at the left.
   // The calendar sits in a closed <details>, so it is parked again on open.
-  document.addEventListener('DOMContentLoaded', () => {
+  // Runs now if the document is already parsed (Storybook inserts stories
+  // after load), else once it is.
+  ((init) =>
+    document.readyState === 'loading'
+      ? document.addEventListener('DOMContentLoaded', init)
+      : init())(() => {
     const park = () =>
       document.querySelectorAll('[data-heatmap-scroll]').forEach((scroller) => {
         scroller.scrollLeft = scroller.scrollWidth;

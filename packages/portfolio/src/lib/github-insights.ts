@@ -27,6 +27,9 @@ export type LoadOptions = GitHubFetchOptions & {
   /** Skips the snapshot write; set for dev servers and tests. */
   readonly persist?: boolean;
   readonly snapshotPath?: string;
+  /** Read the committed snapshot only, never GitHub: Storybook's stories
+   *  must render the same everywhere, offline, without moving the snapshot. */
+  readonly snapshotOnly?: boolean;
 };
 
 export type LoadResult = {
@@ -55,11 +58,21 @@ const reportStaleness = (freshness: Freshness): void => {
   );
 };
 
+const snapshotOnly = (options: LoadOptions, now: Date): LoadResult => {
+  const cached = readSnapshot(options.snapshotPath);
+  return {
+    insights: cached,
+    warning: cached === null ? 'no committed snapshot' : null,
+    freshness: cached === null ? null : freshnessOf(cached.fetchedAt, now),
+  };
+};
+
 export const loadGitHubInsights = async (
   login: string,
   options: LoadOptions = {}
 ): Promise<LoadResult> => {
   const now = options.now ?? new Date();
+  if (options.snapshotOnly === true) return snapshotOnly(options, now);
   try {
     const insights = await fetchGitHubInsights(login, options);
     if (options.persist !== false) {
