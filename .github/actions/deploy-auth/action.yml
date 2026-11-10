@@ -19,7 +19,7 @@ runs:
       shell: bash
       name: Read rollout settings
     - id: relay_image
-      uses: docker/build-push-action@v7.2.0
+      uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
       with:
         context: .
         file: packages/auth-relay/Dockerfile
@@ -35,7 +35,7 @@ runs:
           ghcr.io/crvouga/chrisvouga-auth-relay:${{ github.sha }}
       name: Publish gateway
     - id: identity_image
-      uses: docker/build-push-action@v7.2.0
+      uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
       with:
         context: packages/auth-relay
         file: packages/auth-relay/Dockerfile.keycloak
@@ -51,7 +51,7 @@ runs:
           ghcr.io/crvouga/chrisvouga-auth-relay-identity:${{ github.sha }}
       name: Publish identity
     - id: tunnel_image
-      uses: docker/build-push-action@v7.2.0
+      uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
       with:
         context: packages/auth-relay
         file: packages/auth-relay/Dockerfile.tunnel
@@ -118,7 +118,7 @@ runs:
           echo "FIRST_DEPLOYMENT=true" >> "$GITHUB_ENV"
         fi
       shell: bash
-    - uses: hashicorp/vault-action@v4
+    - uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
       with:
         url: ${{ env.VAULT_ADDR }}
         method: jwt
@@ -219,7 +219,7 @@ runs:
         echo "TF_VAR_deploy_gateway=true" >> "$GITHUB_ENV"
       shell: bash
     - name: Log in to Vault again for the gateway and health checks
-      uses: hashicorp/vault-action@v4
+      uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
       with:
         url: ${{ env.VAULT_ADDR }}
         method: jwt

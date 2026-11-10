@@ -8,8 +8,8 @@ const workflow = parse(
   readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
 );
 const jobs = workflow.jobs;
-const required = ['changes', 'repository', 'packages', 'personal_cli'];
-const conditional = ['infra', 'auth', 'portfolio_urls'];
+const required = ['changes', 'repository', 'packages'];
+const conditional = ['infra'];
 const filters = {
   infra: 'true',
   auth: 'true',
@@ -19,15 +19,45 @@ const successful = Object.fromEntries(
   [...required, ...conditional].map((job) => [job, { result: 'success' }])
 );
 
-function gate(results = successful, selected = filters) {
-  return Bun.spawnSync(['bash', '-c', jobs.check.steps[0].run], {
+function gate(
+  results: Record<string, { result: string }> = successful,
+  selected: Record<string, string> = filters,
+  job = jobs.check
+) {
+  const step = job.steps[0];
+  return Bun.spawnSync(['bash', '-c', step.run], {
     env: {
       ...process.env,
+      REQUIRED: step.env.REQUIRED,
+      CONDITIONAL: step.env.CONDITIONAL,
       RESULTS: JSON.stringify(results),
       FILTERS: JSON.stringify(selected),
     },
   }).exitCode;
 }
+
+test('the Slow checks gate applies the same rules to the slow lanes', () => {
+  const slow = {
+    personal_cli: { result: 'success' },
+    auth: { result: 'skipped' },
+    portfolio_urls: { result: 'success' },
+  };
+  const selected = { auth: 'false', portfolio: 'true' };
+  expect(new Set(jobs.slow.needs)).toEqual(
+    new Set(['changes', ...Object.keys(slow)])
+  );
+  expect(gate(slow, selected, jobs.slow)).toBe(0);
+  expect(
+    gate(
+      { ...slow, portfolio_urls: { result: 'skipped' } },
+      selected,
+      jobs.slow
+    )
+  ).not.toBe(0);
+  expect(
+    gate({ ...slow, personal_cli: { result: 'failure' } }, selected, jobs.slow)
+  ).not.toBe(0);
+});
 
 test('the Check gate rejects every failed, cancelled, missing or unexpectedly skipped stage', () => {
   expect(new Set(jobs.check.needs)).toEqual(

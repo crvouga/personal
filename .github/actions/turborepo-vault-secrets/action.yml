@@ -44,7 +44,7 @@ runs:
     - id: s3
       if: steps.readiness.outputs.ready == 'true'
       continue-on-error: true
-      uses: hashicorp/vault-action@v4
+      uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
       with:
         url: https://vault.chrisvouga.dev
         method: jwt
@@ -60,7 +60,7 @@ runs:
     - id: portfolio
       if: steps.readiness.outputs.ready == 'true'
       continue-on-error: true
-      uses: hashicorp/vault-action@v4
+      uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
       with:
         url: https://vault.chrisvouga.dev
         method: jwt

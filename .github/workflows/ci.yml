@@ -83,8 +83,11 @@ on:
         value: ${{ jobs.publish.outputs.service_id }}
 permissions:
   contents: read
+# Superseded PR runs are cancelled. Every main, merge-queue and manual run gets
+# its own group, so none is cancelled or replaced while pending.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' &&
+    github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 defaults:
   run:
@@ -108,12 +111,12 @@ jobs:
       vault_inputs: ${{ steps.filter.outputs.vault_inputs }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 2
       - name: Find affected integrations
         id: filter
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           base: ${{ github.event_name == 'merge_group' &&
             github.event.merge_group.base_sha || '' }}
@@ -149,9 +152,12 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash scripts/ci/logged-shell.sh {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - name: Check branches
@@ -175,7 +181,7 @@ jobs:
         run: bunx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
       - name: Check PR title
         if: github.event_name == 'pull_request'
-        uses: amannn/action-semantic-pull-request@v6
+        uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Check TOFU_VAULT_INPUTS against the inventory
@@ -184,7 +190,7 @@ jobs:
           TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
         run: bun run check:vault-inputs
       - name: Cache formatting results
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .cache/prettier
           key: prettier-v1-${{ runner.os }}-${{ hashFiles('bun.lock', '.prettier*',
@@ -199,6 +205,28 @@ jobs:
       - name: Fast repository checks
         run: bun run ci:format && bun run check:agents && bun run check:llms && bun run
           check:scripts
+      - name: Install gitleaks from the mise pin
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: '2026.10.24'
+          install: false
+      - name: Scan new commits for secrets
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha ||
+            github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha ||
+            github.event.merge_group.head_sha }}
+        run: |
+          mise install --locked gitleaks
+          mise exec --locked gitleaks -- gitleaks git --no-banner --redact --log-opts="$BASE_SHA..$HEAD_SHA" .
+      - name: Summarize failure
+        if: failure()
+        uses: ./.github/actions/failure-summary
+        with:
+          name: Repository checks
   packages:
     name: Packages (${{ matrix.task }})
     if: inputs.service_id == ''
@@ -212,14 +240,21 @@ jobs:
           - tests
     env:
       TURBO_CACHE: local:rw
+      # --affected compares against the PR base commit (the checkout has no local main).
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+    defaults:
+      run:
+        shell: bash scripts/ci/logged-shell.sh {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache task results
         id: tasks_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo
           key: turbo-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{
@@ -228,10 +263,12 @@ jobs:
             turbo-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-
       - name: Typecheck and lint packages
         if: matrix.task == 'quality'
-        run: bunx turbo run tc lint
+        # PRs run only packages affected since the merge base; main runs everything.
+        run: bunx turbo run tc lint ${{ github.event_name == 'pull_request' &&
+          '--affected' || '' }}
       - name: Set up Atlas
         if: matrix.task == 'tests'
-        uses: ariga/setup-atlas@v0
+        uses: ariga/setup-atlas@28f0b75814c08b1a265b75713c120cfad46433ae # v0.5
       - name: Plan browser installation
         id: browsers
         if: matrix.task == 'tests'
@@ -251,14 +288,21 @@ jobs:
           sudo apt-get install -y --no-install-recommends poppler-utils restic python3-yaml
       - name: Test and build packages
         if: matrix.task == 'tests'
-        run: bunx turbo run test build test:site
+        run: bunx turbo run test build test:site ${{ github.event_name == 'pull_request'
+          && '--affected' || '' }}
       - name: Save completed task results
         if: always() && !cancelled() && steps.tasks_cache.outputs.cache-primary-key !=
           '' && steps.tasks_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .turbo
           key: ${{ steps.tasks_cache.outputs.cache-primary-key }}
+      - name: Summarize failure
+        if: failure()
+        uses: ./.github/actions/failure-summary
+        with:
+          name: Packages (${{ matrix.task }})
+          key: ${{ matrix.task }}
   infra:
     name: OpenTofu (${{ matrix.group }})
     if: needs.changes.outputs.infra == 'true'
@@ -275,21 +319,24 @@ jobs:
     env:
       TF_VAR_state_passphrase: validation-only-passphrase-never-used-for-real-state
       TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.cache/tofu-providers
+    defaults:
+      run:
+        shell: bash scripts/ci/logged-shell.sh {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install dependencies
         if: matrix.group == 'contracts'
         uses: ./.github/actions/setup
       - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
       - name: Set up Atlas
-        uses: ariga/setup-atlas@v0
+        uses: ariga/setup-atlas@28f0b75814c08b1a265b75713c120cfad46433ae # v0.5
       - name: Cache verified providers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .cache/tofu-providers
           key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-${{ matrix.group }}-${{
@@ -303,9 +350,15 @@ jobs:
         run: |
           mkdir -p "$TF_PLUGIN_CACHE_DIR"
           bash packages/infra/tofu/check.sh "$CHECK_GROUP"
+      - name: Summarize failure
+        if: failure()
+        uses: ./.github/actions/failure-summary
+        with:
+          name: OpenTofu (${{ matrix.group }})
+          key: ${{ matrix.group }}
   auth:
     name: Auth compatibility (${{ matrix.suite }})
-    if: needs.changes.outputs.auth == 'true'
+    if: needs.changes.outputs.auth == 'true' && github.event_name != 'pull_request'
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -317,14 +370,14 @@ jobs:
           - compatibility
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.0.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
       - name: Build auth production images concurrently
         if: matrix.suite == 'images'
-        uses: docker/bake-action@v6
+        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4 # v6.10.0
         with:
           files: packages/auth-relay/tests/production-bake.hcl
           load: true
@@ -336,16 +389,16 @@ jobs:
         run: python3 packages/auth-relay/tests/production-image.py
       - name: Set up Atlas
         if: matrix.suite == 'compatibility'
-        uses: ariga/setup-atlas@v0
+        uses: ariga/setup-atlas@28f0b75814c08b1a265b75713c120cfad46433ae # v0.5
       - name: Set up OpenTofu
         if: matrix.suite == 'compatibility'
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
         with:
           tofu_version: 1.13.0
           tofu_wrapper: false
       - name: Build compatibility fixtures
         if: matrix.suite == 'compatibility'
-        uses: docker/bake-action@v6
+        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4 # v6.10.0
         with:
           files: packages/auth-relay/tests/docker-bake.hcl
           load: true
@@ -362,13 +415,14 @@ jobs:
         run: bun run auth:test:e2e
   portfolio_urls:
     name: Portfolio public URLs
-    if: needs.changes.outputs.portfolio == 'true'
+    if: needs.changes.outputs.portfolio == 'true' && github.event_name !=
+      'pull_request'
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Health-check portfolio public URLs
@@ -386,7 +440,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Read optional integration credentials
@@ -404,7 +458,7 @@ jobs:
         run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
   personal_cli:
     name: Personal CLI (${{ matrix.os }}, Node ${{ matrix.node }})
-    if: inputs.service_id == ''
+    if: inputs.service_id == '' && github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -417,9 +471,9 @@ jobs:
           - { os: macos-latest, node: '24' }
           - { os: windows-latest, node: '24' }
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/setup
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node }}
       - name: Test fleet and CLI contracts
@@ -428,6 +482,7 @@ jobs:
         run: bun run personal:build
       - name: Install and exercise the packed consumer anonymously
         run: bun run --cwd packages/personal-cli smoke
+  # Required merge gate: the fast lanes only. Slow lanes report in Slow checks.
   check:
     name: Check
     if: always() && inputs.service_id == ''
@@ -436,9 +491,6 @@ jobs:
       - repository
       - packages
       - infra
-      - auth
-      - portfolio_urls
-      - personal_cli
     runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
@@ -446,16 +498,18 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
           FILTERS: ${{ toJSON(needs.changes.outputs) }}
+          REQUIRED: changes repository packages
+          CONDITIONAL: infra
         run: >
           set -euo pipefail
 
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
 
-          for job in changes repository packages personal_cli; do
+          for job in $REQUIRED; do
             test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
           done
 
-          for job in infra auth portfolio_urls; do
+          for job in $CONDITIONAL; do
             filter="$job"
             if [ "$job" = portfolio_urls ]; then filter=portfolio; fi
             expected=$(jq -r --arg filter "$filter" '.[$filter]' <<< "$FILTERS")
@@ -469,39 +523,78 @@ jobs:
               exit 1
             fi
           done
-  fleet:
-    # Compatibility status required by the existing live GitHub ruleset.
-    # Remove after a reviewed foundation apply requires only Check.
-    name: Fleet
-    if: always() && inputs.service_id == ''
-    needs: check
-    runs-on: ubuntu-slim
-    timeout-minutes: 2
-    steps:
-      - name: Report platform validation under the legacy required name
-        env:
-          CHECK: ${{ needs.check.result }}
-        run: test "$CHECK" = success
-  Required:
-    name: Required
-    if: always() && inputs.service_id == '' && (github.event_name == 'pull_request'
-      || github.event_name == 'merge_group')
+  # Slow lanes run on main, merge-queue and manual runs, never on PR pushes.
+  # Deploy and release wait for them; a failure on main opens an issue.
+  slow:
+    name: Slow checks
+    if: always() && inputs.service_id == '' && github.event_name != 'pull_request'
     needs:
-      - check
-      - fleet
+      - changes
+      - auth
+      - portfolio_urls
+      - personal_cli
     runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
-      - name: Check legacy merge status
+      - name: Check validation results
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: jq -e 'all(.[]; .result == "success")' <<< "$RESULTS"
-  personal_cli_release:
-    name: Release personal CLI
-    if: "!cancelled() && needs.check.result == 'success' && needs.fleet.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && inputs.service_id == ''"
+          FILTERS: ${{ toJSON(needs.changes.outputs) }}
+          REQUIRED: personal_cli
+          CONDITIONAL: auth portfolio_urls
+        run: >
+          set -euo pipefail
+
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
+
+          for job in $REQUIRED; do
+            test "$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")" = success
+          done
+
+          for job in $CONDITIONAL; do
+            filter="$job"
+            if [ "$job" = portfolio_urls ]; then filter=portfolio; fi
+            expected=$(jq -r --arg filter "$filter" '.[$filter]' <<< "$FILTERS")
+            result=$(jq -r --arg job "$job" '.[$job].result' <<< "$RESULTS")
+            if [ "$expected" = true ]; then
+              test "$result" = success
+            elif [ "$expected" = false ]; then
+              test "$result" = success || test "$result" = skipped
+            else
+              echo "Missing or invalid path filter for $job: $expected" >&2
+              exit 1
+            fi
+          done
+  main_failure:
+    name: Report main failure
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && inputs.service_id == ''
     needs:
       - check
-      - fleet
+      - slow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: Open or update the main-failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >
+          bun scripts/ci/upsert-issue.ts --title "CI failed on main" --label
+          ci-failed --body "CI failed on main at ${GITHUB_SHA}: ${RUN_URL}"
+  personal_cli_release:
+    name: Release personal CLI
+    if: "!cancelled() && needs.check.result == 'success' && needs.slow.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && inputs.service_id == ''"
+    needs:
+      - check
+      - slow
     permissions:
       contents: read
       id-token: write
@@ -511,7 +604,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/setup
       - name: Plan idempotent release
         id: plan
@@ -523,7 +616,7 @@ jobs:
         run: '[[ "$NPM_KEY" =~ ^[A-Z][A-Z0-9_]*$ ]]'
       - name: Read existing npm publishing credential through Vault OIDC
         if: steps.plan.outputs.changed == 'true' && vars.PERSONAL_NPM_TOKEN_KEY != ''
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: https://vault.chrisvouga.dev
           method: jwt
@@ -539,16 +632,17 @@ jobs:
         run: bun run personal:release --apply --yes ${{ vars.PERSONAL_NPM_TOKEN_KEY == '' && '--oidc' || '' }}
   deploy:
     name: Deploy
-    if: "!cancelled() && needs.check.result == 'success' && needs.fleet.result ==
+    if: "!cancelled() && needs.check.result == 'success' && needs.slow.result ==
       'success' && github.event_name == 'push' && github.ref ==
       'refs/heads/main' && inputs.service_id == ''"
     needs:
       - check
-      - fleet
+      - slow
     permissions:
       contents: read
       packages: write
       id-token: write
+      issues: write
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
   publish:

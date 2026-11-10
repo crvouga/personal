@@ -40,12 +40,12 @@ runs:
         if command -v tofu >/dev/null && [ "$(tofu version -json | jq -r .terraform_version)" = 1.13.0 ]; then
           echo 'tofu_ready=true' >> "$GITHUB_OUTPUT"
         fi
-    - uses: opentofu/setup-opentofu@v1
+    - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
       if: steps.toolchain.outputs.tofu_ready != 'true'
       with:
         tofu_version: 1.13.0
         tofu_wrapper: false
-    - uses: ariga/setup-atlas@v0
+    - uses: ariga/setup-atlas@28f0b75814c08b1a265b75713c120cfad46433ae # v0.5
       if: inputs.root == 'foundation' && env.CI_ATLAS_READY != 'true'
     - name: Remember Atlas setup for this job
       if: inputs.root == 'foundation'

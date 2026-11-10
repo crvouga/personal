@@ -16,7 +16,8 @@ test('PR and merge queue checks always report, including documentation-only chan
   expect(workflow.on.merge_group).toEqual({});
   expect(workflow.jobs.check.name).toBe('Check');
   expect(workflow.jobs.check.if).toBe("always() && inputs.service_id == ''");
-  expect(workflow.jobs.fleet.if).toContain('always()');
+  expect(workflow.jobs.fleet).toBeUndefined();
+  expect(workflow.jobs.Required).toBeUndefined();
   expect(workflow.jobs.changes.needs).toBeUndefined();
 });
 
@@ -44,7 +45,7 @@ test('optional integrations cannot suppress core checks or require production cr
 });
 
 test('deployment requires successful checks on a main push and cannot cancel active mutations', () => {
-  expect(workflow.jobs.deploy.needs).toEqual(['check', 'fleet']);
+  expect(workflow.jobs.deploy.needs).toEqual(['check', 'slow']);
   expect(workflow.jobs.deploy.if).toContain("github.event_name == 'push'");
   expect(workflow.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
   expect(deploy.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
@@ -81,13 +82,13 @@ test('deployment requires successful checks on a main push and cannot cancel act
   ).toBe(false);
 });
 
-test('deployment runs after optional Fleet skips but refuses failed, skipped or cancelled gates', () => {
+test('deployment refuses failed, skipped or cancelled fast and slow gates', () => {
   const condition = workflow.jobs.deploy.if;
   // GitHub otherwise inserts success(), which includes skipped ancestors even
-  // when the direct Check and Fleet gates both succeeded.
+  // when the direct Check and Slow checks gates both succeeded.
   expect(condition).toContain('!cancelled()');
   for (const check of ['success', 'failure', 'skipped', 'cancelled'])
-    for (const fleet of ['success', 'failure', 'skipped', 'cancelled'])
+    for (const slow of ['success', 'failure', 'skipped', 'cancelled'])
       for (const cancelled of [false, true])
         for (const event of ['push', 'pull_request', 'workflow_dispatch'])
           for (const ref of ['refs/heads/main', 'refs/heads/feature'])
@@ -95,14 +96,14 @@ test('deployment runs after optional Fleet skips but refuses failed, skipped or 
               const actual = runInNewContext(condition, {
                 cancelled: () => cancelled,
                 success: () => false,
-                needs: { check: { result: check }, fleet: { result: fleet } },
+                needs: { check: { result: check }, slow: { result: slow } },
                 github: { event_name: event, ref },
                 inputs: { service_id: serviceId },
               });
               expect(actual).toBe(
                 !cancelled &&
                   check === 'success' &&
-                  fleet === 'success' &&
+                  slow === 'success' &&
                   event === 'push' &&
                   ref === 'refs/heads/main' &&
                   serviceId === ''
@@ -188,21 +189,31 @@ test('all core gates are retained across independent validation jobs', () => {
   expect(workflow.jobs.packages.env.TURBO_CACHE).toBe('local:rw');
 });
 
-test('the transitional Required status preserves all validation until the live ruleset migrates', () => {
-  expect(workflow.jobs.Required.needs).toEqual(['check', 'fleet']);
-  const script = workflow.jobs.Required.steps[0].run;
-  for (const result of ['failure', 'cancelled', 'skipped', 'success']) {
-    const actual = Bun.spawnSync(['bash', '-c', script], {
-      env: {
-        ...process.env,
-        RESULTS: JSON.stringify({
-          check: { result: 'success' },
-          fleet: { result },
-        }),
-      },
-    });
-    expect(actual.exitCode).toBe(result === 'success' ? 0 : 1);
-  }
+test('slow lanes skip PR pushes and gate deploy and release on main', () => {
+  for (const job of ['auth', 'portfolio_urls', 'personal_cli'])
+    expect(workflow.jobs[job].if).toContain(
+      "github.event_name != 'pull_request'"
+    );
+  expect(workflow.jobs.slow.if).toContain(
+    "github.event_name != 'pull_request'"
+  );
+  expect(workflow.jobs.slow.needs).toEqual([
+    'changes',
+    'auth',
+    'portfolio_urls',
+    'personal_cli',
+  ]);
+  expect(workflow.jobs.personal_cli_release.needs).toEqual(['check', 'slow']);
+  expect(workflow.jobs.slow.steps[0].run).toBe(
+    workflow.jobs.check.steps[0].run
+  );
+});
+
+test('main, merge-queue and manual runs never cancel or replace each other', () => {
+  expect(workflow.concurrency.group).toContain('github.run_id');
+  expect(workflow.concurrency['cancel-in-progress']).toBe(
+    "${{ github.event_name == 'pull_request' }}"
+  );
 });
 
 test('validation preserves the protected main branch constraints', () => {
