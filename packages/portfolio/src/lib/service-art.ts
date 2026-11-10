@@ -1,6 +1,6 @@
 /**
- * For `/index/`: cover art for each host. Deterministic: the hostname seeds
- * every choice, so a card keeps its art across builds, and the category picks
+ * For `/index/`: cover art for each item. Deterministic: its key seeds
+ * every choice, so an item keeps its art across builds, and the category picks
  * the palette. Served as files by `src/pages/index/art/[slug].svg.ts`.
  */
 
@@ -11,12 +11,12 @@ export const ART_HEIGHT = 400;
 
 /** Base hue per category; each host drifts a little from it. */
 const CATEGORY_HUE: Readonly<Record<Category, number>> = {
-  product: 222,
-  game: 330,
-  library: 160,
-  ai: 268,
-  platform: 196,
-  ops: 32,
+  'public-app': 222,
+  'public-api': 160,
+  'internal-dashboard': 32,
+  'internal-api': 268,
+  postgres: 196,
+  blob: 330,
   domain: 52,
 };
 

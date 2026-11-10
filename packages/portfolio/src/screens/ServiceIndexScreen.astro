@@ -1,34 +1,45 @@
 ---
 /**
- * `/index/`: a grid of every host the platform serves. Working hosts first,
- * filterable by category and searchable; offline and parked hosts sit in
- * their own section and are never presented as working links.
+ * `/index/`: quick access to everything the platform runs, grouped into
+ * sections (Public Apps, Internal APIs, Postgres…). Each item is one app or
+ * store with its variants (stacks, dev and production) as links. A list by
+ * default, with a grid view one click away; filterable by section and
+ * searchable. Items with no working link sit in their own section and are
+ * never presented as working links.
  */
-import type { ServiceCard, ServiceIndexView } from '../lib/service-index-view';
+import type {
+  ServiceIndexView,
+  ServiceItem,
+} from '../lib/service-index-view';
 
 interface Props {
   view: ServiceIndexView;
 }
 const { view } = Astro.props;
 
-const total = view.open.length + view.closed.length;
-const intro = `${String(total)} services, apps and domains, read from the infrastructure inventory.`;
+const intro = `${String(view.total)} apps, services, stores and domains, read from the infrastructure inventory.`;
 // Storybook revives ISO strings in args as Dates, so read it either way.
 const checkedIso =
   view.checkedAt === null ? null : new Date(view.checkedAt).toISOString();
 const checkedOn = checkedIso?.slice(0, 10) ?? null;
+const openCount = view.sections.reduce(
+  (sum, section) => sum + section.items.length,
+  0
+);
 const sections: readonly {
   readonly id: string;
-  readonly cards: readonly ServiceCard[];
-}[] = [
-  { id: 'open', cards: view.open },
-  { id: 'closed', cards: view.closed },
-];
-const isLink = (card: ServiceCard): boolean =>
-  card.status !== 'down' && card.status !== 'parked';
+  readonly label: string;
+  readonly category: string;
+  readonly items: readonly ServiceItem[];
+}[] = view.sections.map((section) => ({
+  id: `section-${section.category}`,
+  label: section.label,
+  category: section.category,
+  items: section.items,
+}));
 ---
 
-<section class="container index" aria-labelledby="index-title" data-service-index>
+<section class="container index" aria-labelledby="index-title" data-service-index data-view="list">
   <header class="head">
     <p class="eyebrow">index</p>
     <h1 id="index-title">Everything I host</h1>
@@ -39,34 +50,40 @@ const isLink = (card: ServiceCard): boolean =>
           <>Status was not checked in this build.</>
         ) : (
           <>
-            Each one was checked when this page was built,{' '}
+            Each host was checked when this page was built,{' '}
             <time datetime={checkedIso ?? ''} data-relative>{checkedOn}</time>.
           </>
         )
       }
     </p>
     <ul class="stats" aria-label="Status">
-      <li class="stat live"><span class="dot"></span>{view.counts.live} live</li>
-      <li class="stat gated"><span class="dot"></span>{view.counts.gated} sign-in</li>
-      <li class="stat closed">
+      <li class="stat status-live"><span class="dot"></span>{view.counts.live} live</li>
+      <li class="stat status-gated"><span class="dot"></span>{view.counts.gated} sign-in</li>
+      <li class="stat status-down">
         <span class="dot"></span>{view.counts.down + view.counts.parked} offline or parked
       </li>
     </ul>
   </header>
 
   <div class="controls">
-    <label class="search">
-      <span class="visually-hidden">Search</span>
-      <input type="search" placeholder="Search by name, host or purpose" autocomplete="off" data-search />
-    </label>
-    <div class="chips" role="group" aria-label="Category">
+    <div class="toolbar">
+      <label class="search">
+        <span class="visually-hidden">Search</span>
+        <input type="search" placeholder="Search by name, host or purpose" autocomplete="off" data-search />
+      </label>
+      <div class="views" role="group" aria-label="View">
+        <button type="button" class="view-button" aria-pressed="true" data-view-button="list">List</button>
+        <button type="button" class="view-button" aria-pressed="false" data-view-button="grid">Grid</button>
+      </div>
+    </div>
+    <div class="chips" role="group" aria-label="Section">
       <button type="button" class="chip" aria-pressed="true" data-category="all">
-        All <span class="count">{view.open.length}</span>
+        All <span class="count">{openCount}</span>
       </button>
       {
-        view.categories.map((entry) => (
-          <button type="button" class="chip" aria-pressed="false" data-category={entry.category}>
-            {entry.label} <span class="count">{entry.count}</span>
+        sections.map((section) => (
+          <button type="button" class="chip" aria-pressed="false" data-category={section.category}>
+            {section.label} <span class="count">{section.items.length}</span>
           </button>
         ))
       }
@@ -74,74 +91,110 @@ const isLink = (card: ServiceCard): boolean =>
   </div>
 
   {
-    sections.map((section) => {
-      const grid = (
-        <ul class="grid">
-          {section.cards.map((card) => (
-            <li
-              class={`card cat-${card.category} status-${card.status}`}
-              data-card
-              data-category={card.category}
-              data-search={card.search}
-            >
-              <div class="cover">
-                <span class="art" aria-hidden="true">
-                  <img src={card.artHref} alt="" width="640" height="400" loading="lazy" decoding="async" />
-                </span>
-                <span class="status" title={card.detail}>
-                  <span class="dot"></span>
-                  {card.statusLabel}
-                </span>
-              </div>
-              <div class="body">
-                <h3 class="title">
-                  {isLink(card) ? (
-                    <a class="open" href={card.url} rel="noopener" target="_blank">
-                      {card.title}
-                    </a>
-                  ) : (
-                    card.title
+    [...sections, { id: 'closed', label: 'Offline and parked', category: 'closed', items: view.closed }].map(
+      (section) => {
+        const list = (
+          <ul class="items">
+            {section.items.map((item) => (
+              <li
+                class={`item cat-${item.category} status-${item.status}`}
+                data-card
+                data-category={item.category}
+                data-search={item.search}
+              >
+                <div class="cover" aria-hidden="true">
+                  <img src={item.artHref} alt="" width="640" height="400" loading="lazy" decoding="async" />
+                </div>
+                <div class="who">
+                  <span class="status" title={item.detail}>
+                    <span class="dot"></span>
+                    <span class="status-label">{item.statusLabel}</span>
+                  </span>
+                  <h3 class="title">
+                    {item.url === null ? (
+                      item.title
+                    ) : (
+                      <a class="open" href={item.url} rel="noopener" target="_blank">
+                        {item.title}
+                      </a>
+                    )}
+                  </h3>
+                  <p class="address">{item.address}</p>
+                </div>
+                <div class="what">
+                  <p class="desc">{item.description}</p>
+                  {item.variants.length > 1 && (
+                    <ul class="variants" aria-label={`${item.title} links`}>
+                      {item.variants.map((variant) => (
+                        <li>
+                          {variant.isLink ? (
+                            <a
+                              class={`variant status-${variant.status}`}
+                              href={variant.url}
+                              rel="noopener"
+                              target="_blank"
+                              title={`${variant.address} · ${variant.statusLabel}`}
+                            >
+                              <span class="dot"></span>
+                              {variant.label}
+                            </a>
+                          ) : (
+                            <span
+                              class={`variant status-${variant.status}`}
+                              title={`${variant.address} · ${variant.statusLabel}`}
+                            >
+                              <span class="dot"></span>
+                              {variant.label}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                </h3>
-                <p class="host">{card.hostname}</p>
-                <p class="desc">{card.description}</p>
+                </div>
                 <div class="meta">
-                  <span class="tag">{card.categoryLabel}</span>
-                  <span class="tag">{card.hostingLabel}</span>
-                  {card.sourceUrl !== null && (
-                    <a class="source" href={card.sourceUrl} rel="noopener" target="_blank" aria-label={`Source code for ${card.title}`}>
+                  {item.hostingLabels.map((label) => (
+                    <span class="tag">{label}</span>
+                  ))}
+                  {item.sourceUrl !== null && (
+                    <a class="source" href={item.sourceUrl} rel="noopener" target="_blank" aria-label={`Source code for ${item.title}`}>
                       Source
                     </a>
                   )}
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      );
-      return section.id === 'open' ? (
-        <>
-          <h2 class="visually-hidden">Working</h2>
-          {grid}
-          <p class="empty" hidden data-empty>Nothing matches. Try another word or category.</p>
-        </>
-      ) : (
-        section.cards.length > 0 && (
-          <details class="closed-section">
-            <summary>
-              <h2>Offline and parked</h2>
-              <span class="count">{section.cards.length}</span>
-            </summary>
-            <p class="note">
-              Declared in the inventory, but not answering or showing a placeholder when this
-              page was built. They come back to the grid on their own once they answer.
-            </p>
-            {grid}
-          </details>
-        )
-      );
-    })
+              </li>
+            ))}
+          </ul>
+        );
+        if (section.id !== 'closed') {
+          return (
+            <section class="group" aria-labelledby={section.id} data-section>
+              <h2 id={section.id} class="group-title">
+                {section.label} <span class="count">{section.items.length}</span>
+              </h2>
+              {list}
+            </section>
+          );
+        }
+        return (
+          section.items.length > 0 && (
+            <details class="closed-section">
+              <summary>
+                <h2>{section.label}</h2>
+                <span class="count">{section.items.length}</span>
+              </summary>
+              <p class="note">
+                Declared in the inventory, but not answering or showing a placeholder when this
+                page was built. They come back on their own once they answer.
+              </p>
+              {list}
+            </details>
+          )
+        );
+      }
+    )
   }
+  <p class="empty" hidden data-empty>Nothing matches. Try another word or section.</p>
 </section>
 
 <script>
@@ -197,21 +250,32 @@ const isLink = (card: ServiceCard): boolean =>
     border-radius: 50%;
     background: var(--text-subtle);
   }
-  .live .dot,
-  .status-live .dot {
+  .status-live > .dot,
+  .status-live .status .dot {
     background: var(--success);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);
   }
-  .gated .dot,
-  .status-gated .dot {
+  .status-gated > .dot,
+  .status-gated .status .dot,
+  .status-console > .dot,
+  .status-console .status .dot {
     background: var(--accent);
   }
 
+  /* Controls */
   .controls {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
     margin-top: var(--space-6);
+  }
+  .toolbar {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .search {
+    flex: 1;
+    min-width: 0;
   }
   .search input {
     width: 100%;
@@ -223,9 +287,34 @@ const isLink = (card: ServiceCard): boolean =>
     color: var(--text);
     font: inherit;
   }
-  .search input:focus-visible {
+  .search input:focus-visible,
+  .view-button:focus-visible,
+  .chip:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+  }
+  .views {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+  }
+  .view-button {
+    min-height: calc(var(--tap) - 6px);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+  .view-button[aria-pressed='true'] {
+    background: var(--accent-soft);
+    color: var(--text);
   }
   .chips {
     display: flex;
@@ -260,93 +349,52 @@ const isLink = (card: ServiceCard): boolean =>
     color: var(--text);
   }
   .count {
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
+    font-weight: 400;
     color: var(--text-subtle);
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-    gap: var(--space-4);
-    margin: var(--space-5) 0 0;
+  /* Sections */
+  .group {
+    margin-top: var(--space-6);
+    padding-block: 0;
+  }
+  .group-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+  .items {
+    margin: var(--space-3) 0 0;
     padding: 0;
     list-style: none;
   }
-  .card {
+  .item {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--paper-border);
-    border-radius: var(--radius-lg);
-    background: var(--paper);
-    transition:
-      transform 160ms ease,
-      border-color 160ms ease,
-      box-shadow 160ms ease;
   }
-  .card:has(.open):hover,
-  .card:has(.open:focus-visible) {
-    transform: translateY(-2px);
-    border-color: var(--paper-border-hover);
-    box-shadow: 0 12px 32px -16px var(--accent-glow);
-  }
-  .cover {
-    position: relative;
-    aspect-ratio: 16 / 10;
-    overflow: hidden;
-    border-bottom: 1px solid var(--paper-border);
-  }
-  .art {
-    display: block;
-    height: 100%;
-  }
-  .cover img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 300ms ease;
-  }
-  .card:has(.open):hover .cover img {
-    transform: scale(1.03);
-  }
-  .status-down .cover img,
-  .status-parked .cover img {
-    filter: grayscale(1) brightness(0.7);
+  .who {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-2);
   }
   .status {
-    position: absolute;
-    top: var(--space-3);
-    left: var(--space-3);
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--paper-border);
-    background: var(--paper);
-    color: var(--text);
-    font-family: var(--font-accent);
-    font-size: var(--text-xs);
-    backdrop-filter: blur(6px);
-  }
-  .body {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-4);
   }
   .title {
-    font-size: var(--text-lg);
-    line-height: 1.25;
+    font-size: var(--text-base);
+    line-height: 1.3;
   }
   .open {
     color: var(--text);
     text-decoration: none;
   }
-  /* The whole card opens the host; Source stays clickable on top. */
+  /* The whole item opens its first working link; other links sit on top. */
   .open::after {
     content: '';
     position: absolute;
@@ -356,27 +404,55 @@ const isLink = (card: ServiceCard): boolean =>
   .open:focus-visible {
     outline: none;
   }
-  .card:has(.open:focus-visible) {
+  .item:has(.open:focus-visible) {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
-  .host {
+  .address {
+    grid-column: 2;
     font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-subtle);
     overflow-wrap: anywhere;
   }
   .desc {
-    flex: 1;
     font-size: var(--text-sm);
     color: var(--text-muted);
+  }
+  .variants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .variant {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 2px var(--space-2);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text);
+    text-decoration: none;
+  }
+  a.variant:hover {
+    border-color: var(--accent);
+  }
+  span.variant {
+    color: var(--text-subtle);
+    text-decoration: line-through;
   }
   .meta {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    margin-top: var(--space-2);
   }
   .tag {
     padding: 2px var(--space-2);
@@ -393,7 +469,6 @@ const isLink = (card: ServiceCard): boolean =>
     align-items: center;
     min-height: var(--tap);
     min-width: var(--tap);
-    margin-left: auto;
     font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--accent);
@@ -401,11 +476,112 @@ const isLink = (card: ServiceCard): boolean =>
   .source:hover {
     color: var(--accent-hover);
   }
+  .status-down .cover img,
+  .status-parked .cover img {
+    filter: grayscale(1) brightness(0.7);
+  }
+
+  /* List: dense rows, no art. */
+  [data-view='list'] .items {
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    overflow: hidden;
+  }
+  [data-view='list'] .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
+  [data-view='list'] .item + .item {
+    border-top: 1px solid var(--paper-border);
+  }
+  [data-view='list'] .item:has(.open):hover {
+    background: var(--accent-soft);
+  }
+  [data-view='list'] .cover,
+  [data-view='list'] .status-label {
+    display: none;
+  }
+  [data-view='list'] .tag {
+    display: none;
+  }
+  @media (min-width: 760px) {
+    [data-view='list'] .item {
+      grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    [data-view='list'] .tag {
+      display: inline;
+    }
+  }
+
+  /* Grid: cards with art. */
+  [data-view='grid'] .items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: var(--space-4);
+  }
+  [data-view='grid'] .item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    overflow: hidden;
+    padding-bottom: var(--space-3);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+  [data-view='grid'] .item:has(.open):hover {
+    transform: translateY(-2px);
+    border-color: var(--paper-border-hover);
+    box-shadow: 0 12px 32px -16px var(--accent-glow);
+  }
+  [data-view='grid'] .cover {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-bottom: 1px solid var(--paper-border);
+  }
+  [data-view='grid'] .cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  [data-view='grid'] .who,
+  [data-view='grid'] .what,
+  [data-view='grid'] .meta {
+    padding-inline: var(--space-4);
+  }
+  [data-view='grid'] .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    padding-top: var(--space-2);
+  }
+  [data-view='grid'] .what {
+    flex: 1;
+  }
+  [data-view='grid'] .title {
+    font-size: var(--text-lg);
+  }
+  [data-view='grid'] .status {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
   .empty {
     margin-top: var(--space-6);
     color: var(--text-muted);
   }
-
   .closed-section {
     margin-top: var(--space-8);
     border-top: 1px solid var(--paper-border);
@@ -433,9 +609,8 @@ const isLink = (card: ServiceCard): boolean =>
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .card,
-    .cover img {
-      transition: none;
+    .item {
+      transition: none !important;
     }
   }
 </style>

@@ -6,15 +6,27 @@ import { buildServiceIndexView, slugOf } from './service-index-view';
 import type { Probe, Status } from './service-probe';
 
 const snapshot: ServiceIndexSnapshot = {
-  version: 1,
+  version: 2,
   zone: 'chrisvouga.dev',
-  hosts: ['snake', 'vault', 'dozzle', 'pickflix'].map((name) => ({
-    hostname: `${name}.chrisvouga.dev`,
-    url: `https://${name}.chrisvouga.dev/`,
-    id: name,
-    hosting: 'railway',
-    sourceUrl: null,
-  })),
+  hosts: ['snake', 'vault', 'dozzle', 'pickflix', 'auth', 'auth-dev'].map(
+    (name) => ({
+      hostname: `${name}.chrisvouga.dev`,
+      url: `https://${name}.chrisvouga.dev/`,
+      id: name,
+      hosting: 'railway',
+      sourceUrl: null,
+    })
+  ),
+  resources: [
+    {
+      key: 'postgres:openbao',
+      kind: 'postgres',
+      id: 'openbao',
+      name: 'crvouga/personal · main',
+      provider: 'PlanetScale',
+      consoleUrl: 'https://app.planetscale.com/crvouga/personal',
+    },
+  ],
 };
 
 const probed = (status: Status): Probe => ({
@@ -34,33 +46,60 @@ describe('buildServiceIndexView', () => {
       ['vault.chrisvouga.dev', probed('gated')],
       ['dozzle.chrisvouga.dev', probed('down')],
       ['pickflix.chrisvouga.dev', probed('parked')],
+      ['auth.chrisvouga.dev', probed('down')],
+      ['auth-dev.chrisvouga.dev', probed('live')],
     ]),
     '2026-01-01T00:00:00.000Z'
   );
+  const titles = (category: string): readonly string[] =>
+    view.sections
+      .find((section) => section.category === category)
+      ?.items.map((item) => item.title) ?? [];
 
-  test('offline and parked hosts leave the working grid', () => {
-    expect(view.open.map((card) => card.hostname)).toEqual([
-      'snake.chrisvouga.dev',
-      'vault.chrisvouga.dev',
+  test('items are grouped into sections, in catalog order', () => {
+    expect(view.sections.map((section) => section.category)).toEqual([
+      'public-app',
+      'public-api',
+      'internal-api',
+      'postgres',
     ]);
-    expect(view.closed.map((card) => card.status).sort()).toEqual([
-      'down',
-      'parked',
+    expect(titles('public-app')).toEqual(['Snake']);
+  });
+
+  test('variants of one thing are one item, each a link of its own', () => {
+    const relay = view.sections
+      .flatMap((section) => section.items)
+      .find((item) => item.title === 'Relay');
+    expect(relay?.variants.map((variant) => variant.label)).toEqual([
+      'Production',
+      'Dev',
+    ]);
+    expect(relay?.variants.map((variant) => variant.isLink)).toEqual([
+      false,
+      true,
+    ]);
+    expect(relay?.status).toBe('live');
+    expect(relay?.url).toBe('https://auth-dev.chrisvouga.dev/');
+  });
+
+  test('items with no working link leave the sections', () => {
+    expect(view.closed.map((item) => item.title).sort()).toEqual([
+      'Dozzle',
+      'Pickflix',
     ]);
     expect(view.counts).toEqual({
-      live: 1,
+      live: 2,
       gated: 1,
       parked: 1,
-      down: 1,
+      down: 2,
       unchecked: 0,
+      console: 1,
     });
   });
 
-  test('only categories with working hosts get a filter', () => {
-    expect(view.categories.map((entry) => entry.category)).toEqual([
-      'game',
-      'platform',
-    ]);
+  test('stores link to their console without a probe', () => {
+    const [postgres] = titles('postgres');
+    expect(postgres).toBe('Personal Postgres');
   });
 
   test('without probes every host is unchecked, not offline', () => {
@@ -71,7 +110,7 @@ describe('buildServiceIndexView', () => {
     );
     expect(unchecked.checkedAt).toBeNull();
     expect(unchecked.closed).toEqual([]);
-    expect(unchecked.counts.unchecked).toBe(4);
+    expect(unchecked.counts.unchecked).toBe(6);
   });
 
   test('slugs are file-safe and never collide', () => {
@@ -84,13 +123,17 @@ describe('buildServiceIndexView', () => {
 
 describe('art', () => {
   test('is deterministic per host and differs between hosts', () => {
-    expect(artSvg('a.dev', 'A', 'game')).toBe(artSvg('a.dev', 'A', 'game'));
-    expect(artSvg('a.dev', 'A', 'game')).not.toBe(artSvg('b.dev', 'A', 'game'));
+    expect(artSvg('a.dev', 'A', 'public-app')).toBe(
+      artSvg('a.dev', 'A', 'public-app')
+    );
+    expect(artSvg('a.dev', 'A', 'public-app')).not.toBe(
+      artSvg('b.dev', 'A', 'public-app')
+    );
     expect(hash('a')).not.toBe(hash('b'));
   });
 
   test('escapes the title and draws a two-letter monogram', () => {
-    expect(artSvg('a.dev', '<x>', 'ops')).not.toContain('<x>');
+    expect(artSvg('a.dev', '<x>', 'internal-api')).not.toContain('<x>');
     expect(monogram('Connect Four')).toBe('CF');
     expect(monogram('vLLM')).toBe('VL');
     expect(monogram("Violet's Garden")).toBe('VG');

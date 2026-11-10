@@ -10,6 +10,9 @@
  * - `cloudflare.dns.records`: other web records in the zone (A, AAAA, CNAME),
  *   minus `_` verification records and anything at or under a mail domain;
  * - `domains`: other registered domains, at the URL each declares first.
+ *
+ * Stores with no web host come from `postgres.projects` (PlanetScale) and
+ * `object_stores` (R2 buckets), each linked to its provider console.
  */
 
 import { readFileSync } from 'node:fs';
@@ -18,6 +21,7 @@ import {
   SERVICE_INDEX_VERSION,
   type Hosting,
   type IndexedHost,
+  type IndexedResource,
   type ServiceIndexSnapshot,
 } from '../../src/lib/service-index';
 
@@ -144,6 +148,42 @@ const fromDomains = (
     });
 };
 
+const fromPostgres = (inventory: unknown): readonly IndexedResource[] =>
+  rows(at(inventory, 'postgres'), 'projects').map((project) => {
+    const id = str(project, 'id');
+    const organization = str(project, 'organization');
+    const name = str(project, 'name');
+    return {
+      key: `postgres:${id}`,
+      kind: 'postgres',
+      id,
+      name: `${organization}/${name} · ${str(project, 'branch')}`,
+      provider: 'PlanetScale',
+      consoleUrl: `https://app.planetscale.com/${organization}/${name}`,
+    };
+  });
+
+const PROVIDER_LABEL: Readonly<Record<string, string>> = {
+  r2: 'Cloudflare R2',
+};
+
+const fromObjectStores = (inventory: unknown): readonly IndexedResource[] =>
+  rows(inventory, 'object_stores').map((store) => {
+    const bucket = str(store, 'bucket');
+    const provider = str(store, 'provider');
+    return {
+      key: `blob:${str(store, 'id')}`,
+      kind: 'blob',
+      id: str(store, 'id'),
+      name: bucket,
+      provider: PROVIDER_LABEL[provider] ?? provider,
+      consoleUrl:
+        provider === 'r2'
+          ? `https://dash.cloudflare.com/?to=/:account/r2/default/buckets/${bucket}`
+          : `https://${bucket}`,
+    };
+  });
+
 /** Parses `locals.inventory`; throws when a shape it relies on is gone. */
 export const parseInventory = (json: unknown): ServiceIndexSnapshot => {
   const inventory = at(at(json, 'locals'), 'inventory');
@@ -165,6 +205,7 @@ export const parseInventory = (json: unknown): ServiceIndexSnapshot => {
     version: SERVICE_INDEX_VERSION,
     zone,
     hosts: [...inZoneHosts, ...fromDomains(inventory, zone)].filter(unique),
+    resources: [...fromPostgres(inventory), ...fromObjectStores(inventory)],
   };
 };
 

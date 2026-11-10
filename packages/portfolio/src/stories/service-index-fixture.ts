@@ -3,13 +3,12 @@
  * with made-up probe results (no network) and art inlined, since Storybook
  * does not serve the site's `/index/art/` files.
  */
-import { CATALOG } from '../content/service-index';
 import { artSvg } from '../lib/service-art';
 import { loadServiceIndex } from '../lib/service-index';
 import {
   buildServiceIndexView,
-  catalogEntryFor,
   type ServiceIndexView,
+  type ServiceItem,
 } from '../lib/service-index-view';
 import { STATUSES, type Probe } from '../lib/service-probe';
 
@@ -36,24 +35,16 @@ const view = buildServiceIndexView(
   '2026-01-01T12:00:00.000Z'
 );
 
-const inlineArt = (hostname: string): string => {
-  const host = snapshot.hosts.find((entry) => entry.hostname === hostname);
-  const entry =
-    CATALOG[hostname] ??
-    (host === undefined ? undefined : catalogEntryFor(host));
-  return entry === undefined
-    ? ''
-    : `data:image/svg+xml,${encodeURIComponent(artSvg(hostname, entry.title, entry.category))}`;
-};
+const inlineArt = (item: ServiceItem): ServiceItem => ({
+  ...item,
+  artHref: `data:image/svg+xml,${encodeURIComponent(artSvg(item.slug, item.title, item.category))}`,
+});
 
 export const SERVICE_INDEX_FIXTURE: ServiceIndexView = {
   ...view,
-  open: view.open.map((card) => ({
-    ...card,
-    artHref: inlineArt(card.hostname),
+  sections: view.sections.map((section) => ({
+    ...section,
+    items: section.items.map(inlineArt),
   })),
-  closed: view.closed.map((card) => ({
-    ...card,
-    artHref: inlineArt(card.hostname),
-  })),
+  closed: view.closed.map(inlineArt),
 };

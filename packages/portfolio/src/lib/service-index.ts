@@ -10,7 +10,7 @@
 
 import raw from '../data/service-index.json';
 
-export const SERVICE_INDEX_VERSION = 1;
+export const SERVICE_INDEX_VERSION = 2;
 
 /** Served by `src/pages/index/index.astro`. */
 export const SERVICE_INDEX_PATH = '/index/';
@@ -33,6 +33,24 @@ export const HOSTING_LABEL: Readonly<Record<Hosting, string>> = {
   domain: 'Own domain',
 };
 
+/** Stores the inventory declares that have no web host of their own. */
+export const RESOURCE_KINDS = ['postgres', 'blob'] as const;
+
+export type ResourceKind = (typeof RESOURCE_KINDS)[number];
+
+export type IndexedResource = {
+  /** Unique across the snapshot, and the resource's catalog key, e.g. `postgres:openbao`. */
+  readonly key: string;
+  readonly kind: ResourceKind;
+  /** The inventory id. */
+  readonly id: string;
+  /** What the provider calls it, e.g. `crvouga/personal` or a bucket name. */
+  readonly name: string;
+  readonly provider: string;
+  /** The provider console page for it. */
+  readonly consoleUrl: string;
+};
+
 export type IndexedHost = {
   readonly hostname: string;
   /** Where a visitor goes: the host's root, or a domain's declared URL. */
@@ -48,6 +66,7 @@ export type ServiceIndexSnapshot = {
   /** The site's own zone, e.g. `chrisvouga.dev`. */
   readonly zone: string;
   readonly hosts: readonly IndexedHost[];
+  readonly resources: readonly IndexedResource[];
 };
 
 const fail = (detail: string): never => {
@@ -88,6 +107,24 @@ const parseHost = (value: unknown): IndexedHost => {
   };
 };
 
+const isResourceKind = (value: unknown): value is ResourceKind =>
+  RESOURCE_KINDS.some((kind) => kind === value);
+
+const parseResource = (value: unknown): IndexedResource => {
+  if (!isRecord(value)) return fail('resources entries must be objects');
+  const kind = value['kind'];
+  if (!isResourceKind(kind))
+    return fail(`kind must be one of ${RESOURCE_KINDS.join(', ')}`);
+  return {
+    key: text(value, 'key'),
+    kind,
+    id: text(value, 'id'),
+    name: text(value, 'name'),
+    provider: text(value, 'provider'),
+    consoleUrl: text(value, 'consoleUrl'),
+  };
+};
+
 /** Throws on anything that is not a complete, current-version snapshot. */
 export const parseServiceIndex = (value: unknown): ServiceIndexSnapshot => {
   if (!isRecord(value)) return fail('expected an object');
@@ -98,10 +135,13 @@ export const parseServiceIndex = (value: unknown): ServiceIndexSnapshot => {
   if (!Array.isArray(hosts) || hosts.length === 0) {
     return fail('hosts must be a non-empty list');
   }
+  const resources = value['resources'];
+  if (!Array.isArray(resources)) return fail('resources must be a list');
   return {
     version: SERVICE_INDEX_VERSION,
     zone: text(value, 'zone'),
     hosts: hosts.map(parseHost),
+    resources: resources.map(parseResource),
   };
 };
 

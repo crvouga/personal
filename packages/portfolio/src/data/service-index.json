@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "zone": "chrisvouga.dev",
   "hosts": [
     {
@@ -344,6 +344,32 @@
       "id": "voteonit.app",
       "hosting": "domain",
       "sourceUrl": null
+    }
+  ],
+  "resources": [
+    {
+      "key": "postgres:openbao",
+      "kind": "postgres",
+      "id": "openbao",
+      "name": "crvouga/personal · main",
+      "provider": "PlanetScale",
+      "consoleUrl": "https://app.planetscale.com/crvouga/personal"
+    },
+    {
+      "key": "blob:development",
+      "kind": "blob",
+      "id": "development",
+      "name": "crvouga-development",
+      "provider": "Cloudflare R2",
+      "consoleUrl": "https://dash.cloudflare.com/?to=/:account/r2/default/buckets/crvouga-development"
+    },
+    {
+      "key": "blob:production",
+      "kind": "blob",
+      "id": "production",
+      "name": "crvouga-production",
+      "provider": "Cloudflare R2",
+      "consoleUrl": "https://dash.cloudflare.com/?to=/:account/r2/default/buckets/crvouga-production"
     }
   ]
 }
