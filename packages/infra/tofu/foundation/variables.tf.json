@@ -65,6 +65,11 @@
       "type": "bool",
       "default": false,
       "description": "Set true through OpenTofu only after all existing roots have been imported, planned and verified."
+    },
+    "freeze": {
+      "type": "bool",
+      "default": false,
+      "description": "Require a `frozen` status check that nothing reports, so no PR can merge into main. Toggled by .github/workflows/freeze.yml via the FREEZE repository variable."
     }
   }
 }

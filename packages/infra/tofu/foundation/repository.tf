@@ -3,6 +3,12 @@ locals {
   pr_rule    = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "pull_request"])
   check_rule = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "required_status_checks"])
   mq_rule    = one([for rule in local.merge_gate.ruleset.rules : rule.parameters if rule.type == "merge_queue"])
+  # Freeze adds a required check nothing reports, so no PR can merge.
+  # Toggle with .github/workflows/freeze.yml (see packages/infra/README.md).
+  required_checks = concat(
+    local.check_rule.required_status_checks,
+    var.freeze ? [{ context = "frozen", integration_id = 15368 }] : [],
+  )
   application_repository_defaults = {
     visibility                  = "public"
     archived                    = false
@@ -362,6 +368,8 @@ resource "github_repository" "workspace" {
   allow_forking               = local.merge_gate.repo_settings.allow_forking
   merge_commit_title          = local.merge_gate.repo_settings.merge_commit_title
   merge_commit_message        = local.merge_gate.repo_settings.merge_commit_message
+  squash_merge_commit_title   = local.merge_gate.repo_settings.squash_merge_commit_title
+  squash_merge_commit_message = local.merge_gate.repo_settings.squash_merge_commit_message
   allow_merge_commit          = local.merge_gate.repo_settings.allow_merge_commit
   allow_squash_merge          = local.merge_gate.repo_settings.allow_squash_merge
   allow_rebase_merge          = local.merge_gate.repo_settings.allow_rebase_merge
@@ -384,6 +392,14 @@ resource "github_actions_repository_permissions" "workspace" {
   enabled              = local.merge_gate.actions.enabled
   allowed_actions      = local.merge_gate.actions.allowed_actions
   sha_pinning_required = local.merge_gate.actions.sha_pinning_required
+  dynamic "allowed_actions_config" {
+    for_each = local.merge_gate.actions.allowed_actions == "selected" ? [local.merge_gate.actions.allowed_actions_config] : []
+    content {
+      github_owned_allowed = allowed_actions_config.value.github_owned_allowed
+      verified_allowed     = allowed_actions_config.value.verified_allowed
+      patterns_allowed     = allowed_actions_config.value.patterns_allowed
+    }
+  }
 }
 
 resource "github_workflow_repository_permissions" "workspace" {
@@ -420,7 +436,7 @@ resource "github_repository_collaborators" "workspace" {
 resource "github_issue_labels" "personal" {
   repository = github_repository.workspace.name
   dynamic "label" {
-    for_each = { for label in local.merge_gate.labels : label.name => label }
+    for_each = { for label in concat(local.merge_gate.labels, local.merge_gate.agent_labels) : label.name => label }
     content {
       name        = label.value.name
       color       = label.value.color
@@ -445,8 +461,9 @@ resource "github_repository_ruleset" "main" {
     }
   }
   rules {
-    deletion         = true
-    non_fast_forward = true
+    deletion                = true
+    non_fast_forward        = true
+    required_linear_history = contains([for rule in local.merge_gate.ruleset.rules : rule.type], "required_linear_history")
     pull_request {
       allowed_merge_methods             = local.pr_rule.allowed_merge_methods
       dismiss_stale_reviews_on_push     = local.pr_rule.dismiss_stale_reviews_on_push
@@ -458,7 +475,7 @@ resource "github_repository_ruleset" "main" {
     required_status_checks {
       strict_required_status_checks_policy = local.check_rule.strict_required_status_checks_policy
       dynamic "required_check" {
-        for_each = local.check_rule.required_status_checks
+        for_each = local.required_checks
         content {
           context        = required_check.value.context
           integration_id = required_check.value.integration_id

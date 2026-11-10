@@ -1,0 +1,77 @@
+name: Freeze
+# Freeze or unfreeze merging into main. Stores the choice in the FREEZE repository
+# variable (every foundation plan reads it as TF_VAR_freeze), then applies only the
+# main ruleset. See packages/infra/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      frozen:
+        description: true freezes main, false unfreezes it
+        type: boolean
+        required: true
+permissions:
+  contents: read
+jobs:
+  freeze:
+    name: Apply freeze
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.cache/tofu-providers
+      TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+      TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+      TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+      TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+      VAULT_HOSTNAME: vault.chrisvouga.dev
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      DB_CONNECTION_URI: ${{ secrets.DB_CONNECTION_URI }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_freeze: ${{ inputs.frozen }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Remember the setting for later plans
+        env:
+          FROZEN: ${{ inputs.frozen }}
+        run: gh variable set FREEZE --body "$FROZEN" -R "$GITHUB_REPOSITORY"
+      - name: Prepare foundation
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Apply the main ruleset
+        run: |
+          set -euo pipefail
+          ROOT=packages/infra/tofu/foundation
+          tofu -chdir="$ROOT" plan -input=false -lock-timeout=15m -parallelism=1 \
+            -target=github_repository_ruleset.main -out=freeze.tfplan
+          tofu -chdir="$ROOT" show -json freeze.tfplan | jq -e '
+            [.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | .address]
+            | all(. == "github_repository_ruleset.main")' > /dev/null || {
+            echo "::error::Freeze may change only the main ruleset; apply pending drift through Deploy first."
+            exit 1
+          }
+          tofu -chdir="$ROOT" apply -input=false -lock-timeout=15m -parallelism=1 freeze.tfplan
