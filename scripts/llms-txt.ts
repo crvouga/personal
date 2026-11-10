@@ -251,6 +251,11 @@ function values(ctx: Context): Record<string, string> {
     authProductionIssuer: `https://${need(config.auth_relay?.instances.production?.hostname, 'auth production hostname')}/realms/${need(config.auth_relay?.instances.production?.realm, 'auth production realm')}`,
     authNonproductionIssuer: `https://${need(config.auth_relay?.instances.nonproduction?.hostname, 'auth nonproduction hostname')}/realms/${need(config.auth_relay?.instances.nonproduction?.realm, 'auth nonproduction realm')}`,
     authStatus: need(config.auth_relay?.status, 'auth relay status'),
+    observabilityLive: String(Boolean(config.observability?.live)),
+    observabilityStack: need(
+      config.observability?.stack?.slug,
+      'observability stack slug'
+    ),
     siteGuideUrl: `https://${need(portfolio.hostname, 'portfolio hostname')}/${GUIDES.index.site}`,
     localGuideUrl: `https://${need(portfolio.hostname, 'portfolio hostname')}/${GUIDES.local.site}`,
     cloudGuideUrl: `https://${need(portfolio.hostname, 'portfolio hostname')}/${GUIDES.cloud.site}`,
@@ -383,6 +388,11 @@ function blocks(ctx: Context): Record<string, string> {
           'Google sign-in',
           `${code(v.authProductionIssuer!)} / ${code(v.authNonproductionIssuer!)}`,
           'Public OIDC code + S256 PKCE; agent registration uses a scoped Vault credential (§6)',
+        ],
+        [
+          'Observability',
+          'Grafana Cloud via standard `OTEL_EXPORTER_OTLP_*`',
+          'Write-only OTLP header and read-only `GRAFANA_SERVICE_ACCOUNT_TOKEN` from Vault (§6)',
         ],
         [
           'Hosting',

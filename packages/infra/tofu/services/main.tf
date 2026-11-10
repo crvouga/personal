@@ -7,6 +7,10 @@ locals {
   }
   service_instances = { for id, service in local.services : try(service.state_key, id) => service }
   vault_addr        = "https://${local.config.vault.hostname}"
+  # Every hosted service exports to the shared OTLP endpoint through standard
+  # OpenTelemetry variables. Inert for runtimes without an OpenTelemetry SDK.
+  observability = local.config.observability
+  otel_enabled  = local.observability.enabled && local.observability.live && local.observability.inject_railway_services
 }
 
 data "terraform_remote_state" "foundation" {
@@ -39,7 +43,14 @@ module "service" {
       from_vault_addr         = local.vault_addr
       "from_vault.kv.project" = local.config.vault.kv.project
     }, value, value) },
-    { for secret in try(each.value.secrets, []) : secret.name => data.vault_kv_secret_v2.production.data[try(secret.vault_key, secret.name)] }
+    { for secret in try(each.value.secrets, []) : secret.name => data.vault_kv_secret_v2.production.data[try(secret.vault_key, secret.name)] },
+    local.otel_enabled && try(each.value.observability, true) ? {
+      OTEL_SERVICE_NAME           = each.value.id
+      OTEL_EXPORTER_OTLP_ENDPOINT = data.vault_kv_secret_v2.production.data["OTEL_EXPORTER_OTLP_ENDPOINT"]
+      OTEL_EXPORTER_OTLP_HEADERS  = data.vault_kv_secret_v2.production.data["OTEL_EXPORTER_OTLP_HEADERS"]
+      OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+      OTEL_RESOURCE_ATTRIBUTES    = data.vault_kv_secret_v2.production.data["OTEL_RESOURCE_ATTRIBUTES"]
+    } : {}
   )
 }
 

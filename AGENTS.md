@@ -74,7 +74,7 @@ Never patch dependencies. Never disable structural size limits in ESLint; refact
 
 ## Validation and CI
 
-Service runtime logs use `@pkgs/logger` and its [observability contract](packages/logger/README.md): correlated HTTP requests, named dependency operations, safe structured error causes, lifecycle events and background-job outcomes. New services must expose read-only dependency readiness and keep credentials, SQL parameters and OAuth payloads out of logs. Third-party runtimes use native structured logs; infrastructure for collection/alerts remains OpenTofu-owned.
+Service runtime logs use `@pkgs/logger` and its [observability contract](packages/logger/README.md): correlated HTTP requests, named dependency operations, safe structured error causes, lifecycle events and background-job outcomes. New services must expose read-only dependency readiness and keep credentials, SQL parameters and OAuth payloads out of logs. Third-party runtimes use native structured logs. All projects share one OpenTofu-owned Grafana Cloud stack that receives OpenTelemetry through the standard `OTEL_EXPORTER_OTLP_*` variables in Vault (injected into every Railway service); `@pkgs/logger` exports to it automatically, and agents query it with the read-only `GRAFANA_SERVICE_ACCOUNT_TOKEN`. See the Observability section of `llms-cloud.txt`.
 
 `bun run check` installs with the frozen lock, checks formatting, agent links, generated docs, root scripts, OpenTofu fmt/init/validate/tests, then package typecheck/lint/test/build. Install OpenTofu 1.13.0 locally first. `bun run check:ci` adds the Vault dev gates and supplies portfolio build credentials.
 

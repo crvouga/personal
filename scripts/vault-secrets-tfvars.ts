@@ -30,6 +30,11 @@ const derived = new Set([
   'JWT_SECRET',
   'API_KEY_SECRET',
   'MACHINE_ID_SALT',
+  'OTEL_EXPORTER_OTLP_ENDPOINT',
+  'OTEL_EXPORTER_OTLP_HEADERS',
+  'OTEL_RESOURCE_ATTRIBUTES',
+  'GRAFANA_URL',
+  'GRAFANA_SERVICE_ACCOUNT_TOKEN',
 ]);
 export const isDerived = (name: string) =>
   derived.has(name) || /^AUTH_(RELAY|CONSOLE|MANAGER)_/.test(name);

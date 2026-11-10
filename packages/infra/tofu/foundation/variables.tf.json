@@ -56,6 +56,12 @@
       "type": "string",
       "default": "docker://postgres/18/dev?search_path=public"
     },
+    "grafana_cloud_access_policy_token": {
+      "type": "string",
+      "sensitive": true,
+      "default": "",
+      "description": "Grafana Cloud access policy token (org realm) with stacks, accesspolicies and stack-service-accounts scopes. Stored in Vault prd as GRAFANA_CLOUD_ACCESS_POLICY_TOKEN."
+    },
     "vault_inputs": {
       "type": "string",
       "sensitive": true,

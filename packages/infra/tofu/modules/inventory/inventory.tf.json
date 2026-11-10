@@ -1625,6 +1625,36 @@
             "used_by": ["ci", "infra"]
           },
           {
+            "name": "GRAFANA_CLOUD_ACCESS_POLICY_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["infra"]
+          },
+          {
+            "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "configs": ["dev", "prd"],
+            "used_by": ["railway", "ci", "agents"]
+          },
+          {
+            "name": "OTEL_EXPORTER_OTLP_HEADERS",
+            "configs": ["dev", "prd"],
+            "used_by": ["railway", "ci", "agents"]
+          },
+          {
+            "name": "OTEL_RESOURCE_ATTRIBUTES",
+            "configs": ["dev", "prd"],
+            "used_by": ["railway", "ci", "agents"]
+          },
+          {
+            "name": "GRAFANA_URL",
+            "configs": ["dev", "prd"],
+            "used_by": ["agents"]
+          },
+          {
+            "name": "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+            "configs": ["dev", "prd"],
+            "used_by": ["agents"]
+          },
+          {
             "name": "PORTFOLIO_GITHUB_TOKEN",
             "configs": ["dev", "prd"],
             "used_by": ["ci", "portfolio"],
@@ -1868,6 +1898,20 @@
           "proxied": true
         }
       ],
+      "observability": {
+        "enabled": true,
+        "live": false,
+        "provider": "grafana-cloud",
+        "stack": {
+          "slug": "chrisvouga",
+          "name": "chrisvouga",
+          "region": "us",
+          "adopt": true
+        },
+        "ingest_scopes": ["logs:write", "traces:write", "metrics:write"],
+        "agent_role": "Viewer",
+        "inject_railway_services": true
+      },
       "auth_relay": {
         "status": "preproduction",
         "instances": {

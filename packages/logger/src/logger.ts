@@ -1,6 +1,7 @@
 import { assert } from '@pkgs/assert';
 import { logContext } from './context';
 import { redact } from './redact';
+import { createOtlpExporter, type OtlpExporter } from './otlp';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
@@ -32,6 +33,24 @@ export interface CreateLoggerOptions {
   level?: LogLevel;
 }
 
+// One exporter per service name, created on first use from OTEL_* variables.
+const exporters = new Map<string, OtlpExporter>();
+function exporterFor(name: string): OtlpExporter {
+  let exporter = exporters.get(name);
+  if (!exporter) {
+    exporter = createOtlpExporter(name);
+    exporters.set(name, exporter);
+  }
+  return exporter;
+}
+
+/** Send queued records to the shared OTLP endpoint; await it before exiting. */
+export async function flushLogs(): Promise<void> {
+  await Promise.all(
+    [...exporters.values()].map((exporter) => exporter.flush())
+  );
+}
+
 export function createLogger(options: CreateLoggerOptions): Logger {
   assert.record(options, 'createLogger: options must be an object');
   assert.nonEmptyString(options.name, 'createLogger: name must be non-empty');
@@ -61,6 +80,7 @@ function buildLogger(
   );
   assert.record(bindings, 'buildLogger: bindings must be an object');
   const threshold = LEVEL_VALUE[level];
+  const exporter = exporterFor(name);
   assert.defined(threshold, 'buildLogger: threshold must exist for level');
   assert.number(threshold, 'buildLogger: threshold must be a number');
   assert.equals(
@@ -98,9 +118,9 @@ function buildLogger(
 
     const method = CONSOLE_METHOD[lvl];
     assert.defined(method, 'emit: console method must exist for level');
-    (console[method] as (...args: unknown[]) => void)(
-      JSON.stringify(redact(entry))
-    );
+    const safe = redact(entry) as Record<string, unknown>;
+    (console[method] as (...args: unknown[]) => void)(JSON.stringify(safe));
+    exporter.export(lvl, safe);
   }
 
   return {

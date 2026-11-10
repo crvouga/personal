@@ -58,6 +58,7 @@ Rules for every issue:
 3. Stores files / blobs? → [3. Object store](#3-object-store-cloudflare-r2-s3-compatible).
 4. Should be publicly hosted at `*.{{zone}}` (and listed on the portfolio)? → [4. Hosting](#4-hosting-on-the-managed-services). The project must be Dockerized and publish prebuilt images; you request hosting by opening a `[hosting]` GitHub issue on `{{infraRepo}}` (§4 Step 1) that carries everything needed to deploy it and list it on the portfolio.
 5. Needs Google sign-in? → [5. Auth relay](#5-auth-relay-google-sign-in). Use public OIDC settings; register with a scoped Vault credential, never Google or relay administrator credentials.
+6. Needs logs, traces or metrics? → [6. Observability](#6-observability-logs-traces-metrics). Send standard OpenTelemetry to the shared stack; agents query it with a read-only token.
 
 ## Resources at a glance
 
@@ -646,6 +647,60 @@ Bind each ten-minute, single-use transaction to the exact client/callback, brows
 Each app owns its authorization and sessions. SSR sessions use host-only HttpOnly/Secure/SameSite=Lax cookies over HTTPS. Namespace local session/transaction cookies per project **and instance**: localhost ports do not isolate cookies. Browser-only clients keep transactions per tab and avoid persistent token storage. Use top-level redirects. Existing app sessions follow local policy during a relay outage; new authentication fails closed.
 
 Before reporting success, verify discovery, registration readback, fresh login and callback/token validation, denied state/replay, concurrent tabs, and a second local instance. Confirm no registration credential enters the app bundle or runtime env. A missing deployment, Vault permission or operator approval is a precise blocker, not a passed check. Framework integration details and rollout evidence: {{path:packages/auth-relay/README.md}}, {{path:packages/auth-relay/operations.md}}, {{path:packages/auth-relay/acceptance.md}}.
+
+---
+
+## 6. Observability (logs, traces, metrics)
+
+Every project shares **one** observability backend: a Grafana Cloud stack (free plan; data is kept 14 days) that receives **OpenTelemetry (OTLP)**. Projects never see Grafana-specific settings. They send OTLP using the standard `OTEL_*` environment variables, so the backend can be swapped (self-hosted Grafana stack, ClickHouse, any OTLP vendor) by changing Vault values, not application code. The stack, its write-only ingest token and the agents' read-only token are all OpenTofu resources ({{path:packages/infra/tofu/foundation/observability.tf}}); their values are written into Vault by the vault root. Nothing is created by hand.
+
+Current state: inventory `observability.live` = `{{observabilityLive}}`. While it is `false` the keys below are absent and every exporter stays off. Integrate anyway: the same code starts exporting once the stack is live.
+
+### Vault keys (both `dev` and `prd`)
+
+| Key | Purpose |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP base URL. Signals go to `/v1/logs`, `/v1/traces`, `/v1/metrics` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic%20…`, the write-only ingest credential. Treat it as a secret |
+| `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment.name=production` in `prd`, `development` in `dev` |
+| `GRAFANA_URL` | Grafana instance URL, for querying |
+| `GRAFANA_SERVICE_ACCOUNT_TOKEN` | Read-only (`Viewer`) token for agents and the Grafana MCP server |
+
+The ingest credential cannot read data and the agent token cannot write it. Never mint other tokens in the Grafana UI; open an `[observability]` issue on `{{infraRepo}}` instead.
+
+### Send telemetry from your project
+
+- **Hosted on the managed services (§4):** nothing to request. The services root injects `OTEL_SERVICE_NAME=<service id>`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `OTEL_RESOURCE_ATTRIBUTES` into every Railway service. A service opts out with `"observability": false` in its inventory entry.
+- **Any language:** use the official OpenTelemetry SDK or auto-instrumentation for your runtime with its default env-var configuration (Node `@opentelemetry/auto-instrumentations-node`, Python `opentelemetry-instrument`, Go/Java/.NET SDKs). Do not hardcode endpoints or credentials. With no `OTEL_EXPORTER_OTLP_ENDPOINT` the SDK must stay a no-op so tests and offline runs work.
+- **Inside `{{infraRepo}}`:** `@pkgs/logger` already exports every record as OTLP logs (redacted first; `traceId` correlates with `X-Request-ID`). Call `await flushLogs()` during graceful shutdown. See {{path:packages/logger/README.md}}.
+- **Locally / in CI:** `personal infra-vault run -- <cmd>` (dev config) or the OIDC Vault step (§1) supplies the same keys, tagged `development`. Set `OTEL_SDK_DISABLED=true` to turn export off for a run.
+- **Hosted elsewhere** (Vercel, Workers, another host): copy the `prd` OTLP keys into that platform's secrets from Vault at deploy time and set `OTEL_SERVICE_NAME`. Never commit them.
+
+Rules: set `service.name` to your project or service id; log structured events, never request bodies, tokens, SQL parameters or personal data; keep labels low-cardinality (no user IDs or URLs as metric labels or Loki labels).
+
+### Query it (agents)
+
+Read `GRAFANA_URL` and `GRAFANA_SERVICE_ACCOUNT_TOKEN` from Vault (`personal infra-vault run --config prd -- …`). Then use either option:
+
+- **Grafana MCP server** (preferred). Configure the official `mcp-grafana` server with env `GRAFANA_URL` and `GRAFANA_SERVICE_ACCOUNT_TOKEN`. It exposes LogQL, PromQL and TraceQL queries, data-source listing and dashboards as tools. Installing the binary is local machine setup ({{localGuideUrl}}).
+- **HTTP API.** List data sources, then query through the data-source proxy:
+
+```bash
+curl -sH "Authorization: Bearer $GRAFANA_SERVICE_ACCOUNT_TOKEN" "$GRAFANA_URL/api/datasources" | jq '.[] | {uid, type}'
+curl -sG -H "Authorization: Bearer $GRAFANA_SERVICE_ACCOUNT_TOKEN" \
+  "$GRAFANA_URL/api/datasources/proxy/uid/<loki-uid>/loki/api/v1/query_range" \
+  --data-urlencode 'query={service_name="<service id>"} | json | level="error"' \
+  --data-urlencode "start=$(date -u -d '-1 hour' +%s)000000000"
+```
+
+Useful LogQL: `{service_name="<id>"} |= "<X-Request-ID>"` finds one request across services; `{deployment_environment_name="production"} | json | level="error"` lists recent errors everywhere. Traces are in the Tempo data source (`{resource.service.name="<id>"}` in TraceQL). `bun run health --only observability` verifies the whole path read-only.
+
+### Operator setup (one time, inside `{{infraRepo}}`)
+
+1. Sign up for Grafana Cloud (free) and create the stack named in inventory `observability.stack` (slug `{{observabilityStack}}`). Keep `stack.adopt=true` so OpenTofu imports it instead of creating a second one.
+2. In the Grafana Cloud portal, create one access policy for the **organization** realm with scopes `stacks:read`, `stacks:write`, `accesspolicies:read`, `accesspolicies:write`, `accesspolicies:delete` and `stack-service-accounts:write`, then create a token for it. This bootstrap credential is the only value a human types.
+3. Store it with `bun run vault:edit` as `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` (`prd`). The editor saves it in Vault and publishes the `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` Actions secret through the foundation root.
+4. In a PR, set `observability.live` to `true` in {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}. On merge, Deploy applies foundation (adopts the stack, creates the ingest and agent tokens), then vault (writes the keys above), then services (injects them). Verify with `bun run health --only observability`.
 
 ---
 
