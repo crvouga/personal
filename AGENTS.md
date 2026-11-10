@@ -11,7 +11,7 @@ All code is written by agents and merged by CI; nobody reviews it. CI is the onl
 - Breaking changes are fine: there is one user and one deployed version. Delete old code; no compatibility shims, flags or migrations for old callers.
 - Never weaken a check to go green. Fix the code, or add the `needs-human` label and explain why in the PR body.
 - Do not bump dependencies; Dependabot owns that (`deps` label).
-- **Protected paths** (the required `protected-paths` check fails unless the PR has `needs-human`, which also turns off auto-merge): `.github/**`, `packages/infra/tofu/**`, any `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, lint/type/test/format config (`eslint.config.*`, `packages/eslint-rules/**`, `tsconfig*.json`, `turbo.json`, `*.config.*` for tests, `.prettierrc`, `commitlint.config.js`, `.gitleaks.toml`), changing an existing `test`/`lint`/`tc`/`check` script, `bun.lock` or root `package.json` without `deps`, adding `.only`/test skips/`eslint-disable`/`@ts-ignore`/`@ts-expect-error`/`@ts-nocheck`, or deleting a test file. `do-not-merge` always blocks.
+- `needs-human` and `do-not-merge` turn off auto-merge; a human merges or closes the PR.
 - **When CI fails**, read the PR's sticky "CI report" comment: each failure lists `file:line`, a `Reproduce:` command and a JSON block (`failures[].job`, `.command`, `.locations`). Reproduce locally, fix, push. After 3 failing commits the PR is labeled `needs-human`.
 - Idle agent PRs are labeled `stale` after 2 days and closed after 5. Branches behind `main` are updated hourly; a conflict labels `needs-human` and lists the files.
 
@@ -80,7 +80,7 @@ Service runtime logs use `@pkgs/logger` and its [observability contract](package
 
 `bun run health` is the single read-only report on whether the live platform matches the inventory and is healthy (DNS, TLS, services, tunnels, Vault, storage, images, GitHub, runners); add `--drift` to plan every initialized OpenTofu root. Missing credentials report `SKIP`, never a pass. New infrastructure gets a check in `packages/infra/lib/health/`; checks must stay read-only. The **Maintenance / Health** job runs it daily with drift. `bun run health:fix` is its interactive counterpart: it runs the same checks, then walks each failure with a confirmed guided fixer (always through OpenTofu or CI, never a provider API) or a manual pointer. Add a fixer or advice in `scripts/health-fix/registry.ts` when adding a check.
 
-A green local check is not green CI. If pushing, watch the complete **CI** workflow with `bun run gh:ci:watch` and fix publish/deploy failures before claiming success. `/pr-ready` uses `.agents/commands/pr-ready.md`. PRs to `main` require `Check` (fast lanes) and `protected-paths` (`.github/workflows/guardrails.yml`). Slow lanes (auth compatibility, cross-OS CLI, public URLs) run only on `main`, merge-queue and manual runs as **Slow checks**; deploy and release wait for them. Every local `bun run check` step has a CI lane; `scripts/ci-check-parity.test.ts` fails if they diverge.
+A green local check is not green CI. If pushing, watch the complete **CI** workflow with `bun run gh:ci:watch` and fix publish/deploy failures before claiming success. `/pr-ready` uses `.agents/commands/pr-ready.md`. PRs to `main` require `Check` (fast lanes). Slow lanes (auth compatibility, cross-OS CLI, public URLs) run only on `main`, merge-queue and manual runs as **Slow checks**; deploy and release wait for them. Every local `bun run check` step has a CI lane; `scripts/ci-check-parity.test.ts` fails if they diverge.
 
 ## Generated agent guides
 

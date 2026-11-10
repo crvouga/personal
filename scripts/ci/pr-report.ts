@@ -1,6 +1,6 @@
 /**
  * Keeps one sticky comment per PR with the latest result of each workflow
- * (CI, Guardrails): what failed, file:line, the repro command and a JSON block
+ * (CI): what failed, file:line, the repro command and a JSON block
  * agents can parse. On an agent PR, a third failing head commit (the first try
  * plus two retries) labels it `needs-human` and turns off auto-merge.
  *
@@ -201,7 +201,7 @@ if (import.meta.main) {
     failures.length >= MAX_FAILED_ATTEMPTS
   ) {
     gh(['pr', 'edit', pr, '-R', repo, '--add-label', 'needs-human']);
-    // Labels added with GITHUB_TOKEN do not trigger Guardrails, so hold auto-merge here.
+    // Labels added with GITHUB_TOKEN start no workflows, so hold auto-merge here.
     Bun.spawnSync(['gh', 'pr', 'merge', pr, '-R', repo, '--disable-auto']);
     gh(
       ['pr', 'comment', pr, '-R', repo, '--body-file', '-'],

@@ -1,9 +1,9 @@
 name: CI report
-# Keeps one sticky comment per PR with the latest CI and Guardrails results.
+# Keeps one sticky comment per PR with the latest CI results.
 # workflow_run runs this file from main, never PR code; artifacts are read as data.
 on:
   workflow_run:
-    workflows: [CI, Guardrails]
+    workflows: [CI]
     types: [completed]
 permissions:
   contents: read
