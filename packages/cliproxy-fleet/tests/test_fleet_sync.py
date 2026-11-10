@@ -34,7 +34,7 @@ class FleetSingleton(unittest.TestCase):
 
     @staticmethod
     def declared_check(call):
-        return call[-1] == 'declared' and call[-2].endswith('scripts/ops')
+        return 'declared' in call and '--apply' not in call and call[call.index('declared') - 1].endswith('scripts/ops')
 
     def owner(self, **kwargs):
         kwargs.setdefault('backend', self.launchd)
@@ -139,7 +139,7 @@ class FleetSingleton(unittest.TestCase):
 
         def proxy(args, timeout=120):
             self.calls.append(args)
-            if args[-2:] == ['declared', '--apply']:
+            if 'declared' in args and args[-1] == '--apply':
                 state['applied'] = True
                 return True
             if self.declared_check(args):
@@ -148,7 +148,7 @@ class FleetSingleton(unittest.TestCase):
 
         result = self.owner(run=proxy, audit_fn=lambda root: (True, SHA),
                             endpoint_check=lambda root: True)
-        self.assertTrue(any(call[-2:] == ['declared', '--apply'] for call in self.calls))
+        self.assertTrue(any('declared' in call and call[-1] == '--apply' for call in self.calls))
         self.assertNotIn('PROXY_CONFIG_PENDING', [p['code'] for p in result['phases']])
         self.assertTrue(result['ok'])
 
@@ -198,3 +198,14 @@ class FleetSingleton(unittest.TestCase):
         self.assertFalse(result['changed'])
         self.assertTrue(all(call[:2] == ['launchctl', 'print'] or self.declared_check(call)
                             for call in self.calls))
+
+    def test_proxy_claims_the_claude_code_version_the_fleet_runs(self):
+        repository = self.root / 'repo'
+        repository.mkdir()
+        self.assertIsNone(fleet.claude_pin(repository))
+        (repository / 'mise.toml').write_text('[tools]\nclaude = "9.8.7"\ncodex = "1.0.0"\n')
+        self.assertEqual(fleet.claude_pin(repository), '9.8.7')
+        command = fleet.declared(self.root, apply=True)
+        pin = fleet.claude_pin()
+        self.assertRegex(pin, r'^\d+\.\d+\.\d+$')
+        self.assertEqual(command[command.index('declared') + 1:], ['--claude-version', pin, '--apply'])

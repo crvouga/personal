@@ -41,6 +41,16 @@ routing:
   cooldown:
     disable-cooling: false
     save-cooldown-status: true
+upstream:
+  claude:
+    # Fleet-owned (applied by `ops declared`): the proxy presents itself to
+    # Anthropic as this Claude Code version, and Anthropic refuses newer models
+    # to an older one. fleet-sync replaces the version with the `claude` pin in
+    # mise.toml on every run, so it follows the harness every node runs.
+    header-defaults:
+      user-agent: 'claude-cli/2.1.314 (external, cli)'
+      # T3 runs Claude Code under its own entrypoint label.
+      native-entrypoints: ['t3-code']
 # Legacy compatibility field intentionally retained: never switch model capability/cost.
 quota-exceeded:
   switch-project: true

@@ -247,7 +247,9 @@ proxy owner is `manager.id`. Flags: `--definition`, `--node`, `--revision`,
   `image.lock.json` changed; then it is recreated, which briefly interrupts
   in-flight inference. `PROXY_UPDATE_PENDING` remains only when that install
   failed. Settings the fleet owns in the live
-  config (today `oauth.model-alias`, from `config.template.yaml`) are compared
+  config (`oauth.model-alias` and `upstream.claude`, from `config.template.yaml`;
+  the Claude Code version the proxy presents to Anthropic is replaced with the
+  `claude` pin in `mise.toml`, so it follows the harness every node runs) are compared
   by `ops declared` (exit 3 when they differ) and reported as
   `PROXY_CONFIG_PENDING`; `ops declared --apply` (run by every fleet-sync)
   validates and stages the candidate, replaces only those keys and relies on

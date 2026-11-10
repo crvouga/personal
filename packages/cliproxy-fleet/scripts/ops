@@ -94,14 +94,38 @@ def wait():
 
 # Runtime config keys owned by config.template.yaml (everything else in the
 # live config, such as keys and accounts, is runtime state and preserved).
-DECLARED = [("oauth", "model-alias")]
+DECLARED = [("oauth", "model-alias"), ("upstream", "claude")]
+
+
+def claude_version():
+    """`--claude-version X.Y.Z`: the Claude Code version every node runs."""
+    import re
+
+    for index, argument in enumerate(sys.argv):
+        if argument == "--claude-version":
+            version = sys.argv[index + 1] if index + 1 < len(sys.argv) else ""
+            if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+                raise ValueError("Invalid Claude Code version")
+            return version
+    return None
+
+
+def declared_template():
+    """The tracked template; its Claude client version follows the fleet pin."""
+    import re, yaml
+
+    text = (root / "config.template.yaml").read_text()
+    version = claude_version()
+    if version:
+        text = re.sub(r"claude-cli/\d+\.\d+\.\d+", "claude-cli/" + version, text)
+    return yaml.safe_load(text)
 
 
 def declared_candidate():
     """The live config with the declared settings from the template, or None."""
     import yaml
 
-    template = yaml.safe_load((root / "config.template.yaml").read_text())
+    template = declared_template()
     live = yaml.safe_load((root / "state/runtime/config.yaml").read_text())
     changed = False
     for section, key in DECLARED:
