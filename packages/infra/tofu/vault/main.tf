@@ -4,6 +4,19 @@ locals {
   vault         = local.config.vault
   vault_addr    = "https://${local.vault.hostname}"
   router_values = { for key, password in random_password.router : key => lookup(var.secrets["prd"], key, password.result) }
+  # Shared OTLP ingest and agent read credentials. Foundation creates them in
+  # the same deployment, before this root, once inventory marks them live.
+  observability_live = local.config.observability.enabled && local.config.observability.live
+  observability      = local.observability_live ? data.terraform_remote_state.foundation.outputs.observability["shared"] : null
+  observability_values = {
+    for config in local.vault.kv.configs : config => !local.observability_live ? {} : {
+      OTEL_EXPORTER_OTLP_ENDPOINT   = local.observability.otlp_endpoint
+      OTEL_EXPORTER_OTLP_HEADERS    = local.observability.otlp_headers
+      OTEL_RESOURCE_ATTRIBUTES      = "deployment.environment.name=${config == "prd" ? "production" : "development"}"
+      GRAFANA_URL                   = local.observability.grafana_url
+      GRAFANA_SERVICE_ACCOUNT_TOKEN = local.observability.service_account_token
+    }
+  }
 
 }
 
@@ -167,6 +180,7 @@ locals {
         S3_SECRET_ACCESS_KEY     = data.terraform_remote_state.foundation.outputs.r2_secret_access_key
       },
       local.token_sinks[config],
+      local.observability_values[config],
       {
         CLOUDFLARE_ACCOUNT_ID  = var.cloudflare_account_id
         "9ROUTER_TUNNEL_TOKEN" = data.terraform_remote_state.foundation.outputs.router_token

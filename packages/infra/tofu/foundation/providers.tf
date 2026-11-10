@@ -17,6 +17,10 @@ provider "neon" { api_key = var.neon_api_key }
 
 provider "atlas" {}
 
+# Grafana Cloud account API only. The token is empty until the operator stores
+# GRAFANA_CLOUD_ACCESS_POLICY_TOKEN in Vault; no resource uses it before then.
+provider "grafana" { cloud_access_policy_token = var.grafana_cloud_access_policy_token }
+
 # The same role, host and database local.database_url is assembled from; the
 # provider takes the unencoded parts, so nothing needs percent-decoding.
 provider "postgresql" {

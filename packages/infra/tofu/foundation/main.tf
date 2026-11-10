@@ -221,7 +221,7 @@ data "cloudflare_zero_trust_tunnel_cloudflared_token" "router" {
 
 locals {
   database_url = "postgres://${urlencode(planetscale_postgres_branch_role.openbao.username)}:${urlencode(planetscale_postgres_branch_role.openbao.password)}@${planetscale_postgres_branch_role.openbao.access_host_url}/${planetscale_postgres_branch_role.openbao.database_name}?sslmode=require"
-  bootstrap_secrets = {
+  bootstrap_secrets = merge({
     RAILWAY_TOKEN                = var.railway_token
     CF_API_TOKEN                 = var.cloudflare_api_token
     DB_CONNECTION_URI            = local.database_url
@@ -231,7 +231,12 @@ locals {
     TOFU_STATE_ACCESS_KEY        = var.state_access_key
     TOFU_STATE_SECRET_KEY        = var.state_secret_key
     TOFU_VAULT_INPUTS            = var.vault_inputs
-  }
+    },
+    # Published once the operator stores the token, so deployments can manage
+    # the observability stack without a local run.
+    nonsensitive(trimspace(var.grafana_cloud_access_policy_token) != "") ? {
+      GRAFANA_CLOUD_ACCESS_POLICY_TOKEN = var.grafana_cloud_access_policy_token
+  } : {})
 }
 resource "github_actions_secret" "bootstrap" {
   for_each = toset(keys(local.bootstrap_secrets))

@@ -2,7 +2,13 @@
 // prompted for the secrets they are editing, never for backend/provider keys.
 import { readOperatorVault } from './live';
 
-type InputSpec = { variable: string; names: string[]; alsoAs?: string[] };
+type InputSpec = {
+  variable: string;
+  names: string[];
+  alsoAs?: string[];
+  /** Absent until its service is enabled; OpenTofu defaults it to empty. */
+  optional?: boolean;
+};
 const INPUTS: InputSpec[] = [
   { variable: 'cloudflare_account_id', names: ['CLOUDFLARE_ACCOUNT_ID'] },
   { variable: 'cloudflare_zone_id', names: ['CLOUDFLARE_ZONE_ID'] },
@@ -30,6 +36,11 @@ const INPUTS: InputSpec[] = [
   {
     variable: 'github_token',
     names: ['GITHUB_TOKEN', 'DEPLOY_DISPATCH_TOKEN', 'GH_TOKEN'],
+  },
+  {
+    variable: 'grafana_cloud_access_policy_token',
+    names: ['GRAFANA_CLOUD_ACCESS_POLICY_TOKEN'],
+    optional: true,
   },
 ];
 type Sources = {
@@ -63,6 +74,7 @@ export async function collectEnvironment(
       ...spec.names.map((name) => live[name]),
     ].find((value) => value?.trim());
     if (!value?.trim()) {
+      if (spec.optional) continue;
       missing.push(spec.names[0]);
       continue;
     }

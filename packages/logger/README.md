@@ -1,8 +1,10 @@
 # Service observability
 
 `@pkgs/logger` emits one JSON record per event to stdout/stderr. Railway collects
-those streams; no new collector, retention policy or alert destination is deployed
-by this package. Provider-managed and external application services keep their
+those streams. When the standard `OTEL_EXPORTER_OTLP_ENDPOINT` /
+`OTEL_EXPORTER_OTLP_HEADERS` variables are set, the same redacted records are
+also batched to the shared OpenTelemetry backend as OTLP/HTTP JSON logs (see
+"Shared OTLP export" below). No alert destination is deployed by this package. Provider-managed and external application services keep their
 native instrumentation. This is a shared diagnostic contract, not a claim that
 every failure is detected or that distributed tracing is fully deployed.
 
@@ -41,6 +43,26 @@ This is defense in depth: arbitrary strings and upstream-native logs are not
 guaranteed to be free of secrets. Callers must use explicit safe fields and the
 error serializer. Do not enable request/response-body logging to diagnose auth.
 
+## Shared OTLP export
+
+The platform runs one shared Grafana Cloud stack, owned by OpenTofu
+(`packages/infra/tofu/foundation/observability.tf`). The services root injects
+`OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`
+and `OTEL_RESOURCE_ATTRIBUTES` into every Railway service, and `personal
+infra-vault run` supplies the `dev` values locally. The exporter:
+
+- sends only records that passed the level threshold and redaction;
+- maps `level` to OTLP severity, `msg` to the body, `traceId` to the record's
+  trace ID (so a request ID finds the request across services) and every other
+  field to attributes;
+- batches in memory (at most 2,000 queued records; extra records are dropped
+  and counted), never throws, and reports export failures to stderr at most once
+  a minute;
+- is off when no endpoint is set or `OTEL_SDK_DISABLED=true`.
+
+Call `await flushLogs()` during graceful shutdown so the last batch is sent. Query
+the data as described in the Observability section of `llms-cloud.txt`.
+
 ## Current coverage
 
 | Service                                   | Instrumentation                                                                                                                              |
@@ -51,15 +73,17 @@ error serializer. Do not enable request/response-body logging to diagnose auth.
 | OpenBao                                   | Native JSON operational logs and existing health probes; secret audit infrastructure remains separately managed                              |
 | Externally owned apps, third-party images | Existing `bun run health` inventory probes and native platform/service logs; application instrumentation belongs to their owner              |
 
-Forwarding a trace header does not imply the upstream records it. No trace
-collector, span store, synthetic sign-in monitor or new alert route is created
-here. Those require their own OpenTofu-owned infrastructure and verified routing.
+Forwarding a trace header does not imply the upstream records it. This package
+exports logs only; spans and metrics need an OpenTelemetry SDK in the service and
+reach the same shared stack through the same variables. No synthetic sign-in
+monitor or alert route is created here.
 
 ## Incident workflow
 
 1. Capture the response's `X-Request-ID` (or the reference displayed on an auth
-   failure page). Search the service's Railway logs for that ID, then the
-   deployment/replica and operation. Background jobs use `jobId` instead.
+   failure page). Search the shared Loki data source for that ID across every
+   service (`{service_name=~".+"} |= "<id>"`), or the service's Railway logs,
+   then the deployment/replica and operation. Background jobs use `jobId` instead.
 2. Use `bun run health` to compare failures across services. SQLSTATE `53300`
    identifies exhausted database connections; `42501` is denied database access;
    `28P01` is database authentication failure. `invalid_client` concerns the

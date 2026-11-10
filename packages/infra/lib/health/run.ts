@@ -7,6 +7,7 @@ import { checkDrift } from "./check-drift.js";
 import { checkGithub } from "./check-github.js";
 import { checkImages } from "./check-images.js";
 import { checkInventory } from "./check-inventory.js";
+import { checkObservability } from "./check-observability.js";
 import { checkSecrets } from "./check-secrets.js";
 import { checkServices, checkTunnels } from "./check-services.js";
 import { checkStorage } from "./check-storage.js";
@@ -32,6 +33,7 @@ export const HEALTH_GROUPS: readonly HealthGroup[] = [
   { id: "tunnels", title: "Tunnels", covers: "Cloudflare tunnel connectors", run: checkTunnels },
   { id: "vault", title: "Vault", covers: "seal state, mounts, policies, auth and required KV keys", run: checkVault },
   { id: "secrets", title: "Secrets", covers: "every declared Vault secret is present, well-formed and consistent with the inventory", run: checkSecrets },
+  { id: "observability", title: "Observability", covers: "shared Grafana Cloud stack, OTLP credentials in Vault and agent read access", run: checkObservability },
   { id: "storage", title: "Storage", covers: "R2 buckets, PostgreSQL, service databases", run: checkStorage },
   { id: "images", title: "Images", covers: "pullability of every deployed GHCR image with declared registry access", run: checkImages },
   { id: "github", title: "GitHub", covers: "repositories, publishers, secrets, merge gate and last CI run", run: checkGithub },

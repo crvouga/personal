@@ -45,6 +45,10 @@ export const bootstrapBindings: Record<
     variable: 'planetscale_service_token',
     secret: 'PLANETSCALE_SERVICE_TOKEN',
   },
+  GRAFANA_CLOUD_ACCESS_POLICY_TOKEN: {
+    variable: 'grafana_cloud_access_policy_token',
+    secret: 'GRAFANA_CLOUD_ACCESS_POLICY_TOKEN',
+  },
 };
 
 export function editableKeys(keys: SecretKey[]): SecretKey[] {

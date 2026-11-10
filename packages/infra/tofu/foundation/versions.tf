@@ -11,6 +11,7 @@ terraform {
     postgresql  = { source = "cyrilgdn/postgresql", version = "= 1.26.0" }
     time        = { source = "hashicorp/time", version = "= 0.13.1" }
     random      = { source = "hashicorp/random", version = "= 3.8.1" }
+    grafana     = { source = "grafana/grafana", version = "= 4.50.0" }
   }
   backend "s3" {}
   encryption {

@@ -263,6 +263,7 @@ export type TunnelSpec = {
 /** OpenTofu inventory consumed by documentation and builds. */
 export type InfraConfig = {
   readonly auth_relay?: AuthRelayConfig;
+  readonly observability?: ObservabilityConfig;
   readonly domains?: Readonly<Record<string, import('./domains/model.js').DomainSpec>>;
   readonly zone: string;
   readonly image_owner: string;
@@ -283,6 +284,17 @@ export type InfraConfig = {
 
 /** @deprecated Alias — use InfraConfig */
 export type ServicesConfig = InfraConfig;
+
+/** Shared OpenTelemetry backend (Grafana Cloud); `live` provisions it. */
+export type ObservabilityConfig = {
+  readonly enabled: boolean;
+  readonly live?: boolean;
+  readonly provider?: string;
+  readonly stack?: { readonly slug: string; readonly name: string; readonly region: string; readonly adopt?: boolean };
+  readonly ingest_scopes?: readonly string[];
+  readonly agent_role?: string;
+  readonly inject_railway_services?: boolean;
+};
 
 /** Staged OIDC relay inventory; consuming applications can live anywhere. */
 export type AuthRelayConfig = {

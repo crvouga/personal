@@ -79,3 +79,16 @@ test('supports existing explicit backend environment aliases without prompting',
   expect(env.TF_VAR_state_access_key).toBe('explicit-access');
   expect(env.TF_VAR_state_secret_key).toBe('explicit-secret');
 });
+
+test('the Grafana Cloud token is optional and resolved from live Vault when present', async () => {
+  const without = await collectEnvironment({}, live, { env: {}, operator });
+  expect(without.TF_VAR_grafana_cloud_access_policy_token).toBeUndefined();
+  const withToken = await collectEnvironment(
+    {},
+    { ...live, GRAFANA_CLOUD_ACCESS_POLICY_TOKEN: 'glc_private' },
+    { env: {}, operator }
+  );
+  expect(withToken.TF_VAR_grafana_cloud_access_policy_token).toBe(
+    'glc_private'
+  );
+});

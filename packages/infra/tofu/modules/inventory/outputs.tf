@@ -20,6 +20,13 @@ output "config" {
     error_message = "auth_relay.live requires auth_relay.enabled."
   }
   precondition {
+    condition = (local.inventory.observability.enabled || !local.inventory.observability.live) && alltrue([
+      for name in ["GRAFANA_CLOUD_ACCESS_POLICY_TOKEN", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_RESOURCE_ATTRIBUTES", "GRAFANA_URL", "GRAFANA_SERVICE_ACCOUNT_TOKEN"] :
+      anytrue([for key in local.inventory.vault.kv_keys : key.name == name])
+    ])
+    error_message = "observability.live requires observability.enabled, and every observability Vault field must be in the Vault key registry."
+  }
+  precondition {
     condition = alltrue([for instance in values(local.inventory.auth_relay.instances) : contains(local.inventory.vault.kv.configs, instance.vault_config)]) && alltrue(flatten([for instance in values(local.inventory.auth_relay.instances) : [
       for name in [instance.google_client_id_key, instance.google_client_secret_key, instance.setup_token_key] : anytrue([
         for key in local.inventory.vault.kv_keys : key.name == name && try(key.required, false) && contains(key.configs, instance.vault_config)
