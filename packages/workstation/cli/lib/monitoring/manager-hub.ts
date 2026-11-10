@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
-import { runAnsible } from '../platform/ansible';
+import { runAnsibleWithReceipt } from '../platform/ansible-receipt';
 import { failure, inspectRoute, publicEndpointCheck, tunnelToken } from './hub';
 import { BESZEL_PUBLIC_VIEWER_IDENTITY, fleetAccount } from './hub-access';
 import { ensurePublicViewer, type HubLogin } from './hub-viewer';
@@ -51,6 +51,8 @@ export interface ManagerHubOptions {
   tailscale?: string | null;
   /** Fleet login for a fresh hub; defaults to the manager's Vault session. */
   account?: () => Promise<HubLogin | null>;
+  /** Receipt directory for skipping an unchanged hub apply. */
+  receipts?: string;
   /** Ensures the read-only AUTO_LOGIN user; defaults to the loopback hub API. */
   viewer?: (login: HubLogin | null) => Promise<Check>;
 }
@@ -72,11 +74,34 @@ export async function convergeManagerHub(
   const paths = managerHubPaths(options.home);
   const tunnel = await tunnelToken(run);
   const account = await (options.account ?? fleetAccount)();
-  const result = await runAnsible(run, 'hub-darwin.yml', {
-    cwd: resolve(root, 'packages/workstation/monitoring'),
-    input: JSON.stringify(hubVariables(hub, paths, tunnel, account)),
-    timeoutMs: 300_000,
-  });
+  const monitoring = resolve(root, 'packages/workstation/monitoring');
+  const result = await runAnsibleWithReceipt(
+    run,
+    'hub-darwin.yml',
+    {
+      cwd: monitoring,
+      input: JSON.stringify(hubVariables(hub, paths, tunnel, account)),
+      timeoutMs: 300_000,
+    },
+    {
+      name: 'beszel-hub',
+      sources: [monitoring],
+      // Health is verified independently below on every run.
+      verify: async () =>
+        (
+          await run([
+            'curl',
+            '-fsS',
+            '--max-time',
+            '5',
+            '-o',
+            '/dev/null',
+            `${LOCAL_HUB}/api/health`,
+          ])
+        ).ok,
+      ...(options.receipts ? { directory: options.receipts } : {}),
+    }
+  );
   if (!result.ok)
     return failure(
       'BESZEL_HUB_INSTALLATION_INCOMPLETE',

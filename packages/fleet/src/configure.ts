@@ -18,7 +18,9 @@ export function validConfiguration(
     record(value) &&
     typeof value['revision'] === 'string' &&
     /^[a-f0-9]{40}$/.test(value['revision']) &&
-    ['codex', 'claude', 'opencode', 'gemini'].includes(String(value['tool'])) &&
+    ['codex', 'claude', 'opencode', 'gemini', 'grok', 'antigravity'].includes(
+      String(value['tool'])
+    ) &&
     ['direct', 'proxy'].includes(String(value['profile'])) &&
     typeof value['node'] === 'string' &&
     /^[a-z0-9][a-z0-9-]{0,62}$/.test(value['node'])

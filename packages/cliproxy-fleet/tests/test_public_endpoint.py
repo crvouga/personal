@@ -15,9 +15,12 @@ class PublicCredential(unittest.TestCase):
     def test_atomic_refresh_keeps_private_permissions(self):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / "token"
-            endpoint.save_token(path, "first")
+            self.assertTrue(endpoint.save_token(path, "first"))
             old = path.stat().st_ino
-            endpoint.save_token(path, "rotated")
+            # Unchanged: no rewrite, so a running connector is not recreated.
+            self.assertFalse(endpoint.save_token(path, "first"))
+            self.assertEqual(path.stat().st_ino, old)
+            self.assertTrue(endpoint.save_token(path, "rotated"))
             self.assertEqual(path.read_text(), "rotated\n")
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertNotEqual(path.stat().st_ino, old)

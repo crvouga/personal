@@ -197,6 +197,10 @@ function registerSync({ program, defaults, complete }: Registration) {
       '--schedule <action>',
       'Manager-only schedule: enable, pause, resume, disable, status'
     )
+    .option(
+      '--maintenance',
+      'Also apply changes that interrupt work: proxy updates that restart the gateway, and restarting a busy worker T3 to load new provider settings'
+    )
     .action(async (_options, command: Command) => {
       const options = command.optsWithGlobals<
         FleetSyncOptions & Partial<Settings>

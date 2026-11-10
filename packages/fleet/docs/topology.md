@@ -13,12 +13,21 @@ The fleet has exactly two roles, declared in
 
 - A singleton. All control happens from it, by the human: `personal fleet-sync`
   converges the manager **locally** first, then each worker over SSH.
-  `fleet-sync` refuses to run anywhere else (`manager:identity`,
-  `FLEET_NOT_MANAGER`).
+  Started on a worker, `fleet-sync` hands the same request to the manager over
+  host-key-verified SSH (no agent forwarding, no credentials copied) and prints
+  the manager's result; with no SSH route it changes nothing and reports
+  `FLEET_NOT_MANAGER` or `FLEET_MANAGER_UNREACHABLE`. The manager runs that
+  request from a clean, fleet-owned checkout of the exact revision
+  (`scripts/dev/fleet-manager-run.sh`, under
+  `~/.local/share/personal/fleet/manager-runs`, three most recent kept), so
+  fixes in the revision reach the manager without touching the human's
+  checkout. The revision must be on the manager or on `origin`.
 - It hosts every singleton service. Today that is the CLI proxy
   (`services.proxy`, [`packages/cliproxy-fleet`](../../cliproxy-fleet/README.md))
   and the Beszel hub (`services.monitoring`,
   [`packages/workstation/monitoring`](../../workstation/monitoring/README.md)).
+  The manager also runs its own Beszel agent, so it is always a system on that
+  hub.
   A new singleton service is declared under `services` and placed on the
   manager; it never names a host.
 - Workers depend on it, so it never sleeps on AC power

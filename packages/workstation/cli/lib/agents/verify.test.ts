@@ -7,7 +7,7 @@ test('native Gemini uses generateContent rather than an OpenAI inference request
   expect(request.path).toBe('/v1beta/models/gemini-3-flash:generateContent');
   expect(request.body).toEqual({
     contents: [{ role: 'user', parts: [{ text: 'Reply OK.' }] }],
-    generationConfig: { maxOutputTokens: 16 },
+    generationConfig: { maxOutputTokens: 1024 },
   });
 });
 test('Claude and Codex retain their distinct gateway protocols', () => {

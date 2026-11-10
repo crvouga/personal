@@ -88,7 +88,7 @@ export function applyAgentProfiles(
     { node, revision, tool: 'codex', profile: 'proxy' },
     run,
     {
-      additionalTools: ['claude', 'gemini', 'opencode'],
+      additionalTools: ['claude', 'gemini', 'opencode', 'grok', 'antigravity'],
       bootstrappedDeployment: true,
     }
   );

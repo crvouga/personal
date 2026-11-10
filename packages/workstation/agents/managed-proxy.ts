@@ -6,18 +6,20 @@ import { select } from '../cli/lib/agents/registry';
 import { plan } from '../cli/lib/agents/converge';
 import { launchProfile } from '../cli/lib/agents/launch';
 import { AgentConfigurationError } from '../cli/lib/agents/errors';
+import { pinnedPath } from '../cli/lib/agents/toolchain';
 
 const SYNC_HINT =
   'Run personal fleet-sync from a terminal to repair this machine.';
 
 export async function runManagedProxy(
-  tool: 'codex' | 'opencode'
+  tool: 'codex' | 'opencode' | 'claude' | 'grok' | 'antigravity'
 ): Promise<void> {
   const args = process.argv.slice(2);
   // Version probes need no credentials; answering them lets T3 report the real
   // launch error instead of "unable to determine version".
   if (args.length === 1 && ['--version', '-v'].includes(args[0]!)) {
     process.exitCode = await Bun.spawn([tool, ...args], {
+      env: { ...process.env, PATH: pinnedPath() },
       stdio: ['inherit', 'inherit', 'inherit'],
     }).exited;
     return;

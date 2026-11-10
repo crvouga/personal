@@ -113,7 +113,10 @@ test('every base tool has locked artifacts for every supported OS/architecture',
     readFileSync(join(root, 'mise.toml'), 'utf8')
   ) as {
     settings: { lockfile_platforms: string[] };
-    tools: Record<string, string | { version: string; lazy?: boolean }>;
+    tools: Record<
+      string,
+      string | { version: string; lazy?: boolean; os?: string[] }
+    >;
   };
   const lock = Bun.TOML.parse(
     readFileSync(join(root, 'mise.lock'), 'utf8')
@@ -138,6 +141,9 @@ test('every base tool has locked artifacts for every supported OS/architecture',
       expect(row?.['version']).toMatch(/^\d+\.\d+\.\d+$/);
     } else
       for (const platform of config.settings.lockfile_platforms) {
+        // A tool restricted to some operating systems is never installed elsewhere.
+        const os = typeof spec === 'string' ? undefined : spec.os;
+        if (os && !os.includes(platform.split('-')[0]!)) continue;
         if (name === 'aws' && platform === 'windows-x64') {
           const artifact = awsWindowsArtifact(
             Bun.TOML.parse(

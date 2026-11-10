@@ -114,6 +114,34 @@
                 "pattern": "^[a-zA-Z0-9_./:+-]+$"
               }
             }
+          },
+          "grok": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "direct": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_./:+-]+$"
+              },
+              "proxy": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_./:+-]+$"
+              }
+            }
+          },
+          "antigravity": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "direct": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_./:+-]+$"
+              },
+              "proxy": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_./:+-]+$"
+              }
+            }
           }
         }
       }

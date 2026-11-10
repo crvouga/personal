@@ -1,4 +1,5 @@
 import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
+import { T3_RESTARTED_SUMMARY } from '../../workstation/cli/lib/platform/t3-policy';
 import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';
@@ -67,14 +68,17 @@ export async function selected(
       })
     : null;
   const started = Date.now();
+  const deployUi = { ...ui, maintenance: Boolean(options.maintenance) };
   const report = await synchronizeManager(
     {
       definition: scoped,
       nodes,
       revision: options.revision,
       apply: Boolean(options.apply),
-      // The manager converges first; the first declared worker is the canary.
+      // The manager converges alongside the workers (first only for
+      // maintenance); the first declared worker is the canary.
       ...(canonical.workers[0] ? { canary: canonical.workers[0].id } : {}),
+      managerFirst: Boolean(options.maintenance),
       progress: (node, phase) => ui.progress.step(node, phase),
       finished: (node) => ui.progress.finished(node),
       manager: () =>
@@ -83,13 +87,14 @@ export async function selected(
           {
             revision: options.revision!,
             apply: Boolean(options.apply),
+            maintenance: Boolean(options.maintenance),
             workspace: settings.workspace,
           },
           run
         ),
     },
     run,
-    deployWithMonitoring(payload, canonical, run, ui)
+    deployWithMonitoring(payload, canonical, run, deployUi)
   ).finally(() => ui.progress.stop());
   return outcome(report, planFingerprint, started);
 }
@@ -138,7 +143,11 @@ function deployWithMonitoring(
   payload: Awaited<ReturnType<typeof prepareBootstrap>>,
   canonical: ReturnType<typeof parseDefinition>,
   run: Runner,
-  ui: { progress: SyncProgress; interactiveAuthorization: boolean }
+  ui: {
+    progress: SyncProgress;
+    interactiveAuthorization: boolean;
+    maintenance?: boolean;
+  }
 ): DeployNode {
   return async (node, revision) => {
     if (!payload || payload.revision !== revision)
@@ -166,7 +175,11 @@ function deployWithMonitoring(
     if (ui.interactiveAuthorization) ui.progress.stop();
     const before = await authorizeVault(node, vault, run);
     ui.progress.step(node.id, 'Converging (remote lock, install, verify)');
-    const result = await bootstrapRemote(node, payload, run);
+    const result = await bootstrapRemote(
+      node,
+      { ...payload, maintenance: Boolean(ui.maintenance) },
+      run
+    );
     // A fresh node gets vault from the bootstrap; log it in now. Its provider
     // checks in this run predate the login, so the next sync verifies them.
     result.checks.push(
@@ -176,7 +189,16 @@ function deployWithMonitoring(
     ui.progress.step(node.id, 'Verifying SSH, OS and T3');
     result.checks.push(...(await inspectBootstrap(node, run, 'linux')));
     result.checks.push(...(await verifyT3Endpoint(node, run)));
-    result.checks.push(await verifyT3Linked(node, run));
+    // A worker T3 restarted by this sync (idle policy heal) needs a minute or
+    // two before the manager's link reconnects.
+    const restarted = result.checks.some(
+      (check) => check.summary === T3_RESTARTED_SUMMARY
+    );
+    result.checks.push(
+      await verifyT3Linked(node, run, {
+        reconnectMs: restarted ? 180_000 : 0,
+      })
+    );
     if (
       result.checks.some(
         (check) => check.id === 'configuration:apply' && check.status === 'pass'

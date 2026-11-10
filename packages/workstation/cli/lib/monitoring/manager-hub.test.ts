@@ -86,6 +86,8 @@ function fixture(options: Fixture = {}) {
 }
 const options = {
   home: '/Users/chrisvouga',
+  // Unwritable: no receipt is ever recorded, so every call applies in full.
+  receipts: '/dev/null/receipts',
   tailscale: CLI,
   account: async () => null,
   viewer: async (): Promise<Check> => ({

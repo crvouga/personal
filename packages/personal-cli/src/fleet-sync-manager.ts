@@ -4,8 +4,15 @@ import type { ManagerNode } from '../../fleet/src/manager-sync';
 import { hostId } from '../../fleet/src/topology';
 import { convergeProxy } from '../../fleet/src/proxy-converge';
 import { attempt } from '../../fleet/src/node-converge-shared';
-import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
+import {
+  quotaLimited,
+  verifyFleetProviders,
+} from '../../workstation/cli/lib/agents/fleet-verify';
+import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
+import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secrets';
+import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
+import { enrollManagerMonitoring } from './fleet-sync-monitoring';
 import { desired, nodeId, paths } from './t3/desired';
 import { reconcileT3 } from './t3/reconcile';
 
@@ -15,7 +22,13 @@ import { reconcileT3 } from './t3/reconcile';
  */
 export async function convergeManager(
   definition: FleetDefinition,
-  input: { revision: string; apply: boolean; workspace: string },
+  input: {
+    revision: string;
+    apply: boolean;
+    workspace: string;
+    /** Also apply proxy updates that restart the gateway. */
+    maintenance?: boolean;
+  },
   run: Runner
 ): Promise<ManagerNode> {
   const started = Date.now();
@@ -25,6 +38,7 @@ export async function convergeManager(
   if (identity.status === 'pass') {
     checks.push(await managerPower(run));
     checks.push(await managerProviders(id, input.workspace, input.apply));
+    if (input.apply) checks.push(await syncAntigravityKey(proxyKey));
     if (input.apply) {
       // Same provider profiles and the same Vault gateway credential as every
       // worker: the instances above launch from these profiles, and the check
@@ -34,22 +48,35 @@ export async function convergeManager(
           managerAgentProfiles(id, input.workspace, run)
         ))
       );
+      const providers = await attempt('provider:verification', () =>
+        verifyFleetProviders(id)
+      );
+      checks.push(...providers);
+      // Same agents, versions and shared accounts as every worker.
       checks.push(
-        ...(await attempt('provider:verification', () =>
-          verifyFleetProviders(id)
+        ...(await attempt('agent:verification', () =>
+          verifyNativeAgents(id, input.workspace, run, {
+            outOfQuota: quotaLimited(providers),
+          })
         ))
       );
     }
     checks.push(
       ...(await convergeProxy(id, input.revision, run, {
         apply: input.apply,
+        maintenance: Boolean(input.maintenance),
         cwd: input.workspace,
       }))
     );
-    if (input.apply)
-      checks.push(
-        ...(await convergeManagerHub(input.workspace, definition, run))
-      );
+    if (input.apply) {
+      const hub = await convergeManagerHub(input.workspace, definition, run);
+      checks.push(...hub);
+      // The manager is always a monitored system on its own hub.
+      if (!hub.some(blocking))
+        checks.push(
+          ...(await enrollManagerMonitoring(definition, input.workspace, run))
+        );
+    }
   }
   return {
     node: id,
@@ -121,7 +148,14 @@ export async function managerProviders(
   }
 }
 
-const PROFILE_TOOLS = ['codex', 'claude', 'gemini', 'opencode'] as const;
+const PROFILE_TOOLS = [
+  'codex',
+  'claude',
+  'gemini',
+  'opencode',
+  'grok',
+  'antigravity',
+] as const;
 
 /** Applies the proxy agent profiles the managed T3 instances launch from
  * (codex-proxy.ts refuses to start with a missing or stale profile). Workers
@@ -174,8 +208,7 @@ export async function managerAgentProfiles(
     {
       id: 'configuration:apply',
       status: 'pass',
-      summary:
-        'The manager has the same proxy agent profiles as every worker (codex, claude, gemini, opencode).',
+      summary: `The manager has the same proxy agent profiles as every worker (${PROFILE_TOOLS.join(', ')}).`,
     },
   ];
 }

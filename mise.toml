@@ -41,6 +41,9 @@ claude = "2.1.314"
 codex = "0.166.0"
 gemini = { version = "0.66.0", allow_builds = ["@lydell/node-pty"] }
 copilot = "1.0.105"
+# Agent CLIs without a registry backend: exact vendor artifacts, checksums in mise.lock.
+"http:grok" = { version = "1.0.77", os = ["linux", "macos"], bin = "grok", platforms = { linux-x64 = { url = "https://x.ai/cli/grok-{{version}}-linux-x86_64" }, linux-arm64 = { url = "https://x.ai/cli/grok-{{version}}-linux-aarch64" }, macos-x64 = { url = "https://x.ai/cli/grok-{{version}}-macos-x86_64" }, macos-arm64 = { url = "https://x.ai/cli/grok-{{version}}-macos-aarch64" } } }
+"http:antigravity" = { version = "1.5.3", os = ["linux", "macos"], bin = "antigravity", platforms = { linux-x64 = { url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/linux-x64/cli_linux_x64.tar.gz" }, linux-arm64 = { url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/linux-arm/cli_linux_arm64.tar.gz" }, macos-x64 = { url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/darwin-x64/cli_mac_x64.tar.gz" }, macos-arm64 = { url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/darwin-arm/cli_mac_arm64.tar.gz" } } }
 
 "aws" = { version = "2.39.2", os = ["linux", "macos"] }
 "rust" = "1.99.1"
@@ -69,6 +72,9 @@ copilot = "1.0.105"
 [env]
 DISABLE_AUTOUPDATER = "1"
 COPILOT_AUTO_UPDATE = "false"
+GROK_DISABLE_AUTOUPDATER = "1"
+# Antigravity ignores "1"; only "true" stops its in-place self-updater.
+AGY_CLI_DISABLE_AUTO_UPDATE = "true"
 
 [vars]
 # Official native Ubuntu server distribution; scripts/dev/native-t3.ts owns installation.
@@ -90,4 +96,4 @@ docker_desktop_arm64_sha256 = "9c6f13ce4edda2abf20d801552b6acb96acd3d64b3e91b50c
 docker_desktop_amd64_sha256 = "96b53f9a4a807b6be6207d18f360b9778ff481e1d94b5027bdf1ae2a22d837cb"
 
 # Minimal remote development baseline; versions are resolved exclusively by tools + mise.lock.
-worker_tools = "bun,node,gh,python,uv,docker-cli,vault,jq,codex,claude,aqua:anomalyco/opencode,gemini,copilot"
+worker_tools = "bun,node,gh,python,uv,docker-cli,vault,jq,codex,claude,aqua:anomalyco/opencode,gemini,copilot,http:grok,http:antigravity"

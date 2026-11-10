@@ -9,7 +9,7 @@ export async function convergeProxy(
   node: string,
   revision: string,
   run: Runner,
-  options: { apply?: boolean; cwd?: string } = {}
+  options: { apply?: boolean; maintenance?: boolean; cwd?: string } = {}
 ): Promise<Check[]> {
   const result = await run(
     [
@@ -23,6 +23,7 @@ export async function convergeProxy(
       '--revision',
       revision,
       ...(options.apply === false ? [] : ['--apply']),
+      ...(options.maintenance ? ['--maintenance'] : []),
     ],
     {
       timeoutMs: 180_000,
@@ -49,10 +50,7 @@ export async function convergeProxy(
         id: `proxy:${phase['code'].slice(6).toLowerCase().replaceAll('_', '-')}`,
         status: phase['status'] === 'unchanged' ? 'pass' : 'fail',
         summary: phase['code'],
-        remedy: {
-          action:
-            'The proxy runs only on the manager. Inspect it there with its audit/recovery runbook; revision changes require maintenance, and missing state requires fencing and encrypted recovery, never a second identity.',
-        },
+        remedy: { action: phaseAction(phase['remedy']) },
       };
     });
   } catch {
@@ -68,4 +66,20 @@ export async function convergeProxy(
       },
     ];
   }
+}
+
+const GENERIC_ACTION =
+  'The proxy runs only on the manager. Inspect it there with its audit/recovery runbook; missing state requires fencing and encrypted recovery, never a second identity.';
+
+/** The proxy's own remedies are authored text from tracked source (never
+ * subprocess output); anything else falls back to the generic runbook.
+ */
+function phaseAction(remedy: unknown): string {
+  const action = record(remedy) ? remedy['action'] : undefined;
+  return typeof action === 'string' &&
+    action.length > 0 &&
+    action.length <= 400 &&
+    !/[\u0000-\u001f]/.test(action)
+    ? action
+    : GENERIC_ACTION;
 }

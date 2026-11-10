@@ -762,6 +762,48 @@ url = "https://get.helm.sh/helm-v4.3.1-darwin-amd64.tar.gz"
 checksum = "sha256:5735a2bd59071b814546c6d0a76f29a8fd3ebe06e3a4791dd2784804ae895f34"
 url = "https://get.helm.sh/helm-v4.3.1-windows-amd64.tar.gz"
 
+[[tools."http:antigravity"]]
+version = "1.5.3"
+backend = "http:antigravity"
+specifiers = ["1.5.3"]
+
+[tools."http:antigravity"."platforms.linux-arm64"]
+checksum = "sha256:2d50060c7b1327995e5c81ec58829c91c2564ebb9fec165d3f9f1325ec188675"
+url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/linux-arm/cli_linux_arm64.tar.gz"
+
+[tools."http:antigravity"."platforms.linux-x64"]
+checksum = "sha256:1b4850599cce73a17f94ffb422df3bf9531531b77dbddc40c1a435e0c2c16807"
+url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/linux-x64/cli_linux_x64.tar.gz"
+
+[tools."http:antigravity"."platforms.macos-arm64"]
+checksum = "sha256:b47034e1367fc3c9f2856f1e1ae30bf12819a7213821ba3cce2123b090f2df8a"
+url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/darwin-arm/cli_mac_arm64.tar.gz"
+
+[tools."http:antigravity"."platforms.macos-x64"]
+checksum = "sha256:f0470eac7fb2f98886e1210457531bf1883c439ffa9e99d730388a1ff3dfeef5"
+url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.3-6604829099950080/darwin-x64/cli_mac_x64.tar.gz"
+
+[[tools."http:grok"]]
+version = "1.0.77"
+backend = "http:grok"
+specifiers = ["1.0.77"]
+
+[tools."http:grok"."platforms.linux-arm64"]
+checksum = "sha256:b30eee14a656124ef3c9da8577b5e783ef2cffabeb2b679c5c49633e77eed574"
+url = "https://x.ai/cli/grok-1.0.77-linux-aarch64"
+
+[tools."http:grok"."platforms.linux-x64"]
+checksum = "sha256:b702950aa5827d855e493278ab6215a4e0f5bceb5bba6c6243a9f55cdd143b0a"
+url = "https://x.ai/cli/grok-1.0.77-linux-x86_64"
+
+[tools."http:grok"."platforms.macos-arm64"]
+checksum = "sha256:197c66a63e5ac46e07450b0ca21d141ce665050a412180f185dadfae1c7a5b2a"
+url = "https://x.ai/cli/grok-1.0.77-macos-aarch64"
+
+[tools."http:grok"."platforms.macos-x64"]
+checksum = "sha256:7728f79ea713ae67a4fa4736dcf808f6b386d9642202aea1df695073fa56675a"
+url = "https://x.ai/cli/grok-1.0.77-macos-x86_64"
+
 [[tools.java]]
 version = "temurin-25.0.5+8.0.LTS"
 backend = "core:java"

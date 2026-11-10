@@ -20,8 +20,14 @@ import urllib.request
 
 
 def save_token(path, value):
+    """Atomically refreshes the credential; returns whether it changed."""
     if not isinstance(value, str) or not value.strip() or "\n" in value.strip():
         raise ValueError("Missing or invalid connector credential")
+    try:
+        if path.read_text() == value.strip() + "\n":
+            return False
+    except OSError:
+        pass
     temporary = path.with_name(path.name + ".new")
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w") as file:
@@ -30,6 +36,16 @@ def save_token(path, value):
     if os.geteuid() == 0:
         os.chown(temporary, 1000, 1000)
     os.replace(temporary, path)
+    return True
+
+
+def connector_running(compose):
+    result = subprocess.run(
+        compose + ["ps", "--status", "running", "--quiet", "cloudflared"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
 
 
 def verify(root, endpoint):
@@ -84,11 +100,14 @@ def main():
     value = vault.request(config["vault_path"], vault.token())["data"]["data"][
         "TUNNEL_TOKEN"
     ]
-    save_token(root / "state/secrets/tunnel-token", value)
-    # Recreate so the bind mount sees the new file after atomic credential refresh.
-    subprocess.run(
-        compose + ["up", "-d", "--force-recreate", "cloudflared"], check=True
-    )
+    changed = save_token(root / "state/secrets/tunnel-token", value)
+    # Recreate only when the bind mount must see a refreshed credential (or the
+    # connector is down): a needless recreate drops the public endpoint on
+    # every proxy start or update.
+    if changed or not connector_running(compose):
+        subprocess.run(
+            compose + ["up", "-d", "--force-recreate", "cloudflared"], check=True
+        )
     if command == "enable":
         marker.touch(mode=0o600)
         if os.geteuid() == 0:

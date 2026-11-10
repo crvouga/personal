@@ -87,3 +87,32 @@ test.skipIf(!existsSync('/bin/zsh'))(
     }
   }
 );
+
+test.skipIf(!existsSync('/bin/bash'))(
+  'pinned shims stay first even after later PATH edits in the same file',
+  () => {
+    const { home, bin, shims } = fixture();
+    const stray = join(home, 'stray');
+    mkdirSync(stray);
+    writeFileSync(join(stray, 'fleet-tool'), '#!/bin/sh\nprintf stray', {
+      mode: 0o755,
+    });
+    const startup = join(home, '.bashrc');
+    // e.g. nvm or a vendor installer prepending its own bin later in the file
+    writeFileSync(startup, `export PATH='${stray}':"$PATH"\n`);
+    try {
+      configurePosixShellPath(bin, shims, home, home);
+      const first = readFileSync(startup, 'utf8');
+      configurePosixShellPath(bin, shims, home, home);
+      expect(readFileSync(startup, 'utf8')).toBe(first);
+      const result = spawnSync('/bin/bash', ['-c', 'fleet-tool'], {
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { HOME: home, PATH: '/usr/bin:/bin', BASH_ENV: startup },
+      });
+      expect(result.stdout).toBe('managed');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  }
+);

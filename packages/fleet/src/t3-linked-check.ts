@@ -6,7 +6,29 @@ import type { Check, FleetNode, Runner } from './types';
 export async function verifyT3Linked(
   node: FleetNode,
   run: Runner,
-  now = Date.now()
+  options: {
+    now?: () => number;
+    /** After this sync restarted the node's T3, give its link time to reconnect. */
+    reconnectMs?: number;
+    pause?: () => Promise<void>;
+  } = {}
+): Promise<Check> {
+  const now = options.now ?? Date.now;
+  const deadline = now() + (options.reconnectMs ?? 0);
+  let check = await linkedOnce(node, run, now());
+  while (check.status === 'fail' && now() < deadline) {
+    await (
+      options.pause ?? (() => new Promise((done) => setTimeout(done, 10_000)))
+    )();
+    check = await linkedOnce(node, run, now());
+  }
+  return check;
+}
+
+async function linkedOnce(
+  node: FleetNode,
+  run: Runner,
+  now: number
 ): Promise<Check> {
   const unavailable: Check = {
     id: 't3:paired-access',

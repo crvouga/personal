@@ -164,7 +164,7 @@ verification and the CLIProxy singleton.
 | Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent                                                                                                                                                                                                                                                                                                                                                      | singleton services under launchd and Docker Desktop (see the last row)                                                                                                                                                                                                                                                                                                                                    |
 | T3 health and connection    | `fleet-sync` and `fleet-status --workers` require `worker:t3-health` (local API answers), `t3:manager-endpoint` (manager HTTPS over Tailscale) and `t3:paired-access` (manager T3 link reachable)                                                                                                                                                                                                                                                   | the human's T3 desktop holds the links to every worker (`t3:paired-access`)                                                                                                                                                                                                                                                                                                                               |
 | Memory safety               | `systemd-oomd` (swap 90%, pressure 60%); `user.slice` `MemoryMax=90%`; each `t3code-*.scope` agent `MemoryMax=30%`, `OOMPolicy=continue`; swap file when none                                                                                                                                                                                                                                                                                       | not managed                                                                                                                                                                                                                                                                                                                                                                                               |
-| Disk safety                 | `personal-fleet-disk-guard` kills only the top user-cgroup writer below 3 GiB free, never deletes files; journal 1G; `/tmp` 25% of RAM, aged 2d hourly; Docker log rotation                                                                                                                                                                                                                                                                         | not managed                                                                                                                                                                                                                                                                                                                                                                                               |
+| Disk safety                 | `personal-fleet-disk-guard` kills only the top user-cgroup writer below 3 GiB free, never deletes files; journal 1G; `/tmp` 25% of RAM, aged 2d hourly, and a measured write probe (`TMP_QUOTA_EXHAUSTED`); Docker log rotation                                                                                                                                                                                                                     | not managed                                                                                                                                                                                                                                                                                                                                                                                               |
 | Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                                                                                                                                                                                                                                                                                                                                                                     | Tailscale app, human login                                                                                                                                                                                                                                                                                                                                                                                |
 | Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                                                                                                                                                                                                                                                                                                                                                                         | not installed                                                                                                                                                                                                                                                                                                                                                                                             |
 | Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min                                                                                                                                                                                                                                                                                                                                                    | the human's own Vault and GitHub sessions                                                                                                                                                                                                                                                                                                                                                                 |
@@ -260,12 +260,53 @@ key/endpoint contract, encrypted recovery and runtime authentication. Moving it
 requires fencing the old host before restoring state
 ([migration](../../cliproxy-fleet/docs/migration.md)). Fleet never copies identities.
 
-Workstation applies Codex, Claude, Gemini and OpenCode proxy profiles. Claude’s
-explicit model is `claude-sonnet-4-6`. Pinned Gemini CLI 0.66.0 supports native
+### Agents on every node
+
+Every node (manager and workers) offers the same agents in T3, at the same
+versions (pinned in `mise.toml`/`mise.lock`, including the vendor CLIs
+`http:grok` and `http:antigravity`), signed in to the same multiplexed proxy
+accounts. T3 launches most through a tracked launcher in
+`packages/workstation/agents/` that injects the shared proxy key from Vault at
+launch; nothing is copied between nodes.
+
+| Agent       | T3 driver     | Route                                                                 |
+| ----------- | ------------- | --------------------------------------------------------------------- |
+| Claude      | `claudeAgent` | CLI proxy (`claude-proxy`, an extension-less launcher for the SDK)    |
+| Codex       | `codex`       | CLI proxy (`codex-proxy.ts`)                                          |
+| Grok        | `grok`        | CLI proxy: Grok Build custom model, `env_key` (`grok-proxy.ts`)       |
+| Antigravity | `antigravity` | CLI proxy: T3's own pinned runtime in Gemini API-key mode (see below) |
+| Muse        | `opencode`    | CLI proxy via OpenCode (`opencode-proxy.ts`)                          |
+
+The CLI proxy multiplexes the provider accounts (fill-first), so every node
+shares them. Cursor is not part of the fleet (its backend cannot be proxied).
+Native Muse Code is not used: it only talks to Meta's own catalog endpoint, so
+Muse models run through OpenCode.
+
+T3 runs Antigravity with its own pinned runtime (the same on every node for the
+same T3 release), not the `antigravity` CLI. A managed policy may not hold a
+credential, so the instance carries T3's saved-secret marker and each sync
+writes the shared proxy key from that node's Vault session into T3's per-host
+secret store (`t3:antigravity-key`, `userdata/secrets`, mode 0600);
+`GOOGLE_GEMINI_BASE_URL` points it at the proxy. Antigravity sends its catalog
+ids (`gemini-3.8-flash`, `gemini-3.1-flash-lite-preview`); the proxy serves
+them from the Antigravity account through declared model aliases in
+`config.template.yaml`, which every sync applies restart-free (the proxy
+hot-reloads its config). Its default Pro model is not served; pick Gemini 3.8
+Flash in T3.
+
+The built-in Codex and Claude instances use whatever is first on the PATH T3
+inherits from the login shell. Bootstrap keeps the pinned mise shims first
+(also at the end of each shell startup file, after nvm or a vendor installer
+adds its own directory), so they run the locked versions too.
+
+Each sync checks every agent per node (`agent:<name>:version` against the lock
+and `agent:<name>:session`, one tiny prompt through its launcher). Failures do
+not stop other workers. New provider settings need a T3 restart: it happens
+automatically while T3 is idle, or immediately with `fleet-sync --maintenance`.
+
+Claude’s explicit model is `claude-sonnet-4-6`. Pinned Gemini CLI 0.66.0 supports native
 `gateway` authentication with `GOOGLE_GEMINI_BASE_URL` and a runtime Vault key;
-its request protocol is Gemini `generateContent`, not OpenAI Responses. Grok
-(`grok-4.7`) and Muse (`devin/muse-wonder-1-0`, served through Devin) are declared OpenCode harness routes,
-not invented native CLIs. Exact models live in `agents/registry.json` and must
+its request protocol is Gemini `generateContent`, not OpenAI Responses. Exact models live in `agents/registry.json` and must
 be present in the authenticated gateway catalog; no automatic model substitution.
 
 Apply runs bounded authenticated inference plus completed Responses streaming
@@ -359,6 +400,41 @@ API evidence, not an off-host recovery test. See the
 Official feature references: [native agent](https://beszel.dev/guide/agent-installation),
 [systemd](https://beszel.dev/guide/systemd), [network monitors](https://beszel.dev/guide/network-monitors),
 [REST API](https://beszel.dev/guide/rest-api), and [pinned release](https://github.com/henrygd/beszel/releases/tag/v0.21.1).
+
+## Repeat runs: warm and self-healing
+
+Every step is idempotent, and repeat runs skip work that cannot have changed:
+
+- Ansible playbooks (Ubuntu baseline, Tailscale, T3 desktop, worker recovery,
+  Beszel agents and the manager's hub) record a receipt after a successful apply:
+  a digest of the playbook sources and variables, never their values, under
+  `~/.local/state/personal/fleet/receipts`. A later run with the same digest
+  skips the playbook only while a cheap postcondition probe passes (services
+  active, hub healthy, agent running).
+- Any changed input, failed probe or failed apply runs the playbook in full,
+  and a receipt older than 24 hours is ignored, so drift a probe misses still
+  heals daily. If a skipped baseline's measured boot or resource policy fails,
+  the baseline is reapplied in full in the same run.
+- A node whose locked toolchain already passed for the same revision within a
+  day skips the toolchain bootstrap (`toolchain-ready`); the manager's run
+  checkout does the same (`manager-runs/<sha>.ready`, setup output in
+  `<sha>.setup.log`, printed only on failure).
+- Provider inference and agent session checks run concurrently, and a pass is
+  reused for up to 6 hours while its inputs (node, models, routes, pinned
+  versions, verifier and launcher code) are unchanged
+  (`receipts/verify/`). Every run still makes one live authenticated gateway
+  request with the node's own Vault key; if it fails, everything is verified
+  again. Failures and quota-limited results are never cached. T3 links and
+  Beszel freshness are always checked live.
+- The manager converges alongside the workers (first only with
+  `--maintenance`); the canary worker deploys first, then the remaining workers
+  concurrently.
+- Self-healing: proxy settings the fleet declares are applied restart-free; a
+  T3 policy the running app has not loaded is applied by restarting T3 only
+  when it has been idle for five minutes (no writes to its state database),
+  otherwise it is a non-blocking `T3_POLICY_PENDING_ACTIVE` for the next sync.
+- To force a full apply and verification on one machine, delete its receipt
+  directory (and `toolchain-ready`).
 
 ## Failure, retry and recovery
 

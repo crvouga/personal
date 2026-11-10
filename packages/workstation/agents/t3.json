@@ -19,7 +19,7 @@
     },
     "personal_gateway_models": {
       "driver": "opencode",
-      "displayName": "Shared provider accounts (OpenCode)",
+      "displayName": "Muse & shared accounts (OpenCode)",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/opencode-proxy.ts"
@@ -28,6 +28,63 @@
         {
           "name": "WS_AGENT_NODE",
           "value": "${node}",
+          "sensitive": false
+        }
+      ]
+    },
+    "personal_claude_proxy": {
+      "driver": "claudeAgent",
+      "displayName": "Claude (CLI Proxy)",
+      "enabled": true,
+      "config": {
+        "binaryPath": "${workspace}/packages/workstation/agents/claude-proxy",
+        "homePath": "${agents}/${node}/claude/proxy-home"
+      },
+      "environment": [
+        {
+          "name": "WS_AGENT_NODE",
+          "value": "${node}",
+          "sensitive": false
+        }
+      ]
+    },
+    "personal_grok_proxy": {
+      "driver": "grok",
+      "displayName": "Grok (CLI Proxy)",
+      "enabled": true,
+      "config": {
+        "binaryPath": "${workspace}/packages/workstation/agents/grok-proxy.ts"
+      },
+      "environment": [
+        {
+          "name": "WS_AGENT_NODE",
+          "value": "${node}",
+          "sensitive": false
+        },
+        {
+          "name": "XAI_API_KEY",
+          "value": "fleet-cli-proxy",
+          "sensitive": false
+        }
+      ]
+    },
+    "personal_antigravity_proxy": {
+      "driver": "antigravity",
+      "displayName": "Antigravity (CLI Proxy)",
+      "enabled": true,
+      "config": {
+        "authMethod": "gemini-api-key",
+        "apiKey": "••••••"
+      },
+      "environment": [
+        {
+          "name": "WS_AGENT_NODE",
+          "value": "${node}",
+          "sensitive": false
+        },
+        {
+          "name": "GOOGLE_GEMINI_BASE_URL",
+          "value": "https://cli-proxy.chrisvouga.dev",
           "sensitive": false
         }
       ]
