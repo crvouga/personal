@@ -3,7 +3,7 @@ import { desired } from '../t3/desired';
 import policy from '../../ubuntu/t3/policy.json';
 import { basename, dirname, join, resolve } from 'node:path';
 import { rename, rm, symlink } from 'node:fs/promises';
-import { T3_DESKTOP_UNIT } from './t3-service';
+import { userInfo } from 'node:os';
 import type { Runner, Check } from '../types';
 
 export async function stageT3Policy(
@@ -17,6 +17,7 @@ export async function stageT3Policy(
     await stableWorkspace(root),
     node
   );
+  const user = userInfo();
   const document = {
     ...policy,
     settings: Object.fromEntries(
@@ -31,6 +32,8 @@ export async function stageT3Policy(
     input: JSON.stringify({
       t3_executable: executable,
       t3_policy_document: document,
+      development_user: user.username,
+      development_uid: user.uid,
     }),
     timeoutMs: 120_000,
   });
@@ -38,7 +41,7 @@ export async function stageT3Policy(
     id: 't3:policy-staged',
     status: result.ok ? 'pass' : 'fail',
     summary: result.ok
-      ? 'Native T3 policy validated and staged; runtime activation is checked separately.'
+      ? 'Native T3 policy validated and staged; a running T3 that had not loaded it was restarted.'
       : 'T3_POLICY_STAGE_FAILED',
     remedy: {
       action:
@@ -52,8 +55,8 @@ export async function verifyT3Policy(
   pause: () => Promise<void> = () =>
     new Promise((done) => setTimeout(done, 1000))
 ): Promise<Check> {
-  // A newly started native server can be active before loading its policy.
-  // Bound read-only startup observation; never restart to make this check pass.
+  // A newly started native server can be active before loading its policy:
+  // bounded, read-only observation.
   let loaded = false;
   for (let attempt = 0; attempt < 6; attempt++) {
     const result = await run([executable, 'policy', 'show'], {
@@ -76,36 +79,35 @@ export async function verifyT3Policy(
   };
 }
 
-/** Summary of a heal that restarted T3: its manager link reconnects next. */
+/** Summary when the policy play restarted T3: its manager link reconnects next. */
 export const T3_RESTARTED_SUMMARY =
   'T3 was restarted to load the new managed policy; the running server confirms it.';
 
-/** A staged policy the running T3 has not loaded is applied by restarting the
- * desktop app, so every node offers the same providers after every sync. This
- * ends the turns that T3 is running; fleet-sync never waits for it to be idle.
+/** `t3-policy.yml` restarts a running T3 that has not loaded the staged policy
+ * (ending its running turns), so every node offers the same providers after
+ * every sync. This measures the outcome; `restarted` says whether the app
+ * restarted during this sync and so needs time to reconnect.
  */
-export async function healT3Policy(
+export async function loadedT3Policy(
   executable: string,
   run: Runner,
-  pause?: () => Promise<void>
+  options: { restarted: boolean; pause?: () => Promise<void> }
 ): Promise<Check> {
-  const check = await verifyT3Policy(executable, run, pause);
-  if (check.status === 'pass') return check;
-  await run(['systemctl', '--user', 'restart', T3_DESKTOP_UNIT], {
-    timeoutMs: 60_000,
-  });
-  // The desktop app takes a few seconds to come back with its server.
-  const after = await verifyT3Policy(
+  // A restarted desktop app takes a few seconds to come back with its server.
+  const check = await verifyT3Policy(
     executable,
     run,
-    pause ?? (() => new Promise((done) => setTimeout(done, 5000)))
+    options.pause ??
+      (() =>
+        new Promise((done) =>
+          setTimeout(done, options.restarted ? 5000 : 1000)
+        ))
   );
-  return after.status === 'pass'
-    ? {
-        ...after,
-        summary: T3_RESTARTED_SUMMARY,
-      }
-    : { ...after, summary: 'T3_POLICY_RESTART_FAILED' };
+  if (check.status !== 'pass')
+    return { ...check, summary: 'T3_POLICY_RESTART_FAILED' };
+  return options.restarted
+    ? { ...check, summary: T3_RESTARTED_SUMMARY }
+    : check;
 }
 
 /** Fleet revisions live at .../fleet/revisions/<sha> (workers) or

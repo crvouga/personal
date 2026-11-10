@@ -2,12 +2,11 @@ import type { Runner, Check } from '../types';
 
 /** The user unit that runs the pinned desktop app (UI and embedded server). */
 export const T3_DESKTOP_UNIT = 't3code-desktop.service';
-/** The former headless server unit created by `t3 service install`. */
-export const T3_LEGACY_UNIT = 't3code.service';
 
 /** Workers run one T3 process: the desktop app, started with the auto-login
- * graphical session. Never stop a running T3 to adopt this: replacing the
- * headless server ends active turns, so it is reported as maintenance.
+ * graphical session. `t3-desktop.yml` installs it, retires the former headless
+ * server and starts the app; this only refuses a foreign launcher beforehand
+ * and measures the result afterwards.
  */
 export async function convergeT3Service(
   artifact: { path: string; version: string },
@@ -28,26 +27,7 @@ export async function convergeT3Service(
       'T3_DESKTOP_INSTALL_FAILED',
       'Inspect the t3-desktop.yml Ansible output (package download, apt, GDM auto-login, user unit). T3 data in ~/.t3 is untouched.'
     );
-  if ((await userctl(run, 'is-active', T3_LEGACY_UNIT)).ok)
-    return pending(
-      'T3_DESKTOP_MIGRATION_REQUIRED',
-      `The headless server still runs. During approved maintenance (this ends active T3 turns) run: systemctl --user disable --now ${T3_LEGACY_UNIT} && systemctl --user start ${T3_DESKTOP_UNIT}, then rerun fleet-sync.`
-    );
-  if ((await userctl(run, 'is-enabled', T3_LEGACY_UNIT)).ok)
-    await userctl(run, 'disable', T3_LEGACY_UNIT);
-  return startDesktop(run);
-}
-
-async function startDesktop(run: Runner): Promise<Check[]> {
-  let active = await userctl(run, 'is-active', T3_DESKTOP_UNIT);
-  if (!active.ok) {
-    // Start is idempotent and respects the unit's restart limit. Never
-    // reset-failed or restart a running app to force acceptance.
-    await run(['systemctl', '--user', 'start', T3_DESKTOP_UNIT], {
-      timeoutMs: 30_000,
-    });
-    active = await userctl(run, 'is-active', T3_DESKTOP_UNIT);
-  }
+  const active = await userctl(run, 'is-active', T3_DESKTOP_UNIT);
   const enabled = await userctl(run, 'is-enabled', T3_DESKTOP_UNIT);
   if (!active.ok || !enabled.ok)
     return pending(
@@ -62,6 +42,19 @@ async function startDesktop(run: Runner): Promise<Check[]> {
         'Pinned T3 desktop app is enabled for the auto-login session and running. Private routing, policy and pairing remain separate checks.',
     },
   ];
+}
+
+/** When the desktop app last started; changes exactly when it restarts. */
+export async function t3StartedAt(run: Runner): Promise<string> {
+  const shown = await run([
+    'systemctl',
+    '--user',
+    'show',
+    '--property=ActiveEnterTimestampMonotonic',
+    '--value',
+    T3_DESKTOP_UNIT,
+  ]);
+  return shown.ok ? shown.stdout.trim() : '';
 }
 
 function userctl(run: Runner, verb: string, unit: string) {

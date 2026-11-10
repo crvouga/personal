@@ -1,16 +1,17 @@
 import { workerReadiness } from './worker-readiness';
+import { runAnsible } from './platform/ansible';
 import { runAnsibleWithReceipt } from './platform/ansible-receipt';
-import { healT3Policy, stageT3Policy } from './platform/t3-policy';
+import { loadedT3Policy, stageT3Policy } from './platform/t3-policy';
 import { verifyUbuntuBoot } from './platform/ubuntu-verify';
 import { verifyResourceSafety } from './platform/resource-verify';
-import { convergeT3Route } from './platform/t3-route';
+import { convergeT3Route, T3_ROUTE } from './platform/t3-route';
 import { convergeProxy } from './proxy-converge';
 import { providerNames } from './t3/names-check';
 import { machineProviders } from './t3/providers';
 import { quotaLimited, verifyFleetProviders } from './agents/fleet-verify';
 import { verifyNativeAgents } from './agents/native-verify';
 import { managedT3, managedT3Desktop } from '../../../scripts/dev/native-t3';
-import { convergeT3Service } from './platform/t3-service';
+import { convergeT3Service, t3StartedAt } from './platform/t3-service';
 import { userInfo } from 'node:os';
 import { resolve } from 'node:path';
 import { auditUbuntu } from './platform/ubuntu-audit';
@@ -217,6 +218,7 @@ async function convergeT3(
   run: Runner
 ): Promise<Check[]> {
   const artifact = managedT3();
+  const startedAt = await t3StartedAt(run);
   const checks = await convergeT3Service(
     artifact,
     run,
@@ -227,7 +229,11 @@ async function convergeT3(
     () => installT3Desktop(root, run)
   );
   if (checks.every((check) => check.status === 'pass'))
-    checks.push(await healT3Policy(artifact.path, run));
+    checks.push(
+      await loadedT3Policy(artifact.path, run, {
+        restarted: startedAt !== (await t3StartedAt(run)),
+      })
+    );
   // Settings are watched by T3: providers arrive and stale ones leave at once.
   checks.push(await machineProviders(node, root, true));
   // Names live in the same settings, so they conform without a restart.
@@ -235,9 +241,21 @@ async function convergeT3(
   const serviceReady = checks.some(
     (check) => check.id === 't3:service' && check.status === 'pass'
   );
-  if (serviceReady) checks.push(...(await convergeT3Route(run)));
+  if (serviceReady)
+    checks.push(
+      ...(await convergeT3Route(run, () => publishT3Route(root, run)))
+    );
   if (serviceReady) checks.push(...(await enableWorkerRecovery(root, run)));
   return checks;
+}
+
+async function publishT3Route(root: string, run: Runner): Promise<boolean> {
+  const result = await runAnsible(run, 't3-route.yml', {
+    cwd: resolve(root, 'packages/fleet/ubuntu'),
+    input: JSON.stringify({ t3_route_target: T3_ROUTE.proxy }),
+    timeoutMs: 60_000,
+  });
+  return result.ok;
 }
 
 async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
@@ -263,12 +281,22 @@ async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
     {
       name: 'ubuntu-t3-desktop',
       sources: [ubuntu],
+      // A stopped or disabled app reruns the play, which starts it.
       verify: async () =>
         (
           await run([
             'systemctl',
             '--user',
             'is-enabled',
+            '--quiet',
+            't3code-desktop.service',
+          ])
+        ).ok &&
+        (
+          await run([
+            'systemctl',
+            '--user',
+            'is-active',
             '--quiet',
             't3code-desktop.service',
           ])

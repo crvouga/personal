@@ -193,3 +193,28 @@
         name: t3code-desktop.service
         daemon_reload: true
         enabled: true
+    # One T3 process per worker: the desktop app. The former headless server
+    # (`t3 service install`) is retired; absent on machines that never had it.
+    - name: Retire the former headless T3 server
+      become: true
+      become_user: '{{ development_user }}'
+      environment:
+        XDG_RUNTIME_DIR: '/run/user/{{ development_uid }}'
+      ansible.builtin.systemd_service:
+        scope: user
+        name: t3code.service
+        state: stopped
+        enabled: false
+      failed_when: false
+    # Starting needs the auto-login graphical session, which a machine has only
+    # after its first reboot; the running state is measured after this play.
+    - name: Start the desktop app without restarting a running one
+      become: true
+      become_user: '{{ development_user }}'
+      environment:
+        XDG_RUNTIME_DIR: '/run/user/{{ development_uid }}'
+      ansible.builtin.systemd_service:
+        scope: user
+        name: t3code-desktop.service
+        state: started
+      failed_when: false

@@ -35,3 +35,15 @@ test('rejects YAML mapping accidentally created by a colon inside an assertion',
   );
   expect(() => assertions(invalid)).toThrow('must be strings');
 });
+
+test('ownership checks survive moving the owning package', async () => {
+  // A check that names the package directory rejects every machine installed
+  // before a move; only the marker text up to the path may be compared.
+  for (const directory of ['ubuntu', 'macos', 'monitoring']) {
+    const root = resolve(import.meta.dirname, '../packages/fleet', directory);
+    for await (const path of new Bun.Glob('**/*.yml').scan(root))
+      for (const line of readFileSync(resolve(root, path), 'utf8').split('\n'))
+        if (/^\s*-\s*"/.test(line) && line.includes('Managed by personal'))
+          expect(line).not.toMatch(/Managed by personal [^'"]*packages\/\w/);
+  }
+});
