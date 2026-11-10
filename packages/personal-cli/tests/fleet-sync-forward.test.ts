@@ -40,14 +40,14 @@ test('with the tracked run script the manager runs the exact revision', () => {
   const script = '#!/bin/sh\necho run\n';
   const command = managerCommand(
     definition,
-    { node: ['w1'], maintenance: true },
+    { node: ['w1'], json: true },
     revision,
     script
   );
   const remote = command.at(-1)!;
   expect(remote).toContain('fleet-manager-run');
   expect(remote).toContain(revision);
-  expect(remote).toContain('--maintenance');
+  expect(remote).toContain('--json');
   expect(remote).not.toContain("'personal' 'fleet-sync'");
   // Without a revision there is nothing to pin: use the installed launcher.
   expect(managerCommand(definition, {}, undefined, script).at(-1)).toContain(
@@ -131,7 +131,7 @@ test('a manager sync re-runs itself from the fleet-owned checkout of its revisio
   const revision = 'b'.repeat(40);
   const commands: string[][] = [];
   const outcome = await runFromCheckout(
-    { json: true, maintenance: true },
+    { json: true },
     { revision, workspace: '/work' },
     async (args) => ({
       ok: args[1] === 'show',
@@ -150,7 +150,6 @@ test('a manager sync re-runs itself from the fleet-owned checkout of its revisio
     '#!/bin/sh\necho run\n',
     'fleet-manager-run',
     revision,
-    '--maintenance',
     '--json',
   ]);
   expect(outcome).toEqual({ exitCode: 0, data: { version: 3, ok: true } });

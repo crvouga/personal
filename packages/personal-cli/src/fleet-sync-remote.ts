@@ -68,17 +68,13 @@ export async function selected(
       })
     : null;
   const started = Date.now();
-  const deployUi = { ...ui, maintenance: Boolean(options.maintenance) };
   const report = await synchronizeManager(
     {
       definition: scoped,
       nodes,
       revision: options.revision,
       apply: Boolean(options.apply),
-      // The manager converges alongside the workers (first only for
-      // maintenance).
       ...canary(canonical, options),
-      managerFirst: Boolean(options.maintenance),
       progress: (node, phase) => ui.progress.step(node, phase),
       finished: (node) => ui.progress.finished(node),
       manager: () =>
@@ -87,14 +83,13 @@ export async function selected(
           {
             revision: options.revision!,
             apply: Boolean(options.apply),
-            maintenance: Boolean(options.maintenance),
             workspace: settings.workspace,
           },
           run
         ),
     },
     run,
-    deployWithMonitoring(payload, canonical, run, deployUi)
+    deployWithMonitoring(payload, canonical, run, ui)
   ).finally(() => ui.progress.stop());
   return outcome(report, planFingerprint, started);
 }
@@ -158,7 +153,6 @@ function deployWithMonitoring(
   ui: {
     progress: SyncProgress;
     interactiveAuthorization: boolean;
-    maintenance?: boolean;
   }
 ): DeployNode {
   return async (node, revision) => {
@@ -187,11 +181,7 @@ function deployWithMonitoring(
     if (ui.interactiveAuthorization) ui.progress.stop();
     const before = await authorizeVault(node, vault, run);
     ui.progress.step(node.id, 'Converging (remote lock, install, verify)');
-    const result = await bootstrapRemote(
-      node,
-      { ...payload, maintenance: Boolean(ui.maintenance) },
-      run
-    );
+    const result = await bootstrapRemote(node, payload, run);
     // A fresh node gets vault from the bootstrap; log it in now. Its provider
     // checks in this run predate the login, so the next sync verifies them.
     result.checks.push(

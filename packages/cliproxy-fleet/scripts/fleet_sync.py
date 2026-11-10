@@ -69,29 +69,6 @@ def equivalent_source(installed, revision):
         return False
 
 
-# Files that define the running containers. Everything else (scripts, launchd
-# agents, clients, docs) updates without recreating the gateway, because
-# containers mount the stable install root, not a revision directory.
-GATEWAY_FILES = ('compose.yaml', 'image.lock.json')
-
-
-def restart_free(installed, revision):
-    """True when updating keeps the gateway running: same compose and images."""
-    if not isinstance(installed, str) or not re.fullmatch('[a-f0-9]{40}', installed):
-        return False
-    try:
-        specs = [commit + ':packages/cliproxy-fleet/' + name
-                 for name in GATEWAY_FILES for commit in (installed, revision)]
-        result = subprocess.run(['git', '-C', str(SCRIPTS.parents[2]), 'rev-parse', *specs],
-                                capture_output=True, text=True, timeout=15)
-        blobs = result.stdout.splitlines()
-        return (result.returncode == 0 and len(blobs) == len(specs)
-                and all(re.fullmatch('[a-f0-9]{40}', blob) for blob in blobs)
-                and all(blobs[i] == blobs[i + 1] for i in range(0, len(blobs), 2)))
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-
 def inspect_worker(root, backend, run):
     """Client role. A local host is reported, never stopped."""
     live = [unit for unit in backend.units if any(backend.state(unit, run))]
@@ -131,8 +108,8 @@ def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible
                       'Clean tracked installation and units', 'Missing or modified deployment')]
     if installed != revision and not compatible_fn(installed, revision):
         return [phase('PROXY_UPDATE_PENDING', 'action-required',
-                      'This update changes the gateway container (compose.yaml or image pins), so applying it restarts the '
-                      'proxy and interrupts in-flight inference. Apply it in a quiet moment with: personal fleet-sync --maintenance',
+                      'Installing the reviewed revision failed. Inspect `bun run cliproxy install --revision REV` on the '
+                      'manager; runtime state is preserved.',
                       revision, installed if isinstance(installed, str) and re.fullmatch('[0-9a-f]{40}', installed) else 'Unknown revision')]
     checks = []
     for unit in backend.units:
@@ -205,9 +182,9 @@ def converge_units(root, checks, backend, run):
     return changed
 
 
-def reconcile(root, node, owner, revision, apply=False, maintenance=False, run=execute, audit_fn=audit,
+def reconcile(root, node, owner, revision, apply=False, run=execute, audit_fn=audit,
               endpoint_check=endpoint_health, compatible_fn=equivalent_source, backend=None, identity=None,
-              restart_free_fn=restart_free, sleep=time.sleep):
+              sleep=time.sleep):
     started = time.monotonic()
     backend = backend or cliproxy_host.backend()
     checks = inspect(root, node, owner, revision, run, audit_fn, compatible_fn, backend, identity)
@@ -221,10 +198,8 @@ def reconcile(root, node, owner, revision, apply=False, maintenance=False, run=e
         if codes & (blocked - {'PROXY_UPDATE_PENDING'}):
             break
         if 'PROXY_UPDATE_PENDING' in codes:
-            if not (maintenance or restart_free_fn(checks[0]['observed'], revision)):
-                break
-            # Self-healing: updates that keep the gateway running apply on every
-            # sync; ones that recreate it wait for --maintenance.
+            # Every sync installs a pending update, including one that recreates
+            # the gateway (which interrupts in-flight inference for a moment).
             changed = run(backend.install(sys.executable, SCRIPTS, revision), 1500)
             if not changed:
                 break
@@ -267,7 +242,6 @@ def main():
     parser.add_argument('--node', required=True)
     parser.add_argument('--revision', required=True)
     parser.add_argument('--apply', action='store_true')
-    parser.add_argument('--maintenance', action='store_true')
     args = parser.parse_args()
     owner, workers = roles(json.loads(args.definition.read_text()))
     if not re.fullmatch('[a-f0-9]{40}', args.revision) or args.node not in workers | {owner}:
@@ -275,7 +249,7 @@ def main():
     backend = cliproxy_host.backend()
     identity = cliproxy_host.local_node_id() if args.node == owner else None
     result = reconcile(cliproxy_host.default_root(), args.node, owner, args.revision, args.apply,
-                       args.maintenance, backend=backend, identity=identity)
+                       backend=backend, identity=identity)
     print(json.dumps(result))
     return 0 if result['ok'] else 1
 

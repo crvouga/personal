@@ -89,11 +89,6 @@ export async function synchronizeManager(
     finished?: (node: ManagerNode) => void;
     /** Converges the manager locally; omitted in tests. */
     manager?: () => Promise<ManagerNode>;
-    /** Finish the manager before any worker (maintenance may restart the
-     * proxy). Otherwise it converges alongside the workers, which only
-     * consume its already-running services.
-     */
-    managerFirst?: boolean;
   },
   run: Runner,
   deploy: DeployNode
@@ -116,7 +111,9 @@ export async function synchronizeManager(
     ).length,
   };
   const managerRun = input.manager ? convergeManagerNode(input) : null;
-  if (managerRun && input.managerFirst) await managerRun;
+  // The manager finishes first: updating it may restart the proxy every
+  // worker is then verified against.
+  if (managerRun) await managerRun;
   const workers = await Promise.all(
     input.definition.workers.filter(convergeable).map((machine) => {
       input.progress?.(

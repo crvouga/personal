@@ -43,8 +43,6 @@ export interface FleetSyncOptions {
   node?: string[];
   all?: boolean;
   schedule?: ScheduleAction;
-  /** Also apply proxy updates that restart the gateway (interrupts inference). */
-  maintenance?: boolean;
   /** Internal: this revision already converged the whole fleet, so no canary
    * has to prove it first and every worker converges at once.
    */

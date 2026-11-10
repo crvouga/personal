@@ -11,13 +11,7 @@ import {
 import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
 import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
 import { enrollManagerMonitoring } from './fleet-sync-monitoring';
-import { desired, nodeId, paths } from './t3/desired';
-import type { Roster } from './t3/accounts';
-import { reconcileT3 } from './t3/reconcile';
-import {
-  stablePath,
-  stableWorkspace,
-} from '../../workstation/cli/lib/platform/t3-policy';
+import { machineProviders } from './t3/providers';
 import { providerNames } from './t3/names-check';
 
 /** The manager converges itself locally (never over SSH) before any worker:
@@ -30,8 +24,6 @@ export async function convergeManager(
     revision: string;
     apply: boolean;
     workspace: string;
-    /** Also apply proxy updates that restart the gateway. */
-    maintenance?: boolean;
   },
   run: Runner
 ): Promise<ManagerNode> {
@@ -41,7 +33,7 @@ export async function convergeManager(
   const checks: Check[] = [identity];
   if (identity.status === 'pass') {
     checks.push(await managerPower(run));
-    checks.push(await managerProviders(id, input.workspace, input.apply));
+    checks.push(await machineProviders(id, input.workspace, input.apply));
     checks.push(await providerNames(id, input.workspace, input.apply));
     if (input.apply) {
       // Same provider profiles and the same Vault gateway credential as every
@@ -68,7 +60,6 @@ export async function convergeManager(
     checks.push(
       ...(await convergeProxy(id, input.revision, run, {
         apply: input.apply,
-        maintenance: Boolean(input.maintenance),
         cwd: input.workspace,
       }))
     );
@@ -92,75 +83,6 @@ export async function convergeManager(
       input.apply && !checks.some(blocking) ? input.revision : null,
     durationMs: Date.now() - started,
   };
-}
-
-/** The manager's T3 must offer the same managed provider instances as every
- * worker (workers receive them through T3 administrator policy): the fixed
- * ones plus one per account signed in on the CLI proxy. The manager's
- * T3 is the human's own app with no administrator policy, so the same declared
- * instances are reconciled into its settings with the ownership-safe t3-apply
- * engine: unrelated settings and unmanaged instances are preserved, an existing
- * unowned instance of the same ID is reported, never overwritten.
- */
-export async function managerProviders(
-  id: string,
-  workspace: string,
-  apply: boolean,
-  options: { t3Home?: string; roster?: Roster } = {}
-): Promise<Check> {
-  const remedy = {
-    action:
-      'Run personal t3-apply --dry-run on the manager and review any conflicting instance; adopt it with t3-apply --import ID only if it should be managed.',
-  };
-  try {
-    const target = paths(options, workspace);
-    // Providers launch from the stable path of the applied run checkout, not
-    // from this revision's own directory, which a later sync prunes.
-    const home = apply
-      ? await stableWorkspace(workspace)
-      : stablePath(workspace);
-    const instances = await desired(
-      target.definition,
-      home,
-      nodeId(id),
-      options.roster
-    );
-    const plan = await reconcileT3(target, instances, { apply: false });
-    const result =
-      apply && plan.ok && plan.changed
-        ? await reconcileT3(target, instances, {
-            apply: true,
-            planHash: plan.planHash,
-          })
-        : plan;
-    if (!result.ok)
-      return {
-        id: 't3:providers',
-        status: 'fail',
-        summary: 'T3_PROVIDER_CONFLICT',
-        remedy,
-      };
-    return result.changed && !apply
-      ? {
-          id: 't3:providers',
-          status: 'warn',
-          summary: 'T3_PROVIDERS_PENDING',
-          remedy,
-        }
-      : {
-          id: 't3:providers',
-          status: 'pass',
-          summary:
-            'The manager T3 offers the same managed provider instances as every worker.',
-        };
-  } catch {
-    return {
-      id: 't3:providers',
-      status: 'fail',
-      summary: 'T3_PROVIDERS_UNVERIFIED',
-      remedy,
-    };
-  }
 }
 
 const PROFILE_TOOLS = [

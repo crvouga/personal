@@ -902,7 +902,8 @@ the existing LaunchAgent and requires a user session. Unattended manager boot
 acceptance and log-retention configuration remain gates. No node pull scheduler
 is installed or necessary.
 
-Routine sync never reboots a box or deliberately kills IDE/T3 work. Explicit
+Sync never reboots a box. It does restart a worker's T3 when a new provider
+policy is staged, which ends that T3's running turns. Explicit
 maintenance reboot/reconnect orchestration remains an acceptance gate. Kernel,
 driver, firmware, hardware and power failures are outside any “never freezes”
 promise. Inspect disk/inodes, swap/memory pressure, `systemctl --failed`, and prior
@@ -914,8 +915,9 @@ disables independent updates and declares the existing managed Codex instance
 plus an OpenCode instance for all five gateway models. Workstation reuses the
 existing `agents/t3.json` renderer; it does not edit the live settings database.
 Native `t3 policy check` validates before installation, and `t3 policy show`
-compares staged policy with the running server. `T3_POLICY_RESTART_PENDING`
-requires maintenance; no automatic restart is used to hide that distinction.
+compares staged policy with the running server. A staged policy the running
+server has not loaded restarts the T3 desktop app in the same sync;
+`T3_POLICY_RESTART_FAILED` means it still did not load afterwards.
 Unrelated administrator policy is a conflict requiring a reviewed merge.
 
 ## Central provider access
@@ -943,6 +945,12 @@ launch; nothing is copied between nodes.
 | `AntiGravity <account email>` | `opencode`    | One per Antigravity account, via OpenCode (`opencode-proxy.ts`) |
 | `Grok CLI Proxy`              | `grok`        | Pooled: Grok Build custom model, `env_key` (`grok-proxy.ts`)    |
 | `OpenCode CLI Proxy`          | `opencode`    | Pooled accounts and Muse via OpenCode (`opencode-proxy.ts`)     |
+
+**Every sync applies everything.** `fleet-sync` never waits for a quiet
+moment: a worker whose T3 has not loaded the staged provider policy is
+restarted (ending its running turns), and a pending proxy update is installed
+even when it recreates the gateway. The manager finishes before the workers
+start, so they are verified against the updated proxy. `--dry-run` previews.
 
 **Accounts are never listed in this repository.** The proxy's credential files
 are the only source of truth: every sync gives each Claude, Codex and

@@ -2,7 +2,6 @@ import { workerReadiness } from './worker-readiness';
 import { runAnsibleWithReceipt } from '../../workstation/cli/lib/platform/ansible-receipt';
 import {
   healT3Policy,
-  lastT3Write,
   stageT3Policy,
 } from '../../workstation/cli/lib/platform/t3-policy';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
@@ -10,6 +9,7 @@ import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resourc
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
 import { convergeProxy } from './proxy-converge';
 import { providerNames } from '../../personal-cli/src/t3/names-check';
+import { machineProviders } from '../../personal-cli/src/t3/providers';
 import {
   quotaLimited,
   verifyFleetProviders,
@@ -32,7 +32,7 @@ import type { Check, Runner } from './types';
  */
 export async function convergeLinux(
   root: string,
-  target: { node: string; revision: string; maintenance?: boolean },
+  target: { node: string; revision: string },
   run: Runner
 ): Promise<Check[]> {
   const { node, revision } = target;
@@ -59,13 +59,7 @@ export async function convergeLinux(
   );
   const { baseline, verified } = await baselineStep(root, run);
   checks.push(...baseline, ...verified);
-  checks.push(
-    ...(await t3AfterBaseline(
-      root,
-      { node, baseline, run },
-      target.maintenance
-    ))
-  );
+  checks.push(...(await t3AfterBaseline(root, { node, baseline, run })));
   checks.push(
     ...(await attempt('workstation:configuration', () =>
       configureWorkstation(root, run)
@@ -226,12 +220,9 @@ async function applyTailscale(root: string, run: Runner): Promise<Check> {
 async function convergeT3(
   root: string,
   node: string,
-  run: Runner,
-  maintenance = false
+  run: Runner
 ): Promise<Check[]> {
   const artifact = managedT3();
-  // T3 activity before any fleet probe: decides whether a restart is safe.
-  const lastWrite = await lastT3Write();
   const checks = await convergeT3Service(
     artifact,
     run,
@@ -242,13 +233,10 @@ async function convergeT3(
     () => installT3Desktop(root, run)
   );
   if (checks.every((check) => check.status === 'pass'))
-    // --maintenance applies a pending policy even while T3 is busy.
-    checks.push(
-      await healT3Policy(artifact.path, run, {
-        lastWrite: maintenance ? 0 : lastWrite,
-      })
-    );
-  // Names live in user settings T3 watches, so they conform without a restart.
+    checks.push(await healT3Policy(artifact.path, run));
+  // Settings are watched by T3: providers arrive and stale ones leave at once.
+  checks.push(await machineProviders(node, root, true));
+  // Names live in the same settings, so they conform without a restart.
   checks.push(await providerNames(node, root, true));
   const serviceReady = checks.some(
     (check) => check.id === 't3:service' && check.status === 'pass'
@@ -298,8 +286,7 @@ async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
 
 async function t3AfterBaseline(
   root: string,
-  context: { node: string; baseline: Check[]; run: Runner },
-  maintenance = false
+  context: { node: string; baseline: Check[]; run: Runner }
 ): Promise<Check[]> {
   const { node, baseline, run } = context;
   if (baseline.some((check) => check.status !== 'pass'))
@@ -314,7 +301,7 @@ async function t3AfterBaseline(
         },
       },
     ];
-  return attempt('t3:service', () => convergeT3(root, node, run, maintenance));
+  return attempt('t3:service', () => convergeT3(root, node, run));
 }
 
 async function enableWorkerRecovery(
