@@ -42,7 +42,7 @@ const essay = (await publishedPosts()).find(
     <p class="lede">{CONTENT.AGENTIC_WORKFLOW_TITLE}</p>
     <ol class="principles">
       {
-        CONTENT.AGENTIC_PRINCIPLES.map((principle) => (
+        presentation.principles.map((principle) => (
           <li class="card principle">
             <h3>{principle.title}</h3>
             <p class="body">{principle.body}</p>

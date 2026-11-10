@@ -25,6 +25,7 @@ const PAGES = [
   // Every other presentation, each at its own path.
   ...VARIANT_PRESENTATIONS.map((presentation) => presentation.home),
   '/projects/',
+  '/a/ai-product-engineer/projects/',
   '/roles/',
   '/roles/corporate-large-company-senior-developer/',
   '/gaps/',

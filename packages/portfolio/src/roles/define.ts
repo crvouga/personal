@@ -53,6 +53,15 @@ export type Voice = {
   readonly basedOn: readonly string[];
 };
 
+export type Showcase = {
+  /** Projects on the homepage; with a lead, one more than a full row. */
+  readonly count: number;
+  /** The top-ranked project spans the row with its cover beside its text. */
+  readonly lead: boolean;
+};
+
+export const DEFAULT_SHOWCASE: Showcase = { count: 3, lead: false };
+
 export type RoleSpec<Id extends string = string> = {
   /** Public: `/a/<id>/` is its URL. Shaped `<context>-<company>-<level>-<role>`. */
   readonly id: Id;
@@ -64,6 +73,12 @@ export type RoleSpec<Id extends string = string> = {
   readonly description: string;
   readonly cells: readonly Cell[];
   readonly voice: Voice;
+  /**
+   * How the homepage shows projects: how many, and whether the strongest
+   * one leads as a wide card. Set from what the role's research says its
+   * readers want to see first. Defaults to three, no lead.
+   */
+  readonly showcase?: Showcase;
   /**
    * Departures from the researched look (`visual` in the research), each with a
    * reason in a comment. Usually empty.

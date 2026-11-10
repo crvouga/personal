@@ -22,12 +22,18 @@ const section = sectionOf(presentation, 'projects');
     <div class="grid">
       {
         presentation.projects.map((project, index) => (
-          <ProjectCard project={project} galleryIndex={index} featured />
+          <ProjectCard
+            project={project}
+            galleryIndex={index}
+            featured
+            lead={presentation.leadProject && index === 0}
+            role={presentation.id}
+          />
         ))
       }
     </div>
     <p class="archive">
-      <a href={`/projects/${presentation.query}`} data-project-count={PROJECT_TOTALS.listed}>
+      <a href={presentation.projectsHref} data-project-count={PROJECT_TOTALS.listed}>
         Browse all {PROJECT_TOTALS.listed} projects &#8594;
       </a>
     </p>
@@ -67,6 +73,11 @@ const section = sectionOf(presentation, 'projects');
   @media (min-width: 1000px) {
     .grid {
       grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 700px) {
+    .grid > :global(.lead) {
+      grid-column: 1 / -1;
     }
   }
   .archive {

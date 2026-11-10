@@ -18,6 +18,8 @@ const pull = (n: number): string => `${WORKSPACE_REPO_URL}/pull/${n}`;
 const run = (id: number): string => `${WORKSPACE_REPO_URL}/actions/runs/${id}`;
 const commit = (sha: string): string => `${WORKSPACE_REPO_URL}/commit/${sha}`;
 
+import type { Theme } from './themes';
+
 export type Receipt = {
   readonly label: string;
   readonly href: string;
@@ -32,6 +34,8 @@ export type Principle = {
   readonly body: string;
   readonly receipts: readonly Receipt[];
   readonly fact?: PrincipleFact;
+  /** What it is evidence of; each role shows the principles it values first. */
+  readonly themes: readonly Theme[];
 };
 
 export const AGENTIC_WORKFLOW_TITLE = 'Specify first. Verify everything.';
@@ -50,6 +54,7 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
         href: blob('.agents/commands/pr-ready.md'),
       },
     ],
+    themes: ['documentation', 'product-sense', 'ai-assisted'],
   },
   {
     title: 'Make verification automatic.',
@@ -69,6 +74,7 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
       },
     ],
     fact: 'tests',
+    themes: ['testing-quality', 'ai-assisted'],
   },
   {
     title: 'Let the pipeline decide.',
@@ -85,6 +91,7 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
       },
     ],
     fact: 'gates',
+    themes: ['ci-cd', 'ai-assisted', 'process'],
   },
   {
     title: 'Own the outcome.',
@@ -98,6 +105,7 @@ export const AGENTIC_PRINCIPLES: readonly Principle[] = [
       },
     ],
     fact: 'health',
+    themes: ['ownership', 'performance-scale', 'cloud-infra'],
   },
 ];
 

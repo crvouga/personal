@@ -10,18 +10,29 @@ import { RESUME_HREF } from '../constants/resume';
 import { sectionsFor, type Section, type SectionId } from '../content/sections';
 import type { Project } from '../content/project';
 import { buildWork, type Work } from '../content/work';
-import { visibleProjectsFor, type GalleryItem } from '../lib/projects-view';
+import {
+  LISTED_PROJECTS,
+  rankProjects,
+  visibleProjectsFor,
+  type GalleryItem,
+} from '../lib/projects-view';
+import { PROOF_TILES, type ProofTile } from '../lib/proof-view';
+import { AGENTIC_PRINCIPLES, type Principle } from '../knowledge/method';
+import { DEFAULT_SHOWCASE } from './define';
+import { rankBy, topicDemand } from './rank';
 import { pageGalleriesFor } from '../lib/work-view';
 import {
   ROLE_IDS,
   DEFAULT_ROLE_ID,
   roleById,
+  specById,
   isRoleId,
   type RoleId,
 } from './definitions';
 import { demandFor, type Demand } from './demand';
 import { themeCss } from '../design-system/css';
-import { THEMES, type Theme } from './theme';
+import { THEMES, type Theme as DesignTheme } from './theme';
+import type { Theme } from '../knowledge/themes';
 import { VOICES, type Voice } from './voice';
 
 /**
@@ -44,7 +55,7 @@ export type Presentation = {
   readonly isDefault: boolean;
   readonly audience: string;
   readonly voice: Voice;
-  readonly theme: Theme;
+  readonly theme: DesignTheme;
   readonly themeCss: string;
   readonly demand: Demand;
   readonly sections: readonly Section[];
@@ -52,6 +63,18 @@ export type Presentation = {
   readonly work: readonly Work[];
   /** The homepage flagships, ranked for this audience. */
   readonly projects: readonly Project[];
+  /** Whether the first flagship leads as a wide card. */
+  readonly leadProject: boolean;
+  /** Every listed project, ranked for this audience (its `/projects/` page). */
+  readonly allProjects: readonly Project[];
+  /** Its projects page: `/projects/` for the default, else `/a/<id>/projects/`. */
+  readonly projectsHref: string;
+  /** Technology → how much this audience asks for it; orders card chips. */
+  readonly topicWeight: ReadonlyMap<string, number>;
+  /** The proof figures, the ones this audience values first. */
+  readonly proofTiles: readonly ProofTile[];
+  /** How-I-build principles, the ones this audience values first. */
+  readonly principles: readonly Principle[];
   readonly galleries: readonly (readonly GalleryItem[])[];
   /** Its homepage: `/` for the default, else `/a/<id>/`. */
   readonly home: string;
@@ -66,7 +89,12 @@ const build = (id: RoleId): Presentation => {
   const voice = VOICES[id];
   const theme = THEMES[id];
   const work = buildWork(demand);
-  const projects = visibleProjectsFor(demand);
+  const showcase = specById(id).showcase ?? DEFAULT_SHOWCASE;
+  const projects = visibleProjectsFor(demand, showcase.count);
+  const byThemes = <T extends { readonly themes: readonly Theme[] }>(
+    items: readonly T[]
+  ): T[] =>
+    rankBy(items, demand, (item) => ({ themes: item.themes, topics: [] }));
   const isDefault = id === DEFAULT_ROLE_ID;
   const query = isDefault ? '' : `?${ROLE_PARAM}=${id}`;
   return {
@@ -80,6 +108,12 @@ const build = (id: RoleId): Presentation => {
     sections: sectionsFor(voice.sections, voice.titles),
     work,
     projects,
+    leadProject: showcase.lead,
+    allProjects: rankProjects(LISTED_PROJECTS, demand),
+    projectsHref: isDefault ? '/projects/' : `${presentationHome(id)}projects/`,
+    topicWeight: topicDemand(demand),
+    proofTiles: byThemes(PROOF_TILES),
+    principles: byThemes(AGENTIC_PRINCIPLES),
     galleries: pageGalleriesFor(projects, work),
     home: presentationHome(id),
     query,

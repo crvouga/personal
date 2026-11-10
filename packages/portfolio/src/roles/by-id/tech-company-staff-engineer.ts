@@ -9,6 +9,8 @@ export default defineRole({
   description:
     'Staff, principal and lead roles at the same software companies. The asks shift from building to direction: architecture, technical leadership, mentoring and working with stakeholders. Postings ask for more years than any other segment, so this is the stretch target.',
   cells: [{ context: 'tech', levels: ['staff'] }],
+  // Research: one flagship written like a design doc outweighs many projects.
+  showcase: { count: 4, lead: true },
   voice: {
     eyebrow: '// technical lead · architecture',
     headline: 'Senior Software Engineer · Technical Lead',

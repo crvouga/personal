@@ -9,6 +9,8 @@ export default defineRole({
   description:
     'Engineers hired directly by founders at small companies, including founding-engineer roles. Titles are loose and the stack is narrow; what is asked for is someone who owns a product end to end and ships quickly. The segment the knowledge base fits best.',
   cells: [{ context: 'startup', levels: ['mid', 'senior', 'staff'] }],
+  // Research: founders scan a grid of things built and shipped.
+  showcase: { count: 6, lead: false },
   voice: {
     eyebrow: '> product engineer · idea to production',
     headline: 'Senior Full-Stack Product Engineer',

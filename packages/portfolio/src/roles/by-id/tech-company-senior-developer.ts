@@ -9,6 +9,8 @@ export default defineRole({
   description:
     'Senior individual-contributor roles at companies whose product is software, from scale-ups to big tech. The largest segment in the sample and the level currently held, so it is the default. These postings ask for ownership of a feature area, sound system design and reliable delivery alongside product and design.',
   cells: [{ context: 'tech', levels: ['mid', 'senior'] }],
+  // Research: lead with one flagship case study of end-to-end ownership.
+  showcase: { count: 4, lead: true },
   voice: {
     eyebrow: '// senior product engineer',
     headline: 'Senior Software Engineer · Full-Stack Product',

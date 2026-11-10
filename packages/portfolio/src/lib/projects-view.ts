@@ -59,12 +59,26 @@ export const REVIEWABLE_PROJECTS: readonly Project[] =
  * the strongest evidence of what its postings ask for. Ties keep registry
  * order, which is the curated priority.
  */
-export const visibleProjectsFor = (demand: Demand): readonly Project[] =>
-  rankBy(REVIEWABLE_PROJECTS, demand, (project) => ({
+export const visibleProjectsFor = (
+  demand: Demand,
+  count: number = VISIBLE_PROJECT_COUNT
+): readonly Project[] =>
+  rankProjects(REVIEWABLE_PROJECTS, demand).slice(0, count);
+
+/**
+ * Any list of projects, strongest evidence for this audience first: what its
+ * postings and research ask for, scaled by depth (a case study, a live
+ * product). Ties keep registry order, the curated priority.
+ */
+export const rankProjects = (
+  projects: readonly Project[],
+  demand: Demand
+): Project[] =>
+  rankBy(projects, demand, (project) => ({
     themes: project.themes,
     topics: project.topics,
     strength: strengthOf(project),
-  })).slice(0, VISIBLE_PROJECT_COUNT);
+  }));
 
 /** The default presentation's flagships; the feeds and the share card use it. */
 export const VISIBLE_PROJECTS: readonly Project[] =

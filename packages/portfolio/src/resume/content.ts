@@ -34,6 +34,8 @@ import type {
   ResumeLayout,
 } from './html';
 
+/** Side projects a one-page résumé has room for. */
+const MAX_RESUME_PROJECTS = 3;
 /** Topics shown beside a project title. */
 const MAX_PROJECT_TOPICS = 6;
 /** Items per skill row; ordered by how often the resume's projects use them. */
@@ -172,12 +174,15 @@ const buildExperience = (presentation: Presentation): Experience[] =>
 export const resumeProjects = (
   presentation: Presentation = DEFAULT_PRESENTATION
 ): readonly PortfolioProject[] =>
-  presentation.projects.filter(
-    (project) =>
-      project.setting === 'side' &&
-      project.resume?.include !== false &&
-      projectHref(project) !== null
-  );
+  presentation.projects
+    .filter(
+      (project) =>
+        project.setting === 'side' &&
+        project.resume?.include !== false &&
+        projectHref(project) !== null
+    )
+    // A page has room for three; a role that shows more online keeps its top three.
+    .slice(0, MAX_RESUME_PROJECTS);
 
 const buildProjects = (presentation: Presentation): Project[] =>
   resumeProjects(presentation).map((project) => {
@@ -242,8 +247,26 @@ export const buildSkills = (
       .sort((a, b) => (rankByName.get(b) ?? 0) - (rankByName.get(a) ?? 0))
       .slice(0, MAX_SKILLS_PER_ROW),
   }));
-  return [AI_ASSISTED_ROW, ...ranked];
+  // Rows lead with the one holding what this audience asks for most.
+  const rowWeight = (row: SkillRow): number =>
+    Math.max(0, ...row.items.map((item) => rankByName.get(item) ?? 0));
+  const rows = ranked
+    .map((row, index) => ({ row, index, weight: rowWeight(row) }))
+    .sort((a, b) => b.weight - a.weight || a.index - b.index)
+    .map(({ row }) => row);
+  // AI-assisted engineering leads where this audience values it, and sits
+  // last where its research says hype reads as a red flag.
+  return aiAssistedWeight(presentation) >= AI_ROW_FIRST
+    ? [AI_ASSISTED_ROW, ...rows]
+    : [...rows, AI_ASSISTED_ROW];
 };
+
+/** Posting demand for AI-assisted work, amplified by its research weight. */
+const AI_ROW_FIRST = 0.5;
+const aiAssistedWeight = ({ demand }: Presentation): number =>
+  (demand.themes.get('ai-assisted') ?? 0) *
+  (1 + RESEARCH_AMPLIFIER * (demand.research.get('ai-assisted') ?? 0));
+const RESEARCH_AMPLIFIER = 1.5;
 
 const buildEducation = (): Education[] =>
   CONTENT.SCHOOL.map((school) => ({

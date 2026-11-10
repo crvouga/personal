@@ -37,10 +37,10 @@ I own product features end to end, from design doc to reliable production, and s
 
 - AI-assisted engineering: Claude Code, Cursor, spec-driven development, CI-gated agent workflows, property-based testing
 - Languages: TypeScript, Python, JavaScript, Go, PHP, Rust
-- Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
-- Backend: Express, Flask, Node.js, GraphQL, Bun, Graphene, WebSockets
-- Data: Postgres, SQLite, MySQL, DynamoDB, Neo4j
 - Infra & CI: AWS, OpenTofu, GitHub Actions, Docker, Cloudflare, NixOS, OpenBao, Playwright, Railway, S3
+- Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
+- Data: Postgres, SQLite, MySQL, DynamoDB, Neo4j
+- Backend: Express, Flask, Node.js, GraphQL, Bun, Graphene, WebSockets
 
 ## Open to work
 

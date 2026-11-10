@@ -15,7 +15,9 @@ import {
   ROLE_IDS,
   ROLE_ID_PATTERN,
   DEFAULT_ROLE_ID,
+  specById,
 } from './definitions';
+import { DEFAULT_SHOWCASE } from './define';
 import { demandFor } from './demand';
 import {
   DEFAULT_PRESENTATION,
@@ -273,14 +275,18 @@ describe('presentations reorder facts and never drop one', () => {
     }
   });
 
-  test('every presentation has all six sections once, and three flagships', () => {
+  test('every presentation has all six sections once, and its showcase of flagships', () => {
     for (const presentation of PRESENTATIONS) {
       expect(
         sorted(presentation.sections.map((section) => section.id))
       ).toEqual(
         sorted(DEFAULT_PRESENTATION.sections.map((section) => section.id))
       );
-      expect(presentation.projects).toHaveLength(3);
+      const showcase = specById(presentation.id).showcase ?? DEFAULT_SHOWCASE;
+      expect(presentation.projects).toHaveLength(showcase.count);
+      expect(presentation.leadProject).toBe(showcase.lead);
+      // A lead card fills a row; the rest must fill whole rows of three.
+      expect((showcase.count - (showcase.lead ? 1 : 0)) % 3).toBe(0);
       expect(presentation.galleries).toHaveLength(
         presentation.projects.length + presentation.work.length
       );
@@ -299,6 +305,30 @@ describe('presentations reorder facts and never drop one', () => {
   test('the market research steers ranking: an AI reader sees AI work first', () => {
     const lead = presentationFor('ai-product-engineer').projects[0];
     expect(lead?.themes).toContain('ai-products');
+  });
+
+  test('every role ranks every listed project, and the whole list', () => {
+    for (const presentation of PRESENTATIONS) {
+      expect(sorted(presentation.allProjects.map((p) => p.id))).toEqual(
+        sorted(DEFAULT_PRESENTATION.allProjects.map((p) => p.id))
+      );
+      expect(presentation.allProjects.slice(0, 1)).toEqual(
+        presentation.projects.slice(0, 1)
+      );
+    }
+  });
+
+  test('proof figures and principles are reordered, never dropped', () => {
+    for (const presentation of PRESENTATIONS) {
+      expect(presentation.proofTiles).toHaveLength(
+        DEFAULT_PRESENTATION.proofTiles.length
+      );
+      expect(presentation.principles).toHaveLength(
+        DEFAULT_PRESENTATION.principles.length
+      );
+    }
+    const firstTiles = PRESENTATIONS.map((p) => p.proofTiles[0]?.label);
+    expect(new Set(firstTiles).size).toBeGreaterThan(1);
   });
 
   test('ranking actually differs between audiences', () => {

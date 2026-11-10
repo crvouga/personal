@@ -11,6 +11,8 @@ export default defineRole({
   description:
     'Applied AI, AI product and full-stack AI engineering roles across every kind of employer: building product features on top of model APIs, not training models. Postings ask for shipped AI features, measured quality and cost, and the full-stack product work around the model. The best-fitting family in the sample, and paid above the senior median.',
   cells: [{ family: 'ai-product', levels: ['mid', 'senior', 'staff'] }],
+  // Research: one deep case study of a model-backed system leads.
+  showcase: { count: 4, lead: true },
   voice: {
     eyebrow: '// product engineer · AI features',
     headline: 'Senior Full-Stack Engineer · AI Products',

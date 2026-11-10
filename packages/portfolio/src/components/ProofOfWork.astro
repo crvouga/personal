@@ -5,7 +5,6 @@ import { CONTENT } from '../content/content';
 import { loadGitHubInsights } from '../lib/github-insights';
 import {
   PROOF_EXCLUSIONS,
-  PROOF_TILES,
   VERIFICATION,
   VERIFICATION_REPO_URL,
   VERIFICATION_WINDOW,
@@ -88,7 +87,7 @@ const provenance = ((): string => {
     </div>
     <p class="lede">{CONTENT.PROOF_LEDE}</p>
     <ul class="tiles">
-      {PROOF_TILES.map((tile) => (
+      {presentation.proofTiles.map((tile) => (
         <li class="card tile">
           <span class="value">{tile.value}</span>
           <span class="label">{tile.label}</span>
