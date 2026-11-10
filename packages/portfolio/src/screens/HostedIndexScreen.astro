@@ -1,0 +1,143 @@
+---
+/** `/hosted/`: every host deployed under the site's domain, listed or not. */
+import {
+  HOST_VIA_LABEL,
+  isOnPortfolio,
+  loadHostedIndex,
+} from '../lib/hosted-index';
+
+const index = loadHostedIndex();
+const unlisted = index.hosts.filter((host) => !isOnPortfolio(host.hostname));
+const counts = `${String(index.hosts.length)} hosts, ${String(unlisted.length)} of them not shown elsewhere on this site.`;
+---
+
+<section class="container index" aria-labelledby="hosted-title">
+  <header>
+    <h1 id="hosted-title">Hosted</h1>
+    <p class="lede">
+      Everything deployed under <code>*.{index.zone}</code>: {counts} Some are
+      private tools behind sign-in. Generated from the infrastructure inventory.
+    </p>
+  </header>
+
+  <ul class="list">
+    {
+      index.hosts.map((host) => (
+        <li class="row">
+          <a class="main" href={`https://${host.hostname}/`} rel="noopener" target="_blank">
+            <span class="name">{host.hostname}</span>
+            <span class="meta">
+              {host.id} · {HOST_VIA_LABEL[host.via]}
+              {isOnPortfolio(host.hostname) && <span class="badge">On portfolio</span>}
+            </span>
+          </a>
+          {
+            host.sourceUrl !== null && (
+              <a class="source" href={host.sourceUrl} rel="noopener" target="_blank" aria-label={`Source code: ${host.hostname}`}>
+                Source
+              </a>
+            )
+          }
+        </li>
+      ))
+    }
+  </ul>
+
+  {
+    index.domains.length > 0 && (
+      <>
+        <h2>Other domains</h2>
+        <ul class="domains">
+          {index.domains.map((domain) => (
+            <li>
+              <a href={domain.url} rel="noopener" target="_blank">{domain.domain}</a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+</section>
+
+
+<style>
+  .index {
+    padding-block: var(--space-8);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.1;
+  }
+  h2 {
+    margin-top: var(--space-7);
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+  .lede {
+    max-width: 75ch;
+    margin-top: var(--space-4);
+    color: var(--text-muted);
+  }
+  .list {
+    margin: var(--space-7) 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--paper-border);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    border-bottom: 1px solid var(--paper-border);
+  }
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-block: var(--space-3);
+    color: inherit;
+    text-decoration: none;
+  }
+  .main:hover .name {
+    color: var(--accent);
+  }
+  .name {
+    font-family: var(--font-accent);
+    font-weight: 600;
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+  .meta {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+  }
+  .badge {
+    margin-left: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+  }
+  .source,
+  .domains a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+  .domains {
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-5);
+  }
+</style>

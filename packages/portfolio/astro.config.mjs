@@ -30,9 +30,10 @@ export default defineConfig({
   // they stay out of the sitemap.
   integrations: [
     sitemap({
-      // /archetypes/ is Chris's own index of the presentations, not a page
-      // for visitors.
-      filter: (page) => !/^\/(a|archetypes)\//.test(new URL(page).pathname),
+      // /archetypes/ and /hosted/ are Chris's own indexes, not pages for
+      // visitors.
+      filter: (page) =>
+        !/^\/(a|archetypes|hosted)\//.test(new URL(page).pathname),
     }),
     cspHeader(),
   ],

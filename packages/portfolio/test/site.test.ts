@@ -28,6 +28,7 @@ const PAGES = [
   '/projects/',
   '/archetypes/',
   '/archetypes/corporate-large-company-senior-developer/',
+  '/hosted/',
   '/projects/mockingbird/',
   '/projects/gamezilla/',
   '/projects/workspace-platform/',

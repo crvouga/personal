@@ -1,0 +1,26 @@
+---
+/**
+ * Every host deployed under the site's domain, including ones the portfolio
+ * does not list. Unlisted: `noindex`, out of the sitemap, and reached only by
+ * a small footer link.
+ */
+import { CONTENT } from '../../content/content';
+import Page from '../../layouts/Page.astro';
+import { HOSTED_INDEX_PATH } from '../../lib/hosted-index';
+import { DEFAULT_OG_IMAGE } from '../../lib/seo';
+import type { Seo } from '../../lib/seo-types';
+import HostedIndexScreen from '../../screens/HostedIndexScreen.astro';
+
+const seo: Seo = {
+  title: `Hosted — ${CONTENT.PAGE_TITLE}`,
+  description: 'Every service and app deployed under this domain.',
+  path: HOSTED_INDEX_PATH,
+  image: DEFAULT_OG_IMAGE,
+  schema: { t: 'none' },
+  noindex: true,
+};
+---
+
+<Page seo={seo}>
+  <HostedIndexScreen />
+</Page>
