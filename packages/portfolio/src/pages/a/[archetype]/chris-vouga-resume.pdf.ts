@@ -1,7 +1,7 @@
 /**
  * One résumé PDF per non-default archetype, built from the same presentation
- * as its page: the same summary, the same ranking, the same accent. nginx
- * serves it for `/chris-vouga-resume.pdf?archetype=<id>`.
+ * as its page: the same summary, the same ranking, the same accent. Served
+ * at `/a/<id>/chris-vouga-resume.pdf`.
  */
 import type { APIRoute } from 'astro';
 import {

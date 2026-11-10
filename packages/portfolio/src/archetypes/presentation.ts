@@ -23,10 +23,21 @@ import { demandFor, type Demand } from './demand';
 import { THEMES, themeCss, type Theme } from './theme';
 import { VOICES, type Voice } from './voice';
 
-/** The query parameter that selects a presentation. */
+/**
+ * The query parameter shared pages (`/projects/`, case studies) read to take
+ * on a presentation's look. Old `/?archetype=<id>` links redirect to the path.
+ */
 export const ARCHETYPE_PARAM = 'archetype';
-/** Where each presentation is built; nginx maps the query parameter to it. */
+/** Each non-default presentation is a plain static page at `/a/<id>/`. */
 export const ARCHETYPE_DIR = 'a';
+
+/** The homepage of a presentation: `/` for the default, else `/a/<id>/`. */
+export const presentationHome = (id: ArchetypeId): string =>
+  id === DEFAULT_ARCHETYPE_ID ? '/' : `/${ARCHETYPE_DIR}/${id}/`;
+
+/** The archetype's own page in the index: `/archetypes/<id>/`. */
+export const archetypeDetailsHref = (id: ArchetypeId): string =>
+  `/archetypes/${id}/`;
 
 export type Presentation = {
   readonly id: ArchetypeId;
@@ -42,7 +53,9 @@ export type Presentation = {
   /** The homepage flagships, ranked for this audience. */
   readonly projects: readonly Project[];
   readonly galleries: readonly (readonly GalleryItem[])[];
-  /** `''` for the default, else `?archetype=<id>`; appended to site links. */
+  /** Its homepage: `/` for the default, else `/a/<id>/`. */
+  readonly home: string;
+  /** `''` for the default, else `?archetype=<id>`; appended to shared-page links. */
   readonly query: string;
   readonly resumeHref: string;
 };
@@ -68,8 +81,11 @@ const build = (id: ArchetypeId): Presentation => {
     work,
     projects,
     galleries: pageGalleriesFor(projects, work),
+    home: presentationHome(id),
     query,
-    resumeHref: `${RESUME_HREF}${query}`,
+    resumeHref: isDefault
+      ? RESUME_HREF
+      : `${presentationHome(id).slice(0, -1)}${RESUME_HREF}`,
   };
 };
 
@@ -91,7 +107,7 @@ export const VARIANT_PRESENTATIONS: readonly Presentation[] = [
   ...PRESENTATIONS.values(),
 ].filter((presentation) => !presentation.isDefault);
 
-/** The presentation for a `?archetype=` value; anything unknown is the default. */
+/** The presentation for an archetype id; anything unknown is the default. */
 export const resolvePresentation = (value: string | null): Presentation =>
   value !== null && isArchetypeId(value)
     ? presentationFor(value)

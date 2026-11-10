@@ -41,7 +41,7 @@ const PRESENTATIONS = ARCHETYPE_IDS.map(presentationFor);
 const sorted = (items: readonly string[]): string[] => [...items].sort();
 
 describe('archetypes', () => {
-  test('every id is a valid ?archetype= value, and unique', () => {
+  test('every id is a valid URL segment, and unique', () => {
     expect(
       ARCHETYPE_IDS.filter((id) => !ARCHETYPE_ID_PATTERN.test(id))
     ).toEqual([]);
@@ -71,12 +71,16 @@ describe('archetypes', () => {
     expect(new Set(cells).size).toBe(cells.length);
   });
 
-  test('an unknown or missing ?archetype= is the default presentation', () => {
+  test('an unknown or missing archetype is the default presentation', () => {
     expect(resolvePresentation(null)).toBe(DEFAULT_PRESENTATION);
     expect(resolvePresentation('')).toBe(DEFAULT_PRESENTATION);
     expect(resolvePresentation('../../etc/passwd')).toBe(DEFAULT_PRESENTATION);
     expect(resolvePresentation('not-an-archetype')).toBe(DEFAULT_PRESENTATION);
     expect(DEFAULT_PRESENTATION.query).toBe('');
+    expect(DEFAULT_PRESENTATION.home).toBe('/');
+    for (const variant of VARIANT_PRESENTATIONS) {
+      expect(variant.home).toBe(`/a/${variant.id}/`);
+    }
     expect(VARIANT_PRESENTATIONS).toHaveLength(ARCHETYPE_IDS.length - 1);
   });
 

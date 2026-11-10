@@ -2,8 +2,7 @@
 import { DEFAULT_PRESENTATION } from '../archetypes/presentation';
 import Home from '../components/Home.astro';
 
-// `/` is the default archetype. Every other one is built under `/a/<id>/`
-// and served for `/?archetype=<id>` (see nginx.conf).
+// `/` is the default archetype. Every other one is its own page at `/a/<id>/`.
 Astro.locals.presentation = DEFAULT_PRESENTATION;
 ---
 

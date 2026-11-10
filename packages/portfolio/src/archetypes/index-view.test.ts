@@ -32,11 +32,12 @@ describe('archetype index', () => {
     }
   });
 
-  test('each card opens its own presentation and résumé', () => {
+  test('each card opens its own presentation, résumé and details page by path', () => {
     for (const card of ARCHETYPE_CARDS) {
-      const query = card.isDefault ? '' : `?archetype=${card.id}`;
-      expect(card.href).toBe(`/${query}`);
-      expect(card.resumeHref).toBe(`/chris-vouga-resume.pdf${query}`);
+      const home = card.isDefault ? '/' : `/a/${card.id}/`;
+      expect(card.href).toBe(home);
+      expect(card.resumeHref).toBe(`${home}chris-vouga-resume.pdf`);
+      expect(card.detailsHref).toBe(`/archetypes/${card.id}/`);
     }
   });
 

@@ -1,6 +1,6 @@
 /**
- * The archetype index (`/archetypes/`): every archetype with the evidence
- * that justifies it. Everything here is read from the committed landscape and
+ * The archetype index (`/archetypes/`) and each archetype's own page
+ * (`/archetypes/<id>/`): the evidence that justifies it. Everything here is read from the committed landscape and
  * the knowledge base, so the page cannot claim a number the data lacks.
  */
 import { CAPABLE_SKILLS } from '../knowledge/capabilities';
@@ -14,7 +14,7 @@ import {
 import { demandFor, opportunity, segmentsOf, type Demand } from './demand';
 import { LANDSCAPE } from './landscape';
 import type { Sample } from './landscape-types';
-import { presentationFor } from './presentation';
+import { archetypeDetailsHref, presentationFor } from './presentation';
 import { SKILLS } from './skills';
 
 const TOP_THEMES = 6;
@@ -54,8 +54,13 @@ export type ArchetypeCard = {
   /** The pitch this presentation leads with. */
   readonly statement: string;
   readonly availability: string;
+  /** The presentation itself: `/` or `/a/<id>/`. */
   readonly href: string;
   readonly resumeHref: string;
+  /** This archetype's page in the index: `/archetypes/<id>/`. */
+  readonly detailsHref: string;
+  /** Where it ranks by opportunity, from 1. */
+  readonly rank: number;
 };
 
 export const percent = (value: number): string =>
@@ -126,8 +131,10 @@ const cardOf = (archetype: ArchetypeDefinition): ArchetypeCard => {
       .slice(0, SAMPLES),
     statement: presentation.voice.statement,
     availability: presentation.voice.availability,
-    href: `/${presentation.query}`,
+    href: presentation.home,
     resumeHref: presentation.resumeHref,
+    detailsHref: archetypeDetailsHref(id),
+    rank: 0,
   };
 };
 
@@ -138,7 +145,13 @@ export const ARCHETYPE_CARDS: readonly ArchetypeCard[] = ARCHETYPES.map(cardOf)
     score: opportunity(demandFor(ARCHETYPES[index] as ArchetypeDefinition)),
   }))
   .sort((a, b) => b.score - a.score)
-  .map(({ card }) => card);
+  .map(({ card }, index) => ({ ...card, rank: index + 1 }));
+
+export const cardById = (id: ArchetypeId): ArchetypeCard => {
+  const found = ARCHETYPE_CARDS.find((card) => card.id === id);
+  if (found === undefined) throw new Error(`Unknown archetype: ${id}`);
+  return found;
+};
 
 export const LANDSCAPE_SUMMARY = {
   date: LANDSCAPE.generatedAt,

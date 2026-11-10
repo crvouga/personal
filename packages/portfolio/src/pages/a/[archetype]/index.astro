@@ -6,9 +6,9 @@ import {
 import Home from '../../../components/Home.astro';
 
 /**
- * One homepage per non-default archetype. These paths are not public URLs:
- * nginx serves them for `/?archetype=<id>` and answers `/a/…` itself with a
- * 404, so the query parameter is the only address a presentation has.
+ * One homepage per non-default archetype, at `/a/<id>/`: a plain static
+ * page, so any static host serves it. Old `/?archetype=<id>` links redirect
+ * here (nginx.conf, and a script on `/` for hosts that ignore the query).
  */
 export const getStaticPaths = () =>
   VARIANT_PRESENTATIONS.map((presentation) => ({
