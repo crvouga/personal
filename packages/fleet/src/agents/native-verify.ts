@@ -203,7 +203,7 @@ async function sessionCheck(
 /** A stable code only; raw CLI output is never reported. */
 function sessionFailure(output: string): string {
   if (/missing or out of date/.test(output)) return 'AGENT_PROFILE_STALE';
-  if (/Required Vault secret unavailable/.test(output))
+  if (/Required secret unavailable/.test(output))
     return 'AGENT_VAULT_UNAVAILABLE';
   if (/model_not_found|unknown provider for model/.test(output))
     return 'AGENT_MODEL_UNSERVED';

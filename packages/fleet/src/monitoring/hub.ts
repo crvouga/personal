@@ -1,7 +1,7 @@
 import { record } from '../config';
 import type { Check, Runner } from '../types';
 import { PUBLIC_HUB_URL } from './beszel';
-import { resolveVaultConfig } from '../vault-config';
+import { secretVia } from '../fleet-config';
 
 /** Shared Beszel hub helpers. The hub runs only on the manager; see
  * manager-hub.ts. Workers never host it.
@@ -23,23 +23,11 @@ export function publicEndpointCheck(connected: boolean): Check {
       };
 }
 
-/** The manager's own Vault session reads the isolated connector document.
- * Null when the credential or the session's authorization is unavailable. The
- * value is captured from stdout, never printed, logged or placed in argv.
+/** The dashboard connector token from this fleet's secrets provider. Null
+ * when it is unavailable. Never printed, logged or placed in argv.
  */
-export async function tunnelToken(run: Runner): Promise<string | null> {
-  const vault = resolveVaultConfig();
-  const read = await run([
-    'vault',
-    'kv',
-    'get',
-    `-address=${vault.addr}`,
-    `-mount=${vault.mount}`,
-    '-field=TUNNEL_TOKEN',
-    'beszel/tunnel',
-  ]);
-  const value = read.ok ? read.stdout.trim() : '';
-  return value.length > 0 ? value : null;
+export function tunnelToken(run: Runner): Promise<string | null> {
+  return secretVia(run)('monitoring-tunnel-token');
 }
 export function failure(code: string, action: string): Check[] {
   return [

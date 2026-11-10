@@ -22,12 +22,6 @@
     }
   },
   "proxy": {
-    "secret": {
-      "mount": "secret",
-      "project": "personal",
-      "config": "prd",
-      "key": "CLIPROXY_FLEET_CLIENT_API_KEY"
-    },
     "models": {
       "codex": "gpt-6.1-sol",
       "claude": "claude-sonnet-4-6",

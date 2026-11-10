@@ -3,7 +3,15 @@
   "title": "Fleet topology: one manager (the human's machine, which runs every singleton service) and stateless Linux workers. Local paths remain in roster overrides.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "manager", "workers", "services", "ubuntu", "source"],
+  "required": [
+    "version",
+    "manager",
+    "workers",
+    "services",
+    "ubuntu",
+    "source",
+    "secrets"
+  ],
   "properties": {
     "$schema": {
       "type": "string"
@@ -221,6 +229,120 @@
           "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.git$"
         }
       }
+    },
+    "secrets": {
+      "description": "Where this fleet keeps its secrets. env: DEVFLEET_SECRET_<NAME>; file: one file per secret; sops: one encrypted document; vault: a KV v2 location per secret.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider"],
+          "properties": {
+            "provider": {
+              "const": "env"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider"],
+          "properties": {
+            "provider": {
+              "const": "file"
+            },
+            "directory": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "file"],
+          "properties": {
+            "provider": {
+              "const": "sops"
+            },
+            "file": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "address", "mount", "locations"],
+          "properties": {
+            "provider": {
+              "const": "vault"
+            },
+            "address": {
+              "type": "string",
+              "pattern": "^https://[A-Za-z0-9.-]+$"
+            },
+            "mount": {
+              "type": "string"
+            },
+            "locations": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "proxy-client-key",
+                "monitoring-account-password",
+                "monitoring-tunnel-token"
+              ],
+              "properties": {
+                "proxy-client-key": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "field"],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9._/-]+$"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_]+$"
+                    }
+                  }
+                },
+                "monitoring-account-password": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "field"],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9._/-]+$"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_]+$"
+                    }
+                  }
+                },
+                "monitoring-tunnel-token": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "field"],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9._/-]+$"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_]+$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

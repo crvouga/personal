@@ -12,8 +12,6 @@
     "test": "bun test src ubuntu"
   },
   "dependencies": {
-    "@pkgs/secret-store": "workspace:*",
-    "@pkgs/vault": "workspace:*",
     "commander": "catalog:",
     "yaml": "catalog:"
   }

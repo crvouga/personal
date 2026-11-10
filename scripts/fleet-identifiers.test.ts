@@ -20,7 +20,6 @@ const CONFIG = new Set([
  */
 const DEBT: Record<string, string[]> = {
   'Vault address and login: move behind a secrets provider': [
-    'packages/fleet/src/vault-config.ts',
     'packages/cliproxy-fleet/scripts/cloud_state.py',
     'packages/cliproxy-fleet/scripts/vault-access.py',
     'packages/cliproxy-fleet/scripts/vault-backup-login',

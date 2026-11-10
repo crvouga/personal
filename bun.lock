@@ -94,8 +94,6 @@
       "name": "@pkgs/fleet",
       "version": "0.0.0",
       "dependencies": {
-        "@pkgs/secret-store": "workspace:*",
-        "@pkgs/vault": "workspace:*",
         "commander": "catalog:",
         "yaml": "catalog:",
       },
