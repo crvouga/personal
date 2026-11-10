@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "requiredChecks": ["Check"],
+  "requiredChecks": ["Check", "protected-paths"],
   "checkGateJobs": ["changes", "repository", "packages", "infra"],
   "checkGateJobInstances": 7,
   "openTofuRoots": [
@@ -29,11 +29,11 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "fa5786d97a3bf8b1b138fe0a25f53fd4bfa247c8",
-    "asOfDate": "2026-11-09T22:18:09-07:00",
-    "commits": 1950,
+    "asOfCommit": "589990da398e051d1f421723878432e936363f13",
+    "asOfDate": "2026-11-09T22:49:23-07:00",
+    "commits": 1953,
     "byTool": [
-      { "tool": "Claude Code", "trailers": 164 },
+      { "tool": "Claude Code", "trailers": 166 },
       { "tool": "Cursor", "trailers": 78 }
     ]
   }
