@@ -132,12 +132,23 @@ def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible
     return checks
 
 
+def claude_pin(repository=SCRIPTS.parents[2]):
+    """The Claude Code version every node runs (the shared toolchain pin)."""
+    try:
+        match = re.search(r'^claude = "(\d+\.\d+\.\d+)"$', (repository / 'mise.toml').read_text(), re.M)
+        return match.group(1) if match else None
+    except OSError:
+        return None
+
+
 def declared(root, apply):
     """Checks (exit 0 when unchanged) or applies the template-owned settings.
-    Runs under the install's pinned interpreter: only it carries PyYAML."""
+    Runs under the install's pinned interpreter: only it carries PyYAML. The
+    proxy must claim the Claude Code version the fleet actually runs."""
     python = root / 'tools/bin/python3'
+    version = claude_pin()
     return [str(python) if python.exists() else sys.executable, '-B', str(root / 'scripts/ops'),
-            'declared', *(['--apply'] if apply else [])]
+            'declared', *(['--claude-version', version] if version else []), *(['--apply'] if apply else [])]
 
 
 def endpoint_health(root):
