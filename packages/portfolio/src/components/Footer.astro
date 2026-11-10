@@ -1,6 +1,7 @@
 ---
 import { CONTENT } from '../content/content';
 import { RESUME_JSON_PATH } from '../constants/resume';
+import { SERVICE_INDEX_PATH } from '../lib/service-index';
 
 // Derived at build time: the site is rebuilt daily, so this says how fresh it is.
 const built = new Date();
@@ -22,6 +23,8 @@ const year = built.getFullYear();
       <a href={CONTENT.SITE_SOURCE_CODE_URL} rel="noopener" target="_blank">
         This site's source
       </a>
+      {/* Last link on the page. Unstyled: the homepage is at its size budget. */}
+      <a href={SERVICE_INDEX_PATH}>Service index</a>
     </nav>
   </div>
 </footer>
