@@ -6,16 +6,13 @@
  * projects, and skills come from the projects the resume actually shows. Edit
  * the site content and the resume follows on the next build.
  *
- * Every builder takes a presentation, so each archetype's PDF is tailored the
+ * Every builder takes a presentation, so each role's PDF is tailored the
  * same way its page is: its voice is the summary, its ranking orders the
  * bullets and picks the projects, and the skills its postings name most are
  * listed first. The default presentation is the résumé at the canonical URL.
  */
-import {
-  DEFAULT_PRESENTATION,
-  type Presentation,
-} from '../archetypes/presentation';
-import { topicDemand } from '../archetypes/rank';
+import { DEFAULT_PRESENTATION, type Presentation } from '../roles/presentation';
+import { topicDemand } from '../roles/rank';
 import { CONTENT } from '../content/content';
 import type { Project as PortfolioProject } from '../content/project';
 import { buildSkillRows, type SkillRow } from '../content/skills';
@@ -25,12 +22,16 @@ import { projectHref } from '../lib/projects-view';
 import { AI_ASSISTED_ROW } from '../content/skills';
 import { resumeOutcomeFor } from './outcomes';
 import { workDateRange } from '../lib/work-view';
+import { THEMES as THEME_LABELS, type Theme } from '../knowledge/themes';
+import { PERSONAL } from '../knowledge/index';
+import { researchFor } from '../market/research';
 import type {
   Education,
   Experience,
   Identity,
   Project,
   ResumeContent,
+  ResumeLayout,
 } from './html';
 
 /** Topics shown beside a project title. */
@@ -133,10 +134,14 @@ const shortUrl = (url: string): string => {
 export const includePhone = (env = process.env): boolean =>
   env['RESUME_INCLUDE_PHONE'] === '1';
 
-const buildIdentity = (): Identity => ({
+const buildIdentity = (presentation: Presentation): Identity => ({
   name: CONTENT.PAGE_TITLE,
-  // The current role's title is the level a screener matches against.
-  title: CONTENT.WORK[0]?.jobTitle ?? CONTENT.PAGE_SUBTITLE,
+  // The current role's title is the level a screener matches against; a
+  // voice may phrase it in its segment's own posted wording.
+  title:
+    presentation.voice.headline ??
+    CONTENT.WORK[0]?.jobTitle ??
+    CONTENT.PAGE_SUBTITLE,
   location: CONTENT.LOCATION,
   email: CONTENT.EMAIL_ADDRESS,
   // The public PDF sits on an indexable URL, so the phone number is opt-in:
@@ -247,11 +252,50 @@ const buildEducation = (): Education[] =>
     dateRange: `${school.yearStart} – ${school.yearEnd}`,
   }));
 
+/** Competencies listed: one or two printed lines. */
+const MAX_COMPETENCIES = 8;
+
+/**
+ * The market research's résumé conventions: its section order, any headings
+ * the voice renames, and its headline typeface.
+ */
+export const resumeLayout = (presentation: Presentation): ResumeLayout => {
+  const research = researchFor(presentation.id);
+  return {
+    order: research.resume.sectionOrder,
+    titles: presentation.voice.resumeTitles ?? {},
+    headingFont:
+      presentation.theme.typography.display === 'serif' ? 'serif' : 'sans',
+  };
+};
+
+/**
+ * What this audience screens for that the knowledge base can back: its
+ * most-demanded themes with at least one fact behind them, in its words.
+ */
+export const buildCompetencies = (presentation: Presentation): string[] => {
+  const evidenced = new Set<Theme>(
+    PERSONAL.facts.flatMap((fact) => fact.themes)
+  );
+  const { demand } = presentation;
+  return [...demand.themes]
+    .filter(([theme]) => evidenced.has(theme))
+    .sort(
+      ([a, shareA], [b, shareB]) =>
+        shareB * Math.min(demand.themeLift.get(b) ?? 1, 2) -
+        shareA * Math.min(demand.themeLift.get(a) ?? 1, 2)
+    )
+    .slice(0, MAX_COMPETENCIES)
+    .map(([theme]) => THEME_LABELS[theme]);
+};
+
 export const buildResumeContent = (
   presentation: Presentation = DEFAULT_PRESENTATION
 ): ResumeContent => ({
   accent: presentation.theme.resumeAccent,
-  identity: buildIdentity(),
+  layout: resumeLayout(presentation),
+  competencies: buildCompetencies(presentation),
+  identity: buildIdentity(presentation),
   summary: [
     presentation.voice.statement,
     presentation.voice.statementSecondary,

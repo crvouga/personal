@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { ARCHETYPE_IDS } from '../archetypes/definitions';
-import { DEFAULT_THEME_CSS, THEMES } from '../archetypes/theme';
+import { ROLE_IDS } from '../roles/definitions';
+import { DEFAULT_THEME_CSS, THEMES } from '../roles/theme';
 import { BASE_THEME, PRINT_COLORS, createTheme } from './base-theme';
 import { colorVars, themeCss } from './css';
+import { themeFromBrief } from './palette';
 import type { ColorTokens, Theme } from './tokens';
 
 /**
@@ -91,12 +92,33 @@ const shown = (theme: Theme): [string, ColorTokens][] =>
         ['light', theme.light],
       ];
 
-const ALL: readonly Theme[] = [
-  BASE_THEME,
-  ...ARCHETYPE_IDS.map((id) => THEMES[id]),
-];
+const ALL: readonly Theme[] = [BASE_THEME, ...ROLE_IDS.map((id) => THEMES[id])];
 
 describe('design system', () => {
+  test('a theme from any hue and saturation holds WCAG AA', () => {
+    const failing = [0, 45, 90, 135, 180, 225, 270, 315].flatMap((hue) =>
+      (['muted', 'moderate', 'vivid'] as const).flatMap((chroma) => {
+        const theme = themeFromBrief('probe', 'probe', {
+          scheme: 'auto',
+          hue,
+          chroma,
+          display: 'sans',
+          accent: 'mono',
+          corners: 'soft',
+        });
+        return [
+          ...failures(theme.dark).map(
+            (f) => `${String(hue)} ${chroma} dark: ${f}`
+          ),
+          ...failures(theme.light).map(
+            (f) => `${String(hue)} ${chroma} light: ${f}`
+          ),
+        ];
+      })
+    );
+    expect(failing).toEqual([]);
+  });
+
   test('every theme holds WCAG AA in every scheme it shows', () => {
     const failing = ALL.flatMap((theme) =>
       shown(theme).flatMap(([scheme, colors]) =>
@@ -122,17 +144,17 @@ describe('design system', () => {
     expect(faint).toEqual([]);
   });
 
-  test('every archetype has its own theme, distinct from the others', () => {
-    for (const id of ARCHETYPE_IDS) expect(THEMES[id].id).toBe(id);
-    const looks = ARCHETYPE_IDS.map((id) =>
+  test('every role has its own theme, distinct from the others', () => {
+    for (const id of ROLE_IDS) expect(THEMES[id].id).toBe(id);
+    const looks = ROLE_IDS.map((id) =>
       JSON.stringify({ ...THEMES[id], id: '', description: '' })
     );
-    expect(new Set(looks).size).toBe(ARCHETYPE_IDS.length);
+    expect(new Set(looks).size).toBe(ROLE_IDS.length);
   });
 
   test('a theme is injectable: scoped to its own data-theme, schemes pinnable', () => {
-    const css = themeCss(THEMES['tech-company-staff-engineer']);
-    expect(css).toContain("[data-theme='tech-company-staff-engineer']{");
+    const css = themeCss(THEMES['tech-company-senior-developer']);
+    expect(css).toContain("[data-theme='tech-company-senior-developer']{");
     expect(css).toContain("[data-scheme='light']");
     expect(css).toContain("[data-scheme='dark']");
     expect(DEFAULT_THEME_CSS.startsWith(':root{')).toBe(true);

@@ -1,12 +1,12 @@
 ---
-import { presentationOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 import { CONTENT } from '../content/content';
 import { publishedPosts } from '../lib/published-posts';
 
 interface Props {
   /** Injected by stories and HomeScreen; defaults to the page's presentation. */
-  archetype?: ArchetypeId;
+  role?: RoleId;
   /** Sub-pages need absolute anchors; the homepage keeps same-page ones. */
   variant?: 'home' | 'sub';
 }

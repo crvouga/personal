@@ -2,12 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 
-import { VARIANTS } from './variants';
+import { VARIANT_NAMES } from './variants';
 
 /**
  * Storybook is where UI is built, so it must stay comprehensive: every
  * component and screen has stories, and every story file covers every
- * archetype in every colour scheme its theme shows.
+ * role in every colour scheme its theme shows.
  */
 const SRC = join(import.meta.dir, '..');
 
@@ -31,16 +31,14 @@ const STORIES = STORY_FILES.map((file) =>
 );
 
 describe('storybook', () => {
-  test('every story file exports every archetype × scheme variant', () => {
+  test('every story file exports every role × scheme variant', () => {
     const missing = STORY_FILES.flatMap((file, index) =>
-      Object.keys(VARIANTS)
-        .filter(
-          (name) =>
-            !(STORIES[index] ?? '').includes(
-              `export const ${name} = VARIANTS.${name};`
-            )
-        )
-        .map((name) => `${file}: ${name}`)
+      VARIANT_NAMES.filter(
+        (name) =>
+          !(STORIES[index] ?? '').includes(
+            `export const ${name} = variant('${name}');`
+          )
+      ).map((name) => `${file}: ${name}`)
     );
     expect(missing).toEqual([]);
   });

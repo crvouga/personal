@@ -2,19 +2,19 @@
 /**
  * The design system at a glance, in whatever theme surrounds it: every colour
  * token, the three type roles, shape, and the shared primitives (buttons,
- * chip, card, section heading). One story per archetype shows its look.
+ * chip, card, section heading). One story per role shows its look.
  */
-import { isArchetypeId, DEFAULT_ARCHETYPE_ID } from '../archetypes/definitions';
-import { THEMES } from '../archetypes/theme';
+import { isRoleId, DEFAULT_ROLE_ID } from '../roles/definitions';
+import { THEMES } from '../roles/theme';
 import { colorVars } from './css';
 
 interface Props {
-  archetype?: string;
+  role?: string;
 }
 const id =
-  Astro.props.archetype !== undefined && isArchetypeId(Astro.props.archetype)
-    ? Astro.props.archetype
-    : DEFAULT_ARCHETYPE_ID;
+  Astro.props.role !== undefined && isRoleId(Astro.props.role)
+    ? Astro.props.role
+    : DEFAULT_ROLE_ID;
 const theme = THEMES[id];
 const tokens = Object.keys(colorVars(theme.light));
 ---

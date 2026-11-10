@@ -1,0 +1,29 @@
+import { DEFAULT_ROLE_ID } from '../roles/definitions';
+import { ROLE_ARG_TYPES, variant } from '../stories/variants';
+import Chrome from '../layouts/Chrome.astro';
+import GapsRoleScreen from './GapsRoleScreen.astro';
+
+export default {
+  title: 'Screens/Gaps/One role',
+  component: GapsRoleScreen,
+  args: { subject: DEFAULT_ROLE_ID },
+  decorators: [
+    (_story: unknown, context: { args: Record<string, unknown> }) => ({
+      component: Chrome,
+      props: { role: context.args['role'] },
+    }),
+  ],
+  argTypes: ROLE_ARG_TYPES,
+};
+
+// role-variants:start (bun run roles:sync)
+export const AIDark = variant('AIDark');
+export const AILight = variant('AILight');
+export const Contractor = variant('Contractor');
+export const Corporate = variant('Corporate');
+export const StartupDark = variant('StartupDark');
+export const StartupLight = variant('StartupLight');
+export const SeniorDark = variant('SeniorDark');
+export const SeniorLight = variant('SeniorLight');
+export const Staff = variant('Staff');
+// role-variants:end

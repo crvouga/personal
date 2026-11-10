@@ -1,0 +1,350 @@
+---
+/**
+ * `/gaps/<id>/`: one role's researched hiring criteria graded against
+ * the knowledge base. Unlisted, like `/gaps/`.
+ */
+import { gapReport, type Coverage } from '../analysis/gaps';
+
+interface Props {
+  /** The role this page is about. */
+  subject: string;
+}
+const found = gapReport().roles.find((row) => row.id === Astro.props.subject);
+if (found === undefined) throw new Error(`No gap analysis for ${Astro.props.subject}`);
+const role = found;
+const percent = (value: number): string => `${String(Math.round(value * 100))}%`;
+const width = (value: number): string =>
+  `${String(Math.max(0, Math.min(100, Math.round(value * 100))))}%`;
+const years = (value: number | null): string =>
+  value === null ? '—' : `${value.toFixed(0)} yrs`;
+const COVERAGE: Readonly<Record<Coverage, string>> = {
+  shown: 'Shown',
+  partial: 'Partly shown',
+  missing: 'Not shown',
+};
+const direction = (value: string | null): string =>
+  value === null ? '' : value === 'rising' ? '↑ rising' : value === 'falling' ? '↓ falling' : '→ steady';
+---
+
+<section class="container gaps role" aria-labelledby="gaps-role-title">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/gaps/">Where to improve</a> <span aria-hidden="true">/</span> <span>{role.label}</span></nav>
+      <h1 id="gaps-role-title">{role.label} <code>{role.id}</code></h1>
+      <p class="note">Readiness {percent(role.readiness)} · {role.postings} postings · asks {years(role.yearsAsked)}, you have {role.yearsHeld} · <a href={`/roles/${role.id}/`}>market research</a></p>
+      <ul class="role-notes">
+        {role.notes.map((note) => <li>{note}</li>)}
+      </ul>
+      <p class="summary">{role.summary}</p>
+
+      <h2>What its readers scan for</h2>
+      <ul class="criteria">
+        {role.criteria.map((row) => (
+          <li>
+            <div class="action-head">
+              <span class="action-label">{row.criterion.label}</span>
+              <span class:list={['chip', row.coverage]}>{COVERAGE[row.coverage]}</span>
+              <span class="tag">weight {row.criterion.weight}</span>
+            </div>
+            <p class="why">{row.criterion.why}</p>
+            {row.evidence.length > 0 ? (
+              <p class="evidence">
+                Evidence: {row.evidence.map((fact) => fact.title).join(' · ')}
+              </p>
+            ) : row.related.length > 0 ? (
+              <p class="evidence">
+                Related only: {row.related.map((fact) => fact.title).join(' · ')}
+              </p>
+            ) : (
+              <p class="evidence">No fact in the knowledge base.</p>
+            )}
+            {row.skillsMissing.length > 0 && (
+              <p class="evidence">Missing skills: {row.skillsMissing.join(', ')}</p>
+            )}
+            {row.coverage !== 'shown' && <p class="move">To prove it: {row.criterion.howToDemonstrate}</p>}
+            <p class="cites">
+              {row.sources.map((source) => (
+                <a href={source.url} rel="noopener noreferrer" target="_blank">{source.publisher}</a>
+              ))}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      <div class="columns">
+        <div>
+          <h2>Most-asked themes, and facts behind each</h2>
+          <ul class="bars">
+            {role.themes.map((theme) => (
+              <li class:list={{ gap: theme.facts === 0 }}>
+                <span class="bar-label">{theme.label}</span>
+                <span class="bar-value">{percent(theme.share)} · {theme.facts} facts</span>
+                <svg class="track" aria-hidden="true" focusable="false">
+                  <rect class="fill" width={width(theme.share)} height="100%" />
+                </svg>
+              </li>
+            ))}
+          </ul>
+          <h2 class="spaced">Skills its postings name that you cannot show</h2>
+          <ul class="plain">
+            {role.skills.map((skill) => (
+              <li>{skill.label} <span class="tag">{percent(skill.share)}</span> {skill.direction !== null && <span class="tag">{direction(skill.direction)}</span>}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h2>Phrases its employers use</h2>
+          <p class="note">Struck through: nothing on the site or in the knowledge base says it.</p>
+          <ul class="phrases">
+            {role.phrases.map((phrase) => (
+              <li class:list={{ unused: !phrase.used }}>
+                {phrase.used ? phrase.text : <s>{phrase.text}</s>} <span class="tag">{percent(phrase.share)}</span>
+              </li>
+            ))}
+          </ul>
+          {role.avoidHits.length > 0 && (
+            <p class="warn">Its voice uses words this reader distrusts: {role.avoidHits.join(', ')}</p>
+          )}
+          <h2 class="spaced">Red flags for this reader</h2>
+          <ul class="plain">
+            {role.redFlags.map((flag) => (
+              <li><strong>{flag.label}.</strong> {flag.why}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+<style>
+  /* A link inside running text needs more than colour to stand out. */
+  .crumbs a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .role-notes li + li {
+    margin-top: var(--space-1);
+  }
+  .role-notes {
+    display: block;
+    list-style: disc;
+    padding-left: var(--space-5);
+    color: var(--text);
+  }
+  /* Sub-sections of one page, not page sections: no page-section padding. */
+  .gaps section {
+    padding-block: 0;
+  }
+  .crumbs {
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    color: var(--text-subtle);
+  }
+  h1 code {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .gaps {
+    padding-block: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .eyebrow,
+  .tag,
+  .meta,
+  .bar-value,
+  .cites,
+  .note {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 5vw, 44px);
+    line-height: 1.1;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-3);
+    overflow-wrap: anywhere;
+  }
+  h2 code {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-3);
+  }
+  .spaced {
+    margin-top: var(--space-5);
+  }
+  .lede,
+  .summary,
+  .note {
+    max-width: 85ch;
+    color: var(--text-muted);
+  }
+  .note {
+    margin-bottom: var(--space-3);
+  }
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .actions,
+  .sources {
+    list-style: decimal;
+    padding-left: var(--space-5);
+  }
+  .readiness li,
+  .bars li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 2px var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .bars li {
+    grid-template-columns: 1fr auto;
+  }
+  .readiness .name {
+    font-weight: 600;
+  }
+  .readiness .value {
+    font-family: var(--font-accent);
+    color: var(--text);
+  }
+  .readiness .meta,
+  .bar-note {
+    grid-column: 1 / -1;
+  }
+  .bar-note {
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .track {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--paper-border);
+  }
+  .fill {
+    fill: var(--accent);
+  }
+  .fill.muted,
+  .gap .fill {
+    fill: var(--text-subtle);
+  }
+  .action-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .action-label {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .actions p,
+  .criteria p,
+  .moves p,
+  .trends p,
+  .plain li {
+    max-width: 85ch;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .chip {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--paper-border);
+    color: var(--text-muted);
+  }
+  .chip.shown {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .chip.missing {
+    color: var(--text);
+    background: var(--accent-soft);
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+  @media (min-width: 860px) {
+    .columns {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .role {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--paper-border);
+  }
+  .criteria > li {
+    padding: var(--space-3);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+  }
+  .criteria .evidence {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+  }
+  .gaps .move {
+    color: var(--text);
+  }
+  .cites {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .cites a,
+  .sources a {
+    overflow-wrap: anywhere;
+  }
+  .phrases {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .unused {
+    color: var(--text-subtle);
+  }
+  .callout {
+    max-width: 85ch;
+    padding: var(--space-4);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .warn {
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+</style>

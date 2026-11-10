@@ -1,0 +1,391 @@
+{
+  "role": "corporate-contractor-systems-architect",
+  "asOf": "2026-11-09",
+  "summary": "Contract buyers in late 2026 (staffing firms, consultancies, enterprise PMOs, vetted networks like Toptal) are using contractors to bring in specialist skills fast. Robert Half's July 2026 survey found 56% of hiring managers expect to hire contract professionals for specialized expertise and 60% use staffing firms for specialized project skills. These buyers screen for an exact match against the job order: the top 3–5 required skills, how recently they were used, and industry/domain knowledge. They then judge consulting-style delivery: a client problem, the approach taken, and a measurable outcome, written so stakeholders can follow it and a client can trust the engineer to work with little supervision.",
+  "readers": [
+    {
+      "who": "Staffing-firm / agency recruiter matching the profile against a client job order before submitting it",
+      "firstPassSeconds": 10,
+      "scansFor": "The top 3–5 job-order terms (stack, cloud, CI/CD, Agile, domain) in the summary and in recent roles, plus a standard title, work authorization and availability"
+    },
+    {
+      "who": "Applicant tracking system / VMS keyword filter at the staffing firm or end client",
+      "firstPassSeconds": null,
+      "scansFor": "Exact skill and title keywords, certifications, single-column parseable text, and clearly labeled contract roles"
+    },
+    {
+      "who": "End-client hiring manager or engagement lead (delivery manager, practice lead)",
+      "firstPassSeconds": 10,
+      "scansFor": "Past work structurally similar to their project, with problem → approach → outcome, the domain (higher-ed, health, payments) and proof of working with stakeholders"
+    },
+    {
+      "who": "Technical interviewer / vetting-network screener (e.g., Toptal live screening and test project)",
+      "firstPassSeconds": null,
+      "scansFor": "Depth behind each claim: architecture trade-offs, the ability to explain decisions in plain English, thoroughness and professionalism"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "job-order-keyword-match",
+      "label": "Matches the top requirements on the job order",
+      "why": "Recruiters check the top three to five requirements on the client's job order, and over 75% filter by skill keywords before reading a full profile.",
+      "weight": 3,
+      "themes": ["process", "cloud-infra", "ci-cd"],
+      "skills": ["typescript", "aws", "ci-cd", "agile"],
+      "howToDemonstrate": "A summary and skills block that state, in posting language, TypeScript/Node, AWS, CI/CD, infrastructure-as-code (Terraform/OpenTofu), APIs/integrations and Agile delivery, each tied to a recent engagement",
+      "sources": [1, 0, 2]
+    },
+    {
+      "id": "engagement-case-studies",
+      "label": "Engagement case studies: problem → approach → outcome",
+      "why": "Contract buyers want outcomes, client stakeholders and delivery timelines rather than duties, and they read for a capability story rather than a tenure story.",
+      "weight": 3,
+      "themes": ["architecture", "stakeholders", "ownership"],
+      "skills": [],
+      "howToDemonstrate": "Three or four one-screen case studies (e.g., ASU platform SSO/LMS integration, Salesforce sync, payments), each with client/domain, problem, Chris's role, approach and key decision, and a measurable outcome",
+      "sources": [2, 3, 0]
+    },
+    {
+      "id": "relevant-recent-stack",
+      "label": "Recent, hands-on use of the client's stack",
+      "why": "A recent stack that doesn't match the role is a top reason consultants get no interviews, and recruiters weigh relevance and recency over chronology.",
+      "weight": 3,
+      "themes": ["cloud-infra", "integrations"],
+      "skills": ["typescript", "nodejs", "postgres", "aws"],
+      "howToDemonstrate": "List the most recently used tools first, and give dates per engagement so 'years with X' can be read at a glance",
+      "sources": [2, 1]
+    },
+    {
+      "id": "integrations-apis",
+      "label": "System integration / APIs / third-party platforms",
+      "why": "System integration is among Robert Half's priority hiring areas, and integration work is the core of most enterprise contract scopes.",
+      "weight": 3,
+      "themes": ["integrations", "architecture"],
+      "skills": ["rest", "salesforce", "oauth", "stripe"],
+      "howToDemonstrate": "A case study on SSO (SAML/OAuth), LMS and Salesforce sync with a data-flow diagram, how failures were handled and what changed for the client",
+      "sources": [7, 2]
+    },
+    {
+      "id": "domain-regulated",
+      "label": "Industry / domain knowledge (higher-ed, health, payments)",
+      "why": "Industry-specific knowledge is the top skill employers cite (47%), and buyers check whether a contractor has worked in their industry.",
+      "weight": 2,
+      "themes": ["regulated", "payments"],
+      "skills": [],
+      "howToDemonstrate": "A domain line in each engagement header ('Higher education | Arizona State University platforms', 'Health-tech') and a note on compliance-sensitive data handling",
+      "sources": [7, 3]
+    },
+    {
+      "id": "architecture-decisions",
+      "label": "Documented architecture decisions and trade-offs",
+      "why": "Microsoft calls the ADR 'one of the most important deliverables of a solution architect', and clients ask architects to explain when they would choose one pattern over another.",
+      "weight": 2,
+      "themes": ["architecture", "documentation"],
+      "skills": ["microservices", "serverless"],
+      "howToDemonstrate": "One or two published ADR-style write-ups (context, options considered, decision, trade-offs, status), e.g., queue-based sync vs. direct API calls, or adopting OpenTofu",
+      "sources": [8, 10]
+    },
+    {
+      "id": "stakeholder-communication",
+      "label": "Client-facing communication and stakeholder management",
+      "why": "Toptal's first and third screens test communication, and clients flag 'cannot explain technical decisions in plain English' as a red flag.",
+      "weight": 3,
+      "themes": ["stakeholders", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "Plain-English engagement summaries, a sample status update or handoff document, and bullets that name the stakeholders (product owners, university IT, vendors)",
+      "sources": [4, 10, 9]
+    },
+    {
+      "id": "tech-lead-leadership",
+      "label": "Technical lead / delivery leadership",
+      "why": "Leadership ability is cited by 40% of hiring managers, and many contract postings expect a lead who runs delivery as well as writing code.",
+      "weight": 2,
+      "themes": ["leadership", "process"],
+      "skills": ["agile"],
+      "howToDemonstrate": "A tech-lead bullet at One Origin covering team size, sprint/release cadence and the review practices he set up",
+      "sources": [7]
+    },
+    {
+      "id": "cloud-iac-cicd",
+      "label": "Cloud infrastructure-as-code and CI/CD pipelines",
+      "why": "Infrastructure modernization drives in-demand skills, and cloud/CI-CD terms are hard filters in most contract job orders.",
+      "weight": 2,
+      "themes": ["cloud-infra", "ci-cd", "modernization"],
+      "skills": ["aws", "terraform", "github-actions", "docker"],
+      "howToDemonstrate": "A repo or case study showing OpenTofu/Terraform modules and pipeline stages, with before/after deploy time or frequency",
+      "sources": [7, 1]
+    },
+    {
+      "id": "certifications",
+      "label": "Current, role-relevant certifications (e.g., AWS Solutions Architect)",
+      "why": "Contract-resume guides list current certifications (AWS, Microsoft) as their own section, and certification is a common knockout check.",
+      "weight": 2,
+      "themes": ["cloud-infra"],
+      "skills": ["aws"],
+      "howToDemonstrate": "A certifications line with issuer and year, listing only real, current credentials. If there are none, earn AWS SA Associate or leave the section out",
+      "sources": [0, 11]
+    },
+    {
+      "id": "availability-engagement-terms",
+      "label": "Availability, work authorization, engagement type",
+      "why": "Location, schedule and work authorization are the first knockout checks, and contract guides say to show readiness to start quickly.",
+      "weight": 2,
+      "themes": ["speed"],
+      "skills": [],
+      "howToDemonstrate": "A header line such as 'US citizen · Remote (US) · W2 / 1099 / C2C · Available [date]'",
+      "sources": [11, 0]
+    },
+    {
+      "id": "references-recent-clients",
+      "label": "Recent client references / testimonials",
+      "why": "Buyers ask for 2–3 recent clients they can contact and treat having no references from the past 12 months as a warning sign.",
+      "weight": 2,
+      "themes": ["stakeholders", "ownership"],
+      "skills": [],
+      "howToDemonstrate": "One or two short attributed quotes from clients or leads, with 'References available on request' on the résumé",
+      "sources": [10, 9]
+    },
+    {
+      "id": "end-to-end-delivery",
+      "label": "End-to-end delivery from scoping through handoff",
+      "why": "Toptal's test project grades 'competence, thoroughness, professionalism, and integrity', meaning a whole engagement and not only code.",
+      "weight": 1,
+      "themes": ["ownership", "documentation"],
+      "skills": [],
+      "howToDemonstrate": "The freelance 2020–22 entry written as client engagements: scope agreed, delivered, documented and handed off",
+      "sources": [4, 3]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "Generalist profile with no clear lane",
+      "why": "Artech names a résumé that 'reads as too generalist for highly specific roles' as the top reason IT consultants miss interviews.",
+      "sources": [2]
+    },
+    {
+      "label": "Duties instead of outcomes",
+      "why": "Solid experience 'not positioned for consulting-style delivery' (no outcomes, stakeholders or timelines) loses to profiles framed as engagements.",
+      "sources": [2, 3]
+    },
+    {
+      "label": "Short stints without contract labels",
+      "why": "Unlabeled short roles read as job hopping. Guides say to state fixed terms and group work under 'Consulting & Contract Projects'.",
+      "sources": [3]
+    },
+    {
+      "label": "Keyword stuffing or a copy of the job ad",
+      "why": "Recruiters now weigh keyword context over counts, and keyword-copied résumés are seen as weak criteria.",
+      "sources": [1, 11]
+    },
+    {
+      "label": "Can't explain decisions in plain English / vague process",
+      "why": "Clients list this, along with 'we'll figure it out as we go' and no mention of testing, as serious red flags.",
+      "sources": [10]
+    },
+    {
+      "label": "Wall of text, fancy fonts, excessive colour",
+      "why": "Contract-résumé and capability-statement guides both warn that dense blocks and decorative styling go unread in a 6–10-second scan.",
+      "sources": [0, 5]
+    },
+    {
+      "label": "Unclear or inflated titles",
+      "why": "Non-standard titles ('Tech Evangelist') fail keyword matching, and misrepresented titles or dates fail background checks.",
+      "sources": [0, 3]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "engagement",
+      "client",
+      "stakeholders",
+      "end-to-end delivery",
+      "solution architecture",
+      "system integration",
+      "SSO / identity integration",
+      "infrastructure as code",
+      "CI/CD pipelines",
+      "cloud (AWS)",
+      "Agile / Scrum delivery",
+      "technical lead",
+      "requirements gathering",
+      "architecture decision records",
+      "handoff and documentation",
+      "core competencies",
+      "past performance",
+      "regulated / compliance-sensitive data",
+      "measurable outcomes",
+      "available immediately / remote US"
+    ],
+    "avoid": [
+      "rockstar / ninja",
+      "passionate self-starter",
+      "tech evangelist",
+      "hacked together",
+      "move fast and break things",
+      "side project (for client work)",
+      "synergy",
+      "results-driven (unproven)",
+      "jack of all trades",
+      "vibe-coded"
+    ],
+    "verbs": [
+      "Architected",
+      "Integrated",
+      "Delivered",
+      "Led",
+      "Designed",
+      "Migrated",
+      "Automated",
+      "Implemented",
+      "Scoped",
+      "Standardized",
+      "Partnered",
+      "Modernized"
+    ],
+    "titles": [
+      "Solutions Architect",
+      "Systems Architect",
+      "Lead Software Engineer (Contract)",
+      "Senior Software Engineer – Consultant",
+      "Technical Lead",
+      "Integration Engineer / Architect",
+      "Cloud Engineer (Contract)",
+      "Senior Full-Stack Consultant"
+    ]
+  },
+  "resume": {
+    "pages": 1,
+    "summaryStyle": "Two or three lines in the posting's own terms: standard title + years + core stack + domains + type of engagement, then an availability/authorization line (e.g., 'Senior software engineer and technical lead, 6 years delivering cloud platforms and system integrations (SSO, LMS, Salesforce, payments) for higher-ed and health clients; TypeScript/Node, AWS, IaC, CI/CD.').",
+    "sectionOrder": [
+      "summary",
+      "competencies",
+      "experience",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "Verb + client/system scope + approach/stack + measurable business outcome (Problem → Role → Outcome)",
+    "keywordStrategy": "Pull 5–8 terms from each job order (tools, cloud, methodology, title, certification) and make sure each appears naturally in the summary, the skills block and at least one recent role. Keep exact spellings (AWS, CI/CD, Terraform/OpenTofu, REST APIs, Agile/Scrum). Group skills by category so 'years with X' is clear. Use a single column and a text-readable PDF. Keep separate cloud/integration and full-stack variants instead of stuffing one version.",
+    "notes": [
+      "Label each role by engagement type (Freelance consultant; services firm → client ASU). Where an intermediary was involved, name both the firm and the end client.",
+      "Give each engagement a domain tag (higher education, health-tech, payments), because industry knowledge is the top skill buyers cite.",
+      "Two or three quantified results in the most recent and most relevant roles, minimum.",
+      "Put the work authorization (US citizen), remote/onsite preference and engagement types (W2/1099/C2C) in the header, since these are the first knockout checks.",
+      "List only real, current certifications. Leave the section out instead of padding it.",
+      "Stay at one page: guides allow two only at 8+ years.",
+      "Skills kept before Education: staffing recruiters keyword-match the client job order first (criterion: keyword match), so the exact tool names must appear in a list as well as in the bullets.",
+      "Certifications section omitted until one is held; listed as a gap instead."
+    ],
+    "sources": [0, 1, 2, 3, 11, 7]
+  },
+  "portfolio": {
+    "leadWith": "A capability-statement-style page: a one-line positioning statement, 4–6 core competencies, then 3–4 engagement case studies (client/domain | problem | approach and decisions | outcome | stack) led by the ASU platform integrations.",
+    "mustHave": [
+      "Core competencies block (integration architecture, cloud/IaC, CI/CD, technical leadership, client delivery)",
+      "Past-performance case studies in problem → approach → outcome format with domain tags and dates",
+      "At least one architecture decision write-up (context, options, decision, trade-offs)",
+      "Differentiators: 'why engage me' in 2–3 lines (e.g., math/stats rigor, scoping-to-handoff ownership, regulated-domain experience)",
+      "Availability, location/remote and engagement-type line, plus a clear call to action (contact / schedule a call)",
+      "Client quotes or 'references available' and a downloadable one-page PDF résumé"
+    ],
+    "notes": [
+      "Capability statements are scanned in about 6 seconds, so use short bullets and tables rather than paragraphs, and end with a clear next step.",
+      "Show work structurally similar to the buyer's project, and where possible use live products over screenshots.",
+      "Include a sample status update or handoff document. It shows the communication habits buyers screen for.",
+      "Group engagements by theme (Integrations, Cloud/IaC, Payments) instead of a long chronological list."
+    ],
+    "sources": [5, 10, 9, 3, 8]
+  },
+  "visual": {
+    "tone": "restrained, authoritative, proposal-like",
+    "scheme": "light",
+    "hue": 255,
+    "chroma": "muted",
+    "display": "serif",
+    "accent": "sans",
+    "corners": "square",
+    "density": "comfortable",
+    "rationale": "Consulting branding convention is navy/deep blue ('the classic authority choice') with a serif headline paired with sans body, using a disciplined palette and generous white space that criteria confidence ('confident enough not to shout'). The proposal is called consulting's most important brand asset, so the page should read like one. Capability-statement and contract-résumé guides add bold headers, bullets and tables, and warn against fancy fonts and excess colour.",
+    "sources": [6, 5, 0]
+  },
+  "interview": [
+    "Expect a client-side 'walk me through an engagement' interview: be ready to tell each case study as problem → your role → decision → measurable outcome in about 2 minutes.",
+    "Expect architecture/system-design questions on integration patterns (SSO, sync, idempotent webhooks, queues) and when to choose one approach over another. The ADR write-ups serve as prep.",
+    "Vetting networks such as Toptal run a communication screen, a skills review, live exercises and a 1–3 week test project that grades thoroughness and professionalism, so show tests, docs and clean handoffs.",
+    "Recruiters will confirm years per skill, rate and availability, and work authorization in a phone screen. Keep these consistent across résumé, portfolio and profile.",
+    "Clients may ask for 2–3 recent references and a sample status report, so have them ready."
+  ],
+  "sources": [
+    {
+      "url": "https://www.artech.com/blog/how-to-build-a-high-impact-tech-resume-for-contract-jobs/",
+      "title": "How to Build a High-Impact Tech Resume for Contract Jobs",
+      "publisher": "Artech",
+      "year": 2025
+    },
+    {
+      "url": "https://recruitbpm.com/blog/resume-optimization-for-client-requirements-what-recruiters-actually-look-for-in-2026",
+      "title": "Resume Optimization for Client Requirements: What Recruiters Actually Look For in 2026",
+      "publisher": "RecruitBPM",
+      "year": 2026
+    },
+    {
+      "url": "https://www.artech.com/blog/it-consultant-interview-challenges/",
+      "title": "Not Getting Interviews as an IT Consultant? Here's What Might Be Holding You Back",
+      "publisher": "Artech",
+      "year": 2025
+    },
+    {
+      "url": "https://www.artech.com/blog/short-contracts-resume-consultants-career-story/",
+      "title": "How to Tell a Clear Career Story When Your Resume Is Full of Short Contracts",
+      "publisher": "Artech",
+      "year": 2026
+    },
+    {
+      "url": "https://www.toptal.com/top-3-percent",
+      "title": "Toptal Screening Process: Top 3%",
+      "publisher": "Toptal",
+      "year": 2026
+    },
+    {
+      "url": "https://www.govconinabox.com/blog/how-to-write-capability-statement",
+      "title": "How to Write a Capability Statement That Gets You Noticed by Federal Buyers",
+      "publisher": "GovCon in a Box",
+      "year": 2025
+    },
+    {
+      "url": "https://madegooddesigns.com/consulting-brand-design/",
+      "title": "Consulting Brand Design: Look the Part",
+      "publisher": "Made Good Designs",
+      "year": 2025
+    },
+    {
+      "url": "https://press.roberthalf.com/2026-07-29-Robert-Half-Two-thirds-of-U-S-employers-plan-to-increase-hiring-in-second-half-of-2026",
+      "title": "Robert Half: Two-thirds of U.S. employers plan to increase hiring in second half of 2026",
+      "publisher": "Robert Half",
+      "year": 2026
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record",
+      "title": "Maintain an architecture decision record (ADR)",
+      "publisher": "Microsoft Azure Well-Architected Framework",
+      "year": 2026
+    },
+    {
+      "url": "https://contra.com/hire/software-architects-for-consulting",
+      "title": "Hire Software Architects for Consulting",
+      "publisher": "Contra",
+      "year": 2025
+    },
+    {
+      "url": "https://mobibean.com/blog/choose-software-development-partner",
+      "title": "How to Choose the Right Software Development Partner in 2026",
+      "publisher": "Mobibean",
+      "year": 2026
+    },
+    {
+      "url": "https://cs-recruiters.com/resources/job-search/resume-screening-explained-a-2026-guide-for-employers/",
+      "title": "Resume Screening Explained: A 2026 Guide for Employers",
+      "publisher": "CS Recruiters",
+      "year": 2026
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+---
+import {
+  VARIANT_PRESENTATIONS,
+  type Presentation,
+} from '../../../roles/presentation';
+import Home from '../../../layouts/Home.astro';
+
+/**
+ * One homepage per non-default role, at `/a/<id>/`: a plain static
+ * page, so any static host serves it. Old `/?role=<id>` links redirect
+ * here (nginx.conf, and a script on `/` for hosts that ignore the query).
+ */
+export const getStaticPaths = () =>
+  VARIANT_PRESENTATIONS.map((presentation) => ({
+    params: { role: presentation.id },
+    props: { presentation },
+  }));
+
+interface Props {
+  presentation: Presentation;
+}
+Astro.locals.presentation = Astro.props.presentation;
+---
+
+<Home />

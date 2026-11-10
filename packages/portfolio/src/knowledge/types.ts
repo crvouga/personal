@@ -23,7 +23,7 @@ export type Achievement = {
   readonly topics: readonly Topic[];
 };
 
-export type Role = {
+export type Job = {
   readonly id: string;
   readonly employer: string;
   readonly employerUrl?: string;

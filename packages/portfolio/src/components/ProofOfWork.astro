@@ -1,6 +1,6 @@
 ---
-import { presentationOf, sectionOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf, sectionOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 import { CONTENT } from '../content/content';
 import { loadGitHubInsights } from '../lib/github-insights';
 import {
@@ -21,7 +21,7 @@ import ContributionCalendar from './ContributionCalendar.astro';
 // `astro dev` a missing token degrades to a notice card instead of failing.
 interface Props {
   /** Injected by stories and HomeScreen; defaults to the page's presentation. */
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 
 const envToken = import.meta.env.PORTFOLIO_GITHUB_TOKEN;

@@ -1,5 +1,5 @@
-import { DEFAULT_DEMAND, type Demand } from '../archetypes/demand';
-import { rankBy } from '../archetypes/rank';
+import { DEFAULT_DEMAND, type Demand } from '../roles/demand';
+import { rankBy } from '../roles/rank';
 import { caseStudyFor } from '../content/case-studies';
 import { CONTENT } from '../content/content';
 import type { Project } from '../content/project';
@@ -41,6 +41,16 @@ export const isReviewable = (project: Project): boolean =>
  */
 const CASE_STUDY_STRENGTH = 1.5;
 
+/**
+ * A product a reviewer can open running is stronger evidence than source
+ * alone; every research brief asks for live links.
+ */
+const NOT_LIVE_STRENGTH = 0.85;
+
+const strengthOf = (project: Project): number =>
+  (caseStudyFor(project.id) === undefined ? 1 : CASE_STUDY_STRENGTH) *
+  (project.deployment.t === 'public' ? 1 : NOT_LIVE_STRENGTH);
+
 export const REVIEWABLE_PROJECTS: readonly Project[] =
   LISTED_PROJECTS.filter(isReviewable);
 
@@ -53,7 +63,7 @@ export const visibleProjectsFor = (demand: Demand): readonly Project[] =>
   rankBy(REVIEWABLE_PROJECTS, demand, (project) => ({
     themes: project.themes,
     topics: project.topics,
-    strength: caseStudyFor(project.id) === undefined ? 1 : CASE_STUDY_STRENGTH,
+    strength: strengthOf(project),
   })).slice(0, VISIBLE_PROJECT_COUNT);
 
 /** The default presentation's flagships; the feeds and the share card use it. */

@@ -5,15 +5,15 @@
  */
 import Footer from '../components/Footer.astro';
 import Nav from '../components/Nav.astro';
-import type { ArchetypeId } from '../archetypes/definitions';
+import type { RoleId } from '../roles/definitions';
 
 interface Props {
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
-const { archetype } = Astro.props;
+const { role } = Astro.props;
 ---
 
-<Nav variant="sub" archetype={archetype} />
+<Nav variant="sub" role={role} />
 <main id="main">
   <slot />
 </main>
