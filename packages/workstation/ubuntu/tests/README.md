@@ -92,3 +92,27 @@ phase evidence. A failed assertion preserves the guest disk for diagnosis and
 terminates the VM. Keep fixture keys and raw diagnostic logs private. This is a
 single-target production transport test; multi-target promotion and manager
 restart/interruption scenarios remain separate gates.
+
+## Fresh box in a container (any host with Docker)
+
+The fastest check that a brand-new worker needs nothing but SSH and sudo. It
+runs on amd64 and arm64 (including a Mac with Docker Desktop), needs no KVM and
+takes about three minutes:
+
+```sh
+bun packages/workstation/ubuntu/tests/fresh-box.ts
+```
+
+It starts a disposable Ubuntu 26.04 container whose only extras are a non-root
+user and `sudo` (it asserts Git, curl, Python, mise, Bun and Node are absent),
+then sends it the committed `HEAD` through the production `prepareBootstrap` and
+`bootstrapRemote` code, with the SSH hop replaced by `docker exec`. It passes
+when the box reaches node convergence: OS prerequisites, the single-commit
+source transfer, the locked toolchain and frozen dependencies all installed
+from nothing. It then repeats the run and requires the cached, warm path to
+finish within two minutes. `--keep` leaves the container for inspection.
+
+A container has no systemd, desktop session, Tailscale or Vault login, so the
+node checks that need them (baseline services, T3, provider accounts) are
+printed, not asserted; the VM tests above cover the OS baseline and T3.
+Uncommitted edits are not part of the tested revision.
