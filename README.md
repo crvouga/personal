@@ -29,7 +29,7 @@ Import existing resources before applying. State and plans are encrypted; creden
 
 [CI](.github/workflows/ci.yml) validates every PR and merge-queue entry, runs the required platform tests, and calls [Deploy](.github/workflows/deploy.yml) after successful main-branch checks. Deploy builds images, applies OpenTofu in order and probes production. [Maintenance](.github/workflows/maintenance.yml) handles health reports, snapshot/dependency update PRs and manual secret repair. Sibling repositories use [Publish](.github/workflows/publish.yml); the old CI publishing interface stays compatible. OpenTofu owns publisher files, dispatch secrets and the required-check ruleset.
 
-The generated [llms.txt](llms.txt) explains how other projects integrate with Vault, PostgreSQL, remote caching, object storage and application hosting. The portfolio publishes it at [www.chrisvouga.dev/llms-infra.txt](https://www.chrisvouga.dev/llms-infra.txt); the site's own `/llms.txt` is a candidate summary for recruiters' screening agents and links to it. Regenerate it with `bun run llms:sync` after changing the infrastructure inventory or integration contract.
+Agent infrastructure docs are two separate generated guides that never share content: [llms-local.txt](llms-local.txt) covers **local development infrastructure** (developer machines, toolchain, fleet, AI proxy, local caching) and [llms-cloud.txt](llms-cloud.txt) covers **cloud app infrastructure** (Vault, PostgreSQL, R2, Railway hosting, auth relay). The root [llms.txt](llms.txt) is only an index that routes to one of them. The portfolio publishes them at [/llms-infra.txt](https://www.chrisvouga.dev/llms-infra.txt) (index), [/llms-local.txt](https://www.chrisvouga.dev/llms-local.txt) and [/llms-cloud.txt](https://www.chrisvouga.dev/llms-cloud.txt); the site's own `/llms.txt` is a candidate summary for recruiters' screening agents and links to them. Regenerate with `bun run llms:sync`.
 
 Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for macOS, native Windows or Linux. It installs the pinned mise toolchain globally and frozen workspace dependencies. `bun run setup` installs dependencies only; `vault login` enables managed application settings. `bun run dev` starts the active applications; the retired Turbo/Nix cache stays dormant. [Workstation setup](packages/workstation/README.md) uses `bun run personal:install`.
 
@@ -137,4 +137,4 @@ explicit OS prerequisites. After setup, `personal workstation tools sync` reappl
 dependencies and workstation settings.
 
 Agents can discover the full machine runbook from the portfolio's `/llms.txt`;
-it is embedded in the generated root `llms.txt` and served `/llms-infra.txt`.
+it is embedded in the generated local guide, root `llms-local.txt`, served at `/llms-local.txt`.

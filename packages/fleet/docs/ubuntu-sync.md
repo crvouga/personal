@@ -405,10 +405,10 @@ Keep secrets, pairing URLs, raw environments and whole journals out of reports.
 
 Run affected tests/typechecks/lints, Ansible syntax and disposable Ubuntu integration,
 then `bun run llms:sync`, `bun run check:llms`, npm build and anonymous consumer smoke.
-Use `packages/personal-cli/releasing.md` for publication. The generated guide is
-linked from `https://chrisvouga.dev/llms.txt` through `llms-infra.txt`; its fleet section
-is separate from cloud infrastructure. Local generation does not prove deployment.
-After an authorized release, fetch public llms.txt, follow the guide link and test
+Use `packages/personal-cli/releasing.md` for publication. The generated local guide is
+`https://www.chrisvouga.dev/llms-local.txt` (linked from `llms.txt`); it never covers
+cloud infrastructure, which has its own `llms-cloud.txt`. Local generation does not prove deployment.
+After an authorized release, fetch public llms.txt, follow the local guide link and test
 the exact published npm version from a clean consumer.
 
 ## Agent triage and tracked acceptance issues
