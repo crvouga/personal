@@ -164,6 +164,22 @@ if [ -n "$toolchain_warm" ] && [ ! -d node_modules ]; then
   $bounded mise exec --locked bun -- bun install --frozen-lockfile >/dev/null 2>&1 || die TOOLCHAIN_FROZEN_DEPENDENCIES_FAILED
 fi
 [ -n "$toolchain_warm" ] || printf '%s' "$toolchain_key" >"$ready_file"
+# Every synced revision is a full checkout with its own dependencies (about
+# 1 GB). Keep this one, the one T3's providers launch from and the two most
+# recently used others; the rest would slowly fill the disk.
+phase=cleanup
+touch "$deployment"
+applied=$(basename "$(readlink "$root/current" 2>/dev/null || true)")
+kept=0
+# shellcheck disable=SC2012
+for old in $(ls -1t "$root/revisions"); do
+  case "$old" in *[!a-f0-9]*) continue;; esac
+  [ "${#old}" = 40 ] || continue
+  [ "$old" != "$revision" ] && [ "$old" != "$applied" ] || continue
+  kept=$((kept + 1))
+  [ "$kept" -gt 2 ] || continue
+  rm -rf -- "${root:?}/revisions/$old" || true
+done
 phase=configuration
 trap - EXIT INT TERM
 exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision"
