@@ -1,4 +1,4 @@
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 import { gatherStatus } from './status';
 import type { GlobalOpts } from '../lib/cli-opts';
 import {

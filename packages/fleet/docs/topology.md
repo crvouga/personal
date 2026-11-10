@@ -25,14 +25,14 @@ The fleet has exactly two roles, declared in
 - It hosts every singleton service. Today that is the CLI proxy
   (`services.proxy`, [`packages/cliproxy-fleet`](../../cliproxy-fleet/README.md))
   and the Beszel hub (`services.monitoring`,
-  [`packages/workstation/monitoring`](../../workstation/monitoring/README.md)).
+  [`packages/fleet/monitoring`](../../fleet/monitoring/README.md)).
   The manager also runs its own Beszel agent, so it is always a system on that
   hub.
   A new singleton service is declared under `services` and placed on the
   manager; it never names a host.
 - Workers depend on it, so it never sleeps on AC power
   (`neverSleepOnPower`, checked as `manager:power`, applied once with
-  `ansible-playbook -K packages/workstation/macos/manager.yml`). While the
+  `ansible-playbook -K packages/fleet/macos/manager.yml`). While the
   manager is asleep, closed or offline, workers have no CLI proxy and no
   dashboard; nothing fails over, because a singleton never runs twice.
 - Its state (proxy OAuth/runtime state, the hub database) is backed up off the
@@ -59,4 +59,4 @@ The fleet has exactly two roles, declared in
 - **Replace the manager:** edit `manager`, then move each singleton service with
   its documented fence-and-restore runbook (never two copies at once):
   [CLI proxy](../../cliproxy-fleet/docs/migration.md),
-  [Beszel hub](../../workstation/monitoring/README.md).
+  [Beszel hub](../../fleet/monitoring/README.md).

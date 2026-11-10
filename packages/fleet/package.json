@@ -8,7 +8,13 @@
   "scripts": {
     "fleet": "bun ../personal-cli/src/cli.ts fleet-status",
     "tc": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 0",
-    "test": "bun test src"
+    "lint": "eslint src agents --max-warnings 0",
+    "test": "bun test src ubuntu"
+  },
+  "dependencies": {
+    "@pkgs/secret-store": "workspace:*",
+    "@pkgs/vault": "workspace:*",
+    "commander": "catalog:",
+    "yaml": "catalog:"
   }
 }

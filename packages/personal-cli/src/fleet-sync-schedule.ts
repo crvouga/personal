@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { currentPlatform } from '../../workstation/cli/lib/platform';
-import type { Platform } from '../../workstation/cli/lib/platform/types';
+import { currentPlatform } from '../../fleet/src/platform';
+import type { Platform } from '../../fleet/src/platform/types';
 import type { Runner } from '../../fleet/src/types';
 import type { CommandOutcome } from './contracts';
 import { machineRoot } from './fleet-sync';

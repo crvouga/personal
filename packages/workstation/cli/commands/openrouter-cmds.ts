@@ -1,6 +1,6 @@
 import type { GlobalOpts } from '../lib/cli-opts';
 import { resolveModelCatalog } from '../lib/models';
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 import { providerStatuses } from '../lib/providers-sync';
 import {
   muted,

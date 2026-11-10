@@ -2,8 +2,13 @@ import { deployment } from '../node-deployment';
 import type { CommandOutcome } from '../contracts';
 import type { Settings } from '../settings';
 import { FleetUsageError } from '../../../fleet/src/errors';
-import { desired, nodeId, paths, type T3Options } from './desired';
-import { importT3, reconcileT3 } from './reconcile';
+import {
+  desired,
+  nodeId,
+  paths,
+  type T3Options,
+} from '../../../fleet/src/t3/desired';
+import { importT3, reconcileT3 } from '../../../fleet/src/t3/reconcile';
 
 export async function t3Command(
   command: string,

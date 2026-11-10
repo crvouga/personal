@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { resolveFocusTarget } from '../../opencode/focus-request';
 import { terminalTitleFor, titleSequence } from '../../opencode/session-token';
-import type { Platform } from './platform/types';
+import type { Platform } from '../../../fleet/src/platform/types';
 
 export type FocusInput = {
   kind?: string | undefined;

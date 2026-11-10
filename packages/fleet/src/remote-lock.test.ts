@@ -12,7 +12,7 @@ test('remote lock prelude parses as POSIX shell and prefers flock when present',
 test('tracked remote shell entry points parse on this host shell', () => {
   for (const script of [
     'scripts/dev/fleet-remote-bootstrap.sh',
-    'packages/workstation/ubuntu/authorize-sudo.sh',
+    'packages/fleet/ubuntu/authorize-sudo.sh',
   ]) {
     const result = spawnSync(
       'sh',

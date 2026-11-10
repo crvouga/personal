@@ -1,8 +1,8 @@
 import type { Check, Runner } from './types';
 import definition from '../definition.json';
 import { parseDefinition } from './definition';
-import { registry } from '../../workstation/cli/lib/agents/registry';
-import { resolveVaultConfig } from '../../workstation/cli/lib/vault-config';
+import { registry } from './agents/registry';
+import { resolveVaultConfig } from './vault-config';
 import { record } from './config';
 
 /** Inject every subprocess; never put credentials in argv, reports, or logs. */

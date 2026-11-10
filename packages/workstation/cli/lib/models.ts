@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { VaultSecretStore } from '@pkgs/secret-store';
 import { VaultCli } from '@pkgs/vault';
 
-import type { Platform } from './platform/types';
-import { resolveVaultConfig } from './vault-config';
+import type { Platform } from '../../../fleet/src/platform/types';
+import { resolveVaultConfig } from '../../../fleet/src/vault-config';
 
 export type ModelEntry = {
   /** OpenRouter-style catalog id, e.g. `anthropic/claude-opus-4-1`. */

@@ -1,4 +1,4 @@
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 import { spawnSync } from 'node:child_process';
 import { checkMachine } from '../../../../scripts/dev/doctor';
 import { workspaceRoot } from '../lib/paths';

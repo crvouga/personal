@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { managerSchedule } from '../src/fleet-sync-schedule';
-import type { Platform } from '../../workstation/cli/lib/platform/types';
+import type { Platform } from '../../fleet/src/platform/types';
 import type { Runner } from '../../fleet/src/types';
 const never: Runner = async () => {
   throw new Error('must not execute');

@@ -1,8 +1,8 @@
 import { syncWorkerGithub } from './worker-github';
 /** Private scheduled job. The worker retains its own token; raw auth output is never logged. */
 import { spawnSync } from 'node:child_process';
-import { createLogger } from '../../packages/logger/src/index';
-import { resolveVaultConfig } from '../../packages/workstation/cli/lib/vault-config';
+import { createLogger } from '../../packages/logger/src';
+import { resolveVaultConfig } from '../../packages/fleet/src/vault-config';
 
 export function renewWorkerVault(
   run: (args: string[]) => { status: number | null; stdout: string | null } = (

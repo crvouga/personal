@@ -227,7 +227,7 @@ async function applyOwner(
       'bun',
       '--',
       'bun',
-      'packages/workstation/cli/internal.ts',
+      'packages/fleet/src/agents/cli.ts',
       '--json',
       '--yes',
       '--non-interactive',

@@ -10,7 +10,7 @@
  * Usage:
  *   bun run --filter @pkgs/workstation configure:opencode [--strict]
  */
-import { currentPlatform } from '../cli/lib/platform/index';
+import { currentPlatform } from '../../fleet/src/platform';
 import { syncProvidersFromVault } from '../cli/lib/providers-sync';
 
 async function main(): Promise<void> {

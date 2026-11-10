@@ -1,9 +1,13 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-import { launchdPlist } from '../platform/launchd';
-import { systemdUnits } from '../platform/systemd-user';
-import { diskCheck, healthChecks, parseProbe } from './health';
+import { launchdPlist } from '../../../../fleet/src/platform/launchd';
+import { systemdUnits } from '../../../../fleet/src/platform/systemd-user';
+import {
+  diskCheck,
+  healthChecks,
+  parseProbe,
+} from '../../../../fleet/src/machine-health';
 import { failureKeys, notificationFor } from './history';
 import {
   expandHome,

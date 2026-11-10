@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { FallbackPlatform } from './platform/fallback';
+import { FallbackPlatform } from '../../../fleet/src/platform/fallback';
 
 /** Test adapter — redirects all home-relative dirs into a tmp dir. */
 export class TmpPlatform extends FallbackPlatform {

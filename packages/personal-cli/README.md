@@ -86,7 +86,7 @@ personal t3-apply --import INSTANCE_ID   # adopt an existing instance into owner
 personal t3-cleanup --dry-run            # preview removal of owned instances only
 ```
 
-Tracked `packages/workstation/agents/t3.json` is desired state. Apply creates and
+Tracked `packages/fleet/agents/t3.json` is desired state. Apply creates and
 updates declared instances and removes previously owned instances absent from the
 definition. Secrets and unrelated settings are preserved. The reconciler runs on
 Node without Bun or live credentials; native Windows preserves settings but

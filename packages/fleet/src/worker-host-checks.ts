@@ -1,8 +1,8 @@
 import { powerRecoveryCheck } from './power-recovery';
-import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
-import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
-import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
-import policy from '../../workstation/ubuntu/policy.json';
+import { auditUbuntu } from './platform/ubuntu-audit';
+import { verifyUbuntuBoot } from './platform/ubuntu-verify';
+import { verifyResourceSafety } from './platform/resource-verify';
+import policy from '../ubuntu/policy.json';
 import { userInfo } from 'node:os';
 import type { Check, Runner } from './types';
 

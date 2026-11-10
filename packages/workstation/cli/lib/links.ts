@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { Platform } from './platform/types';
+import type { Platform } from '../../../fleet/src/platform/types';
 
 export type ManagedLink = {
   label: string;

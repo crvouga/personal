@@ -7,12 +7,12 @@ import { attempt } from '../../fleet/src/node-converge-shared';
 import {
   quotaLimited,
   verifyFleetProviders,
-} from '../../workstation/cli/lib/agents/fleet-verify';
-import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
-import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
+} from '../../fleet/src/agents/fleet-verify';
+import { verifyNativeAgents } from '../../fleet/src/agents/native-verify';
+import { convergeManagerHub } from '../../fleet/src/monitoring/manager-hub';
 import { enrollManagerMonitoring } from './fleet-sync-monitoring';
-import { machineProviders } from './t3/providers';
-import { providerNames } from './t3/names-check';
+import { machineProviders } from '../../fleet/src/t3/providers';
+import { providerNames } from '../../fleet/src/t3/names-check';
 
 /** The manager converges itself locally (never over SSH) before any worker:
  * it must be the declared manager, stay awake on AC power, and host every
@@ -114,7 +114,7 @@ export async function managerAgentProfiles(
         'bun',
         '--',
         'bun',
-        'packages/workstation/cli/internal.ts',
+        'packages/fleet/src/agents/cli.ts',
         '--json',
         '--yes',
         '--non-interactive',
@@ -187,7 +187,7 @@ export async function managerPower(run: Runner): Promise<Check> {
         summary: 'MANAGER_SLEEPS_ON_POWER',
         remedy: {
           action:
-            'Workers lose the CLI proxy and Beszel hub while the manager sleeps. Apply the manager power policy once: ansible-playbook -K packages/workstation/macos/manager.yml',
+            'Workers lose the CLI proxy and Beszel hub while the manager sleeps. Apply the manager power policy once: ansible-playbook -K packages/fleet/macos/manager.yml',
         },
       };
 }

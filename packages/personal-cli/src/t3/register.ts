@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { CommandOutcome } from '../contracts';
 import { resolveSettings, type Settings } from '../settings';
 import { t3Command } from './command';
-import type { T3Options } from './desired';
+import type { T3Options } from '../../../fleet/src/t3/desired';
 
 export const T3_COMMANDS = [
   ['t3-status', 'Check managed T3 configuration for drift'],

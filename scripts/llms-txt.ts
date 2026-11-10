@@ -346,7 +346,7 @@ function blocks(ctx: Context): Record<string, string> {
   return {
     fleetSync: read('packages/fleet/docs/ubuntu-sync.md').trimEnd(),
     workstation: read('scripts/dev/README.md').trimEnd(),
-    agentSetup: read('packages/workstation/agents/setup.md').trimEnd(),
+    agentSetup: read('packages/fleet/agents/setup.md').trimEnd(),
     workstationTools: table(
       ['Tool', 'Version', 'Installation'],
       Object.entries(

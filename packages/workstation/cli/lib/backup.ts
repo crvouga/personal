@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Platform } from './platform/types';
+import type { Platform } from '../../../fleet/src/platform/types';
 
 export function backupDir(platform: Platform): string {
   return join(platform.opencodeDir(), '.ws-backup');

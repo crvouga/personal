@@ -11,9 +11,9 @@ import {
 } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { reconcileT3, importT3 } from '../src/t3/reconcile';
-import { planT3 } from '../src/t3/plan';
-import { desired } from '../src/t3/desired';
+import { reconcileT3, importT3 } from '../../fleet/src/t3/reconcile';
+import { planT3 } from '../../fleet/src/t3/plan';
+import { desired } from '../../fleet/src/t3/desired';
 import { execute } from '../src/program';
 const directories: string[] = [];
 afterEach(async () => {
@@ -181,10 +181,7 @@ const roster = async () => [
   },
 ];
 const tracked = () =>
-  readFile(
-    new URL('../../workstation/agents/t3.json', import.meta.url),
-    'utf8'
-  );
+  readFile(new URL('../../fleet/agents/t3.json', import.meta.url), 'utf8');
 
 test('fixed instances substitute paths safely and reject credential fields', async () => {
   const files = await fixture();
@@ -234,7 +231,7 @@ test('every account signed in on the proxy becomes a pinned provider', async () 
     displayName: 'Claude a@example.com',
     enabled: true,
     config: {
-      binaryPath: '/repo/packages/workstation/agents/claude-proxy',
+      binaryPath: '/repo/packages/fleet/agents/claude-proxy',
       homePath: expect.stringContaining('/node/claude/account-a_example_com'),
     },
     environment: [
@@ -286,7 +283,7 @@ test('public T3 commands run offline against fixtures, including cleanup and dri
 });
 
 test('relative configuration reads terminate without escaping symlink checks', async () => {
-  const { read } = await import('../src/t3/files');
+  const { read } = await import('../../fleet/src/t3/files');
   const content = await read('package.json');
   expect(content).not.toBeNull();
 });

@@ -1,5 +1,5 @@
 import type { DoctorCheck } from '../doctor';
-import type { Platform } from '../platform/types';
+import type { Platform } from '../../../../fleet/src/platform/types';
 import { checkHost } from './host-checks';
 import { hostGroup, loadInventory, type NetCheck } from './inventory';
 import {
