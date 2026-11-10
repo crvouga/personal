@@ -20,7 +20,7 @@ export async function authorizePrivilege(
       summary: 'SUDO_AUTHORIZATION_REQUIRED',
       remedy: {
         action:
-          'Use the source-owned packages/workstation/ubuntu/authorize-sudo.sh once during initial administrator enrollment. Runtime convergence requires sudo -n and never prompts for or stores a password.',
+          'Use the source-owned packages/fleet/ubuntu/authorize-sudo.sh once during initial administrator enrollment. Runtime convergence requires sudo -n and never prompts for or stores a password.',
       },
     },
   ];

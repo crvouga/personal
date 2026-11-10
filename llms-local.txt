@@ -1,6 +1,6 @@
 # crvouga/personal — LOCAL development infrastructure guide
 
-> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/workstation/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
+> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/fleet/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
 **This guide never covers cloud-hosted app infrastructure.** Vault/OpenBao coordinates and policies, PostgreSQL `DATABASE_URL`, the R2 object store, Railway hosting, GHCR images, DNS/TLS, GitHub OIDC and the Google sign-in auth relay are **cloud app infrastructure** → https://www.chrisvouga.dev/llms-cloud.txt. If your task is about any of those, stop and use that guide instead. Do not mix the two.
 
@@ -657,7 +657,7 @@ GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ## Maintaining this file (agents working inside `crvouga/personal`)
 
-`llms-local.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-local.template.md`](https://github.com/crvouga/personal/blob/main/scripts/llms-local.template.md); the embedded runbooks come from [`scripts/dev/README.md`](https://github.com/crvouga/personal/blob/main/scripts/dev/README.md), [`mise.toml`](https://github.com/crvouga/personal/blob/main/mise.toml), [`packages/workstation/agents/setup.md`](https://github.com/crvouga/personal/blob/main/packages/workstation/agents/setup.md) and [`packages/fleet/docs/ubuntu-sync.md`](https://github.com/crvouga/personal/blob/main/packages/fleet/docs/ubuntu-sync.md) via [`scripts/llms-txt.ts`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
+`llms-local.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-local.template.md`](https://github.com/crvouga/personal/blob/main/scripts/llms-local.template.md); the embedded runbooks come from [`scripts/dev/README.md`](https://github.com/crvouga/personal/blob/main/scripts/dev/README.md), [`mise.toml`](https://github.com/crvouga/personal/blob/main/mise.toml), [`packages/fleet/agents/setup.md`](https://github.com/crvouga/personal/blob/main/packages/fleet/agents/setup.md) and [`packages/fleet/docs/ubuntu-sync.md`](https://github.com/crvouga/personal/blob/main/packages/fleet/docs/ubuntu-sync.md) via [`scripts/llms-txt.ts`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
 
 ## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
 
@@ -678,13 +678,13 @@ reboot also passed with an intentionally unreachable fixture hub; private metric
 acceptance remains separate. A further full SSH bootstrap test caught a T3 archive verification bug: release-builder UID/GID values are not the designated installation user. The shared installer now verifies local ownership, content, modes and links independently of archive-builder identity. The same test exposed restrictive-umask extraction drift; archive modes are now preserved and staging is verified before promotion. A fresh Ubuntu VM now passes the production strict-SSH source transfer, missing-prerequisite bootstrap, shared tool installation and baseline, then repeats with preserved SSH identity, developer work and managed-file timestamps. This uses a disposable exact test commit, not a published release or live fleet. Multi-target and interruption acceptance remains open. The VM caught and fixed an Ansible piped-stdin
 variable-loading failure; runtime variables now use a private temporary file with
 cleanup and never enter command arguments. See the
-[reproducible VM test instructions](../../workstation/ubuntu/tests/README.md).
+[reproducible VM test instructions](../../fleet/ubuntu/tests/README.md).
 Real Beszel 0.21.1 binaries passed authenticated metrics, identity preservation and
 supported API backup/restore in an isolated loopback fixture; that is not live fleet evidence. Incomplete
 checks return nonzero; they do not advance a successful fleet receipt.
 
 Newest and still unverified against live machines: the macOS convergence path
-(`packages/workstation/macos`, launchd Beszel agent, fcntl remote lock), the Linux
+(`packages/fleet/macos`, launchd Beszel agent, fcntl remote lock), the Linux
 always-on service drop-ins, and dashboard evidence inside `fleet-status --workers`.
 They pass unit tests and Ansible syntax checks only; treat them as unaccepted
 until a disposable-machine run and a live manager run are recorded.
@@ -710,7 +710,7 @@ Bare invocation selects every canonical Linux and macOS node. It does not mean
 “this computer,” and the manager is not implicitly a deployment target. Its own
 node is targeted only if explicitly declared in Fleet membership. Ubuntu 26.04 is
 the accepted worker platform; a node declared `"os": "macOS"` runs the same phases
-best effort through `packages/workstation/macos` (see the platform matrix below).
+best effort through `packages/fleet/macos` (see the platform matrix below).
 Windows machines stay declared for diagnostics and are never converged.
 `--node ID` filters troubleshooting/rollout. `--all` is an explicit spelling of the
 default. Neither flag authorizes managing arbitrary Tailscale peers.
@@ -771,7 +771,7 @@ remaining parity gate. The interactive manager flow can request native sudo auth
   Remote lock file: `~/.local/share/personal/fleet/remote-operation.lock`, held
   with `flock` on Linux and the same descriptor through Python `fcntl` on macOS.
   Never repurpose a development checkout or reset dirty worktrees.
-- Workstation owns `ubuntu/`, `macos/` and `monitoring/`; mise manifests, locks and
+- Fleet owns `ubuntu/`, `macos/` and `monitoring/`; mise manifests, locks and
   `scripts/dev` own developer tools. CLIProxy deployment/auth/recovery stays with
   `packages/cliproxy-fleet`. Cloud resources, DNS, Vault policy and tailnet access
   policy stay with OpenTofu and are not modified by this command.
@@ -837,7 +837,7 @@ verification and the CLIProxy singleton.
 | Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min                                                                                                                                                                                                                                                                                                                                                    | the human's own Vault and GitHub sessions                                                                                                                                                                                                                                                                                                                                                                 |
 | Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                                                                                                                                                                                                                                                                                                                                                                      | never; the human runs `manager.yml` once with `-K`                                                                                                                                                                                                                                                                                                                                                        |
 | T3 worker app               | pinned desktop `.deb` is the only T3 process (UI plus embedded server); GDM auto-login, user unit `t3code-desktop.service` bound to the graphical session with `Restart=always`; `personal-worker-recovery` checks every minute, starts a stopped app and restarts one whose local API missed three checks; administrator policy. A still-running headless `t3code.service` reports `T3_DESKTOP_MIGRATION_REQUIRED` (stopping it ends active turns) | not a worker                                                                                                                                                                                                                                                                                                                                                                                              |
-| T3 providers                | the same managed instances (`workstation/agents/t3.json`) through locked T3 administrator policy                                                                                                                                                                                                                                                                                                                                                    | reconciled into the human's T3 settings by `fleet-sync` (`t3:providers`) with the ownership-safe `t3-apply` engine, so every T3 offers the identical set; unrelated and unmanaged instances are preserved. `fleet-sync` also applies the same proxy agent profiles (`configuration:apply`) and verifies the shared Vault gateway credential end to end with `provider:*:inference`, exactly as on workers |
+| T3 providers                | the same managed instances (`fleet/agents/t3.json`) through locked T3 administrator policy                                                                                                                                                                                                                                                                                                                                                          | reconciled into the human's T3 settings by `fleet-sync` (`t3:providers`) with the ownership-safe `t3-apply` engine, so every T3 offers the identical set; unrelated and unmanaged instances are preserved. `fleet-sync` also applies the same proxy agent profiles (`configuration:apply`) and verifies the shared Vault gateway credential end to end with `provider:*:inference`, exactly as on workers |
 | Singleton services          | never; clients of the manager's services only                                                                                                                                                                                                                                                                                                                                                                                                       | every singleton runs here: CLI proxy (`packages/cliproxy-fleet`), Beszel hub (`workstation/monitoring`)                                                                                                                                                                                                                                                                                                   |
 
 Credential sync is deliberately indirect: no secret is copied between machines.
@@ -863,7 +863,7 @@ GitHub login, and renders provider configuration from Vault through Workstation.
 
 The declared common baseline is Ubuntu **26.04 LTS**, amd64/arm64. Other releases
 receive `UBUNTU_BASELINE_MISMATCH`; there is no automatic release upgrade or
-package downgrade. Workstation audits release, packages, service state and dpkg
+package downgrade. Fleet audits release, packages, service state and dpkg
 consistency, declares snapshot sources for managed transactions, and pins its
 selected APT packages. Unrelated applications and package sources are preserved.
 
@@ -912,7 +912,7 @@ reboot-on-pressure or kill active work to obtain a green report.
 
 T3 0.1.7's supported administrator policy at `/etc/t3code/policy.json`
 disables independent updates and declares the existing managed Codex instance
-plus an OpenCode instance for all five gateway models. Workstation reuses the
+plus an OpenCode instance for all five gateway models. Fleet reuses the
 existing `agents/t3.json` renderer; it does not edit the live settings database.
 Native `t3 policy check` validates before installation, and `t3 policy show`
 compares staged policy with the running server. A staged policy the running
@@ -935,7 +935,7 @@ Every node (manager and workers) offers the same agents in T3, at the same
 versions (pinned in `mise.toml`/`mise.lock`, including the vendor CLIs
 `http:grok` and `http:antigravity`), signed in to the same multiplexed proxy
 accounts. T3 launches most through a tracked launcher in
-`packages/workstation/agents/` that injects the shared proxy key from Vault at
+`packages/fleet/agents/` that injects the shared proxy key from Vault at
 launch; nothing is copied between nodes.
 
 | T3 provider                   | T3 driver     | Route                                                           |

@@ -17,7 +17,7 @@ identity, or missing privilege stop with a named action rather than bypassing tr
 
 Convergence binds one reviewed revision and worker membership. It transfers only
 committed Git objects over SSH, bootstraps missing prerequisites, installs the
-locked minimal tool profile and frozen dependencies, and applies Workstation's
+locked minimal tool profile and frozen dependencies, and applies Fleet's
 Ansible policy. Developer checkouts and dirty work stay intact. A published CLI
 uses its source provenance; a source project action explicitly selects checkout
 HEAD. Private rosters contain connection paths and identities, not weaker policy.
@@ -52,7 +52,7 @@ renewable node identity. Required expired/missing credentials remain failures,
 never interactive password prompts or successful receipts.
 
 Cloud resources, Vault roles/policies and secret values remain exclusively owned
-by the OpenTofu roots. Worker configuration belongs to Workstation/Ansible and
+by the OpenTofu roots. Worker configuration belongs to Fleet's Ansible policy and
 mise. Runtime logins/renewal do not provision cloud resources. Existing SSH keys,
 T3 pairing data, provider identities and the gateway's encrypted recovery state
 are never cloned from another node.

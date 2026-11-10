@@ -34,7 +34,7 @@ import {
   section,
   warn as warnColor,
 } from '../lib/output-and-theme';
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 
 type CheckOpts = GlobalOpts & {
   host?: string | undefined;

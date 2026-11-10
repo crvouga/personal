@@ -12,10 +12,10 @@ import {
   listProviders,
   loadConfig,
 } from '../lib/opencode-config';
-import type { Platform } from '../lib/platform/types';
+import type { Platform } from '../../../fleet/src/platform/types';
 import { isTuiPluginRegistered, tuiConfigPath } from '../lib/tui-config';
 import { workstationRoot, workstationVersion } from '../lib/paths';
-import { resolveVaultConfig } from '../lib/vault-config';
+import { resolveVaultConfig } from '../../../fleet/src/vault-config';
 
 export type WsStatus = {
   version: string;

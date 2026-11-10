@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import { parsePsOutput } from '../platform/ps';
-import type { ProcessInfo } from '../platform/types';
+import { parsePsOutput } from '../../../../fleet/src/platform/ps';
+import type { ProcessInfo } from '../../../../fleet/src/platform/types';
 import { planCleanup, type CleanupOptions } from './plan';
 
 const UID = 501;

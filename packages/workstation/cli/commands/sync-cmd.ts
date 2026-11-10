@@ -1,5 +1,5 @@
 import { converge } from './sync';
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 import type { GlobalOpts } from '../lib/cli-opts';
 import {
   muted,

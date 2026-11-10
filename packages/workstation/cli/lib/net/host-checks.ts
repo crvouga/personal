@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import type { DoctorCheck } from '../doctor';
 import { failCheck, passCheck, warnCheck } from './make-check';
 import { workstationRoot } from '../paths';
-import { healthChecks, parseProbe } from './health';
+import { healthChecks, parseProbe } from '../../../../fleet/src/machine-health';
 import { expandHome, shortName, type NetHost } from './inventory';
 import { lastLine, run } from './run';
 import {
@@ -235,7 +235,7 @@ function keyCheck(host: NetHost): Check {
 async function machineHealth(host: NetHost): Promise<Check[]> {
   if (host.os === 'windows') return [];
   const script = readFileSync(
-    join(workstationRoot(), 'net/remote-probe.sh'),
+    join(workstationRoot(), '../fleet/net/remote-probe.sh'),
     'utf8'
   );
   const r = await run('ssh', [...SSH_OPTS, host.alias, 'sh -s'], {

@@ -15,8 +15,8 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
 import { converge, type SyncResult } from './commands/sync';
 import { installGlobalLauncher, pathExportLine } from './lib/global-install';
-import { currentPlatform } from './lib/platform/index';
-import type { GlobalInstallResult } from './lib/platform/types';
+import { currentPlatform } from '../../fleet/src/platform';
+import type { GlobalInstallResult } from '../../fleet/src/platform/types';
 import { workstationRoot } from './lib/paths';
 
 function appendPathExport(launcher: GlobalInstallResult, line: string): void {

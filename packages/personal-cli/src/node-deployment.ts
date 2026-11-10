@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { read, object, write } from './t3/files';
+import { read, object, write } from '../../fleet/src/t3/files';
 import { FleetUsageError } from '../../fleet/src/errors';
 
 export async function deployment(root: string) {

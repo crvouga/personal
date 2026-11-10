@@ -11,7 +11,10 @@ import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
 import { globalLauncherPath } from '../global-install';
-import type { Platform, ScheduledJob } from '../platform/types';
+import type {
+  Platform,
+  ScheduledJob,
+} from '../../../../fleet/src/platform/types';
 import { netStateDir } from './history';
 import type { NetHost } from './inventory';
 import { findOnPath } from './run';

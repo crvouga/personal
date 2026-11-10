@@ -1,4 +1,4 @@
-import { resolveVaultConfig } from '../../workstation/cli/lib/vault-config';
+import { resolveVaultConfig } from './vault-config';
 import definition from '../definition.json';
 import { workerReadiness } from './worker-readiness';
 import { record } from './config';

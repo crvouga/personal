@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import definition from '../../fleet/definition.json';
 import { sshArgs, shellQuote } from '../../fleet/src/ssh';
-import { resolveVaultConfig } from '../../workstation/cli/lib/vault-config';
+import { resolveVaultConfig } from '../../fleet/src/vault-config';
 import type { Check, FleetNode, Runner } from '../../fleet/src/types';
 
 const TOOL_PATH =

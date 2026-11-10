@@ -129,12 +129,12 @@ async function syncFixture() {
   const { join } = await import('node:path');
   const root = await realpath(await mkdtemp(join(tmpdir(), 'personal-node-')));
   const directory = join(root, 'node_modules/.fleet-revisions', revision);
-  await mkdir(join(directory, 'packages/workstation/agents'), {
+  await mkdir(join(directory, 'packages/fleet/agents'), {
     recursive: true,
   });
   await copyFile(
-    new URL('../../workstation/agents/t3.json', import.meta.url),
-    join(directory, 'packages/workstation/agents/t3.json')
+    new URL('../../fleet/agents/t3.json', import.meta.url),
+    join(directory, 'packages/fleet/agents/t3.json')
   );
   const run: Runner = async (args) => {
     const stdout = args.includes('--show-toplevel')

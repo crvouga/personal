@@ -5,11 +5,11 @@ import { discoverTailnet } from '../../fleet/src/tailscale';
 import {
   BESZEL_FLEET_IDENTITY,
   hubAccess,
-} from '../../workstation/cli/lib/monitoring/hub-access';
+} from '../../fleet/src/monitoring/hub-access';
 import { enrollBeszel } from '../../fleet/src/monitoring/enroll';
 import { verifyBeszel } from '../../fleet/src/monitoring/beszel';
 import { installRemoteAgent } from '../../fleet/src/monitoring/remote';
-import { installManagerAgent } from '../../workstation/cli/lib/monitoring/manager-agent';
+import { installManagerAgent } from '../../fleet/src/monitoring/manager-agent';
 
 export interface MonitoringDependencies {
   access?: typeof hubAccess;

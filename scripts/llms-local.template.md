@@ -1,6 +1,6 @@
 # {{infraRepo}} — LOCAL development infrastructure guide
 
-> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/workstation/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
+> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/fleet/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
 **This guide never covers cloud-hosted app infrastructure.** Vault/OpenBao coordinates and policies, PostgreSQL `DATABASE_URL`, the R2 object store, Railway hosting, GHCR images, DNS/TLS, GitHub OIDC and the Google sign-in auth relay are **cloud app infrastructure** → {{cloudGuideUrl}}. If your task is about any of those, stop and use that guide instead. Do not mix the two.
 
@@ -87,7 +87,7 @@ GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ## Maintaining this file (agents working inside `{{infraRepo}}`)
 
-`llms-local.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-local.template.md}}; the embedded runbooks come from {{path:scripts/dev/README.md}}, {{path:mise.toml}}, {{path:packages/workstation/agents/setup.md}} and {{path:packages/fleet/docs/ubuntu-sync.md}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
+`llms-local.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-local.template.md}}; the embedded runbooks come from {{path:scripts/dev/README.md}}, {{path:mise.toml}}, {{path:packages/fleet/agents/setup.md}} and {{path:packages/fleet/docs/ubuntu-sync.md}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
 
 ## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
 

@@ -35,7 +35,7 @@ export async function installRemoteAgent(
       ],
     })
   );
-  const command = `cd ${root} && { ${remoteLockPrelude()} || { printf '%s\\n' ${locked}; exit 0; }; } && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/workstation/cli/lib/monitoring/apply.ts')}`;
+  const command = `cd ${root} && { ${remoteLockPrelude()} || { printf '%s\\n' ${locked}; exit 0; }; } && trap '' HUP && exec "$HOME/.local/bin/mise" exec --locked bun -- bun ${shellQuote('packages/fleet/src/monitoring/apply.ts')}`;
   const result = await run([...sshArgs(node), command], {
     input: JSON.stringify({ ...enrollment, node: node.id, revision }),
     timeoutMs: 360_000,

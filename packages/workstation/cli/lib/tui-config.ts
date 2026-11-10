@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { focusSessionPluginPath } from '../../opencode/tui/focus-session';
-import type { Platform } from './platform/types';
+import type { Platform } from '../../../fleet/src/platform/types';
 
 export type TuiPluginSyncStatus = 'created' | 'updated' | 'unchanged';
 

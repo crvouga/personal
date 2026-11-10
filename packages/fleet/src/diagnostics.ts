@@ -88,7 +88,5 @@ function scope(id: string): Diagnostic['scope'] {
 }
 function owner(phase: string): string {
   if (phase === 'proxy') return 'packages/cliproxy-fleet';
-  if (['ubuntu', 't3', 'provider', 'configuration', 'beszel'].includes(phase))
-    return 'packages/workstation';
   return 'packages/fleet';
 }

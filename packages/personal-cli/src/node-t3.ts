@@ -2,7 +2,7 @@ import { FleetUsageError } from '../../fleet/src/errors';
 import type { Settings } from './settings';
 import type { CommandOutcome } from './contracts';
 import { t3Command } from './t3/command';
-import type { T3Options } from './t3/desired';
+import type { T3Options } from '../../fleet/src/t3/desired';
 
 export async function syncT3(
   options: T3Options,

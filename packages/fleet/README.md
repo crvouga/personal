@@ -19,7 +19,7 @@ Use `npx @crvouga/personal fleet-sync` to reconcile all declared workers and
 [worker-contract.md](docs/worker-contract.md) for bootstrap, ownership and the exact
 scope of readiness. `fleet-status` without flags diagnoses the local roster.
 Workers are Ubuntu 26.04; the manager is macOS and never sleeps on AC power
-(`packages/workstation/macos/manager.yml`). Machine policy (never sleep, no automatic
+(`packages/fleet/macos/manager.yml`). Machine policy (never sleep, no automatic
 logout, always-on Tailscale/SSH/Docker/Beszel, memory and disk safety, per-node
 credential renewal) is
 declared in Ansible and measured by `fleet-status --workers`, which also verifies
@@ -264,7 +264,7 @@ All commands are in the public `personal` entry point.
 `personal fleet-node-sync --revision FULL_SHA --dry-run` previews this node's
 reviewed configuration; without `--dry-run` it applies. `personal fleet-sync
 --revision FULL_SHA` rolls the same reviewed revision out to the enrolled fleet
-after approval. The [setup runbook](../workstation/agents/setup.md#reviewed-rollout-and-rollback)
+after approval. The [setup runbook](../fleet/agents/setup.md#reviewed-rollout-and-rollback)
 covers canaries, offline/partial failures, per-node receipts and rollback. Both
 delegate rendering to personal workstation and installation to existing mise/bootstrap.
 They never reset the developer checkout or transfer credentials. Status delegates

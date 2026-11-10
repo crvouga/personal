@@ -1,5 +1,5 @@
 import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
-import { T3_RESTARTED_SUMMARY } from '../../workstation/cli/lib/platform/t3-policy';
+import { T3_RESTARTED_SUMMARY } from '../../fleet/src/platform/t3-policy';
 import { createHash } from 'node:crypto';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import { authorizePrivilege } from './fleet-sync-privilege';

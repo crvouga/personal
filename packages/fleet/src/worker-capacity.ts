@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { healthChecks, parseProbe } from '../../workstation/cli/lib/net/health';
+import { healthChecks, parseProbe } from './machine-health';
 import type { Check, Runner } from './types';
 
 export async function workerCapacity(
@@ -8,7 +8,7 @@ export async function workerCapacity(
   run: Runner
 ): Promise<Check[]> {
   const result = await run(
-    ['sh', join(root, 'packages/workstation/net/remote-probe.sh')],
+    ['sh', join(root, 'packages/fleet/net/remote-probe.sh')],
     { timeoutMs: 10_000 }
   );
   const sample = parseProbe(result.stdout);

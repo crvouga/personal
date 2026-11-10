@@ -14,8 +14,8 @@ import {
   conformT3Names,
   localAccounts,
   type Accounts,
-} from '../src/t3/names';
-import { providerNames } from '../src/t3/names-check';
+} from '../../fleet/src/t3/names';
+import { providerNames } from '../../fleet/src/t3/names-check';
 
 const accounts: Accounts = async (driver, home) =>
   ({

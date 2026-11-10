@@ -1,6 +1,6 @@
 /** Acquire declared service credentials from this worker's Vault session; never copy a login directory. */
 import { spawnSync } from 'node:child_process';
-import { resolveVaultConfig } from '../../packages/workstation/cli/lib/vault-config';
+import { resolveVaultConfig } from '../../packages/fleet/src/vault-config';
 import definition from '../../packages/fleet/definition.json';
 
 export type AuthRunner = (

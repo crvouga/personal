@@ -17,7 +17,7 @@ test('authentication failures are actionable and never blindly retryable', () =>
     actionRequired: true,
     durationMs: null,
   });
-  expect(result.remedy.owner).toBe('packages/workstation');
+  expect(result.remedy.owner).toBe('packages/fleet');
 });
 test('stale metrics can be retried, but unknown probe origin is not fabricated', () => {
   expect(

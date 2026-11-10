@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { managerAgentProfiles } from '../src/fleet-sync-manager';
-import { machineProviders as managerProviders } from '../src/t3/providers';
+import { machineProviders as managerProviders } from '../../fleet/src/t3/providers';
 import type { Runner } from '../../fleet/src/types';
 
 const repo = resolve(import.meta.dir, '../../..');

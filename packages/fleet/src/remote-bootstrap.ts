@@ -40,7 +40,7 @@ export async function prepareBootstrap(
   const sudoScript = await trackedScript(
     source,
     revision,
-    'packages/workstation/ubuntu/authorize-sudo.sh',
+    'packages/fleet/ubuntu/authorize-sudo.sh',
     run
   );
   if (!script || !sudoScript) return null;

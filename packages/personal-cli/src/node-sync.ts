@@ -6,7 +6,7 @@ import type { Runner } from '../../fleet/src/types';
 import type { Settings } from './settings';
 import type { CommandOutcome } from './contracts';
 import { syncT3 } from './node-t3';
-import { nodeId, type T3Options } from './t3/desired';
+import { nodeId, type T3Options } from '../../fleet/src/t3/desired';
 import { recordDeployment } from './node-deployment';
 
 export interface NodeSyncOptions extends T3Options {

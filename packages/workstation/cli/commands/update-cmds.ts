@@ -4,7 +4,7 @@ import { cmdInstall } from './install-cmds';
 import { converge } from './sync';
 import type { GlobalOpts } from '../lib/cli-opts';
 import { installGlobalLauncher, pathExportLine } from '../lib/global-install';
-import { currentPlatform } from '../lib/platform/index';
+import { currentPlatform } from '../../../fleet/src/platform';
 import { workstationRoot, workspaceRoot } from '../lib/paths';
 import {
   printJson,

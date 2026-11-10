@@ -127,7 +127,7 @@ test('the bundle carries one commit without history and a shallow checkout accep
     );
     for (const path of [
       'scripts/dev/fleet-remote-bootstrap.sh',
-      'packages/workstation/ubuntu/authorize-sudo.sh',
+      'packages/fleet/ubuntu/authorize-sudo.sh',
     ]) {
       const { mkdir } = await import('node:fs/promises');
       await mkdir(join(source, path, '..'), { recursive: true });

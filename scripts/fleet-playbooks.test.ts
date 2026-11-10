@@ -24,11 +24,7 @@ function assertions(value: unknown): void {
 
 test('tracked fleet assertions remain strings after YAML parsing', async () => {
   for (const directory of ['ubuntu', 'macos', 'monitoring']) {
-    const root = resolve(
-      import.meta.dirname,
-      '../packages/workstation',
-      directory
-    );
+    const root = resolve(import.meta.dirname, '../packages/fleet', directory);
     for await (const path of new Bun.Glob('**/*.yml').scan(root))
       assertions(parse(readFileSync(resolve(root, path), 'utf8')));
   }

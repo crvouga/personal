@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import { doctorSummary, type DoctorCheck } from './doctor';
-import { kvPath, DEFAULT_VAULT } from './vault-config';
+import { kvPath, DEFAULT_VAULT } from '../../../fleet/src/vault-config';
 
 test('doctorSummary counts severities', () => {
   const checks: DoctorCheck[] = [

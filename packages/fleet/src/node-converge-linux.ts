@@ -1,25 +1,19 @@
 import { workerReadiness } from './worker-readiness';
-import { runAnsibleWithReceipt } from '../../workstation/cli/lib/platform/ansible-receipt';
-import {
-  healT3Policy,
-  stageT3Policy,
-} from '../../workstation/cli/lib/platform/t3-policy';
-import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
-import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
-import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
+import { runAnsibleWithReceipt } from './platform/ansible-receipt';
+import { healT3Policy, stageT3Policy } from './platform/t3-policy';
+import { verifyUbuntuBoot } from './platform/ubuntu-verify';
+import { verifyResourceSafety } from './platform/resource-verify';
+import { convergeT3Route } from './platform/t3-route';
 import { convergeProxy } from './proxy-converge';
-import { providerNames } from '../../personal-cli/src/t3/names-check';
-import { machineProviders } from '../../personal-cli/src/t3/providers';
-import {
-  quotaLimited,
-  verifyFleetProviders,
-} from '../../workstation/cli/lib/agents/fleet-verify';
-import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
+import { providerNames } from './t3/names-check';
+import { machineProviders } from './t3/providers';
+import { quotaLimited, verifyFleetProviders } from './agents/fleet-verify';
+import { verifyNativeAgents } from './agents/native-verify';
 import { managedT3, managedT3Desktop } from '../../../scripts/dev/native-t3';
-import { convergeT3Service } from '../../workstation/cli/lib/platform/t3-service';
+import { convergeT3Service } from './platform/t3-service';
 import { userInfo } from 'node:os';
 import { resolve } from 'node:path';
-import { auditUbuntu } from '../../workstation/cli/lib/platform/ubuntu-audit';
+import { auditUbuntu } from './platform/ubuntu-audit';
 import {
   applyAgentProfiles,
   attempt,
@@ -131,7 +125,7 @@ async function applyBaseline(
   force: boolean
 ): Promise<{ cached: boolean; checks: Check[] }> {
   const user = userInfo();
-  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const ubuntu = resolve(root, 'packages/fleet/ubuntu');
   const result = await runAnsibleWithReceipt(
     run,
     resolve(ubuntu, 'baseline.yml'),
@@ -160,8 +154,8 @@ async function applyBaseline(
         status: result.ok ? 'pass' : 'fail',
         summary: result.ok
           ? result.cached
-            ? 'Workstation Ubuntu baseline unchanged since its last successful apply and its services are active (re-applied in full at least daily).'
-            : 'Workstation Ubuntu tasks completed, including always-on service recovery; effective boot/session policies require separate verification.'
+            ? 'Ubuntu baseline unchanged since its last successful apply and its services are active (re-applied in full at least daily).'
+            : 'Ubuntu baseline tasks completed, including always-on service recovery; effective boot/session policies require separate verification.'
           : 'UBUNTU_BASELINE_INCOMPLETE',
       },
     ],
@@ -190,7 +184,7 @@ async function baselineServicesActive(run: Runner): Promise<boolean> {
 }
 
 async function applyTailscale(root: string, run: Runner): Promise<Check> {
-  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const ubuntu = resolve(root, 'packages/fleet/ubuntu');
   const tailscale = await runAnsibleWithReceipt(
     run,
     'tailscale.yml',
@@ -249,7 +243,7 @@ async function convergeT3(
 async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
   const user = userInfo();
   const desktop = managedT3Desktop();
-  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const ubuntu = resolve(root, 'packages/fleet/ubuntu');
   const result = await runAnsibleWithReceipt(
     run,
     resolve(ubuntu, 't3-desktop.yml'),
@@ -309,7 +303,7 @@ async function enableWorkerRecovery(
   run: Runner
 ): Promise<Check[]> {
   const user = userInfo();
-  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const ubuntu = resolve(root, 'packages/fleet/ubuntu');
   const result = await runAnsibleWithReceipt(
     run,
     resolve(ubuntu, 'recovery.yml'),

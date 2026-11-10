@@ -10,7 +10,7 @@ import {
   verifyBeszel,
   type BeszelRequest,
 } from '../../fleet/src/monitoring/beszel';
-import { hubAccess } from '../../workstation/cli/lib/monitoring/hub-access';
+import { hubAccess } from '../../fleet/src/monitoring/hub-access';
 import { hubUrl } from '../../fleet/src/topology';
 
 export interface DashboardAccess {
