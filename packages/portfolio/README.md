@@ -12,7 +12,32 @@ Machine-readable candidate data is generated from the same registry: `/resume.js
 
 Evidence figures — CI jobs per merge, pull requests CI stopped, tests, Mockingbird's published catalog — come from two committed snapshots: `src/data/platform-facts.json` (counted from this repository, drift-tested) and `src/data/verification.json` (GitHub API, refreshed daily by Maintenance). `src/lib/proof-view.ts` renders them; no prose types a number.
 
-`src/content/**` is a typed TypeScript registry (projects, work, school, topics, skills) shared by the site, the resume PDF, and the screenshot job list.
+`src/content/**` is the site's typed view of the knowledge base (projects, work, school, topics, skills): each fact joined with its media and rendered as HTML, shared by the site, the resume PDF, and the screenshot job list.
+
+### Market, knowledge, presentation
+
+The site is tailored to the kind of job a visitor is hiring for. Three layers, each ignorant of the next:
+
+| Layer        | Where                                                                           | What it holds                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Market       | `scripts/market/`, `src/data/market/landscape.json`                             | A sample of current job postings from public APIs (Hacker News "Who is hiring?", open remote boards, and ~110 company career sites on Greenhouse, Lever, Ashby and Workday), reduced to how often each skill and theme is requested per segment (context × level). |
+| Knowledge    | `src/knowledge/`                                                                | Every fact about Chris: identity, roles and achievements, projects, education, bio, method, and which market skills each can back. No HTML, no image paths, no page order. Each fact is tagged with the `themes` it is evidence of and the `topics` behind it.     |
+| Presentation | `src/archetypes/`, `src/pages/a/[archetype]/`, `src/components/`, `src/resume/` | One resolved `Presentation` per archetype: its voice (hero, summary, headings), its theme (palette, typography), its section order, and the facts ranked by that archetype's demand. Pages and résumé PDFs render it and decide nothing themselves.                |
+
+**Themes are the join.** `src/knowledge/themes.ts` is one vocabulary: `scripts/market/taxonomy.ts` measures how often postings ask for each theme, and every fact is tagged with the themes it proves. `src/archetypes/rank.ts` scores a fact as the demand for everything it is evidence of, so a market refresh or a new fact re-ranks every presentation on the next build with no model involved. Only an archetype's voice and theme are hand-written (`voice.ts`, `theme.ts`), and `archetypes.test.ts` holds them to the copy rules and to WCAG AA.
+
+**Archetypes** (`src/archetypes/definitions.ts`) are sets of landscape segments. `/?archetype=<id>` selects one; `/` and any missing or unknown value serve `DEFAULT_ARCHETYPE_ID`. The site is static, so each non-default presentation is prerendered under `dist/a/<id>/` and `nginx.conf` maps the query parameter onto it with `try_files` (a `map` admits only id-shaped values; `/a/…` itself is `internal`). `astro dev` does the same with a small middleware. A presentation keeps the homepage's canonical URL, so search engines see one page. Shared pages (`/projects/`, case studies) carry every theme and apply the one named in the URL; a script carries the parameter across same-site links.
+
+The default presentation is also the one story every machine-readable surface tells (`/resume.json`, `/llms.txt`, JSON-LD, the profile README, the LinkedIn checklist).
+
+```sh
+bun run market:refresh      # fetch postings (cached a day under node_modules/.cache/market), rewrite landscape.json
+bun run archetypes:status   # per-archetype demand, fit, gaps, and what needs attention
+```
+
+Maintenance re-runs `market:refresh` weekly and lands the landscape through the snapshot bot PR. The `/portfolio-refresh` agent command (`.agents/commands/portfolio-refresh.md`) covers the part a script cannot do: rewriting a voice whose market moved, adding an archetype, and turning gaps into questions.
+
+Limits worth knowing: segment _shares_ reflect which boards are sampled, not the whole market, so compare demand _within_ a segment rather than sizes across them; company bands are labelled per board for career sites and inferred from wording elsewhere; postings that require a security clearance or sit outside the US are counted but excluded.
 
 ### Resume PDF
 
@@ -81,44 +106,49 @@ Run `bun portfolio` for the portfolio alone, or `bun run dev` for the workspace'
 
 ## Layout
 
-| Path                                 | Purpose                                                                                                |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `astro.config.mjs`                   | Static Astro config and canonical site URL.                                                            |
-| `src/pages/index.astro`              | Homepage composition and recruiter-first section order.                                                |
-| `src/pages/projects.astro`           | Full project archive; the homepage shows only the leading flagship entries.                            |
-| `src/pages/404.astro`                | Emitted to `dist/404.html`; served by the nginx `error_page`.                                          |
-| `src/lib/seo.ts`, `seo-json-ld.ts`   | Per-page title/canonical/OG/JSON-LD.                                                                   |
-| `src/social/`, `src/pages/og.png.ts` | Share card and touch icon, rendered to PNG from content at build time.                                 |
-| `src/layouts/Page.astro`             | Sub-page chrome for `/projects/` and `/404`.                                                           |
-| `src/components/`                    | Nav, Hero, Work, Projects, Proof, About, Toolbox, Contact, sticky CTA, icons.                          |
-| `src/lib/github.ts`                  | Build-time GitHub GraphQL/REST fetch, validation, streaks, and errors.                                 |
-| `src/lib/github-insights.ts`         | Uptime policy: live data → committed snapshot → notice/failure.                                        |
-| `src/lib/github-cache.ts`            | Compact snapshot read/write and structural validation.                                                 |
-| `src/lib/github-ranges.ts`           | The selectable contribution periods and their GraphQL bounds.                                          |
-| `src/lib/github-levels.ts`           | Per-period quartile thresholds behind the heatmap shades.                                              |
-| `src/lib/heatmap-grid.ts`            | Weekday-accurate column/row geometry and month labels.                                                 |
-| `src/data/`                          | Committed GitHub snapshot (generated).                                                                 |
-| `src/lib/projects-view.ts`           | Shared visible-project ordering and typed gallery payload.                                             |
-| `src/layouts/Base.astro`             | Document head, OG/JSON-LD metadata, global copy feedback script.                                       |
-| `src/styles/global.css`              | Dark design tokens, typography, layout primitives, focus styles.                                       |
-| `src/content/`                       | Typed content registry, skills, work, education, and project data.                                     |
-| `assets/`                            | Source screenshots/photos. Not served and excluded from the Docker context.                            |
-| `public/`                            | Served derivatives, fonts, icons, robots/humans/security.txt, web manifest. No sitemap, no resume PDF. |
-| `scripts/optimize-images.ts`         | Converts raster sources in `assets/` to 1400px WebP derivatives.                                       |
-| `scripts/prune-unused-assets.ts`     | Dry-run/apply asset reference hygiene.                                                                 |
-| `scripts/health-check-urls.ts`       | Checks every public URL referenced by content.                                                         |
-| `scripts/refresh-github-insights.ts` | Strict live fetch that rewrites the committed snapshot; run daily by CI.                               |
-| `Dockerfile`, `nginx.conf`           | Container build and static server.                                                                     |
-| `nginx/security-headers.conf`        | Security headers, included by every nginx block that sets headers.                                     |
-| `scripts/csp.ts`                     | Build-time CSP: hashes inline scripts/styles into an nginx snippet.                                    |
-| `test/server.test.ts`                | Local Docker E2E smoke test.                                                                           |
-| `src/data/verification.json`         | Committed verification snapshot (generated by `refresh-verification`).                                 |
-| `src/data/platform-facts.json`       | Committed platform facts (generated by `facts`); drift-tested.                                         |
-| `src/lib/verification.ts`            | Typed, validated verification snapshot and its age.                                                    |
-| `src/lib/platform-facts.ts`          | Typed, validated platform facts.                                                                       |
-| `scripts/refresh-verification.ts`    | Strict GitHub API + shallow-clone refresh of the verification snapshot.                                |
-| `scripts/platform-facts.ts`          | Computes the platform facts from the monorepo; `--check` fails on drift.                               |
-| `scripts/verification/`              | Shared helpers: GitHub client, classifiers, CI join, fact readers.                                     |
+| Path                                           | Purpose                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `astro.config.mjs`                             | Static Astro config and canonical site URL.                                                            |
+| `src/pages/index.astro`                        | Homepage composition and recruiter-first section order.                                                |
+| `src/pages/projects.astro`                     | Full project archive; the homepage shows only the leading flagship entries.                            |
+| `src/pages/404.astro`                          | Emitted to `dist/404.html`; served by the nginx `error_page`.                                          |
+| `src/lib/seo.ts`, `seo-json-ld.ts`             | Per-page title/canonical/OG/JSON-LD.                                                                   |
+| `src/social/`, `src/pages/og.png.ts`           | Share card and touch icon, rendered to PNG from content at build time.                                 |
+| `src/layouts/Page.astro`                       | Sub-page chrome for `/projects/` and `/404`.                                                           |
+| `src/components/`                              | Nav, Hero, Work, Projects, Proof, About, Toolbox, Contact, sticky CTA, icons.                          |
+| `src/lib/github.ts`                            | Build-time GitHub GraphQL/REST fetch, validation, streaks, and errors.                                 |
+| `src/lib/github-insights.ts`                   | Uptime policy: live data → committed snapshot → notice/failure.                                        |
+| `src/lib/github-cache.ts`                      | Compact snapshot read/write and structural validation.                                                 |
+| `src/lib/github-ranges.ts`                     | The selectable contribution periods and their GraphQL bounds.                                          |
+| `src/lib/github-levels.ts`                     | Per-period quartile thresholds behind the heatmap shades.                                              |
+| `src/lib/heatmap-grid.ts`                      | Weekday-accurate column/row geometry and month labels.                                                 |
+| `src/data/`                                    | Committed GitHub snapshot (generated).                                                                 |
+| `src/lib/projects-view.ts`                     | Shared visible-project ordering and typed gallery payload.                                             |
+| `src/layouts/Base.astro`                       | Document head, OG/JSON-LD metadata, global copy feedback script.                                       |
+| `src/styles/global.css`                        | Dark design tokens, typography, layout primitives, focus styles.                                       |
+| `src/knowledge/`                               | The knowledge base: every fact, tagged with themes and topics; no presentation.                        |
+| `src/archetypes/`                              | Archetype definitions, voices, themes, ranking and the resolved `Presentation`.                        |
+| `src/pages/a/[archetype]/`                     | Per-archetype homepage and résumé PDF, served for `?archetype=<id>`.                                   |
+| `scripts/market/`, `scripts/market-refresh.ts` | Job-posting fetchers, feature extraction and the landscape aggregator.                                 |
+| `src/data/market/landscape.json`               | Committed market landscape (generated by `market:refresh`).                                            |
+| `src/content/`                                 | The site's view of the knowledge base: facts joined with media, topics, skills.                        |
+| `assets/`                                      | Source screenshots/photos. Not served and excluded from the Docker context.                            |
+| `public/`                                      | Served derivatives, fonts, icons, robots/humans/security.txt, web manifest. No sitemap, no resume PDF. |
+| `scripts/optimize-images.ts`                   | Converts raster sources in `assets/` to 1400px WebP derivatives.                                       |
+| `scripts/prune-unused-assets.ts`               | Dry-run/apply asset reference hygiene.                                                                 |
+| `scripts/health-check-urls.ts`                 | Checks every public URL referenced by content.                                                         |
+| `scripts/refresh-github-insights.ts`           | Strict live fetch that rewrites the committed snapshot; run daily by CI.                               |
+| `Dockerfile`, `nginx.conf`                     | Container build and static server.                                                                     |
+| `nginx/security-headers.conf`                  | Security headers, included by every nginx block that sets headers.                                     |
+| `scripts/csp.ts`                               | Build-time CSP: hashes inline scripts/styles into an nginx snippet.                                    |
+| `test/server.test.ts`                          | Local Docker E2E smoke test.                                                                           |
+| `src/data/verification.json`                   | Committed verification snapshot (generated by `refresh-verification`).                                 |
+| `src/data/platform-facts.json`                 | Committed platform facts (generated by `facts`); drift-tested.                                         |
+| `src/lib/verification.ts`                      | Typed, validated verification snapshot and its age.                                                    |
+| `src/lib/platform-facts.ts`                    | Typed, validated platform facts.                                                                       |
+| `scripts/refresh-verification.ts`              | Strict GitHub API + shallow-clone refresh of the verification snapshot.                                |
+| `scripts/platform-facts.ts`                    | Computes the platform facts from the monorepo; `--check` fails on drift.                               |
+| `scripts/verification/`                        | Shared helpers: GitHub client, classifiers, CI join, fact readers.                                     |
 
 ## Scripts
 
@@ -134,6 +164,8 @@ Run from the repository root with `bun run --filter @pkgs/portfolio <script>`, o
 | `screenshot-work` / `screenshot-projects` / `screenshot-main` | Capture one screenshot collection into `assets/`.                                                     |
 | `health-check-urls`                                           | GET every public URL in content; exits non-zero on failure.                                           |
 | `refresh-github`                                              | Refresh the committed GitHub snapshot; exits non-zero if the live fetch fails.                        |
+| `market:refresh`                                              | Sample job postings and rewrite the market landscape; `--offline`, `--force`, `--max-age-days=N`.     |
+| `archetypes:status`                                           | Report each archetype's demand, fit and gaps; `--json`, `--check`.                                    |
 | `check-github-freshness`                                      | Report the snapshot's age; exits non-zero once it is stale.                                           |
 | `preview`                                                     | Build the Docker image with `PORTFOLIO_GITHUB_TOKEN` as a BuildKit secret and serve on port 8080.     |
 | `tc`                                                          | `astro check` for TypeScript and Astro files.                                                         |
@@ -195,9 +227,9 @@ personal infra-vault run --config dev -- bun run --filter @pkgs/portfolio test:d
 
 ## Content
 
-`projects.ts` is the source of truth for project listings. Entries are split across `src/content/projects/entries-part-1.ts` and `entries-part-2.ts` to stay under the repository file-size limit; append new projects to `entries-part-2.ts`.
+`src/knowledge/` is the source of truth for every fact (see [Market, knowledge, presentation](#market-knowledge-presentation)). Append a new project to `src/knowledge/projects.ts` and its screenshots, under the same id, to `src/content/projects/media.ts`; the root `projects.ts` joins the two into `PROJECTS`.
 
-`entries-archive.ts` holds early and small work (games, toys, client sites) as `ARCHIVE_PROJECTS`. It is deliberately **not** part of `PROJECTS`, so it never reaches the homepage, the Toolbox stack, the screenshot jobs, the resume or the URL health check — `/projects/` renders it behind the "Everything else" fold so nothing built is lost.
+`src/knowledge/projects-archive.ts` holds early and small work (games, toys, client sites), joined into `ARCHIVE_PROJECTS`. It is deliberately **not** part of `PROJECTS`, so it never reaches the homepage, the Toolbox stack, the screenshot jobs, the resume or the URL health check — `/projects/` renders it behind the "Everything else" fold so nothing built is lost.
 
 ### Copy rules
 
@@ -208,11 +240,13 @@ Hand-written prose states what stays true; anything that moves is derived. `src/
 - **Spelling and terms are tested**: `src/content/spelling.test.ts` (cspell with an explicit allowlist), "résumé" and "AI coding agents" consistently (`copy.test.ts`), bullets at most 28 words.
 - **No technology names in prose.** The stack is an implementation detail; topic chips, the Toolbox and the resume's Skills derive it from each project's `topics`.
 - **Project descriptions are one brief, plain-text thought** — what the project is and, for client work, what I did on it. No markup and no links: cards render them as text, and `deployment`/`code` already carry the links.
-- **Identity is declared once.** `NAME`, `ROLE` and `LOCATION` in `src/content/hero.ts` feed the page title, eyebrow, footer, meta tags and JSON-LD.
+- **Identity is declared once.** `src/knowledge/identity.ts` (re-exported as `NAME`, `ROLE` and `LOCATION` by `src/content/hero.ts`) feeds the page title, eyebrow, footer, meta tags and JSON-LD.
 
-Work highlights are authored in `src/content/work.ts` and are rendered by both the site cards and the resume bullets. `src/content/skills.ts` is shared by the About Toolbox and the resume.
+Work highlights are authored as achievements in `src/knowledge/roles.ts` and are rendered by both the site cards and the resume bullets. `src/content/skills.ts` is shared by the About Toolbox and the resume.
 
 ### Résumé variants
+
+Every archetype has its own PDF at `/chris-vouga-resume.pdf?archetype=<id>`, built from the same presentation as its page and held to the same one-page checks.
 
 The public `/chris-vouga-resume.pdf` omits the phone number, because it sits on an indexable URL. For a direct application, build the full copy with `RESUME_INCLUDE_PHONE=1 bun run build` and send `dist/chris-vouga-resume.pdf`. The PDF carries `/Author`, `/Subject` and `/Keywords` (from the Skills rows), and `src/resume/ats.test.ts` reads its text layer with `pdftotext` the way an applicant tracking system does.
 

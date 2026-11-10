@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "archetypes:status": "bun run scripts/archetypes-status.ts",
     "assets:optimize": "bun run ./scripts/optimize-images.ts",
     "assets:prune": "bun run ./scripts/prune-unused-assets.ts",
     "build": "astro build",
@@ -13,6 +14,7 @@
     "gh": "open https://github.com/crvouga/workspace/actions",
     "health-check-urls": "bun run scripts/health-check-urls.ts",
     "lint": "astro sync && eslint . --max-warnings 0",
+    "market:refresh": "bun run scripts/market-refresh.ts",
     "preview": "docker build -f packages/portfolio/Dockerfile --secret id=github_token,env=PORTFOLIO_GITHUB_TOKEN -t portfolio-app .. && docker run --rm -p 8080:80 portfolio-app",
     "refresh-github": "bun run scripts/refresh-github-insights.ts",
     "check-github-freshness": "bun run scripts/refresh-github-insights.ts --check",

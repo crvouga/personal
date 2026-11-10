@@ -277,6 +277,7 @@ jobs:
       FACTS: packages/portfolio/src/data/platform-facts.json
       PROFILE_README: packages/portfolio/generated/github-profile-README.md
       CHECKLIST: packages/portfolio/CONSISTENCY_CHECKLIST.md
+      LANDSCAPE: packages/portfolio/src/data/market/landscape.json
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -328,6 +329,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bun run refresh-verification
+      - name: Refresh the job-market landscape once it is a week old
+        id: market
+        if: ${{ !cancelled() && steps.task.outputs.task == 'snapshot' }}
+        working-directory: packages/portfolio
+        run: bun run market:refresh --max-age-days=7
       - name: Regenerate the GitHub profile README and consistency checklist
         if: ${{ !cancelled() && steps.task.outputs.task == 'snapshot' }}
         working-directory: packages/portfolio
@@ -339,13 +345,13 @@ jobs:
           TITLE: "chore(portfolio): refresh GitHub insights snapshot"
           PR_BODY: Automated daily refresh of the committed GitHub proof snapshot (the
             offline fallback rendered when GitHub is unreachable at build time),
-            the verification snapshot and the platform facts. Opened by
-            Maintenance.
+            the verification snapshot, the platform facts and, weekly, the
+            job-market landscape. Opened by Maintenance.
         run: >
           set -euo pipefail
 
           if [ -z "$(git status --porcelain -- "${SNAPSHOT}" "${VERIFICATION}"
-          "${FACTS}" "${PROFILE_README}" "${CHECKLIST}")" ]; then
+          "${FACTS}" "${PROFILE_README}" "${CHECKLIST}" "${LANDSCAPE}")" ]; then
             echo 'No refreshed data to commit'
             exit 0
           fi
@@ -358,7 +364,7 @@ jobs:
           git checkout -b "${REFRESH_BRANCH}"
 
           git add -- "${SNAPSHOT}" "${VERIFICATION}" "${FACTS}"
-          "${PROFILE_README}" "${CHECKLIST}"
+          "${PROFILE_README}" "${CHECKLIST}" "${LANDSCAPE}"
 
           git commit -m "${TITLE}"
 

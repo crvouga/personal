@@ -1,14 +1,17 @@
+import { DEFAULT_DEMAND, type Demand } from '../archetypes/demand';
+import { rankBy } from '../archetypes/rank';
+import { ROLES, ROLE_GAP_NOTE } from '../knowledge/roles';
+import { toHtml } from '../knowledge/text';
+import type { YearMonth as KnowledgeYearMonth } from '../knowledge/types';
 import { a } from './a';
 import type { Topic } from './topic';
 
-/**
- * A role boundary. `month` (1–12) is optional because a guessed month is worse
- * than a visible year: an unanswered one renders as the year alone and is
- * tracked in CONTENT_QUESTIONS.md, never smoothed over.
- */
-export type YearMonth = { readonly year: number; readonly month?: number };
+/** A role boundary; see `knowledge/types.ts`. */
+export type YearMonth = KnowledgeYearMonth;
 
 export type Work = {
+  /** The knowledge-base role this card renders. */
+  id: string;
   name: string;
   infoUrl?: string;
   jobTitle: string;
@@ -37,44 +40,17 @@ export type Work = {
   galleryImageSrc: string[];
 };
 
-const GEVITI_APP_URL = 'https://app.gogeviti.com/';
-const GEVITI_SITE_URL = 'https://www.gogeviti.com/';
-const TRIANGULATOR_DEMO_URL = 'https://www.youtube.com/watch?v=yQCrMBHQrDM';
+type WorkMedia = Pick<Work, 'imageSrc' | 'imageAlt' | 'galleryImageSrc'>;
 
-export const WORK: Work[] = [
-  {
-    name: 'Geviti',
-    infoUrl: GEVITI_SITE_URL,
-    jobTitle: 'Senior Software Engineer',
-    highlights: [
-      `Shipped member-facing features on web and mobile for the ${a(GEVITI_APP_URL, 'Geviti member app')}: lab results, personalized protocols, prescriptions, and care-team coordination.`,
-      `Built the path from a member's lab results to their ${a(GEVITI_SITE_URL, 'personalized protocol')}: metrics they track over time, tied to the therapies their care team prescribes.`,
-    ],
-    start: { year: 2026, month: 1 },
-    end: 'Present',
-    topics: ['typescript', 'react', 'react-native', 'postgres', 'bun', 'aws'],
-    // The member app itself, not the marketing site: it is the product.
+/** The site's media for each role in the knowledge base, keyed by role id. */
+const WORK_MEDIA: Readonly<Record<string, WorkMedia>> = {
+  geviti: {
     imageSrc: ['/geviti-app-screenshot.optimized.webp'],
     imageAlt:
       'Geviti member app sign-in: the complete picture of your health, from bloodwork, genetics and gut health',
     galleryImageSrc: ['/geviti-app-screenshot.optimized.webp'],
   },
-  {
-    name: 'One Origin',
-    infoUrl: 'https://oneorigin.us/',
-    jobTitle: 'Senior Software Engineer',
-    highlights: [
-      `Technical lead on ${a(TRIANGULATOR_DEMO_URL, '<strong>Triangulator</strong>')}, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.`,
-      `Designed and built the learning-management-system integration for ${a('https://asuorchard.asu.edu/', '<strong>Orchard</strong>')}, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.`,
-      `Reworked the backend of ${a('https://ea.asu.edu/', '<strong>ASU Earned Admissions</strong>')}, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.`,
-      `Rebuilt payment processing for ${a('https://gostudyhall.com/', '<strong>Study Hall</strong>')}, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.`,
-      `Built the interactive schedule and news features of ${a('https://sundevils.com/', '<strong>Sun Devils</strong>')}, ASU's athletics site.`,
-    ],
-    start: { year: 2022 },
-    end: { year: 2025 },
-    awards: [
-      'Four quarterly recognition awards: 2024 Q1, 2024 Q2, 2024 Q3–Q4 (one award for both quarters), and 2025 Q1',
-    ],
+  'one-origin': {
     imageSrc: [
       '/one-origin-screenshot.optimized.webp',
       '/one-origin/2025-q1-award-1.optimized.webp',
@@ -89,27 +65,44 @@ export const WORK: Work[] = [
       '/one-origin/desk.optimized.webp',
     ],
   },
-  {
-    name: 'Freelancing',
-    jobTitle: 'Software Engineer',
-    highlights: [
-      'Delivered custom websites and web applications for small businesses, from scoping through launch and handoff.',
-      'Owned the client relationship alongside the code: requirements, timelines, and post-launch support.',
-    ],
-    start: { year: 2020 },
-    end: { year: 2022 },
+  freelancing: {
     imageSrc: [],
     imageAlt: '',
     galleryImageSrc: [],
   },
-];
+};
+
+const NO_MEDIA: WorkMedia = { imageSrc: [], imageAlt: '', galleryImageSrc: [] };
+
+/** A knowledge-base fact as the site's HTML: links become inline anchors. */
+export const factHtml = (text: string): string => toHtml(text, a);
 
 /**
- * One honest line about the time between the last two roles, rendered between
- * them. Unset until Chris supplies it (CONTENT_QUESTIONS.md): the dates stay
- * visible either way, and nothing is said that is not true.
+ * The roles in `src/knowledge/roles.ts`, as the site renders them for one
+ * audience: roles stay in date order, and inside each role the achievements
+ * that audience's postings ask for most come first. Nothing is dropped.
  */
-export const WORK_GAP_NOTE: string | undefined = undefined;
+export const buildWork = (demand: Demand): Work[] =>
+  ROLES.map((role) => ({
+    id: role.id,
+    name: role.employer,
+    ...(role.employerUrl === undefined ? {} : { infoUrl: role.employerUrl }),
+    jobTitle: role.title,
+    highlights: rankBy(role.achievements, demand, (fact) => fact).map(
+      (achievement) => factHtml(achievement.text)
+    ),
+    start: role.start,
+    end: role.end,
+    ...(role.awards === undefined ? {} : { awards: [...role.awards] }),
+    ...(role.topics === undefined ? {} : { topics: [...role.topics] }),
+    ...(WORK_MEDIA[role.id] ?? NO_MEDIA),
+  }));
+
+/** The default presentation's roles; every machine-readable surface uses it. */
+export const WORK: Work[] = buildWork(DEFAULT_DEMAND);
+
+/** One honest line about the time between the last two roles; see roles.ts. */
+export const WORK_GAP_NOTE: string | undefined = ROLE_GAP_NOTE;
 
 /** The role the hero and résumé headline describe. */
 export const CURRENT_WORK: Work | undefined = WORK.find(

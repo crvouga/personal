@@ -1,15 +1,26 @@
+import {
+  IDENTITY,
+  LOGISTICS as KNOWN_LOGISTICS,
+  WORK_PREFERENCE,
+  type Logistics as KnownLogistics,
+} from '../knowledge/identity';
+import { DEFAULT_ARCHETYPE_ID } from '../archetypes/definitions';
+import { VOICES } from '../archetypes/voice';
 import type { Topic } from './topic';
+
+/** `/` speaks in the default archetype's voice; so does every feed. */
+const VOICE = VOICES[DEFAULT_ARCHETYPE_ID];
 
 /**
  * Identity is declared once. The page title, the eyebrow, the footer, the
  * structured data and the monogram all derive from these three, so a change of
  * level or city is a one-line edit rather than a search.
  */
-export const NAME = 'Chris Vouga';
+export const NAME = IDENTITY.name;
 
-export const ROLE = 'Senior Software Engineer';
+export const ROLE = IDENTITY.title;
 
-export const LOCATION = 'Phoenix, AZ';
+export const LOCATION = `${IDENTITY.location.city}, ${IDENTITY.location.region}`;
 
 export const MONOGRAM_INITIALS = NAME.split(' ')
   .map((word) => word.charAt(0))
@@ -34,20 +45,18 @@ export const CORE_STACK: readonly Topic[] = [
  */
 export const HERO = {
   name: NAME,
-  eyebrow: `// ${ROLE.toLowerCase()}`,
+  eyebrow: VOICE.eyebrow,
   /** One plain sentence a non-engineer can repeat. No project names, no figures. */
-  statement:
-    'I build reliable software with AI coding agents, and the automated checks that keep it correct.',
+  statement: VOICE.statement,
   /** Scope and domains: the résumé summary and LinkedIn About; not in the hero. */
-  statementSecondary:
-    'Senior engineer in health and education software. Previously technical lead on a university transfer-credit platform.',
+  statementSecondary: VOICE.statementSecondary,
   /**
    * Worded for someone already in a senior role: selective interest, not a
    * job search. The pill wraps on narrow phones rather than overflowing.
    */
-  availability: 'Open to conversations about staff roles',
+  availability: VOICE.availability,
   /** Where I am, and the one preference a screener filters on. */
-  location: `${LOCATION} · open to remote`,
+  location: `${LOCATION} · ${WORK_PREFERENCE}`,
   ctaPrimary: {
     label: 'Email',
   },
@@ -55,22 +64,10 @@ export const HERO = {
   ctaCopyLabel: 'Copy',
 };
 
-/**
- * The first filters a recruiter applies. Only what is known is rendered; an
- * unset field is an open question in CONTENT_QUESTIONS.md, never a guess.
- */
-export type Logistics = {
-  readonly authorization?: string;
-  readonly timeZone?: string;
-  readonly start?: string;
-  readonly replyTime?: string;
-};
+/** The first filters a recruiter applies; see `knowledge/identity.ts`. */
+export type Logistics = KnownLogistics;
 
-export const LOGISTICS: Logistics = {
-  authorization: 'US citizen · no sponsorship needed',
-  // Arizona does not observe daylight saving time, so this is true all year.
-  timeZone: 'UTC−7 (Arizona, no daylight saving)',
-};
+export const LOGISTICS: Logistics = KNOWN_LOGISTICS;
 
 /** Logistics in display order, without the unset ones. */
 export const logisticsLines = (logistics: Logistics = LOGISTICS): string[] =>

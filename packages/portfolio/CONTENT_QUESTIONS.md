@@ -82,3 +82,15 @@ Status key: **open**, **derived** (answered from repository evidence; confirm), 
 40. **open** — The "Recognized by Cursor" badge was removed: its only public evidence is your own Short (tagged #vibecoding), which cannot be cited as Cursor's statement. If Cursor posted about it, send the link and it comes back with that receipt.
 41. **open** — Retitle the Triangulator YouTube video (currently "triangulator e2e tests complete low quality"); it is the link on the One Origin bullet.
 42. **open** — Retitle the open portfolio PR before merging (e.g. "feat(portfolio): case studies, verification metrics, résumé generator"); the current title stays in `main`'s history.
+
+## Raised by the market landscape — `src/knowledge/`, `src/archetypes/voice.ts`
+
+`bun run archetypes:status` lists what job postings ask for that the knowledge base cannot back. Each answer below becomes a fact (or a capability with its evidence) and is ranked into every presentation automatically.
+
+43. **open** — Availability lines were written per archetype and only the first is yours. Confirm or correct each in `src/archetypes/voice.ts`: default "Open to senior and staff roles" (was "Open to conversations about staff roles", which the staff presentation keeps); startup "Open to founding and early-stage engineering roles"; corporate "Open to senior software engineering roles"; contractor "Available for contract and consulting engagements". The contract line in particular states an availability you have not confirmed.
+44. **open** — Delivery process. Agile/Scrum is named by about half of corporate and contract postings and no fact mentions how your teams worked (sprints, ceremonies, ticketing, release cadence). One sentence per role. → an achievement tagged `process` in `src/knowledge/roles.ts`, and a `CAPABILITIES` entry for `agile`.
+45. **open** — Shipping speed. Startup postings over-index on it and nothing in the knowledge base is tagged `speed`. A measured example (idea to production in N days, release frequency) → an achievement or project fact tagged `speed`. The startup voice says "ship fast"; a number would make it evidence.
+46. **open** — Most-requested technologies with no evidence here: Kubernetes, Java, Azure, GCP, microservices, Kafka. For any you have used in production, say where → `topics` on that role or project (new keys go in `src/content/topic.ts`). Leave the rest unclaimed: they are honest gaps, and the corporate presentation's fit score reflects them.
+47. **open** — Level. Staff postings at software companies ask for a median of eight years; the roles here span about six. The default presentation targets senior roles for that reason. Say so if you would rather the default lead with staff.
+48. **open** — Security clearance or public-trust eligibility (see 30): government-contractor postings that require one are excluded from the landscape entirely.
+49. **open** — One Origin as client work: the contractor presentation describes "client platforms in higher education and health, from scoping through launch and handoff". Confirm that wording fits how One Origin engaged ASU.

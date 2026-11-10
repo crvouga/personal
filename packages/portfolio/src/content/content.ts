@@ -1,3 +1,4 @@
+import { IDENTITY } from '../knowledge/identity';
 import { ABOUT_ME_PARAGRAPHS } from './about';
 import { CONTACT_COPY } from './contact';
 import {
@@ -40,16 +41,15 @@ const TOPIC_USES = (() => {
 const SKILL_ROWS = buildSkillRows([...TOPIC_USES.keys()]);
 
 export const CONTENT = {
-  SITE_URL: 'https://www.chrisvouga.dev',
-  SITE_SOURCE_CODE_URL:
-    'https://github.com/crvouga/workspace/tree/main/packages/portfolio',
+  SITE_URL: IDENTITY.siteUrl,
+  SITE_SOURCE_CODE_URL: IDENTITY.siteSourceUrl,
   PAGE_TITLE: NAME,
   PAGE_SUBTITLE: ROLE,
-  EMAIL_ADDRESS: 'crvouga@gmail.com',
-  GITHUB_URL: 'https://github.com/crvouga',
-  LINKEDIN_URL: 'https://www.linkedin.com/in/chris-vouga',
-  X_URL: 'https://x.com/ChristopherVou7',
-  PHONE_NUMBER: '4802098698',
+  EMAIL_ADDRESS: IDENTITY.email,
+  GITHUB_URL: IDENTITY.profiles.github,
+  LINKEDIN_URL: IDENTITY.profiles.linkedin,
+  X_URL: IDENTITY.profiles.x,
+  PHONE_NUMBER: IDENTITY.phone,
   LOCATION,
   SECTIONS,
   GET_SECTION: getSection,

@@ -6,10 +6,12 @@ import { ARCHIVE_PROJECTS, PROJECTS } from '../content/project';
 import { VISIBLE_PROJECTS } from './projects-view';
 
 describe('project registry', () => {
-  test('homepage projects lead with the strongest hiring evidence', () => {
-    expect(VISIBLE_PROJECTS.map((project) => project.id)).toEqual([
-      'mockingbird',
+  test('homepage projects are the three flagships, ranked by market demand', () => {
+    // Which three is curated (reviewable, first in the registry); their order
+    // is whatever the default archetype's postings ask for most.
+    expect(VISIBLE_PROJECTS.map((project) => project.id).sort()).toEqual([
       'gamezilla',
+      'mockingbird',
       'workspace-platform',
     ]);
     expect(
