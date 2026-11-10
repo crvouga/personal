@@ -37,9 +37,9 @@ test('each workflow keeps its own section and the latest result replaces the old
   const guard = renderComment(
     first,
     run({
-      workflow: 'Guardrails',
+      workflow: 'Deploy',
       summaries: [],
-      failedJobs: ['protected-paths'],
+      failedJobs: ['Deploy'],
     })
   ).body;
   const fixed = renderComment(
@@ -53,7 +53,7 @@ test('each workflow keeps its own section and the latest result replaces the old
   ).body;
   expect(fixed.match(/<!-- section:CI -->/g)).toHaveLength(1);
   expect(fixed).toContain('✅ CI: success');
-  expect(fixed).toContain('❌ Guardrails: failure');
+  expect(fixed).toContain('❌ Deploy: failure');
   expect(fixed.match(/## CI report/g)).toHaveLength(1);
 });
 

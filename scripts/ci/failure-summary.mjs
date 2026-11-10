@@ -82,7 +82,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const directory = join(temp, 'ci-summary');
   const output = join(directory, 'summary.json');
   mkdirSync(directory, { recursive: true });
-  // A job that already wrote a precise summary (protected-paths) keeps it.
+  // A job that already wrote a more precise summary keeps it.
   if (!existsSync(output)) {
     const logPath = join(temp, 'ci-steps.log');
     const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';

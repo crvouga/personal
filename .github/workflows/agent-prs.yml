@@ -1,11 +1,12 @@
 name: Agent PRs
 # Hourly hygiene for agent PRs: label, update behind branches, flag conflicts,
 # auto-merge Dependabot, and mark/close idle PRs. See scripts/ci/agent-prs.ts.
+# Labeling a PR needs-human or do-not-merge turns off its auto-merge.
 on:
   schedule:
     - cron: '23 * * * *'
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, labeled]
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -15,8 +16,8 @@ concurrency:
 jobs:
   label:
     name: Label agent PR
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 't3/') ||
-      startsWith(github.head_ref, 'agent/'))
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled' &&
+      (startsWith(github.head_ref, 't3/') || startsWith(github.head_ref, 'agent/'))
     runs-on: ubuntu-slim
     timeout-minutes: 2
     permissions:
@@ -27,6 +28,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: gh pr edit "$PR" -R "$GITHUB_REPOSITORY" --add-label agent-generated
+  hold_auto_merge:
+    name: Hold auto-merge
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' &&
+      (github.event.label.name == 'needs-human' || github.event.label.name == 'do-not-merge')
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Turn off auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --disable-auto || echo "Auto-merge was not on"
   hygiene:
     name: Update, conflicts and Dependabot
     if: github.event_name != 'pull_request'
