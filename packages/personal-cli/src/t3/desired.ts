@@ -3,6 +3,7 @@ import { homedir, hostname } from 'node:os';
 import { FleetUsageError } from '../../../fleet/src/errors';
 import { object, read } from './files';
 import registry from '../../../workstation/agents/registry.json';
+import { proxyName } from './names';
 
 /** T3's marker for a credential kept in its per-host secret store. */
 export const T3_SAVED_SECRET = '••••••';
@@ -85,7 +86,8 @@ function expand(value: unknown, variables: Record<string, string>): unknown {
   return value;
 }
 
-/** Each managed driver accepts only the adapter fields fleet sets. Credentials
+/** Each managed driver accepts only the adapter fields fleet sets, under its
+ * conventional `<Provider> CLI Proxy` name. Credentials
  * never appear here (T3 refuses a managed policy that holds one): wrappers read
  * them from Vault at launch, and Antigravity's key is the saved-secret marker,
  * resolved from T3's per-host secret store that fleet fills from Vault.
@@ -116,7 +118,7 @@ function validateInstance(id: string, value: unknown): void {
   if (
     !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(id) ||
     !driver ||
-    typeof instance['displayName'] !== 'string' ||
+    instance['displayName'] !== proxyName(String(instance['driver'])) ||
     typeof instance['enabled'] !== 'boolean' ||
     Object.keys(instance).some(
       (key) =>

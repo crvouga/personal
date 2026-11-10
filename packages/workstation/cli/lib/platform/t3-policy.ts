@@ -142,18 +142,28 @@ export async function healT3Policy(
     : { ...after, summary: 'T3_POLICY_RESTART_FAILED' };
 }
 
-/** Fleet revisions live at .../fleet/revisions/<sha>. Point .../fleet/current at
- * the applied revision and reference it from the policy, so the policy (and the
- * T3 restart it needs) changes only when provider settings change, not on every
- * new commit. Other checkouts are used as-is.
+/** Fleet revisions live at .../fleet/revisions/<sha> (workers) or
+ * .../fleet/manager-runs/<sha> (the manager). Point .../fleet/current at the
+ * applied revision and reference it from T3, so provider settings (and the T3
+ * restart a policy needs) change only when they really change, not on every
+ * new commit, and never name a checkout that is later pruned. Other checkouts
+ * are used as-is.
  */
 export async function stableWorkspace(root: string): Promise<string> {
+  const current = stablePath(root);
+  if (current === root) return root;
   const revisions = dirname(resolve(root));
-  if (basename(revisions) !== 'revisions') return root;
-  const current = join(dirname(revisions), 'current');
   const staged = `${current}.${process.pid}`;
   await rm(staged, { force: true });
-  await symlink(join('revisions', basename(resolve(root))), staged);
+  await symlink(join(basename(revisions), basename(resolve(root))), staged);
   await rename(staged, current);
   return current;
+}
+
+/** Where `stableWorkspace` points for this checkout, without moving it. */
+export function stablePath(root: string): string {
+  const revisions = dirname(resolve(root));
+  return ['revisions', 'manager-runs'].includes(basename(revisions))
+    ? join(dirname(revisions), 'current')
+    : root;
 }

@@ -4,7 +4,7 @@ import { proxyKey } from './secrets';
 import type { Check } from '../../../../fleet/src/types';
 import { registry, type Selection } from './registry';
 import { verifyProvider } from './verify';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   cacheKey,
   cachedCheck,
@@ -12,9 +12,12 @@ import {
   type VerifyCache,
 } from './verify-cache';
 
-/** The verifier's own code: changing how providers are checked re-verifies. */
+/** The verifier's own code: changing how providers are checked re-verifies.
+ * Resolved from the module URL: the published CLI loads this on Node, which has
+ * no `import.meta.dir`.
+ */
 const VERIFIER_SOURCES = ['fleet-verify.ts', 'verify.ts', 'round-trip.ts'].map(
-  (name) => join(import.meta.dir, name)
+  (name) => fileURLToPath(new URL(name, import.meta.url))
 );
 
 /** Uses the selected gateway credential in this node's noninteractive environment.

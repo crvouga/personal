@@ -49,13 +49,31 @@ const run: Runner = (command) => {
   };
 };
 
+/** mise's `os` names for the platforms it installs a tool on. */
+const MISE_OS: Record<string, string> = {
+  darwin: 'macos',
+  linux: 'linux',
+  win32: 'windows',
+};
+/** Installed on Windows by a native installer (native-aws.ts), not by mise. */
+const NATIVE_WINDOWS = new Set(['aws']);
+
+function unavailable(id: string, tool: Tool, platform: string): boolean {
+  if (typeof tool === 'string' || !tool.os) return false;
+  if (platform === 'win32' && NATIVE_WINDOWS.has(id)) return false;
+  return !tool.os.includes(MISE_OS[platform] ?? platform);
+}
+
 export function toolChecks(
   tools: Record<string, Tool>,
-  execute: Runner = run
+  execute: Runner = run,
+  platform: string = process.platform
 ): Check[] {
   const checks: Check[] = [];
   for (const [id, tool] of Object.entries(tools)) {
     if (typeof tool !== 'string' && tool.lazy) continue;
+    // A tool pinned only for other platforms has no artifact to verify here.
+    if (unavailable(id, tool, platform)) continue;
     const version = typeof tool === 'string' ? tool : tool.version;
     const command = COMMANDS[id] ?? id;
     const result = execute([command, ...(VERSION_ARGS[id] ?? ['--version'])]);

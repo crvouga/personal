@@ -84,6 +84,20 @@ test('doctor fails a shadowed/wrong tool version and distinguishes optional Dock
   ).toBe(true);
 });
 
+test('doctor skips a tool with no artifact for this platform, but not native Windows AWS', () => {
+  const tools = {
+    'http:grok': { version: '1.0.77', os: ['linux', 'macos'] },
+    aws: { version: '2.39.2', os: ['linux', 'macos'] },
+  };
+  const ids = (platform: string) =>
+    toolChecks(tools, () => ({ ok: false, output: '' }), platform)
+      .map((check) => check.id)
+      .filter((id) => id in tools);
+  expect(ids('win32')).toEqual(['aws']);
+  expect(ids('linux')).toEqual(['http:grok', 'aws']);
+  expect(ids('darwin')).toEqual(['http:grok', 'aws']);
+});
+
 test('mise data location follows native Windows and XDG overrides', () => {
   expect(
     miseDataDir('win32', { LOCALAPPDATA: '/windows/local' }, '/user')

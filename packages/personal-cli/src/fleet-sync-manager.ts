@@ -15,6 +15,11 @@ import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager
 import { enrollManagerMonitoring } from './fleet-sync-monitoring';
 import { desired, nodeId, paths } from './t3/desired';
 import { reconcileT3 } from './t3/reconcile';
+import {
+  stablePath,
+  stableWorkspace,
+} from '../../workstation/cli/lib/platform/t3-policy';
+import { providerNames } from './t3/names-check';
 
 /** The manager converges itself locally (never over SSH) before any worker:
  * it must be the declared manager, stay awake on AC power, and host every
@@ -38,6 +43,7 @@ export async function convergeManager(
   if (identity.status === 'pass') {
     checks.push(await managerPower(run));
     checks.push(await managerProviders(id, input.workspace, input.apply));
+    checks.push(await providerNames(id, input.workspace, input.apply));
     if (input.apply) checks.push(await syncAntigravityKey(proxyKey));
     if (input.apply) {
       // Same provider profiles and the same Vault gateway credential as every
@@ -109,7 +115,12 @@ export async function managerProviders(
   };
   try {
     const target = paths(t3Home ? { t3Home } : {}, workspace);
-    const instances = await desired(target.definition, workspace, nodeId(id));
+    // Providers launch from the stable path of the applied run checkout, not
+    // from this revision's own directory, which a later sync prunes.
+    const home = apply
+      ? await stableWorkspace(workspace)
+      : stablePath(workspace);
+    const instances = await desired(target.definition, home, nodeId(id));
     const plan = await reconcileT3(target, instances, { apply: false });
     const result =
       apply && plan.ok && plan.changed

@@ -25,6 +25,7 @@ import { FleetLockError } from '../../fleet/src/machine/lock-error';
 import { selected } from './fleet-sync-remote';
 import { managerIdentity } from './fleet-sync-manager';
 import { trackedScript } from '../../fleet/src/remote-bootstrap';
+import { rehome } from './fleet-sync-checkout';
 import {
   forwardingDisabled,
   forwardToManager,
@@ -83,6 +84,12 @@ export async function fleetSync(
     );
   if (options.schedule)
     return scheduleRequest(options, revision, settings, run);
+  const rehomed = await rehome(
+    options,
+    { revision, workspace: settings.workspace },
+    run
+  );
+  if (rehomed) return rehomed;
   const request = { ...options, revision };
   if (request.dryRun) return selected(request, settings, run);
   // Applies without a confirmation prompt; --dry-run is the preview.
@@ -94,6 +101,18 @@ export async function fleetSync(
     await authorizeManager({ interactive: true }, run);
     request.interactiveAuthorization = true;
   }
+  return applyLocked(root, state, request, { settings, run });
+}
+
+/** Records the approved revision, converges, then records what was applied. */
+function applyLocked(
+  root: string,
+  state: Awaited<ReturnType<typeof readEnrollment>>,
+  request: FleetSyncOptions & { revision: string },
+  context: { settings: Settings; run: Runner }
+): Promise<CommandOutcome> {
+  const { revision } = request;
+  const { settings, run } = context;
   return withMachineLock(root, async () => {
     const approval = {
       ...state,
