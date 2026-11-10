@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import {
-  healT3Policy,
+  loadedT3Policy,
   T3_RESTARTED_SUMMARY,
   verifyT3Policy,
 } from './t3-policy';
@@ -73,47 +73,46 @@ test('native loaded-policy evidence is required', async () => {
   expect(check.status).toBe('pass');
 });
 
-test('a pending policy restarts T3 at once, even while it is working', async () => {
-  const calls: string[][] = [];
-  let restarted = false;
-  const check = await healT3Policy(
-    '/managed/t3',
-    async (args) => {
-      calls.push(args);
-      if (args[0] === 'systemctl') restarted = true;
-      return {
-        ok: true,
-        stdout: restarted
-          ? 'The running server loaded this policy.'
-          : 'Restart T3 Code to apply the installed policy.',
-        stderr: '',
-        reason: 'exit',
-      };
-    },
-    async () => {}
-  );
-  expect(calls.filter((args) => args[0] === 'systemctl')).toEqual([
-    ['systemctl', '--user', 'restart', 't3code-desktop.service'],
-  ]);
-  expect(check.status).toBe('pass');
-  expect(check.summary).toBe(T3_RESTARTED_SUMMARY);
+const shows = (stdout: string) => async () => ({
+  ok: true,
+  stdout,
+  stderr: '',
+  reason: 'exit' as const,
 });
 
-test('a loaded policy never restarts T3', async () => {
+test('the play restarts T3; this measures that the policy is loaded', async () => {
+  const loaded = shows('The running server loaded this policy.');
+  const restarted = await loadedT3Policy('/managed/t3', loaded, {
+    restarted: true,
+    pause: async () => {},
+  });
+  expect(restarted.status).toBe('pass');
+  // The summary tells the manager to wait for the link to reconnect.
+  expect(restarted.summary).toBe(T3_RESTARTED_SUMMARY);
+  const untouched = await loadedT3Policy('/managed/t3', loaded, {
+    restarted: false,
+    pause: async () => {},
+  });
+  expect(untouched.status).toBe('pass');
+  expect(untouched.summary).not.toBe(T3_RESTARTED_SUMMARY);
+});
+
+test('a policy still not loaded after the play is a failure, never a wait', async () => {
   const calls: string[][] = [];
-  const check = await healT3Policy(
+  const check = await loadedT3Policy(
     '/managed/t3',
     async (args) => {
       calls.push(args);
       return {
         ok: true,
-        stdout: 'The running server loaded this policy.',
+        stdout: 'Restart T3 Code to apply the installed policy.',
         stderr: '',
-        reason: 'exit',
+        reason: 'exit' as const,
       };
     },
-    async () => {}
+    { restarted: true, pause: async () => {} }
   );
-  expect(check.status).toBe('pass');
+  expect(check.status).toBe('fail');
+  expect(check.summary).toBe('T3_POLICY_RESTART_FAILED');
   expect(calls.every((args) => args[1] === 'policy')).toBe(true);
 });

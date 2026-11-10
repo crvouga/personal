@@ -76,33 +76,21 @@ test('a failed desktop installation is reported and nothing is started', async (
   expect(checks[0]?.summary).toBe('T3_DESKTOP_INSTALL_FAILED');
   expect(calls.some((args) => args.includes('start'))).toBe(false);
 });
-test('a running headless server is never stopped by routine sync', async () => {
+test('the play owns every change: this only measures, it never runs systemctl verbs', async () => {
   const { run, calls } = fake({
-    't3code.service': { active: true, enabled: true },
+    't3code.service': { active: false, enabled: true },
+    't3code-desktop.service': { active: false, enabled: true },
   });
   const checks = await convergeT3Service(artifact, run);
-  expect(checks[0]?.summary).toBe('T3_DESKTOP_MIGRATION_REQUIRED');
+  // Stopped after the play ran: reported, not started from here.
+  expect(checks[0]?.summary).toBe('T3_DESKTOP_STOPPED');
   expect(
     calls.some((args) =>
-      ['start', 'stop', 'disable', 'restart'].some((verb) =>
+      ['start', 'stop', 'disable', 'restart', 'reset-failed'].some((verb) =>
         args.includes(verb)
       )
     )
   ).toBe(false);
-});
-test('an inactive headless unit is disabled and the desktop app started once', async () => {
-  const units = {
-    't3code.service': { active: false, enabled: true },
-    't3code-desktop.service': { active: false, enabled: true },
-  };
-  const { run, calls } = fake(units);
-  const checks = await convergeT3Service(artifact, run);
-  expect(checks[0]?.status).toBe('pass');
-  expect(units['t3code.service'].enabled).toBe(false);
-  expect(calls.filter((args) => args.includes('start'))).toEqual([
-    ['systemctl', '--user', 'start', 't3code-desktop.service'],
-  ]);
-  expect(calls.some((args) => args.includes('reset-failed'))).toBe(false);
 });
 test('a desktop app that cannot start without a session is reported', async () => {
   const run: Runner = async (args) => {
