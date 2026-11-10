@@ -5,13 +5,23 @@
  * is each role's `highlights`, projects are the homepage's featured side
  * projects, and skills come from the projects the resume actually shows. Edit
  * the site content and the resume follows on the next build.
+ *
+ * Every builder takes a presentation, so each archetype's PDF is tailored the
+ * same way its page is: its voice is the summary, its ranking orders the
+ * bullets and picks the projects, and the skills its postings name most are
+ * listed first. The default presentation is the résumé at the canonical URL.
  */
+import {
+  DEFAULT_PRESENTATION,
+  type Presentation,
+} from '../archetypes/presentation';
+import { topicDemand } from '../archetypes/rank';
 import { CONTENT } from '../content/content';
 import type { Project as PortfolioProject } from '../content/project';
 import { buildSkillRows, type SkillRow } from '../content/skills';
 import { TOPIC_TO_NAME } from '../content/topic';
 import { formatPhoneNumber } from '../library/phone-number';
-import { VISIBLE_PROJECTS, projectHref } from '../lib/projects-view';
+import { projectHref } from '../lib/projects-view';
 import { AI_ASSISTED_ROW } from '../content/skills';
 import { resumeOutcomeFor } from './outcomes';
 import { workDateRange } from '../lib/work-view';
@@ -44,6 +54,9 @@ const LANGUAGE_TOPICS: ReadonlySet<string> = new Set([
   'rust',
   'php',
 ]);
+
+/** Large enough that any measured demand outranks any count of uses. */
+const DEMAND_OUTRANKS_USE = 1000;
 
 /** Roughly one printed line: the lead sentence, the part a screener reads. */
 const MAX_PROJECT_DESCRIPTION_CHARS = 160;
@@ -137,8 +150,8 @@ const buildIdentity = (): Identity => ({
   linkedinUrl: CONTENT.LINKEDIN_URL,
 });
 
-const buildExperience = (): Experience[] =>
-  CONTENT.WORK.map((work) => ({
+const buildExperience = (presentation: Presentation): Experience[] =>
+  presentation.work.map((work) => ({
     company: work.name,
     jobTitle: work.jobTitle,
     dateRange: workDateRange(work),
@@ -151,16 +164,18 @@ const buildExperience = (): Experience[] =>
  * The homepage's featured side projects, in homepage order. Work projects are
  * already told inside Experience, so listing them again only repeats a bullet.
  */
-export const resumeProjects = (): readonly PortfolioProject[] =>
-  VISIBLE_PROJECTS.filter(
+export const resumeProjects = (
+  presentation: Presentation = DEFAULT_PRESENTATION
+): readonly PortfolioProject[] =>
+  presentation.projects.filter(
     (project) =>
       project.setting === 'side' &&
       project.resume?.include !== false &&
       projectHref(project) !== null
   );
 
-const buildProjects = (): Project[] =>
-  resumeProjects().map((project) => {
+const buildProjects = (presentation: Presentation): Project[] =>
+  resumeProjects(presentation).map((project) => {
     const url = projectHref(project);
     return {
       title: project.title,
@@ -185,10 +200,12 @@ const buildProjects = (): Project[] =>
  * project plus the listed side projects. Ranked by use so the stack a screener
  * should see first is first, not alphabetised into the middle of a row.
  */
-export const buildSkills = (): SkillRow[] => {
+export const buildSkills = (
+  presentation: Presentation = DEFAULT_PRESENTATION
+): SkillRow[] => {
   const shown = [
     ...CONTENT.PROJECTS.filter((project) => project.setting === 'work'),
-    ...resumeProjects(),
+    ...resumeProjects(presentation),
   ];
   const uses = new Map<string, number>();
   // Languages come from every listed project: a language is a skill whether
@@ -204,10 +221,14 @@ export const buildSkills = (): SkillRow[] => {
   for (const topic of topics) {
     uses.set(topic, (uses.get(topic) ?? 0) + 1);
   }
+  // Demand weighted by evidence: what this audience's postings name most,
+  // scaled by how much of the listed work uses it, comes first. A keyword
+  // screen reads a row left to right, and the lead item must be the deepest.
+  const demand = topicDemand(presentation.demand);
   const rankByName = new Map<string, number>(
     [...uses].map(([topic, count]) => [
       TOPIC_TO_NAME[topic as keyof typeof TOPIC_TO_NAME] ?? topic,
-      count,
+      (demand.get(topic) ?? 0) * Math.sqrt(count) * DEMAND_OUTRANKS_USE + count,
     ])
   );
   const ranked = buildSkillRows([...uses.keys()]).map((row) => ({
@@ -226,13 +247,17 @@ const buildEducation = (): Education[] =>
     dateRange: `${school.yearStart} – ${school.yearEnd}`,
   }));
 
-export const buildResumeContent = (): ResumeContent => ({
+export const buildResumeContent = (
+  presentation: Presentation = DEFAULT_PRESENTATION
+): ResumeContent => ({
+  accent: presentation.theme.resumeAccent,
   identity: buildIdentity(),
-  summary: [CONTENT.HERO.statement, CONTENT.HERO.statementSecondary].map(
-    toPlainText
-  ),
-  experience: buildExperience(),
-  projects: buildProjects(),
-  skills: buildSkills(),
+  summary: [
+    presentation.voice.statement,
+    presentation.voice.statementSecondary,
+  ].map(toPlainText),
+  experience: buildExperience(presentation),
+  projects: buildProjects(presentation),
+  skills: buildSkills(presentation),
   education: buildEducation(),
 });

@@ -15,13 +15,13 @@ I build reliable software with AI coding agents, and the automated checks that k
 ## Experience (titles and dates exactly)
 
 - **Senior Software Engineer**, Geviti, Jan 2026 – Present
-  - Shipped member-facing features on web and mobile for the Geviti member app: lab results, personalized protocols, prescriptions, and care-team coordination.
   - Built the path from a member's lab results to their personalized protocol: metrics they track over time, tied to the therapies their care team prescribes.
+  - Shipped member-facing features on web and mobile for the Geviti member app: lab results, personalized protocols, prescriptions, and care-team coordination.
 - **Senior Software Engineer**, One Origin, 2022 – 2025
   - Technical lead on Triangulator, which automates university transfer-credit evaluation: staff approve, adjust, or reject ranked suggestions instead of reviewing each course by hand.
   - Designed and built the learning-management-system integration for Orchard, ASU's assignment platform: single sign-on and grade sync, including recovery when a grade fails to post.
-  - Reworked the backend of ASU Earned Admissions, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.
   - Rebuilt payment processing for Study Hall, the learning platform ASU runs with Crash Course, cutting failed payments and making the flow safe to change.
+  - Reworked the backend of ASU Earned Admissions, where learners earn credit toward admission, and built its enrollment data sync and program opt-in flow.
   - Built the interactive schedule and news features of Sun Devils, ASU's athletics site.
 - **Software Engineer**, Freelancing, 2020 – 2022
   - Delivered custom websites and web applications for small businesses, from scoping through launch and handoff.
@@ -29,20 +29,20 @@ I build reliable software with AI coding agents, and the automated checks that k
 
 ## Featured (in this order)
 
-- Mockingbird: https://www.chrisvouga.dev/projects/mockingbird/
 - gamezilla.app: https://www.chrisvouga.dev/projects/gamezilla/
 - Workspace platform: https://www.chrisvouga.dev/projects/workspace-platform/
+- Mockingbird: https://www.chrisvouga.dev/projects/mockingbird/
 
 ## Skills (pin the first row)
 
 - AI-assisted engineering: Claude Code, Cursor, spec-driven development, CI-gated agent workflows, property-based testing
-- Languages: TypeScript, JavaScript, PHP, Go, Python, Rust
+- Languages: TypeScript, Python, JavaScript, Go, PHP, Rust
 - Frontend: React, Nuxt, React Native, Tailwind, Vue, Astro
-- Backend: Bun, Node.js, Express, Flask, Graphene, GraphQL, WebSockets
-- Data: Postgres, DynamoDB, SQLite, MySQL, Neo4j
-- Infra & CI: AWS, Cloudflare, Docker, GitHub Actions, NixOS, OpenBao, OpenTofu, Playwright, Railway, S3
+- Backend: Express, Flask, Node.js, GraphQL, Bun, Graphene, WebSockets
+- Data: Postgres, SQLite, MySQL, DynamoDB, Neo4j
+- Infra & CI: AWS, OpenTofu, GitHub Actions, Docker, Cloudflare, NixOS, OpenBao, Playwright, Railway, S3
 
 ## Open to work
 
-- Open to conversations about staff roles; Phoenix, AZ · open to remote; US citizen · no sponsorship needed; UTC−7 (Arizona, no daylight saving)
+- Open to senior and staff roles; Phoenix, AZ · open to remote; US citizen · no sponsorship needed; UTC−7 (Arizona, no daylight saving)
 - Titles: Senior Software Engineer, Staff Software Engineer

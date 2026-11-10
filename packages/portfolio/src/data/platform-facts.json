@@ -26,8 +26,8 @@
   "healthChecks": 13,
   "inventoryServices": 22,
   "packages": 19,
-  "workspaceTestFiles": 224,
-  "workspaceTestCallSites": 1073,
+  "workspaceTestFiles": 241,
+  "workspaceTestCallSites": 1172,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",
@@ -37,11 +37,11 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "dbf236e4cb2ab96ed789649bca768c84593e1b65",
-    "asOfDate": "2026-11-07T16:08:49-07:00",
-    "commits": 1861,
+    "asOfCommit": "44426c9e72c32f63f79e85c664569f551e744f56",
+    "asOfDate": "2026-11-09T17:24:19-07:00",
+    "commits": 1923,
     "byTool": [
-      { "tool": "Claude Code", "trailers": 117 },
+      { "tool": "Claude Code", "trailers": 152 },
       { "tool": "Cursor", "trailers": 78 }
     ]
   }

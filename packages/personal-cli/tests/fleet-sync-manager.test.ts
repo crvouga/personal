@@ -9,7 +9,11 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { managerProviders } from '../src/fleet-sync-manager';
+import {
+  managerAgentProfiles,
+  managerProviders,
+} from '../src/fleet-sync-manager';
+import type { Runner } from '../../fleet/src/types';
 
 const repo = resolve(import.meta.dir, '../../..');
 const directories: string[] = [];
@@ -67,4 +71,32 @@ test('an unowned instance with a managed ID is reported, never overwritten', asy
   expect(await instances(dir)).toEqual({
     personal_codex_proxy: { driver: 'codex' },
   });
+});
+
+const ok = { ok: true, stdout: '', stderr: '', reason: 'ok' } as never;
+const failed = { ok: false, stdout: '', stderr: '', reason: 'exit' } as never;
+
+test('the manager applies every proxy agent profile the workers get', async () => {
+  const calls: string[][] = [];
+  const run: Runner = async (argv) => {
+    calls.push(argv);
+    return ok;
+  };
+  const [check] = await managerAgentProfiles('chriss-macbook-air', repo, run);
+  expect(check?.status).toBe('pass');
+  const tools = calls.map((argv) => argv[argv.indexOf('--tool') + 1]);
+  expect(tools).toEqual(['codex', 'claude', 'gemini', 'opencode']);
+  for (const argv of calls) {
+    expect(argv).toContain('--yes');
+    expect(argv[argv.indexOf('--profile') + 1]).toBe('proxy');
+    expect(argv[argv.indexOf('--node') + 1]).toBe('chriss-macbook-air');
+  }
+});
+
+test('a failed profile apply fails the manager and names the tool to fix', async () => {
+  const run: Runner = async (argv) => (argv.includes('claude') ? failed : ok);
+  const [check] = await managerAgentProfiles('chriss-macbook-air', repo, run);
+  expect(check?.status).toBe('fail');
+  expect(check?.summary).toBe('MANAGER_AGENT_PROFILES_FAILED');
+  expect(check?.remedy?.action).toContain('--tool claude');
 });

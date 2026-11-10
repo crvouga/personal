@@ -13,6 +13,10 @@ services:
       CHECK_UPDATES: 'false'
       # Single-operator private hub: fleet-registered systems are visible to every login.
       SHARE_ALL_SYSTEMS: 'true'
+      # Visitors are signed in automatically as this read-only viewer account
+      # (never the fleet admin), so the dashboard needs no login. Empty keeps
+      # the normal login page.
+      AUTO_LOGIN: '${BESZEL_AUTO_LOGIN:-}'
       # First start only (empty data directory): Beszel creates the fleet login
       # as a verified user and superuser. hub-darwin.yml sets these just once.
       USER_EMAIL: '${BESZEL_BOOTSTRAP_EMAIL:-}'

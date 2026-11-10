@@ -11,7 +11,14 @@ import { join, relative, resolve } from 'node:path';
 
 const MARKER = '{{NEEDS_INPUT';
 const PACKAGE_ROOT = resolve(import.meta.dir, '../..');
-const SCANNED = ['src/content', 'src/pages', 'src/components', 'src/resume'];
+const SCANNED = [
+  'src/knowledge',
+  'src/archetypes',
+  'src/content',
+  'src/pages',
+  'src/components',
+  'src/resume',
+];
 const TEXT_FILE = /\.(ts|astro|md|mdx|json|html|txt|xml)$/;
 
 const filesUnder = (dir: string): string[] =>

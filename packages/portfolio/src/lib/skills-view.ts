@@ -4,11 +4,17 @@
  * reviewer comparing the site with the PDF sees the same person. Everything
  * else any project used is listed once, folded, as "Also shipped with".
  */
+import type { Presentation } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
 import type { SkillRow } from '../content/skills';
 import { buildSkills } from '../resume/content';
 
 export const SKILL_PROFILE: readonly SkillRow[] = buildSkills();
+
+/** The same profile, in the order one presentation's audience asks for it. */
+export const skillProfileFor = (
+  presentation: Presentation
+): readonly SkillRow[] => buildSkills(presentation);
 
 const profiled = new Set(SKILL_PROFILE.flatMap((row) => row.items));
 

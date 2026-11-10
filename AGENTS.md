@@ -13,7 +13,7 @@ upstream CLIs. Keep command discovery and interactive routing in the shared regi
 
 Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pkgs/*` names. Install at the root with `bun install`.
 
-- `packages/portfolio`: Astro static portfolio, GitHub insights, generated resume PDF. Content lives in `src/content/projects/`; append projects to `entries-part-2.ts`. Build with Node >=22 and Playwright Chromium. Do not commit `dist/` or the generated PDF.
+- `packages/portfolio`: Astro static portfolio, GitHub insights, generated resume PDF. Facts live in `src/knowledge/` (append projects to `projects.ts` there, screenshots to `src/content/projects/media.ts`); `src/archetypes/` tailors a presentation per job archetype (`/?archetype=<id>`) from the committed market landscape. Use `/portfolio-refresh` after market or knowledge changes. Build with Node >=22 and Playwright Chromium. Do not commit `dist/` or the generated PDF.
 - `packages/turborepo-remote-cache`: Dormant Bun cache server; excluded from hosting and normal development. Runtime closure: `@pkgs/{assert,logger,object-store,secret-store,secret-string,vault}`.
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.

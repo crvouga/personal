@@ -1,12 +1,12 @@
 ---
+import { presentationOf, sectionOf } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
-import {
-  WORK_GALLERY_OFFSET,
-  workDateRange,
-  workGalleryFor,
-} from '../lib/work-view';
+import { workDateRange, workGalleryFor } from '../lib/work-view';
 
-const section = CONTENT.GET_SECTION('work');
+const presentation = presentationOf(Astro);
+const section = sectionOf(presentation, 'work');
+// The dialog indexes one flat array: project galleries, then these.
+const galleryOffset = presentation.projects.length;
 ---
 
 <section id="work" aria-labelledby="work-title">
@@ -17,7 +17,7 @@ const section = CONTENT.GET_SECTION('work');
     </div>
     <div class="jobs">
       {
-        CONTENT.WORK.map((job, index) => {
+        presentation.work.map((job, index) => {
           const gallery = workGalleryFor(job);
           return (
             <>
@@ -60,7 +60,7 @@ const section = CONTENT.GET_SECTION('work');
                     <button
                       type="button"
                       class="gallery-btn"
-                      data-gallery={WORK_GALLERY_OFFSET + index}
+                      data-gallery={galleryOffset + index}
                       aria-label={`Images from ${job.name}`}
                     >
                       Images

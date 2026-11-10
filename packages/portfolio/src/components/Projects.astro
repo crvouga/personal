@@ -1,9 +1,10 @@
 ---
-import { CONTENT } from '../content/content';
+import { presentationOf, sectionOf } from '../archetypes/presentation';
 import ProjectCard from './ProjectCard.astro';
-import { PROJECT_TOTALS, VISIBLE_PROJECTS } from '../lib/projects-view';
+import { PROJECT_TOTALS } from '../lib/projects-view';
 
-const section = CONTENT.GET_SECTION('projects');
+const presentation = presentationOf(Astro);
+const section = sectionOf(presentation, 'projects');
 ---
 
 <section id="projects" aria-labelledby="projects-title">
@@ -14,13 +15,13 @@ const section = CONTENT.GET_SECTION('projects');
     </div>
     <div class="grid">
       {
-        VISIBLE_PROJECTS.map((project, index) => (
+        presentation.projects.map((project, index) => (
           <ProjectCard project={project} galleryIndex={index} featured />
         ))
       }
     </div>
     <p class="archive">
-      <a href="/projects/" data-project-count={PROJECT_TOTALS.listed}>
+      <a href={`/projects/${presentation.query}`} data-project-count={PROJECT_TOTALS.listed}>
         Browse all {PROJECT_TOTALS.listed} projects &#8594;
       </a>
     </p>

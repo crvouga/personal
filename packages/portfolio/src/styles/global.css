@@ -524,3 +524,34 @@ section {
     animation: none;
   }
 }
+
+/* Archetype looks. A presentation's theme (src/archetypes/theme.ts) sets its
+   palette inline and switches these on with `data-look` on <html>. They
+   restyle; they never move or hide content a reader needs. */
+:root {
+  --font-serif:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    'Times New Roman', serif;
+}
+
+/* One typeface throughout: the monospace accents become the body sans. */
+:root[data-look~='sans'] {
+  --font-mono: var(--font-sans);
+}
+
+/* Document headings: serif, set a little larger to match the mono's weight. */
+:root[data-look~='serif-display'] :is(h1, h2, h3) {
+  font-family: var(--font-serif);
+  letter-spacing: 0;
+}
+
+/* Section numbers are a code-editor flourish; a document has none. */
+:root[data-look~='plain-headings'] .section-heading .number {
+  display: none;
+}
+
+:root[data-look~='square'] {
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+}

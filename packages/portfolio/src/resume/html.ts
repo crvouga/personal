@@ -57,6 +57,8 @@ export type Education = {
 };
 
 export type ResumeContent = {
+  /** Rule and link colour; a presentation's theme may set its own. */
+  readonly accent?: string;
   readonly identity: Identity;
   /** Complete sentences, joined with a space. */
   summary: string[];
@@ -474,7 +476,7 @@ function renderHtml(content: ResumeContent, fontFaceCss = ''): string {
   <meta charset="UTF-8">
   <title>${escapeHtml(identity.name)} — Résumé</title>
   <style>${fontFaceCss}</style>
-${RESUME_CSS}
+${RESUME_CSS.replace(ACCENT, content.accent ?? ACCENT)}
 </head>
 <body>
   <header class="identity">

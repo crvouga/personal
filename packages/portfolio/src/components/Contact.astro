@@ -1,13 +1,15 @@
 ---
+import { presentationOf, sectionOf } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
 import { logisticsLines } from '../content/hero';
 import IconGitHub from './icons/IconGitHub.astro';
 import IconLinkedIn from './icons/IconLinkedIn.astro';
 
-const section = CONTENT.GET_SECTION('contact');
+const presentation = presentationOf(Astro);
+const section = sectionOf(presentation, 'contact');
 const email = CONTENT.EMAIL_ADDRESS;
 const mailto = `mailto:${email}?subject=${encodeURIComponent(CONTENT.CONTACT_COPY.mailSubject)}`;
-const meta = [CONTENT.HERO.availability, CONTENT.HERO.location, ...logisticsLines()];
+const meta = [presentation.voice.availability, CONTENT.HERO.location, ...logisticsLines()];
 ---
 
 <section id="contact" aria-labelledby="contact-title">

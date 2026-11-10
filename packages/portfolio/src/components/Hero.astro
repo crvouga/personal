@@ -1,10 +1,12 @@
 ---
+import { presentationOf } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
 import { logisticsLines } from '../content/hero';
 import IconEmail from '../components/icons/IconEmail.astro';
 import IconGitHub from '../components/icons/IconGitHub.astro';
 import IconLinkedIn from '../components/icons/IconLinkedIn.astro';
 
+const { voice } = presentationOf(Astro);
 const email = CONTENT.EMAIL_ADDRESS;
 // X stays in the footer only: the hero's quiet icons are the two profiles a
 // reviewer actually opens.
@@ -16,14 +18,14 @@ const socials = [
 
 <section id="top" class="hero" aria-labelledby="hero-name">
   <div class="container">
-    <p class="eyebrow">{CONTENT.HERO.eyebrow}</p>
+    <p class="eyebrow">{voice.eyebrow}</p>
     <h1 id="hero-name">{CONTENT.HERO.name}</h1>
     {/* Deliberately short: who, what, and how to reach me. The evidence is
         further down the page, where it can be explained. */}
-    <p class="statement">{CONTENT.HERO.statement}</p>
+    <p class="statement">{voice.statement}</p>
     <div class="status">
       <p class="pill">
-        <span class="dot" aria-hidden="true"></span>{CONTENT.HERO.availability}
+        <span class="dot" aria-hidden="true"></span>{voice.availability}
       </p>
       {/* Location, work authorization, time zone: a recruiter's first filters. */}
       <p class="logistics">{[CONTENT.HERO.location, ...logisticsLines()].join(' · ')}</p>

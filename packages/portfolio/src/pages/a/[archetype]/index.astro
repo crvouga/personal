@@ -1,0 +1,25 @@
+---
+import {
+  VARIANT_PRESENTATIONS,
+  type Presentation,
+} from '../../../archetypes/presentation';
+import Home from '../../../components/Home.astro';
+
+/**
+ * One homepage per non-default archetype. These paths are not public URLs:
+ * nginx serves them for `/?archetype=<id>` and answers `/a/…` itself with a
+ * 404, so the query parameter is the only address a presentation has.
+ */
+export const getStaticPaths = () =>
+  VARIANT_PRESENTATIONS.map((presentation) => ({
+    params: { archetype: presentation.id },
+    props: { presentation },
+  }));
+
+interface Props {
+  presentation: Presentation;
+}
+Astro.locals.presentation = Astro.props.presentation;
+---
+
+<Home />

@@ -1,3 +1,5 @@
+import { DEFAULT_DEMAND, type Demand } from '../archetypes/demand';
+import { rankBy } from '../archetypes/rank';
 import { caseStudyFor } from '../content/case-studies';
 import { CONTENT } from '../content/content';
 import type { Project } from '../content/project';
@@ -32,10 +34,31 @@ export const LISTED_PROJECTS: readonly Project[] =
 export const isReviewable = (project: Project): boolean =>
   project.code.t === 'public' || caseStudyFor(project.id) !== undefined;
 
-/** The first reviewable projects, in registry order. */
-export const VISIBLE_PROJECTS: readonly Project[] = LISTED_PROJECTS.filter(
-  isReviewable
-).slice(0, VISIBLE_PROJECT_COUNT);
+/**
+ * A project with a case study is deeper evidence than a repository link: its
+ * design, its checks and its measured outcome are written down. It outranks
+ * an equally relevant project that has none.
+ */
+const CASE_STUDY_STRENGTH = 1.5;
+
+export const REVIEWABLE_PROJECTS: readonly Project[] =
+  LISTED_PROJECTS.filter(isReviewable);
+
+/**
+ * The homepage flagships for one audience: the reviewable projects that are
+ * the strongest evidence of what its postings ask for. Ties keep registry
+ * order, which is the curated priority.
+ */
+export const visibleProjectsFor = (demand: Demand): readonly Project[] =>
+  rankBy(REVIEWABLE_PROJECTS, demand, (project) => ({
+    themes: project.themes,
+    topics: project.topics,
+    strength: caseStudyFor(project.id) === undefined ? 1 : CASE_STUDY_STRENGTH,
+  })).slice(0, VISIBLE_PROJECT_COUNT);
+
+/** The default presentation's flagships; the feeds and the share card use it. */
+export const VISIBLE_PROJECTS: readonly Project[] =
+  visibleProjectsFor(DEFAULT_DEMAND);
 
 /** Live site if deployed, else the repository — never a dead link. */
 export const projectHref = (project: Project): string | null =>
