@@ -3,6 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** Must match the tasks the CI "Test and build packages" step runs. */
+export const PLANNED_TASKS = ['test', 'build', 'test:site'] as const;
+
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -47,7 +50,7 @@ export function needsBrowser(
 if (import.meta.main) {
   const result = spawnSync(
     'bunx',
-    ['turbo', 'run', 'test', 'build', '--dry=json'],
+    ['turbo', 'run', ...PLANNED_TASKS, '--dry=json'],
     {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],

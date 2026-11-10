@@ -25,7 +25,7 @@ test('cached browser tasks do not install Chromium, even when other tasks execut
 });
 
 test('an uncached browser build or test still installs Chromium', () => {
-  for (const name of ['test', 'build'])
+  for (const name of ['test', 'build', 'test:site'])
     for (const dependency of ['playwright', '@playwright/test'])
       expect(
         needsBrowser(
