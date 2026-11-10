@@ -56,7 +56,7 @@ describe('agent configuration ownership', () => {
       'opencode.json'
     ];
     expect(harness).toContain('grok-4.7');
-    expect(harness).toContain('muse-wonder-1.0');
+    expect(harness).toContain('devin/muse-wonder-1-0');
   });
 
   test('preview is read-only; apply is idempotent and detects modifications', async () => {
