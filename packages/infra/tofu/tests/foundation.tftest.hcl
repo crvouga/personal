@@ -118,8 +118,35 @@ run "personal_repository_merge_gate" {
     error_message = "GitHub rejects merge queues for personally owned repositories."
   }
   assert {
-    condition     = one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["merge"])
-    error_message = "The supported merge gate must still require up-to-date Check results and a merge-commit PR."
+    condition     = !one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check", "protected-paths"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["squash"])
+    error_message = "main requires the fast Check and protected-paths results (not up to date) and squash-only PRs."
+  }
+  assert {
+    condition     = one(github_repository_ruleset.main.rules).required_linear_history && one(github_repository_ruleset.main.rules).pull_request[0].required_approving_review_count == 0 && length(github_repository_ruleset.main.bypass_actors) == 0
+    error_message = "main keeps linear history, zero approvals and no bypass while agents share the human identity."
+  }
+  assert {
+    condition     = !github_repository.workspace.allow_merge_commit && github_repository.workspace.allow_squash_merge && !github_repository.workspace.allow_rebase_merge && github_repository.workspace.squash_merge_commit_title == "PR_TITLE" && github_repository.workspace.squash_merge_commit_message == "PR_BODY" && github_repository.workspace.allow_auto_merge && github_repository.workspace.delete_branch_on_merge && github_repository.workspace.allow_update_branch
+    error_message = "Squash merges use the PR title and body; auto-merge, branch updates and branch deletion stay on."
+  }
+  assert {
+    condition     = github_actions_repository_permissions.workspace.allowed_actions == "selected" && github_actions_repository_permissions.workspace.sha_pinning_required && github_workflow_repository_permissions.workspace.default_workflow_permissions == "read"
+    error_message = "Actions are allowlisted, SHA-pinned and get a read-only default token."
+  }
+  assert {
+    condition     = length(setsubtract(["agent-generated", "needs-human", "do-not-merge", "stale", "ready", "deps", "drift"], [for label in github_issue_labels.personal.label : label.name])) == 0
+    error_message = "The agent workflow labels must exist."
+  }
+}
+
+run "personal_repository_freeze" {
+  command = plan
+  variables {
+    freeze = true
+  }
+  assert {
+    condition     = contains([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context], "frozen")
+    error_message = "Freezing must require the unreported frozen check."
   }
 }
 

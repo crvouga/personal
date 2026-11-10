@@ -124,8 +124,8 @@ Run `bun run pr:ready checks`.
 
 ### 7. Land
 
-Run `bun run pr:ready merge --auto`. GitHub merges with a merge commit once
-the live required checks are green.
+Run `bun run pr:ready merge --auto`. GitHub squash-merges (PR title and body)
+once the required checks are green.
 
 ### 8. Report
 
