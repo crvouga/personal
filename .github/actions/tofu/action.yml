@@ -40,7 +40,7 @@ runs:
         if command -v tofu >/dev/null && [ "$(tofu version -json | jq -r .terraform_version)" = 1.13.0 ]; then
           echo 'tofu_ready=true' >> "$GITHUB_OUTPUT"
         fi
-    - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+    - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       if: steps.toolchain.outputs.tofu_ready != 'true'
       with:
         tofu_version: 1.13.0
