@@ -172,12 +172,6 @@ try:
                 "Store Restic password independently; then create state/secrets/recovery-confirmed."
             )
 
-        # Local copy while stopped; cloud latency must never extend the service pause.
-        def compose(*args, **kwargs):
-            if not kwargs.get("capture_output"):
-                kwargs.setdefault("stdout", subprocess.DEVNULL)
-            return run(["docker", "compose", *args], cwd=root, text=True, **kwargs)
-
         recovery = root / "recovery"
         recovery.mkdir(mode=0o700, exist_ok=True)
         if os.geteuid() == 0:
@@ -186,7 +180,8 @@ try:
             prefix="checkpoint-", dir=recovery
         ) as temporary:
             captured = pathlib.Path(temporary) / "payload"
-            checkpoint.capture(root, captured, compose)
+            # The stack keeps running: a live, verified-stable copy.
+            checkpoint.capture(root, captured)
             result = restic(
                 "backup",
                 "--json",

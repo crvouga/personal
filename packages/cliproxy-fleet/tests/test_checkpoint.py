@@ -56,22 +56,12 @@ class Checkpoint(unittest.TestCase):
         (self.state / "runtime/logs/request.log").write_text("MUST-NOT-BE-SAVED")
         (self.state / "runtime/config.yaml.previous").write_text("MUST-NOT-BE-SAVED")
         (self.root / "INSTALLATION.json").write_text('{"revision":"synthetic"}')
-        self.calls = []
-        self.running = "proxy\ntailnet\ncloudflared\n"
-
-    def compose(self, *args, **kwargs):
-        self.calls.append(args)
-        return types.SimpleNamespace(stdout=self.running if args[0] == "ps" else "")
 
     def capture(self):
-        checkpoint.capture(self.root, self.target, self.compose)
+        checkpoint.capture(self.root, self.target, sleep=lambda seconds: None)
 
-    def test_capture_excludes_secrets_logs_code_and_resumes_exact_services(self):
+    def test_capture_excludes_secrets_logs_and_code(self):
         self.capture()
-        self.assertEqual(self.calls[1], ("stop", "proxy", "tailnet", "cloudflared"))
-        self.assertEqual(
-            self.calls[-1][-4:], ("start", "proxy", "tailnet", "cloudflared")
-        )
         checkpoint.validate(self.target)
         self.assertEqual(
             (self.target / "state/runtime/auths/kv.db").read_bytes(),
@@ -96,24 +86,65 @@ class Checkpoint(unittest.TestCase):
             "synthetic-refresh",
         )
 
-    def test_stopped_stack_stays_stopped(self):
-        self.running = ""
-        self.capture()
-        self.assertEqual(len(self.calls), 1)
+    def test_capture_never_stops_the_running_stack(self):
+        # Agents use the proxy around the clock; the capture takes no compose
+        # handle at all, so it cannot stop, pause or restart a container.
+        import inspect
 
-    def test_partial_stop_failure_still_attempts_resume(self):
-        def fail(*args, **kwargs):
-            result = self.compose(*args, **kwargs)
-            if args[0] == "stop":
-                raise RuntimeError("injected partial stop")
-            return result
+        self.assertNotIn("compose", inspect.signature(checkpoint.capture).parameters)
+        self.assertNotIn("compose", inspect.getsource(checkpoint.capture))
+        self.assertNotIn("compose", inspect.getsource(checkpoint.copy_state))
 
-        with self.assertRaises(RuntimeError):
-            checkpoint.capture(self.root, self.target, fail)
-        self.assertIn("start", self.calls[-1])
+    def test_a_file_written_during_the_copy_is_captured_again(self):
+        provider = self.state / "runtime/auths/provider.json"
+        original = checkpoint.copy_state
+        copies = []
+
+        def racing(root, target):
+            original(root, target)
+            copies.append(1)
+            if len(copies) == 1:
+                # The proxy refreshes a token while the copy is being taken.
+                provider.write_text(json.dumps({"refresh_token": "refreshed-and-longer"}))
+
+        with mock.patch.object(checkpoint, "copy_state", racing):
+            self.capture()
+        self.assertEqual(len(copies), 2)
+        self.assertEqual(
+            json.loads((self.target / "state/runtime/auths/provider.json").read_text())["refresh_token"],
+            "refreshed-and-longer",
+        )
+
+    def test_state_that_never_holds_still_fails_the_backup(self):
+        store = self.state / "runtime/auths/kv.db"
+        original = checkpoint.copy_state
+        writes = []
+
+        def racing(root, target):
+            original(root, target)
+            writes.append(1)
+            store.write_bytes(b"synthetic-bbolt" + bytes(len(writes)))
+
+        with mock.patch.object(checkpoint, "copy_state", racing):
+            with self.assertRaises(ValueError):
+                self.capture()
         self.assertFalse(self.target.exists())
 
-    def test_copy_or_validation_failure_resumes_and_never_returns_success(self):
+    def test_changing_logs_do_not_block_the_capture(self):
+        log = self.state / "tailscale/tailscaled.log1.txt"
+        original = checkpoint.copy_state
+        copies = []
+
+        def racing(root, target):
+            original(root, target)
+            copies.append(1)
+            log.write_text("line " * len(copies))
+
+        with mock.patch.object(checkpoint, "copy_state", racing):
+            self.capture()
+        self.assertEqual(len(copies), 1)
+
+    def test_copy_or_validation_failure_never_returns_success(self):
         for operation in ("copyfile", "validate"):
             with self.subTest(operation=operation):
                 shutil.rmtree(self.target, ignore_errors=True)
@@ -123,17 +154,6 @@ class Checkpoint(unittest.TestCase):
                 ):
                     with self.assertRaises(OSError):
                         self.capture()
-                self.assertIn("start", self.calls[-1])
-
-    def test_resume_failure_propagates(self):
-        def fail(*args, **kwargs):
-            result = self.compose(*args, **kwargs)
-            if "start" in args:
-                raise RuntimeError("injected restart failure")
-            return result
-
-        with self.assertRaises(RuntimeError):
-            checkpoint.capture(self.root, self.target, fail)
 
     def test_links_and_devices_cannot_enter_checkpoint(self):
         provider = self.state / "runtime/auths/provider.json"
@@ -147,7 +167,6 @@ class Checkpoint(unittest.TestCase):
                 shutil.rmtree(self.target, ignore_errors=True)
                 with self.assertRaises(ValueError):
                     self.capture()
-                self.assertIn("start", self.calls[-1])
                 provider.unlink()
 
     def test_corruption_missing_extra_files_and_bad_json_rejected(self):
