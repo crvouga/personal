@@ -1,9 +1,11 @@
 import {
   mkdir,
   readFile,
+  readdir,
   rename,
   rm,
   lstat,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -57,23 +59,85 @@ export async function saveEnrollment(
   }
 }
 
-/** Fail closed on interrupted locks: never steal a lock from a still-running installer. */
+/** A lock directory with no readable owner is only abandoned after this long,
+ * so a run that has just created it but not yet written `owner.json` is safe. */
+const OWNERLESS_LOCK_GRACE_MS = 60_000;
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to someone else.
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
+
+/** True only when the lock is provably abandoned: its recorded owner process
+ * no longer exists (killed, crashed, closed terminal, reboot), or it never
+ * recorded one and is older than the grace period. Anything uncertain is held. */
+async function lockAbandoned(lock: string): Promise<boolean> {
+  try {
+    const owner: unknown = JSON.parse(
+      await readFile(join(lock, 'owner.json'), 'utf8')
+    );
+    if (record(owner) && Number.isInteger(owner['pid']))
+      return !processAlive(owner['pid'] as number);
+  } catch {
+    // Missing or unreadable owner: fall through to the age check.
+  }
+  try {
+    return Date.now() - (await stat(lock)).mtimeMs > OWNERLESS_LOCK_GRACE_MS;
+  } catch {
+    return false;
+  }
+}
+
+/** Removes an abandoned lock. The rename is atomic, so when several managers
+ * race to recover it exactly one wins; the others simply retry the lock. */
+async function reclaimAbandonedLock(lock: string): Promise<boolean> {
+  if (!(await lockAbandoned(lock))) return false;
+  const aside = `${lock}.abandoned-${randomUUID()}`;
+  try {
+    await rename(lock, aside);
+  } catch {
+    return true; // Someone else already recovered it; retry.
+  }
+  await rm(aside, { recursive: true, force: true });
+  return true;
+}
+
+/** Bundles are written next to the lock and removed in a `finally`, which a
+ * killed run never reaches. Holding the lock means none is in use. */
+async function sweepTransferBundles(root: string): Promise<void> {
+  for (const name of await readdir(root).catch(() => [] as string[]))
+    if (/^transfer-[0-9a-f-]+\.bundle$/.test(name))
+      await rm(join(root, name), { force: true });
+}
+
+/** Fail closed while a sync is genuinely running; recover automatically from
+ * a lock whose owner process is gone so an interrupted run never needs manual
+ * cleanup. Never steals a lock from a still-running installer. */
 export async function withMachineLock<T>(
   root: string,
   operation: () => Promise<T>
 ): Promise<T> {
   await mkdir(root, { recursive: true, mode: 0o700 });
   const lock = join(root, 'sync.lock');
-  try {
-    await mkdir(lock, { mode: 0o700 });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
-      throw new FleetUsageError(
-        'Cannot create manager lock; inspect private state-directory permissions and free disk space.'
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await mkdir(lock, { mode: 0o700 });
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
+        throw new FleetUsageError(
+          'Cannot create manager lock; inspect private state-directory permissions and free disk space.'
+        );
+      if (attempt < 3 && (await reclaimAbandonedLock(lock))) continue;
+      throw new FleetLockError(
+        'Fleet sync is locked. Inspect running installers before removing an abandoned sync.lock directory, then rerun.'
       );
-    throw new FleetLockError(
-      'Fleet sync is locked. Inspect running installers before removing an abandoned sync.lock directory, then rerun.'
-    );
+    }
   }
   try {
     await writeFile(
@@ -85,6 +149,7 @@ export async function withMachineLock<T>(
       }) + '\n',
       { flag: 'wx', mode: 0o600 }
     );
+    await sweepTransferBundles(root);
     return await operation();
   } finally {
     await rm(lock, { recursive: true });
