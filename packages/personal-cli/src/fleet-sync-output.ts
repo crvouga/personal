@@ -20,6 +20,7 @@ const COLUMNS: { title: string; matches: (id: string) => boolean }[] = [
       [
         't3:service',
         't3:policy',
+        't3:providers',
         't3:private-route',
         'worker:t3-recovery',
         'worker:t3-health',

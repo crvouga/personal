@@ -3,6 +3,8 @@ import type { FleetDefinition } from '../../fleet/src/definition';
 import type { ManagerNode } from '../../fleet/src/manager-sync';
 import { hostId } from '../../fleet/src/topology';
 import { convergeProxy } from '../../fleet/src/proxy-converge';
+import { attempt } from '../../fleet/src/node-converge-shared';
+import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
 import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
 import { desired, nodeId, paths } from './t3/desired';
 import { reconcileT3 } from './t3/reconcile';
@@ -23,6 +25,21 @@ export async function convergeManager(
   if (identity.status === 'pass') {
     checks.push(await managerPower(run));
     checks.push(await managerProviders(id, input.workspace, input.apply));
+    if (input.apply) {
+      // Same provider profiles and the same Vault gateway credential as every
+      // worker: the instances above launch from these profiles, and the check
+      // proves the credential works end to end through the shared proxy.
+      checks.push(
+        ...(await attempt('configuration:apply', () =>
+          managerAgentProfiles(id, input.workspace, run)
+        ))
+      );
+      checks.push(
+        ...(await attempt('provider:verification', () =>
+          verifyFleetProviders(id)
+        ))
+      );
+    }
     checks.push(
       ...(await convergeProxy(id, input.revision, run, {
         apply: input.apply,
@@ -102,6 +119,65 @@ export async function managerProviders(
       remedy,
     };
   }
+}
+
+const PROFILE_TOOLS = ['codex', 'claude', 'gemini', 'opencode'] as const;
+
+/** Applies the proxy agent profiles the managed T3 instances launch from
+ * (codex-proxy.ts refuses to start with a missing or stale profile). Workers
+ * apply the same profiles from a pinned deployment; the manager's checkout is
+ * the human's working tree, so only the workstation sources must be clean
+ * (the `agents apply` owner enforces that) and nothing else is touched.
+ */
+export async function managerAgentProfiles(
+  id: string,
+  workspace: string,
+  run: Runner
+): Promise<Check[]> {
+  for (const tool of PROFILE_TOOLS) {
+    const result = await run(
+      [
+        'mise',
+        'exec',
+        '--locked',
+        'bun',
+        '--',
+        'bun',
+        'packages/workstation/cli/internal.ts',
+        '--json',
+        '--yes',
+        '--non-interactive',
+        'agents',
+        'apply',
+        '--node',
+        id,
+        '--tool',
+        tool,
+        '--profile',
+        'proxy',
+      ],
+      { cwd: workspace, timeoutMs: 120_000 }
+    );
+    if (!result.ok)
+      return [
+        {
+          id: 'configuration:apply',
+          status: 'fail',
+          summary: 'MANAGER_AGENT_PROFILES_FAILED',
+          remedy: {
+            action: `Run bun run personal workstation agents apply --yes --node ${id} --tool ${tool} --profile proxy on the manager and review the result; commit or stash edits under packages/workstation first.`,
+          },
+        },
+      ];
+  }
+  return [
+    {
+      id: 'configuration:apply',
+      status: 'pass',
+      summary:
+        'The manager has the same proxy agent profiles as every worker (codex, claude, gemini, opencode).',
+    },
+  ];
 }
 
 /** fleet-sync runs only on the declared manager. */
