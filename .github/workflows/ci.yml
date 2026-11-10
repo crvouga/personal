@@ -240,6 +240,8 @@ jobs:
           - tests
     env:
       TURBO_CACHE: local:rw
+      # --affected compares against the PR base commit (the checkout has no local main).
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
     defaults:
       run:
         shell: bash scripts/ci/logged-shell.sh {0}
