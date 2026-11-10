@@ -51,7 +51,7 @@
         "harness": "opencode"
       },
       "muse": {
-        "model": "muse-wonder-1.0",
+        "model": "devin/muse-wonder-1-0",
         "native": null,
         "harness": "opencode"
       }
