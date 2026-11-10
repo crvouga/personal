@@ -1,0 +1,441 @@
+---
+/**
+ * `/index/`: a grid of every host the platform serves. Working hosts first,
+ * filterable by category and searchable; offline and parked hosts sit in
+ * their own section and are never presented as working links.
+ */
+import type { ServiceCard, ServiceIndexView } from '../lib/service-index-view';
+
+interface Props {
+  view: ServiceIndexView;
+}
+const { view } = Astro.props;
+
+const total = view.open.length + view.closed.length;
+const intro = `${String(total)} services, apps and domains, read from the infrastructure inventory.`;
+// Storybook revives ISO strings in args as Dates, so read it either way.
+const checkedIso =
+  view.checkedAt === null ? null : new Date(view.checkedAt).toISOString();
+const checkedOn = checkedIso?.slice(0, 10) ?? null;
+const sections: readonly {
+  readonly id: string;
+  readonly cards: readonly ServiceCard[];
+}[] = [
+  { id: 'open', cards: view.open },
+  { id: 'closed', cards: view.closed },
+];
+const isLink = (card: ServiceCard): boolean =>
+  card.status !== 'down' && card.status !== 'parked';
+---
+
+<section class="container index" aria-labelledby="index-title" data-service-index>
+  <header class="head">
+    <p class="eyebrow">index</p>
+    <h1 id="index-title">Everything I host</h1>
+    <p class="lede">
+      {intro}{' '}
+      {
+        checkedOn === null ? (
+          <>Status was not checked in this build.</>
+        ) : (
+          <>
+            Each one was checked when this page was built,{' '}
+            <time datetime={checkedIso ?? ''} data-relative>{checkedOn}</time>.
+          </>
+        )
+      }
+    </p>
+    <ul class="stats" aria-label="Status">
+      <li class="stat live"><span class="dot"></span>{view.counts.live} live</li>
+      <li class="stat gated"><span class="dot"></span>{view.counts.gated} sign-in</li>
+      <li class="stat closed">
+        <span class="dot"></span>{view.counts.down + view.counts.parked} offline or parked
+      </li>
+    </ul>
+  </header>
+
+  <div class="controls">
+    <label class="search">
+      <span class="visually-hidden">Search</span>
+      <input type="search" placeholder="Search by name, host or purpose" autocomplete="off" data-search />
+    </label>
+    <div class="chips" role="group" aria-label="Category">
+      <button type="button" class="chip" aria-pressed="true" data-category="all">
+        All <span class="count">{view.open.length}</span>
+      </button>
+      {
+        view.categories.map((entry) => (
+          <button type="button" class="chip" aria-pressed="false" data-category={entry.category}>
+            {entry.label} <span class="count">{entry.count}</span>
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  {
+    sections.map((section) => {
+      const grid = (
+        <ul class="grid">
+          {section.cards.map((card) => (
+            <li
+              class={`card cat-${card.category} status-${card.status}`}
+              data-card
+              data-category={card.category}
+              data-search={card.search}
+            >
+              <div class="cover">
+                <span class="art" aria-hidden="true">
+                  <img src={card.artHref} alt="" width="640" height="400" loading="lazy" decoding="async" />
+                </span>
+                <span class="status" title={card.detail}>
+                  <span class="dot"></span>
+                  {card.statusLabel}
+                </span>
+              </div>
+              <div class="body">
+                <h3 class="title">
+                  {isLink(card) ? (
+                    <a class="open" href={card.url} rel="noopener" target="_blank">
+                      {card.title}
+                    </a>
+                  ) : (
+                    card.title
+                  )}
+                </h3>
+                <p class="host">{card.hostname}</p>
+                <p class="desc">{card.description}</p>
+                <div class="meta">
+                  <span class="tag">{card.categoryLabel}</span>
+                  <span class="tag">{card.hostingLabel}</span>
+                  {card.sourceUrl !== null && (
+                    <a class="source" href={card.sourceUrl} rel="noopener" target="_blank" aria-label={`Source code for ${card.title}`}>
+                      Source
+                    </a>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      );
+      return section.id === 'open' ? (
+        <>
+          <h2 class="visually-hidden">Working</h2>
+          {grid}
+          <p class="empty" hidden data-empty>Nothing matches. Try another word or category.</p>
+        </>
+      ) : (
+        section.cards.length > 0 && (
+          <details class="closed-section">
+            <summary>
+              <h2>Offline and parked</h2>
+              <span class="count">{section.cards.length}</span>
+            </summary>
+            <p class="note">
+              Declared in the inventory, but not answering or showing a placeholder when this
+              page was built. They come back to the grid on their own once they answer.
+            </p>
+            {grid}
+          </details>
+        )
+      );
+    })
+  }
+</section>
+
+<script>
+  import { initServiceIndex } from '../lib/service-index-client';
+  initServiceIndex();
+</script>
+
+<style>
+  .index {
+    padding-block: var(--space-8);
+  }
+  .eyebrow {
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    color: var(--accent);
+  }
+  h1 {
+    margin-top: var(--space-2);
+    font-family: var(--font-display);
+    font-size: clamp(32px, 6vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  .lede {
+    max-width: 68ch;
+    margin-top: var(--space-4);
+    color: var(--text-muted);
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stat {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-pill);
+    background: var(--paper);
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--text-subtle);
+  }
+  .live .dot,
+  .status-live .dot {
+    background: var(--success);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);
+  }
+  .gated .dot,
+  .status-gated .dot {
+    background: var(--accent);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+  }
+  .search input {
+    width: 100%;
+    min-height: var(--tap);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    color: var(--text);
+    font: inherit;
+  }
+  .search input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .chips {
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--space-2));
+    padding-inline: var(--space-2);
+  }
+  .chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-pill);
+    background: var(--paper);
+    color: var(--text-muted);
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+  .chip:hover {
+    border-color: var(--paper-border-hover);
+    color: var(--text);
+  }
+  .chip[aria-pressed='true'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .count {
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: var(--space-4);
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+  .card:has(.open):hover,
+  .card:has(.open:focus-visible) {
+    transform: translateY(-2px);
+    border-color: var(--paper-border-hover);
+    box-shadow: 0 12px 32px -16px var(--accent-glow);
+  }
+  .cover {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-bottom: 1px solid var(--paper-border);
+  }
+  .art {
+    display: block;
+    height: 100%;
+  }
+  .cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 300ms ease;
+  }
+  .card:has(.open):hover .cover img {
+    transform: scale(1.03);
+  }
+  .status-down .cover img,
+  .status-parked .cover img {
+    filter: grayscale(1) brightness(0.7);
+  }
+  .status {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--paper-border);
+    background: var(--paper);
+    color: var(--text);
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    backdrop-filter: blur(6px);
+  }
+  .body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+  .title {
+    font-size: var(--text-lg);
+    line-height: 1.25;
+  }
+  .open {
+    color: var(--text);
+    text-decoration: none;
+  }
+  /* The whole card opens the host; Source stays clickable on top. */
+  .open::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .open:focus-visible {
+    outline: none;
+  }
+  .card:has(.open:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .host {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+    overflow-wrap: anywhere;
+  }
+  .desc {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+  .tag {
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .source {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+    min-width: var(--tap);
+    margin-left: auto;
+    font-family: var(--font-accent);
+    font-size: var(--text-sm);
+    color: var(--accent);
+  }
+  .source:hover {
+    color: var(--accent-hover);
+  }
+  .empty {
+    margin-top: var(--space-6);
+    color: var(--text-muted);
+  }
+
+  .closed-section {
+    margin-top: var(--space-8);
+    border-top: 1px solid var(--paper-border);
+    padding-top: var(--space-4);
+  }
+  .closed-section summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--tap);
+    cursor: pointer;
+  }
+  .closed-section summary h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+  }
+  .note {
+    max-width: 68ch;
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  [hidden] {
+    display: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card,
+    .cover img {
+      transition: none;
+    }
+  }
+</style>

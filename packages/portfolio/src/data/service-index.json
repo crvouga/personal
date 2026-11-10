@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "zone": "chrisvouga.dev",
+  "hosts": [
+    {
+      "hostname": "www.chrisvouga.dev",
+      "url": "https://www.chrisvouga.dev/",
+      "id": "portfolio",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/portfolio"
+    },
+    {
+      "hostname": "moviefinder-app-rust.chrisvouga.dev",
+      "url": "https://moviefinder-app-rust.chrisvouga.dev/",
+      "id": "moviefinder-app-rust",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/moviefinder.app-rust"
+    },
+    {
+      "hostname": "moviefinder-app-react.chrisvouga.dev",
+      "url": "https://moviefinder-app-react.chrisvouga.dev/",
+      "id": "moviefinder-app-react",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/moviefinder.app-react"
+    },
+    {
+      "hostname": "moviefinder-app-clojurescript.chrisvouga.dev",
+      "url": "https://moviefinder-app-clojurescript.chrisvouga.dev/",
+      "id": "moviefinder-app-clojurescript",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/moviefinder.app-clojurescript"
+    },
+    {
+      "hostname": "svelte-headlesscombobox.chrisvouga.dev",
+      "url": "https://svelte-headlesscombobox.chrisvouga.dev/",
+      "id": "headless-combobox-svelte-example",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/headless-combobox"
+    },
+    {
+      "hostname": "headlesscombobox.chrisvouga.dev",
+      "url": "https://headlesscombobox.chrisvouga.dev/",
+      "id": "headless-combobox-docs",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/headless-combobox"
+    },
+    {
+      "hostname": "todo.chrisvouga.dev",
+      "url": "https://todo.chrisvouga.dev/",
+      "id": "todo-app",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/todo-v1"
+    },
+    {
+      "hostname": "imageservice.chrisvouga.dev",
+      "url": "https://imageservice.chrisvouga.dev/",
+      "id": "image-service",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/image-service"
+    },
+    {
+      "hostname": "connectfour.chrisvouga.dev",
+      "url": "https://connectfour.chrisvouga.dev/",
+      "id": "connect-four",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/connect-four"
+    },
+    {
+      "hostname": "anime.chrisvouga.dev",
+      "url": "https://anime.chrisvouga.dev/",
+      "id": "anime-blog",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/anime"
+    },
+    {
+      "hostname": "snake.chrisvouga.dev",
+      "url": "https://snake.chrisvouga.dev/",
+      "id": "snake-game",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/snake"
+    },
+    {
+      "hostname": "matchthree.chrisvouga.dev",
+      "url": "https://matchthree.chrisvouga.dev/",
+      "id": "match-three",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/match-three"
+    },
+    {
+      "hostname": "simonsays.chrisvouga.dev",
+      "url": "https://simonsays.chrisvouga.dev/",
+      "id": "simon-says",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/simon-says"
+    },
+    {
+      "hostname": "violetsgarden.chrisvouga.dev",
+      "url": "https://violetsgarden.chrisvouga.dev/",
+      "id": "violets-garden",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/violets-garden"
+    },
+    {
+      "hostname": "mockingbird.chrisvouga.dev",
+      "url": "https://mockingbird.chrisvouga.dev/",
+      "id": "mockingbird-docs",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/mockingbird/tree/main/sites/docs"
+    },
+    {
+      "hostname": "llm-proxy.chrisvouga.dev",
+      "url": "https://llm-proxy.chrisvouga.dev/",
+      "id": "llm-proxy",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/llm-server"
+    },
+    {
+      "hostname": "vault.chrisvouga.dev",
+      "url": "https://vault.chrisvouga.dev/",
+      "id": "vault",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/vault-service"
+    },
+    {
+      "hostname": "9router.chrisvouga.dev",
+      "url": "https://9router.chrisvouga.dev/",
+      "id": "9router",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/9router"
+    },
+    {
+      "hostname": "pickflix.chrisvouga.dev",
+      "url": "https://pickflix.chrisvouga.dev/",
+      "id": "pickflix",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/pickflix-v1"
+    },
+    {
+      "hostname": "moviefinder.chrisvouga.dev",
+      "url": "https://moviefinder.chrisvouga.dev/",
+      "id": "moviefinder",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/moviefinder"
+    },
+    {
+      "hostname": "fleet.chrisvouga.dev",
+      "url": "https://fleet.chrisvouga.dev/",
+      "id": "fleet-api",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/fleet"
+    },
+    {
+      "hostname": "zoomies.chrisvouga.dev",
+      "url": "https://zoomies.chrisvouga.dev/",
+      "id": "zoomies",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/zoomies"
+    },
+    {
+      "hostname": "auth.chrisvouga.dev",
+      "url": "https://auth.chrisvouga.dev/",
+      "id": "auth-relay",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/auth-relay"
+    },
+    {
+      "hostname": "auth-admin.chrisvouga.dev",
+      "url": "https://auth-admin.chrisvouga.dev/",
+      "id": "auth-relay admin",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/auth-relay"
+    },
+    {
+      "hostname": "auth-dev.chrisvouga.dev",
+      "url": "https://auth-dev.chrisvouga.dev/",
+      "id": "auth-relay-dev",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/auth-relay"
+    },
+    {
+      "hostname": "auth-admin-dev.chrisvouga.dev",
+      "url": "https://auth-admin-dev.chrisvouga.dev/",
+      "id": "auth-relay-dev admin",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/personal/tree/main/packages/auth-relay"
+    },
+    {
+      "hostname": "filestash.chrisvouga.dev",
+      "url": "https://filestash.chrisvouga.dev/",
+      "id": "filestash",
+      "hosting": "dns",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "pgweb.chrisvouga.dev",
+      "url": "https://pgweb.chrisvouga.dev/",
+      "id": "pgweb",
+      "hosting": "dns",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "dozzle.chrisvouga.dev",
+      "url": "https://dozzle.chrisvouga.dev/",
+      "id": "dozzle",
+      "hosting": "origin",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "llm.chrisvouga.dev",
+      "url": "https://llm.chrisvouga.dev/",
+      "id": "llm",
+      "hosting": "tunnel",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "lm-studio.chrisvouga.dev",
+      "url": "https://lm-studio.chrisvouga.dev/",
+      "id": "lm-studio",
+      "hosting": "tunnel",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "netdata.chrisvouga.dev",
+      "url": "https://netdata.chrisvouga.dev/",
+      "id": "netdata",
+      "hosting": "origin",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "openai.chrisvouga.dev",
+      "url": "https://openai.chrisvouga.dev/",
+      "id": "openai",
+      "hosting": "tunnel",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "orchestrator.chrisvouga.dev",
+      "url": "https://orchestrator.chrisvouga.dev/",
+      "id": "orchestrator",
+      "hosting": "origin",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "svelte.headlesscombobox.chrisvouga.dev",
+      "url": "https://svelte.headlesscombobox.chrisvouga.dev/",
+      "id": "svelte.headlesscombobox",
+      "hosting": "origin",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "vllm.chrisvouga.dev",
+      "url": "https://vllm.chrisvouga.dev/",
+      "id": "vllm",
+      "hosting": "tunnel",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "colddrive.app",
+      "url": "https://colddrive.app/",
+      "id": "colddrive.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "datoms.app",
+      "url": "https://datoms.app/",
+      "id": "datoms.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "emulates.dev",
+      "url": "https://emulates.dev/",
+      "id": "emulates.dev",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "gamezilla.app",
+      "url": "https://gamezilla.app/",
+      "id": "gamezilla.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "imageresizerservice.com",
+      "url": "https://imageresizerservice.com/",
+      "id": "imageresizerservice.com",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "linkpage.app",
+      "url": "https://linkpage.app/",
+      "id": "linkpage.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "moviefinder.app",
+      "url": "https://moviefinder.app/",
+      "id": "moviefinder.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "normalizer.app",
+      "url": "https://normalizer.app/",
+      "id": "normalizer.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "patchdb.dev",
+      "url": "https://patchdb.dev/",
+      "id": "patchdb.dev",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "tabular.chat",
+      "url": "https://tabular.chat/",
+      "id": "tabular.chat",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "thehiccups.band",
+      "url": "https://thehiccups.band/",
+      "id": "thehiccups.band",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "tripolar.band",
+      "url": "https://tripolar.band/",
+      "id": "tripolar.band",
+      "hosting": "domain",
+      "sourceUrl": null
+    },
+    {
+      "hostname": "voteonit.app",
+      "url": "https://voteonit.app/",
+      "id": "voteonit.app",
+      "hosting": "domain",
+      "sourceUrl": null
+    }
+  ]
+}

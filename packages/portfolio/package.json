@@ -21,6 +21,7 @@
     "refresh-github": "bun run scripts/refresh-github-insights.ts",
     "check-github-freshness": "bun run scripts/refresh-github-insights.ts --check",
     "facts": "bun run scripts/platform-facts.ts",
+    "service-index": "bun run scripts/service-index.ts",
     "refresh-verification": "bun run scripts/refresh-verification.ts",
     "sync": "astro sync",
     "screenshot-main": "bun run ./src/screenshot-main-site.ts",
