@@ -1744,7 +1744,7 @@ Workstation applies Codex, Claude, Gemini and OpenCode proxy profiles. Claude’
 explicit model is `claude-sonnet-4-6`. Pinned Gemini CLI 0.66.0 supports native
 `gateway` authentication with `GOOGLE_GEMINI_BASE_URL` and a runtime Vault key;
 its request protocol is Gemini `generateContent`, not OpenAI Responses. Grok
-(`grok-4.7`) and Muse (`muse-wonder-1.0`) are declared OpenCode harness routes,
+(`grok-4.7`) and Muse (`devin/muse-wonder-1-0`, served through Devin) are declared OpenCode harness routes,
 not invented native CLIs. Exact models live in `agents/registry.json` and must
 be present in the authenticated gateway catalog; no automatic model substitution.
 
