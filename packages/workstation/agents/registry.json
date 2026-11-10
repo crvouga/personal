@@ -13,6 +13,12 @@
     },
     "gemini": {
       "model": "auto"
+    },
+    "grok": {
+      "model": "grok-4.7"
+    },
+    "antigravity": {
+      "model": "gemini-3.8-flash"
     }
   },
   "proxy": {
@@ -27,7 +33,9 @@
       "codex": "gpt-6.1-sol",
       "claude": "claude-sonnet-4-6",
       "opencode": "gpt-6.1-sol",
-      "gemini": "gemini-3-flash"
+      "gemini": "gemini-3-flash",
+      "grok": "grok-4.7",
+      "antigravity": "gemini-3.8-flash"
     },
     "routes": {
       "claude": {
@@ -47,12 +55,17 @@
       },
       "grok": {
         "model": "grok-4.7",
-        "native": null,
+        "native": "grok",
         "harness": "opencode"
       },
       "muse": {
         "model": "devin/muse-wonder-1-0",
         "native": null,
+        "harness": "opencode"
+      },
+      "antigravity": {
+        "model": "gemini-3.8-flash",
+        "native": "antigravity",
         "harness": "opencode"
       }
     }
@@ -145,16 +158,16 @@
     },
     "antigravity": {
       "binary": "antigravity",
-      "config": "Native settings; no verified portable inference-routing adapter",
-      "authentication": "Independent Google browser sign-in",
-      "proxy": null,
-      "source": "https://antigravity.google/docs/settings",
+      "config": "Profile --gemini-dir (antigravity-cli/settings.json, modelProvider gemini)",
+      "authentication": "Shared CLI proxy: GEMINI_API_KEY (Vault) with GOOGLE_GEMINI_BASE_URL; no Google sign-in",
+      "proxy": "generateContent",
+      "source": "https://antigravity.google/docs/install/",
       "directEndpoint": "Native vendor/account configuration; no portable endpoint override is applied",
       "capabilities": {
         "streaming": "unverified on fleet nodes",
         "toolCalls": "unverified on fleet nodes",
         "usageTracking": "independent native/runtime state",
-        "unattendedProfile": false
+        "unattendedProfile": true
       }
     },
     "copilot": {
@@ -169,6 +182,20 @@
         "toolCalls": "unverified on fleet nodes",
         "usageTracking": "independent native/runtime state",
         "unattendedProfile": false
+      }
+    },
+    "grok": {
+      "binary": "grok",
+      "config": "GROK_HOME/config.toml",
+      "authentication": "Shared CLI proxy: custom [model.*] entry with env_key CLIPROXY_API_KEY (Vault); no grok login",
+      "proxy": "chat_completions",
+      "source": "https://docs.x.ai/build/settings/reference",
+      "directEndpoint": "Native vendor/account configuration; no portable endpoint override is applied",
+      "capabilities": {
+        "streaming": "unverified on fleet nodes",
+        "toolCalls": "unverified on fleet nodes",
+        "usageTracking": "independent native/runtime state",
+        "unattendedProfile": true
       }
     }
   }

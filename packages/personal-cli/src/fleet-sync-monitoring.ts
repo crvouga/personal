@@ -9,6 +9,7 @@ import {
 import { enrollBeszel } from '../../fleet/src/monitoring/enroll';
 import { verifyBeszel } from '../../fleet/src/monitoring/beszel';
 import { installRemoteAgent } from '../../fleet/src/monitoring/remote';
+import { installManagerAgent } from '../../workstation/cli/lib/monitoring/manager-agent';
 
 export interface MonitoringDependencies {
   access?: typeof hubAccess;
@@ -40,6 +41,51 @@ export function synchronizeMonitoringWith(
   };
 }
 export const synchronizeMonitoring = synchronizeMonitoringWith();
+
+/** The manager is always a monitored system on its own hub: after the hub
+ * converges, fleet-sync enrolls the manager like a worker, but installs its
+ * agent locally as a per-user launch agent (no SSH, no sudo).
+ */
+export async function enrollManagerMonitoring(
+  definition: FleetDefinition,
+  workspace: string,
+  run: Runner,
+  dependencies: MonitoringDependencies & {
+    install?: typeof installManagerAgent;
+  } = {}
+): Promise<Check[]> {
+  const { manager } = definition;
+  try {
+    const hub = hubUrl(definition);
+    if (!(await hubReachable(hub, run)))
+      return unavailable('BESZEL_HUB_UNREACHABLE');
+    const access = await (dependencies.access ?? hubAccess)(hub);
+    const enrollment = await enrollBeszel(
+      {
+        node: manager.id,
+        host: manager.network.tailscaleName,
+        hub,
+        userId: access.userId,
+      },
+      access.request
+    );
+    const checks = await (dependencies.install ?? installManagerAgent)(
+      workspace,
+      { node: manager.id, enrollment },
+      run
+    );
+    if (checks.some((check) => check.status === 'fail')) return checks;
+    const evidence = await waitForSample(
+      hub,
+      manager.id,
+      access.request,
+      dependencies.sampleDeadlineMs ?? 90_000
+    );
+    return [...checks, ...evidence.checks];
+  } catch (error) {
+    return unavailable(errorCode(error));
+  }
+}
 
 async function enrollWorker(
   node: FleetNode,
@@ -106,7 +152,7 @@ const REMEDIES: Record<string, string> = {
   BESZEL_NODE_TAILNET_REQUIRED:
     'The worker is not visible on the tailnet. Sign it in to Tailscale and record its tailscaleId in the local roster, then rerun fleet-sync.',
   BESZEL_NOT_ENROLLED:
-    'Only workers declared in packages/fleet/definition.json run the agent through fleet-sync; the manager hosts the hub.',
+    'Only workers declared in packages/fleet/definition.json run the agent over SSH; fleet-sync installs the manager’s own agent locally after its hub.',
 };
 function unavailable(code: string): Check[] {
   return [

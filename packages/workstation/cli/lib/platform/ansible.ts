@@ -1,7 +1,7 @@
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import macos from '../../../macos/policy.json';
 import type {
   Runner,
@@ -30,6 +30,14 @@ export function ansibleCommand(
       ];
 }
 
+/** Private fleet state on disk, never /tmp: a worker's /tmp is RAM-backed with a
+ * per-user quota that agent caches can exhaust, and the baseline that bounds it
+ * must still be able to run then.
+ */
+export function variablesDirectory(home = homedir()): string {
+  return join(home, '.local/state/personal/fleet/run');
+}
+
 /** Ansible resolves @file paths before opening them; @/dev/stdin is not portable
  * across versions when stdin is a pipe. Keep runtime variables in a private,
  * short-lived directory instead. Never put their values in argv or logs.
@@ -37,11 +45,13 @@ export function ansibleCommand(
 export async function runAnsible(
   run: Runner,
   playbook: string,
-  options: CommandOptions & { input: string }
+  options: CommandOptions & { input: string },
+  scratch = variablesDirectory()
 ): Promise<CommandResult> {
   if (Buffer.byteLength(options.input) > 256 * 1024)
     throw new Error('ANSIBLE_VARIABLE_LIMIT');
-  const directory = await mkdtemp(join(tmpdir(), 'personal-ansible-'));
+  await mkdir(scratch, { recursive: true, mode: 0o700 });
+  const directory = await mkdtemp(join(scratch, 'personal-ansible-'));
   const path = join(directory, 'variables.json');
   try {
     await writeFile(path, options.input, { mode: 0o600, flag: 'wx' });

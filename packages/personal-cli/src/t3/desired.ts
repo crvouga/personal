@@ -2,6 +2,10 @@ import { join, resolve } from 'node:path';
 import { homedir, hostname } from 'node:os';
 import { FleetUsageError } from '../../../fleet/src/errors';
 import { object, read } from './files';
+import registry from '../../../workstation/agents/registry.json';
+
+/** T3's marker for a credential kept in its per-host secret store. */
+export const T3_SAVED_SECRET = '••••••';
 
 export interface T3Options {
   id?: string;
@@ -81,13 +85,37 @@ function expand(value: unknown, variables: Record<string, string>): unknown {
   return value;
 }
 
+/** Each managed driver accepts only the adapter fields fleet sets. Credentials
+ * never appear here (T3 refuses a managed policy that holds one): wrappers read
+ * them from Vault at launch, and Antigravity's key is the saved-secret marker,
+ * resolved from T3's per-host secret store that fleet fills from Vault.
+ */
+const DRIVERS: Record<
+  string,
+  {
+    required: string[];
+    fixed?: Record<string, string>;
+    env?: Record<string, string>;
+  }
+> = {
+  codex: { required: ['binaryPath', 'homePath'] },
+  opencode: { required: ['binaryPath'] },
+  claudeAgent: { required: ['binaryPath', 'homePath'] },
+  grok: { required: ['binaryPath'], env: { XAI_API_KEY: 'fleet-cli-proxy' } },
+  antigravity: {
+    required: ['authMethod', 'apiKey'],
+    fixed: { authMethod: 'gemini-api-key', apiKey: T3_SAVED_SECRET },
+    env: { GOOGLE_GEMINI_BASE_URL: registry.proxy.endpoint },
+  },
+};
+
 function validateInstance(id: string, value: unknown): void {
   const instance = object(JSON.stringify(value));
   const config = object(JSON.stringify(instance['config']));
-  const env = instance['environment'];
+  const driver = DRIVERS[String(instance['driver'])];
   if (
     !/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(id) ||
-    !['codex', 'opencode'].includes(String(instance['driver'])) ||
+    !driver ||
     typeof instance['displayName'] !== 'string' ||
     typeof instance['enabled'] !== 'boolean' ||
     Object.keys(instance).some(
@@ -96,33 +124,46 @@ function validateInstance(id: string, value: unknown): void {
           key
         )
     ) ||
-    !validConfig(config, String(instance['driver'])) ||
-    !validEnvironment(env)
+    !validConfig(config, driver) ||
+    !validEnvironment(instance['environment'], driver.env ?? {})
   )
     throw new FleetUsageError(
-      'Invalid T3 instance definition; only the supported Codex/OpenCode adapter fields are accepted.'
+      'Invalid T3 instance definition; only the supported managed adapter fields are accepted.'
     );
 }
 
-function validConfig(config: Record<string, unknown>, driver: string): boolean {
+function validConfig(
+  config: Record<string, unknown>,
+  driver: { required: string[]; fixed?: Record<string, string> }
+): boolean {
   return (
-    Object.keys(config).every((key) =>
-      ['binaryPath', 'homePath'].includes(key)
-    ) &&
-    typeof config['binaryPath'] === 'string' &&
-    (driver === 'opencode'
-      ? config['homePath'] === undefined
-      : typeof config['homePath'] === 'string')
+    Object.keys(config).every((key) => driver.required.includes(key)) &&
+    driver.required.every((key) => typeof config[key] === 'string') &&
+    Object.entries(driver.fixed ?? {}).every(
+      ([key, value]) => config[key] === value
+    )
   );
 }
 
-function validEnvironment(env: unknown): boolean {
-  if (!Array.isArray(env) || env.length !== 1) return false;
-  const variable = object(JSON.stringify(env[0]));
+/** WS_AGENT_NODE first, then exactly the driver's fixed non-secret values. */
+function validEnvironment(
+  env: unknown,
+  fixed: Record<string, string>
+): boolean {
+  const extra = Object.entries(fixed);
+  if (!Array.isArray(env) || env.length !== 1 + extra.length) return false;
+  const [node, ...rest] = env.map((item) => object(JSON.stringify(item)));
   return (
-    variable['name'] === 'WS_AGENT_NODE' &&
-    variable['value'] === '${node}' &&
-    variable['sensitive'] === false &&
-    Object.keys(variable).length === 3
+    node!['name'] === 'WS_AGENT_NODE' &&
+    node!['value'] === '${node}' &&
+    node!['sensitive'] === false &&
+    Object.keys(node!).length === 3 &&
+    rest.every(
+      (variable, index) =>
+        variable['name'] === extra[index]![0] &&
+        variable['value'] === extra[index]![1] &&
+        variable['sensitive'] === false &&
+        Object.keys(variable).length === 3
+    )
   );
 }

@@ -32,6 +32,10 @@ class FleetSingleton(unittest.TestCase):
         self.calls.append(args)
         return True
 
+    @staticmethod
+    def declared_check(call):
+        return call[-1] == 'declared' and call[-2].endswith('scripts/ops')
+
     def owner(self, **kwargs):
         kwargs.setdefault('backend', self.launchd)
         kwargs.setdefault('identity', MANAGER)
@@ -100,14 +104,81 @@ class FleetSingleton(unittest.TestCase):
     def test_revision_upgrade_requires_maintenance(self):
         self.runtime()
         result = self.owner(run=self.command, audit_fn=lambda root: (True, 'b' * 40),
-                            compatible_fn=lambda installed, desired: False)
+                            compatible_fn=lambda installed, desired: False,
+                            restart_free_fn=lambda installed, desired: False)
         self.assertEqual(result['phases'][0]['code'], 'PROXY_UPDATE_PENDING')
+        self.assertIn('--maintenance', result['phases'][0]['remedy']['action'])
         self.assertEqual(self.calls, [])
+
+    def test_update_that_keeps_the_gateway_running_applies_without_maintenance(self):
+        self.runtime()
+        seen = []
+        self.owner(run=self.command, audit_fn=lambda root: (True, 'b' * 40),
+                   compatible_fn=lambda installed, desired: False,
+                   restart_free_fn=lambda installed, desired: seen.append((installed, desired)) or True)
+        self.assertEqual(seen, [('b' * 40, SHA)])
+        self.assertTrue(self.calls[0][2].endswith('install.py'))
+        self.assertEqual(self.calls[0][-2:], ['--revision', SHA])
+
+    def test_endpoint_check_retries_a_reconnecting_route(self):
+        self.runtime()
+        self.link_agents()
+        answers = iter([False, False, True])
+        waits = []
+        result = self.owner(run=self.active, audit_fn=lambda root: (True, SHA),
+                            endpoint_check=lambda root: next(answers), sleep=waits.append)
+        self.assertTrue(result['ok'])
+        self.assertEqual(waits, [10, 10])
+
+    def test_endpoint_failure_is_reported_after_bounded_retries(self):
+        self.runtime()
+        self.link_agents()
+        waits = []
+        result = self.owner(run=self.active, audit_fn=lambda root: (True, SHA),
+                            endpoint_check=lambda root: False, sleep=waits.append)
+        self.assertFalse(result['ok'])
+        self.assertEqual(len(waits), 5)
+
+    def test_declared_config_applies_on_every_sync(self):
+        self.runtime()
+        self.link_agents()
+        state = {'applied': False}
+
+        def proxy(args, timeout=120):
+            self.calls.append(args)
+            if args[-2:] == ['declared', '--apply']:
+                state['applied'] = True
+                return True
+            if self.declared_check(args):
+                return state['applied']
+            return True
+
+        result = self.owner(run=proxy, audit_fn=lambda root: (True, SHA),
+                            endpoint_check=lambda root: True)
+        self.assertTrue(any(call[-2:] == ['declared', '--apply'] for call in self.calls))
+        self.assertNotIn('PROXY_CONFIG_PENDING', [p['code'] for p in result['phases']])
+        self.assertTrue(result['ok'])
+
+    def test_declared_config_failure_is_reported(self):
+        self.runtime()
+        self.link_agents()
+        pending = lambda args, timeout=120: (self.calls.append(args) or not (
+            self.declared_check(args) or args[-1] == '--apply'))
+        result = self.owner(run=pending, audit_fn=lambda root: (True, SHA),
+                            endpoint_check=lambda root: True)
+        codes = [p['code'] for p in result['phases']]
+        self.assertIn('PROXY_CONFIG_PENDING', codes)
+        self.assertFalse(result['ok'])
+
+    def test_restart_free_requires_known_revisions(self):
+        self.assertFalse(fleet.restart_free('Unknown revision', SHA))
+        self.assertFalse(fleet.restart_free(None, SHA))
 
     def test_maintenance_installs_without_sudo_on_manager(self):
         self.runtime()
         self.owner(run=self.command, maintenance=True, audit_fn=lambda root: (True, 'b' * 40),
-                   compatible_fn=lambda installed, desired: False)
+                   compatible_fn=lambda installed, desired: False,
+                   restart_free_fn=lambda installed, desired: False)
         self.assertEqual(len(self.calls), 1)
         self.assertNotIn('sudo', self.calls[0])
         self.assertTrue(self.calls[0][2].endswith('install.py'))
@@ -135,7 +206,8 @@ class FleetSingleton(unittest.TestCase):
         self.assertFalse(result['changed'])
         self.assertEqual(result['phases'][-1]['code'], 'PROXY_ENDPOINT_AUTH')
         self.assertIn('PROXY_UNIT_DEV_CHRISVOUGA_CLIPROXY_FLEET', {p['code'] for p in result['phases']})
-        self.assertTrue(all(call[:2] == ['launchctl', 'print'] for call in self.calls))
+        self.assertTrue(all(call[:2] == ['launchctl', 'print'] or self.declared_check(call)
+                            for call in self.calls))
 
     def test_unrelated_monorepo_update_does_not_restart_identical_gateway_source(self):
         self.runtime()
@@ -145,4 +217,5 @@ class FleetSingleton(unittest.TestCase):
                             compatible_fn=lambda installed, desired: True)
         self.assertTrue(result['ok'])
         self.assertFalse(result['changed'])
-        self.assertTrue(all(call[:2] == ['launchctl', 'print'] for call in self.calls))
+        self.assertTrue(all(call[:2] == ['launchctl', 'print'] or self.declared_check(call)
+                            for call in self.calls))

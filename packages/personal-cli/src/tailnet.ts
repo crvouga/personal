@@ -13,6 +13,8 @@ import {
   reportExitCode,
 } from '../../fleet/src/report';
 import { readRoster } from './roster';
+import { PUBLIC_HUB_URL } from '../../fleet/src/monitoring/beszel';
+import { stableUrls } from './fleet-sync-output';
 import { timeout } from './options';
 import type { FleetServices } from './fleet';
 import type { Settings } from './settings';
@@ -72,7 +74,7 @@ export async function executeTailnet(
     data: {
       ...report,
       ok: verified,
-      ...(options.workers ? { dashboardUrl: dashboard } : {}),
+      ...(options.workers ? { dashboardUrl: publicDashboard(dashboard) } : {}),
       coverage: {
         ...coverage,
         verified,
@@ -80,9 +82,18 @@ export async function executeTailnet(
       },
     },
     text: options.workers
-      ? workerHealthText({ ...report, ok: verified }, coverage, dashboard)
-      : `${renderReport({ ...report, ok: verified })}\nCoverage: ${coverage.computers} visible computers; ${coverage.excludedMobile} mobile devices excluded.\n${coverage.limitation}`,
+      ? workerHealthText(
+          { ...report, ok: verified },
+          coverage,
+          publicDashboard(dashboard)
+        )
+      : `${stableUrls(renderReport({ ...report, ok: verified }))}\nCoverage: ${coverage.computers} visible computers; ${coverage.excludedMobile} mobile devices excluded.\n${coverage.limitation}`,
   };
+}
+
+/** Shown to people: the stable public name, never the tailnet address. */
+function publicDashboard(privateHub: string | null): string | null {
+  return privateHub ? PUBLIC_HUB_URL : null;
 }
 
 async function healthContext(

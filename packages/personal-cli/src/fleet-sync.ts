@@ -23,6 +23,13 @@ import type { CommandOutcome } from './contracts';
 import { FleetUsageError } from '../../fleet/src/errors';
 import { FleetLockError } from '../../fleet/src/machine/lock-error';
 import { selected } from './fleet-sync-remote';
+import { managerIdentity } from './fleet-sync-manager';
+import { trackedScript } from '../../fleet/src/remote-bootstrap';
+import {
+  forwardingDisabled,
+  forwardToManager,
+  type ForwardSpawn,
+} from './fleet-sync-forward';
 
 declare const PERSONAL_SOURCE_REVISION: string | null;
 export interface FleetSyncOptions {
@@ -35,6 +42,8 @@ export interface FleetSyncOptions {
   node?: string[];
   all?: boolean;
   schedule?: ScheduleAction;
+  /** Also apply proxy updates that restart the gateway (interrupts inference). */
+  maintenance?: boolean;
   /** Internal: set for interactive terminal runs (sudo enrollment prompts). */
   interactiveAuthorization?: boolean;
   expectedPlanFingerprint?: string;
@@ -51,19 +60,13 @@ export function machineRoot(): string {
 export async function fleetSync(
   options: FleetSyncOptions,
   settings: Settings,
-  run: Runner = runCommand
+  run: Runner = runCommand,
+  forward?: ForwardSpawn
 ): Promise<CommandOutcome> {
   validate(options);
-  if (options.schedule === 'status')
-    return managerSchedule(
-      {
-        action: 'status',
-        revision: '',
-        config: settings.config,
-        authorized: false,
-      },
-      run
-    );
+  if (!(await onManager(run)))
+    return offManager(options, settings, run, forward);
+  if (options.schedule === 'status') return scheduleStatus(settings, run);
   const root = machineRoot();
   await ensurePrivateRoot(root);
   const state = await readEnrollment(root);
@@ -118,10 +121,72 @@ export async function fleetSync(
     throw error;
   });
 }
-function actionRequired(code: string, remedy: string): CommandOutcome {
+/** Every run (previews and schedules too) happens on the manager: a worker can
+ * neither converge the manager's singletons nor observe its T3 links, so a
+ * partial run there only produces misleading failures.
+ */
+async function onManager(run: Runner): Promise<boolean> {
+  const { manager } = parseDefinition(canonicalDefinition);
+  return (await managerIdentity(manager.id, run)).status === 'pass';
+}
+
+/** Hands the request to the manager; refuses (without touching any worker)
+ * when hand-off is disabled, e.g. on the manager side of a hand-off.
+ */
+async function offManager(
+  options: FleetSyncOptions,
+  settings: Settings,
+  run: Runner,
+  forward: ForwardSpawn | undefined
+): Promise<CommandOutcome> {
+  const definition = parseDefinition(canonicalDefinition);
+  const revision =
+    options.revision ??
+    packageRevision() ??
+    (await localCheckoutRevision(settings.workspace, run));
+  if (forwardingDisabled())
+    return actionRequired(
+      'FLEET_NOT_MANAGER',
+      `fleet-sync runs only on the manager (${definition.manager.id}); nothing was changed. Run it there, or from a worker that can SSH to the manager.`,
+      revision ?? null
+    );
+  const runScript = revision
+    ? await trackedScript(
+        settings.workspace,
+        revision,
+        'scripts/dev/fleet-manager-run.sh',
+        run
+      )
+    : null;
+  return forwardToManager(definition, options, revision, {
+    spawn: forward,
+    script: runScript,
+  });
+}
+
+function scheduleStatus(
+  settings: Settings,
+  run: Runner
+): Promise<CommandOutcome> {
+  return managerSchedule(
+    {
+      action: 'status',
+      revision: '',
+      config: settings.config,
+      authorized: false,
+    },
+    run
+  );
+}
+
+function actionRequired(
+  code: string,
+  remedy: string,
+  revision: string | null = null
+): CommandOutcome {
   const report = managerFailure(
     parseDefinition(canonicalDefinition),
-    null,
+    revision,
     code,
     remedy
   );

@@ -53,8 +53,11 @@ test('apply adds the declared worker providers, keeps others, then is a no-op', 
   const applied = await instances(dir);
   expect(Object.keys(applied).sort()).toEqual([
     'antigravity',
+    'personal_antigravity_proxy',
+    'personal_claude_proxy',
     'personal_codex_proxy',
     'personal_gateway_models',
+    'personal_grok_proxy',
   ]);
   expect(JSON.stringify(applied)).toContain('chriss-macbook-air');
   const again = await managerProviders('chriss-macbook-air', repo, false, dir);
@@ -85,7 +88,14 @@ test('the manager applies every proxy agent profile the workers get', async () =
   const [check] = await managerAgentProfiles('chriss-macbook-air', repo, run);
   expect(check?.status).toBe('pass');
   const tools = calls.map((argv) => argv[argv.indexOf('--tool') + 1]);
-  expect(tools).toEqual(['codex', 'claude', 'gemini', 'opencode']);
+  expect(tools).toEqual([
+    'codex',
+    'claude',
+    'gemini',
+    'opencode',
+    'grok',
+    'antigravity',
+  ]);
   for (const argv of calls) {
     expect(argv).toContain('--yes');
     expect(argv[argv.indexOf('--profile') + 1]).toBe('proxy');

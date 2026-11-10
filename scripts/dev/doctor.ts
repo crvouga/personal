@@ -27,6 +27,8 @@ const COMMANDS: Record<string, string> = {
   ripgrep: 'rg',
   rust: 'rustc',
   'npm:@devcontainers/cli': 'devcontainer',
+  'http:grok': 'grok',
+  'http:antigravity': 'antigravity',
 };
 const VERSION_ARGS: Record<string, string[]> = {
   go: ['version'],

@@ -56,7 +56,11 @@ export function registerAgents(
       .command(action)
       .argument('[args...]')
       .requiredOption('--node <id>', 'Explicit fleet node ID')
-      .option('--tool <tool>', 'codex|claude|opencode|gemini', 'codex')
+      .option(
+        '--tool <tool>',
+        'codex|claude|opencode|gemini|grok|antigravity',
+        'codex'
+      )
       .option('--profile <profile>', 'direct|proxy', 'direct')
       .option(
         '--adopt',

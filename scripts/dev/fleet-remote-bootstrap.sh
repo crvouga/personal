@@ -7,7 +7,9 @@ revision=$1
 bundle_sha=$2
 node=$3
 source_mode=${4:-transfer}
+run_mode=${5:-routine}
 case "$source_mode" in cached|transfer) ;; *) exit 2;; esac
+case "$run_mode" in routine|maintenance) ;; *) exit 2;; esac
 case "$revision" in *[!a-f0-9]*|'') exit 2;; esac
 [ "${#revision}" = 40 ] || exit 2
 case "$bundle_sha" in *[!a-f0-9]*|'') exit 2;; esac
@@ -127,11 +129,20 @@ phase=toolchain
 cd "$deployment"
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"
 status_file="$root/toolchain-status.json"
-[ ! -L "$status_file" ] || die FLEET_STATE_PATH_UNSAFE
-rm -f -- "$status_file"
+ready_file="$root/toolchain-ready"
+[ ! -L "$status_file" ] && [ ! -L "$ready_file" ] || die FLEET_STATE_PATH_UNSAFE
+# Warm: the same revision's locked toolchain passed within a day. Any other
+# revision, a failure or an older stamp runs the full idempotent setup; agent
+# versions are still checked (and reinstalled on drift) by node convergence.
+if [ "$(cat "$ready_file" 2>/dev/null)" = "$revision" ] && [ -n "$(find "$ready_file" -mmin -1440 2>/dev/null)" ]; then
+  toolchain_warm=1
+else
+  toolchain_warm=''
+  rm -f -- "$status_file" "$ready_file"
+fi
 if command -v timeout >/dev/null 2>&1; then bounded='timeout 1800'; else bounded=''; fi
 # shellcheck disable=SC2086
-if ! $bounded bash scripts/dev/bootstrap.sh --worker --non-interactive --status-file "$status_file" >/dev/null 2>&1; then
+if [ -z "$toolchain_warm" ] && ! $bounded bash scripts/dev/bootstrap.sh --worker --non-interactive --status-file "$status_file" >/dev/null 2>&1; then
   tool_phase=$(sed -n 's/.*"phase":"\([a-z0-9-]*\)".*/\1/p' "$status_file" 2>/dev/null) || tool_phase=''
   case "$tool_phase" in
     managed-config) die TOOLCHAIN_CONFIG_CONFLICT;;
@@ -143,6 +154,7 @@ if ! $bounded bash scripts/dev/bootstrap.sh --worker --non-interactive --status-
     *) die TOOLCHAIN_CONVERGENCE_FAILED;;
   esac
 fi
+[ -n "$toolchain_warm" ] || printf '%s' "$revision" >"$ready_file"
 phase=configuration
 trap - EXIT INT TERM
-exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision"
+exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision" "$run_mode"

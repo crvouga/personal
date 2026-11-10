@@ -18,6 +18,7 @@ const healthy: Runner = async (args) => {
       'Filename Type Size Used Priority\n/swap.img file 8388604 0 -2\n'
     );
   if (args[0] === 'df') return result('Avail\n107374182400\n');
+  if (args[0] === 'sh') return result('');
   throw new Error('Unexpected command ' + args.join(' '));
 };
 type Result = ReturnType<typeof result>;
@@ -56,4 +57,10 @@ test('free space under the guard floor fails even when every guard runs', async 
     args[0] === 'df' ? result('Avail\n2147483648\n') : undefined
   );
   expect(checks[0]?.summary).toBe('DISK_FREE_BELOW_FLOOR');
+});
+test('an exhausted /tmp quota fails even when the filesystem reports free space', async () => {
+  const checks = await verify((args) =>
+    args[0] === 'sh' ? result('', false) : undefined
+  );
+  expect(checks[0]?.summary).toBe('TMP_QUOTA_EXHAUSTED');
 });

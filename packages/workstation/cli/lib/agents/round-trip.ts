@@ -7,7 +7,7 @@ import { record } from '../../../../fleet/src/config';
  * so a tight cap ends the response without the tool call or text being
  * verified. Prompts are tiny; this is a ceiling, not an expected length.
  */
-const VERIFY_OUTPUT_TOKENS = 1024;
+export const VERIFY_OUTPUT_TOKENS = 1024;
 
 /** Supported OpenAI Responses harness route. The only tool is a local echo;
  * model output can never select a command, file, URL or other side effect.

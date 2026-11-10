@@ -71,9 +71,15 @@ Missing access fails without retaining Vault responses. No secret is seeded here
 
 ## Fleet provider routes
 
-The registry’s `proxy.routes` declares all five required accounts. Grok and Muse
-use the existing OpenCode Responses harness; there is no managed native Grok or
-Muse executable. Version-specific source evidence:
+The registry’s `proxy.routes` declares the shared accounts (Claude, Codex,
+Gemini, Grok, Muse, Antigravity). Grok Build and the Antigravity CLI are pinned
+native clients with proxy profiles (Grok: `GROK_HOME/config.toml` custom model
+with `env_key`; Antigravity: Gemini API-key mode with `GOOGLE_GEMINI_BASE_URL`).
+Muse runs through the OpenCode harness: native Muse Code only talks to Meta's
+own catalog endpoint. Cursor is not managed (it cannot use the proxy). T3's
+Antigravity instance uses T3's own runtime with the proxy key in T3's per-host
+secret store. See the fleet guide's "Agents on every node".
+Version-specific source evidence:
 [Gemini 0.66.0 gateway interface](https://github.com/google-gemini/gemini-cli/blob/v0.66.0/packages/core/src/core/contentGenerator.ts),
 [CLIProxyAPI 8.0.55 catalog](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.55/internal/registry/models/models.json).
 A catalog entry is only a supported identifier, not proof that Chris has an

@@ -15,6 +15,8 @@ export interface BootstrapPayload {
   bundle: string;
   digest: string;
   authorizeSudo?: string;
+  /** --maintenance: workers may interrupt active work (restart a busy T3). */
+  maintenance?: boolean;
 }
 /** No manager tool installation; Git/source preparation is part of apply approval. */
 export async function prepareBootstrap(
@@ -104,6 +106,7 @@ export async function bootstrapRemote(
     payload.digest,
     node.id,
     transfer.mode,
+    payload.maintenance ? 'maintenance' : 'routine',
   ]
     .map(shellQuote)
     .join(' ');
@@ -198,7 +201,7 @@ function parseEvidence(result: {
   return null;
 }
 
-async function trackedScript(
+export async function trackedScript(
   source: string,
   revision: string,
   path: string,

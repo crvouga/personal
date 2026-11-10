@@ -23,8 +23,10 @@ test('unexpected private errors never become diagnostic codes', () => {
 });
 
 test('provider account conditions warn; gateway and credential failures fail', () => {
+  expect(inferenceFailure('codex', 'PROVIDER_RATE_LIMITED').status).toBe(
+    'pass'
+  );
   for (const code of [
-    'PROVIDER_RATE_LIMITED',
     'PROVIDER_UPSTREAM_UNAVAILABLE',
     'PROVIDER_MODEL_UNAVAILABLE',
     'PROVIDER_TIMEOUT',

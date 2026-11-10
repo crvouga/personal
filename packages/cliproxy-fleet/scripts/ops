@@ -90,6 +90,71 @@ def wait():
     )
 
 
+# Runtime config keys owned by config.template.yaml (everything else in the
+# live config, such as keys and accounts, is runtime state and preserved).
+DECLARED = [("oauth", "model-alias")]
+
+
+def declared_candidate():
+    """The live config with the declared settings from the template, or None."""
+    import yaml
+
+    template = yaml.safe_load((root / "config.template.yaml").read_text())
+    live = yaml.safe_load((root / "state/runtime/config.yaml").read_text())
+    changed = False
+    for section, key in DECLARED:
+        want = (template.get(section) or {}).get(key)
+        have = (live.get(section) or {}).get(key)
+        if want == have:
+            continue
+        changed = True
+        live.setdefault(section, {})
+        if want is None:
+            live[section].pop(key, None)
+        else:
+            live[section][key] = want
+    return yaml.safe_dump(live, sort_keys=False) if changed else None
+
+
+def apply_config(candidate, restart=True):
+    run([str(root / "scripts/validate-config"), str(candidate), "--require-fill-first"])
+    staging(candidate)
+    shutil.copy2(
+        root / "state/runtime/config.yaml",
+        root / "state/runtime/config.yaml.previous",
+    )
+    shutil.copyfile(candidate, root / "state/runtime/config.yaml.new")
+    os.chmod(root / "state/runtime/config.yaml.new", 0o600)
+    os.replace(
+        root / "state/runtime/config.yaml.new", root / "state/runtime/config.yaml"
+    )
+    if restart:
+        compose("restart", "proxy")
+    wait()
+
+
+def declared_aliases():
+    """Client-visible model ids the declared aliases must add."""
+    import yaml
+
+    template = yaml.safe_load((root / "config.template.yaml").read_text())
+    aliases = ((template.get("oauth") or {}).get("model-alias") or {}).values()
+    return {entry["alias"] for entries in aliases for entry in entries or []}
+
+
+def hot_reloaded(expected):
+    """The proxy watches its config file; wait for the reload to serve it."""
+    for _ in range(15):
+        try:
+            served = {model.get("id") for model in health()}
+            if expected <= served:
+                return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
+
+
 def lock():
     f = open(root / "state/status/operation.lock", "w")
     if os.geteuid() == 0:
@@ -264,20 +329,32 @@ try:
         print(data)
     elif command == "apply":
         operation_lock = lock()
-        candidate = pathlib.Path(sys.argv[2]).resolve()
-        run([str(root / "scripts/validate-config"), str(candidate), "--require-fill-first"])
-        staging(candidate)
-        shutil.copy2(
-            root / "state/runtime/config.yaml",
-            root / "state/runtime/config.yaml.previous",
-        )
-        shutil.copyfile(candidate, root / "state/runtime/config.yaml.new")
-        os.chmod(root / "state/runtime/config.yaml.new", 0o600)
-        os.replace(
-            root / "state/runtime/config.yaml.new", root / "state/runtime/config.yaml"
-        )
-        compose("restart", "proxy")
-        wait()
+        apply_config(pathlib.Path(sys.argv[2]).resolve())
+    elif command == "declared":
+        # Fleet-owned settings from the tracked template; check exits 3 when
+        # the live config differs, --apply replaces only those settings.
+        candidate = declared_candidate()
+        if candidate is None:
+            print("Declared settings match the live config.")
+        elif "--apply" not in sys.argv[2:]:
+            print("Declared settings differ from the live config.")
+            sys.exit(3)
+        else:
+            operation_lock = lock()
+            with tempfile.NamedTemporaryFile(
+                "w", dir=root / "state/runtime", suffix=".yaml", delete=False
+            ) as file:
+                file.write(candidate)
+            try:
+                os.chmod(file.name, 0o600)
+                # Restart-free: the proxy hot-reloads config.yaml. Restart
+                # only if the reload never serves the declared settings.
+                apply_config(pathlib.Path(file.name), restart=False)
+                if not hot_reloaded(declared_aliases()):
+                    compose("restart", "proxy")
+                    wait()
+            finally:
+                pathlib.Path(file.name).unlink(missing_ok=True)
     elif command in ["upgrade", "rollback"]:
         sys.exit(
             "Install a reviewed Git revision with bun run cliproxy install --revision REV; use --rollback for the recorded previous revision."
@@ -387,7 +464,7 @@ try:
         )
     else:
         sys.exit(
-            "Commands: start stop restart status health models logs validate apply FILE add-account PROVIDER inference PROTOCOL MODEL portable-login activate drain"
+            "Commands: start stop restart status health models logs validate apply FILE declared [--apply] add-account PROVIDER inference PROTOCOL MODEL portable-login activate drain"
         )
 except Exception:
     sys.exit(

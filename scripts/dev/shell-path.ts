@@ -63,14 +63,31 @@ export function configurePosixShellPath(
     join(zdotdir, '.zshenv'),
     join(zdotdir, '.zshrc'),
   ]);
+  // Version managers and vendor installers (nvm, a native Claude installer's
+  // ~/.local/bin) prepend their own directories later in these files; the
+  // last line puts the pinned shims back in front, so every shell and the
+  // apps that inherit its PATH (T3) run the locked tool versions.
+  // Guarded like the block above so nested shells do not grow PATH.
+  const unguarded = `${TAIL_MARKER}\nexport PATH=${quote(shims)}:"$PATH"\n`;
+  const tail = `${TAIL_MARKER}\ncase "$PATH" in\n  ${quote(shims)}:*) ;;\n  *) export PATH=${quote(shims)}:"$PATH" ;;\nesac\n`;
   for (const path of targets) {
     const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
-    if (current.startsWith(`${block}\n`)) continue;
-    const rest = current.replace(`${block}\n`, '').replace(legacy, '');
+    const body = current
+      .replace(`${block}\n`, '')
+      .replace(legacy, '')
+      .split(tail)
+      .join('')
+      .split(unguarded)
+      .join('');
+    const next = `${block}\n${body.replace(/\n*$/, '\n')}${tail}`;
+    if (next === current) continue;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${block}\n${rest}`);
+    writeFileSync(path, next);
   }
 }
+
+const TAIL_MARKER =
+  '# pinned tool shims first (crvouga/workspace, keep this last)';
 
 export function configureShellPath(): void {
   const bin = join(homedir(), '.local', 'bin');

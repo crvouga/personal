@@ -1,5 +1,14 @@
-import { expect, test } from 'bun:test';
+import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { execute } from '../src/program';
+import { NO_FORWARD_ENV } from '../src/fleet-sync-forward';
+
+// Never hand off to the real manager over SSH from a test.
+beforeAll(() => {
+  process.env[NO_FORWARD_ENV] = '1';
+});
+afterAll(() => {
+  delete process.env[NO_FORWARD_ENV];
+});
 
 const settings = { workspace: '/no-checkout', config: '/no-roster' };
 const revision = 'a'.repeat(40);

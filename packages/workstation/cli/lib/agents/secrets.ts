@@ -4,7 +4,12 @@ import { VaultCli } from '@pkgs/vault';
 import { registry } from './registry';
 import { resolveVaultConfig } from '../vault-config';
 
-export async function proxyKey(): Promise<string> {
+export function proxyKey(): Promise<string> {
+  return sharedSecret(registry.proxy.secret.key);
+}
+
+/** Reads one field of the shared Vault document with this node's own session. */
+export async function sharedSecret(key: string): Promise<string> {
   const reference = registry.proxy.secret;
   try {
     const { addr } = resolveVaultConfig();
@@ -16,13 +21,13 @@ export async function proxyKey(): Promise<string> {
       project: reference.project,
       config: reference.config,
     });
-    const row = await store.getOptionalMany([reference.key]);
-    const value = row[reference.key]?.readSecretValue().trim();
+    const row = await store.getOptionalMany([key]);
+    const value = row[key]?.readSecretValue().trim();
     if (value) return value;
   } catch {
     /* Never forward Vault/network exceptions or response bodies. */
   }
   throw new AgentConfigurationError(
-    'Required Vault secret unavailable: secret/data/personal/prd CLIPROXY_FLEET_CLIENT_API_KEY. Authenticate this node with vault login and verify read permission; secret changes belong to OpenTofu.'
+    `Required Vault secret unavailable: secret/data/personal/prd ${key}. Authenticate this node with vault login and verify read permission; secret changes belong to OpenTofu.`
   );
 }

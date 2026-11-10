@@ -1,14 +1,21 @@
 import { workerReadiness } from './worker-readiness';
-import { runAnsible } from '../../workstation/cli/lib/platform/ansible';
+import { runAnsibleWithReceipt } from '../../workstation/cli/lib/platform/ansible-receipt';
 import {
+  healT3Policy,
+  lastT3Write,
   stageT3Policy,
-  verifyT3Policy,
 } from '../../workstation/cli/lib/platform/t3-policy';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
 import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
+import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secrets';
+import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeProxy } from './proxy-converge';
-import { verifyFleetProviders } from '../../workstation/cli/lib/agents/fleet-verify';
+import {
+  quotaLimited,
+  verifyFleetProviders,
+} from '../../workstation/cli/lib/agents/fleet-verify';
+import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
 import { managedT3, managedT3Desktop } from '../../../scripts/dev/native-t3';
 import { convergeT3Service } from '../../workstation/cli/lib/platform/t3-service';
 import { userInfo } from 'node:os';
@@ -26,10 +33,10 @@ import type { Check, Runner } from './types';
  */
 export async function convergeLinux(
   root: string,
-  node: string,
-  revision: string,
+  target: { node: string; revision: string; maintenance?: boolean },
   run: Runner
 ): Promise<Check[]> {
+  const { node, revision } = target;
   const audit = await auditUbuntu(run);
   if (!audit.supported || !audit.passwordlessSudo)
     return [
@@ -51,21 +58,15 @@ export async function convergeLinux(
       await applyTailscale(root, run),
     ]))
   );
-  const baseline = await attempt('ubuntu:baseline', () =>
-    applyBaseline(root, run)
-  );
-  checks.push(...baseline);
+  const { baseline, verified } = await baselineStep(root, run);
+  checks.push(...baseline, ...verified);
   checks.push(
-    ...(await attempt('ubuntu:boot-policy', () =>
-      verifyUbuntuBoot(userInfo().username, run)
+    ...(await t3AfterBaseline(
+      root,
+      { node, baseline, run },
+      target.maintenance
     ))
   );
-  checks.push(
-    ...(await attempt('ubuntu:resource-safety', () =>
-      verifyResourceSafety(userInfo().homedir, run)
-    ))
-  );
-  checks.push(...(await t3AfterBaseline(root, node, baseline, run)));
   checks.push(
     ...(await attempt('workstation:configuration', () =>
       configureWorkstation(root, run)
@@ -81,9 +82,15 @@ export async function convergeLinux(
       convergeProxy(node, revision, run)
     ))
   );
+  const providers = await attempt('provider:verification', () =>
+    verifyFleetProviders(node)
+  );
+  checks.push(...providers);
   checks.push(
-    ...(await attempt('provider:verification', () =>
-      verifyFleetProviders(node)
+    ...(await attempt('agent:verification', () =>
+      verifyNativeAgents(node, root, run, {
+        outOfQuota: quotaLimited(providers),
+      })
     ))
   );
   checks.push(
@@ -92,13 +99,51 @@ export async function convergeLinux(
   return checks;
 }
 
-async function applyBaseline(root: string, run: Runner): Promise<Check[]> {
+/** Applies the baseline (skipped on an unchanged, verified receipt), then
+ * measures boot and resource policy. Self-healing: if a skipped baseline's
+ * effective policy no longer verifies, the baseline is applied in full and
+ * measured again in the same run.
+ */
+async function baselineStep(
+  root: string,
+  run: Runner
+): Promise<{ baseline: Check[]; verified: Check[] }> {
+  const measure = async () => [
+    ...(await attempt('ubuntu:boot-policy', () =>
+      verifyUbuntuBoot(userInfo().username, run)
+    )),
+    ...(await attempt('ubuntu:resource-safety', () =>
+      verifyResourceSafety(userInfo().homedir, run)
+    )),
+  ];
+  let cached = false;
+  let baseline = await attempt('ubuntu:baseline', async () => {
+    const applied = await applyBaseline(root, run, false);
+    cached = applied.cached;
+    return applied.checks;
+  });
+  let verified = await measure();
+  if (cached && verified.some((check) => check.status === 'fail')) {
+    baseline = await attempt('ubuntu:baseline', async () => {
+      return (await applyBaseline(root, run, true)).checks;
+    });
+    verified = await measure();
+  }
+  return { baseline, verified };
+}
+
+async function applyBaseline(
+  root: string,
+  run: Runner,
+  force: boolean
+): Promise<{ cached: boolean; checks: Check[] }> {
   const user = userInfo();
-  const result = await runAnsible(
+  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const result = await runAnsibleWithReceipt(
     run,
-    resolve(root, 'packages/workstation/ubuntu/baseline.yml'),
+    resolve(ubuntu, 'baseline.yml'),
     {
-      cwd: resolve(root, 'packages/workstation/ubuntu'),
+      cwd: ubuntu,
       timeoutMs: 900_000,
       input: JSON.stringify({
         development_source: root,
@@ -106,24 +151,70 @@ async function applyBaseline(root: string, run: Runner): Promise<Check[]> {
         development_uid: user.uid,
         development_home: user.homedir,
       }),
+    },
+    {
+      name: 'ubuntu-baseline',
+      sources: [ubuntu],
+      force,
+      verify: () => baselineServicesActive(run),
     }
   );
-  return [
-    {
-      id: 'ubuntu:baseline',
-      status: result.ok ? 'pass' : 'fail',
-      summary: result.ok
-        ? 'Workstation Ubuntu tasks completed, including always-on service recovery; effective boot/session policies require separate verification.'
-        : 'UBUNTU_BASELINE_INCOMPLETE',
-    },
-  ];
+  return {
+    cached: result.cached,
+    checks: [
+      {
+        id: 'ubuntu:baseline',
+        status: result.ok ? 'pass' : 'fail',
+        summary: result.ok
+          ? result.cached
+            ? 'Workstation Ubuntu baseline unchanged since its last successful apply and its services are active (re-applied in full at least daily).'
+            : 'Workstation Ubuntu tasks completed, including always-on service recovery; effective boot/session policies require separate verification.'
+          : 'UBUNTU_BASELINE_INCOMPLETE',
+      },
+    ],
+  };
+}
+
+/** Cheap probe for what the baseline owns: system services and user timers. */
+async function baselineServicesActive(run: Runner): Promise<boolean> {
+  const system = await run([
+    'systemctl',
+    'is-active',
+    '--quiet',
+    'ssh.service',
+    'tailscaled.service',
+    'docker.service',
+  ]);
+  if (!system.ok) return false;
+  const user = await run([
+    'systemctl',
+    '--user',
+    'is-active',
+    '--quiet',
+    'personal-worker-auth.timer',
+  ]);
+  return user.ok;
 }
 
 async function applyTailscale(root: string, run: Runner): Promise<Check> {
-  const tailscale = await run(['ansible-playbook', 'tailscale.yml'], {
-    cwd: resolve(root, 'packages/workstation/ubuntu'),
-    timeoutMs: 300_000,
-  });
+  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const tailscale = await runAnsibleWithReceipt(
+    run,
+    'tailscale.yml',
+    { cwd: ubuntu, timeoutMs: 300_000, input: '{}' },
+    {
+      name: 'ubuntu-tailscale',
+      sources: [ubuntu],
+      verify: async () => {
+        const status = await run(['tailscale', 'status', '--json']);
+        return (
+          status.ok &&
+          (JSON.parse(status.stdout) as { BackendState?: unknown })
+            .BackendState === 'Running'
+        );
+      },
+    }
+  );
   return {
     id: 'tailscale:configuration',
     status: tailscale.ok ? 'pass' : 'fail',
@@ -136,9 +227,12 @@ async function applyTailscale(root: string, run: Runner): Promise<Check> {
 async function convergeT3(
   root: string,
   node: string,
-  run: Runner
+  run: Runner,
+  maintenance = false
 ): Promise<Check[]> {
   const artifact = managedT3();
+  // T3 activity before any fleet probe: decides whether a restart is safe.
+  const lastWrite = await lastT3Write();
   const checks = await convergeT3Service(
     artifact,
     run,
@@ -148,8 +242,16 @@ async function convergeT3(
     },
     () => installT3Desktop(root, run)
   );
+  // Before any policy restart, so a restarted T3 reads it at startup.
   if (checks.every((check) => check.status === 'pass'))
-    checks.push(await verifyT3Policy(artifact.path, run));
+    checks.push(await syncAntigravityKey(proxyKey));
+  if (checks.every((check) => check.status === 'pass'))
+    // --maintenance applies a pending policy even while T3 is busy.
+    checks.push(
+      await healT3Policy(artifact.path, run, {
+        lastWrite: maintenance ? 0 : lastWrite,
+      })
+    );
   const serviceReady = checks.some(
     (check) => check.id === 't3:service' && check.status === 'pass'
   );
@@ -161,9 +263,10 @@ async function convergeT3(
 async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
   const user = userInfo();
   const desktop = managedT3Desktop();
-  const result = await runAnsible(
+  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const result = await runAnsibleWithReceipt(
     run,
-    resolve(root, 'packages/workstation/ubuntu/t3-desktop.yml'),
+    resolve(ubuntu, 't3-desktop.yml'),
     {
       cwd: root,
       timeoutMs: 600_000,
@@ -176,6 +279,20 @@ async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
         t3_desktop_name: desktop.name,
         t3_desktop_sha256: desktop.sha256,
       }),
+    },
+    {
+      name: 'ubuntu-t3-desktop',
+      sources: [ubuntu],
+      verify: async () =>
+        (
+          await run([
+            'systemctl',
+            '--user',
+            'is-enabled',
+            '--quiet',
+            't3code-desktop.service',
+          ])
+        ).ok,
     }
   );
   return result.ok;
@@ -183,10 +300,10 @@ async function installT3Desktop(root: string, run: Runner): Promise<boolean> {
 
 async function t3AfterBaseline(
   root: string,
-  node: string,
-  baseline: Check[],
-  run: Runner
+  context: { node: string; baseline: Check[]; run: Runner },
+  maintenance = false
 ): Promise<Check[]> {
+  const { node, baseline, run } = context;
   if (baseline.some((check) => check.status !== 'pass'))
     return [
       {
@@ -199,7 +316,7 @@ async function t3AfterBaseline(
         },
       },
     ];
-  return attempt('t3:service', () => convergeT3(root, node, run));
+  return attempt('t3:service', () => convergeT3(root, node, run, maintenance));
 }
 
 async function enableWorkerRecovery(
@@ -207,9 +324,10 @@ async function enableWorkerRecovery(
   run: Runner
 ): Promise<Check[]> {
   const user = userInfo();
-  const result = await runAnsible(
+  const ubuntu = resolve(root, 'packages/workstation/ubuntu');
+  const result = await runAnsibleWithReceipt(
     run,
-    resolve(root, 'packages/workstation/ubuntu/recovery.yml'),
+    resolve(ubuntu, 'recovery.yml'),
     {
       cwd: root,
       timeoutMs: 60_000,
@@ -219,6 +337,20 @@ async function enableWorkerRecovery(
         development_uid: user.uid,
         development_home: user.homedir,
       }),
+    },
+    {
+      name: 'ubuntu-recovery',
+      sources: [ubuntu],
+      verify: async () =>
+        (
+          await run([
+            'systemctl',
+            '--user',
+            'is-active',
+            '--quiet',
+            'personal-worker-recovery.timer',
+          ])
+        ).ok,
     }
   );
   return [

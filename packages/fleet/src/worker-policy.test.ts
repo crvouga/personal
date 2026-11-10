@@ -71,7 +71,7 @@ test('T3 access requires matching live environment identity and unexpired native
                 },
               ])
             ),
-      now
+      { now: () => now }
     );
     expect(check.status).toBe(match ? 'pass' : 'fail');
   }
@@ -94,4 +94,33 @@ test('an explicitly enrolled T3 environment is checked through native authentica
     }
   );
   expect(check.status).toBe('pass');
+});
+
+test('after a restart in this sync, the link check waits for the reconnect', async () => {
+  let listings = 0;
+  let clock = 0;
+  const check = await verifyT3Linked(
+    { ...NODE, t3EnvironmentId: 'env' },
+    async () => {
+      listings++;
+      return success(
+        JSON.stringify([
+          {
+            environmentId: 'env',
+            status: listings < 3 ? 'unreachable' : 'reachable',
+            expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          },
+        ])
+      );
+    },
+    {
+      now: () => Date.now() + clock,
+      reconnectMs: 60_000,
+      pause: async () => {
+        clock += 10_000;
+      },
+    }
+  );
+  expect(check.status).toBe('pass');
+  expect(listings).toBe(3);
 });

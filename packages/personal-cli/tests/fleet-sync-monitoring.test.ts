@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
 import {
+  enrollManagerMonitoring,
   synchronizeMonitoring,
   synchronizeMonitoringWith,
 } from '../src/fleet-sync-monitoring';
@@ -141,4 +142,86 @@ test('a worker missing from the tailnet and a rejected login keep their codes', 
   })(worker, definition, revision, fakeRunner().run);
   expect(rejected[0]?.summary).toBe('BESZEL_ACCOUNT_REQUIRED');
   expect(rejected[0]?.remedy?.action).toContain('fleet-manager@chrisvouga.dev');
+});
+
+function hubFixture(bodies: object[]) {
+  return async () => ({
+    userId: 'abcdefghijklmno',
+    request: async (path: string, body?: object) => {
+      if (body) {
+        bodies.push(body);
+        return body;
+      }
+      if (path.endsWith('/info'))
+        return { v: '0.21.1', key: 'ssh-ed25519 fixture' };
+      if (path.includes('/systems/')) return { items: [] };
+      if (path.includes('/fingerprints/')) return { items: [] };
+      return {
+        items: [
+          {
+            status: 'up',
+            updated: new Date().toISOString(),
+            created: new Date().toISOString(),
+          },
+        ],
+      };
+    },
+  });
+}
+
+test('the manager enrolls itself on its own hub and installs its agent locally', async () => {
+  const { run, calls } = fakeRunner();
+  const bodies: object[] = [];
+  const installs: { node: string; hubUrl: string }[] = [];
+  const checks = await enrollManagerMonitoring(definition, '/checkout', run, {
+    sampleDeadlineMs: 0,
+    access: hubFixture(bodies),
+    install: async (_root, { node, enrollment }) => {
+      installs.push({ node, hubUrl: enrollment.hubUrl });
+      return [{ id: 'beszel:service', status: 'pass', summary: 'ok' }];
+    },
+  });
+  expect(bodies[0]).toMatchObject({
+    name: 'chriss-macbook-air',
+    host: 'chriss-macbook-air-1.tail4829dc.ts.net',
+  });
+  expect(installs).toEqual([{ node: 'chriss-macbook-air', hubUrl: HUB }]);
+  expect(calls.some((args) => args[0] === 'ssh')).toBe(false);
+  expect(checks[0]?.id).toBe('beszel:service');
+});
+
+test('a failed manager agent install is reported, never hidden', async () => {
+  const checks = await enrollManagerMonitoring(
+    definition,
+    '/checkout',
+    fakeRunner().run,
+    {
+      sampleDeadlineMs: 0,
+      access: hubFixture([]),
+      install: async () => [
+        {
+          id: 'beszel:installation',
+          status: 'fail',
+          summary: 'BESZEL_INSTALLATION_INCOMPLETE',
+        },
+      ],
+    }
+  );
+  expect(checks.map((check) => check.summary)).toEqual([
+    'BESZEL_INSTALLATION_INCOMPLETE',
+  ]);
+});
+
+test('manager monitoring with an unreachable hub keeps its code', async () => {
+  const checks = await enrollManagerMonitoring(
+    definition,
+    '/checkout',
+    fakeRunner(false).run,
+    {
+      access: async () => {
+        throw new Error('must not log in');
+      },
+    }
+  );
+  expect(checks[0]?.summary).toBe('BESZEL_HUB_UNREACHABLE');
 });

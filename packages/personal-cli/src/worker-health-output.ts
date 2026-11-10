@@ -1,4 +1,5 @@
 import type { Report } from '../../fleet/src/types';
+import { stableUrls } from './fleet-sync-output';
 
 /** The human command answers what remains; the JSON contract retains all evidence. */
 export function workerHealthText(
@@ -32,5 +33,5 @@ export function workerHealthText(
     }
   }
   lines.push('', 'Use --json for the full versioned evidence report.');
-  return lines.join('\n');
+  return stableUrls(lines.join('\n'));
 }

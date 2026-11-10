@@ -1,5 +1,4 @@
-import { runAnsible } from '../platform/ansible';
-import macos from '../../../macos/policy.json';
+import { runAnsibleWithReceipt } from '../platform/ansible-receipt';
 import { convergeManagerHub } from './manager-hub';
 import { resolve } from 'node:path';
 import { loadDefinition } from '../../../../fleet/src/definition';
@@ -38,18 +37,21 @@ export async function applyAgent(
   return installAgent(request, root, run);
 }
 
-/** Linux installs a hardened systemd unit; macOS an always-on launchd daemon. */
+/** Workers (Linux) install a hardened systemd unit. The macOS manager's own
+ * agent is a per-user launch agent installed locally by fleet-sync
+ * (installManagerAgent), never through this remote entry point.
+ */
 async function installAgent(
   request: Request,
   root: string,
-  run: Runner,
-  darwin = process.platform === 'darwin'
+  run: Runner
 ): Promise<Check[]> {
-  const result = await runAnsible(
+  const monitoring = resolve(root, 'packages/workstation/monitoring');
+  const result = await runAnsibleWithReceipt(
     run,
-    darwin ? 'agent-darwin.yml' : 'agent.yml',
+    'agent.yml',
     {
-      cwd: resolve(root, 'packages/workstation/monitoring'),
+      cwd: monitoring,
       timeoutMs: 300_000,
       input: JSON.stringify({
         beszel_node: request.node,
@@ -57,6 +59,11 @@ async function installAgent(
         beszel_public_key: request.publicKey,
         beszel_agent_token: request.token,
       }),
+    },
+    {
+      name: 'beszel-agent',
+      sources: [monitoring],
+      verify: () => agentActive(run),
     }
   );
   if (!result.ok)
@@ -71,10 +78,7 @@ async function installAgent(
         },
       },
     ];
-  const ready = darwin
-    ? await darwinAgentRunning(run)
-    : (await run(['systemctl', 'is-enabled', 'beszel-agent.service'])).ok &&
-      (await run(['systemctl', 'is-active', 'beszel-agent.service'])).ok;
+  const ready = await agentActive(run);
   return [
     {
       id: 'beszel:service',
@@ -85,13 +89,11 @@ async function installAgent(
     },
   ];
 }
-async function darwinAgentRunning(run: Runner): Promise<boolean> {
-  const state = await run([
-    '/bin/launchctl',
-    'print',
-    `system/${macos.beszelDaemon}`,
-  ]);
-  return state.ok && /state = running/.test(state.stdout);
+async function agentActive(run: Runner): Promise<boolean> {
+  return (
+    (await run(['systemctl', 'is-enabled', 'beszel-agent.service'])).ok &&
+    (await run(['systemctl', 'is-active', 'beszel-agent.service'])).ok
+  );
 }
 interface Request {
   node: string;

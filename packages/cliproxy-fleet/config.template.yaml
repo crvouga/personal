@@ -17,6 +17,16 @@ access:
     - REPLACE_CLIENT_KEY
 oauth:
   auth-dir: /state/auths
+  # Fleet-owned (applied by `ops declared`): the Antigravity CLI sends its
+  # catalog ids; serve them from the Antigravity account's matching models.
+  model-alias:
+    antigravity:
+      - name: gemini-3.8-flash-high
+        alias: gemini-3.8-flash
+        fork: true
+      - name: gemini-3.1-flash-lite
+        alias: gemini-3.1-flash-lite-preview
+        fork: true
 routing:
   # Fill first: use one account until its quota is exhausted (it then cools down), then the next.
   # Sessions stay bound to their account while it is available; new sessions start on the first

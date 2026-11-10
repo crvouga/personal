@@ -227,6 +227,7 @@ test('maintenance-class T3 outcomes and external acceptance never block promotio
     failing('ubuntu:boot-policy', 'UBUNTU_MAINTENANCE_REBOOT_PENDING')
   ).toBe(false);
   expect(failing('beszel:enrollment', 'BESZEL_ACCOUNT_REQUIRED')).toBe(false);
+  expect(failing('t3:paired-access', 'MANAGER_T3_LINK_UNVERIFIED')).toBe(false);
   expect(failing('ubuntu:baseline', 'UBUNTU_BASELINE_INCOMPLETE')).toBe(true);
   expect(
     failing('workstation:installation', 'WORKSTATION_INSTALLATION_FAILED')
@@ -254,7 +255,7 @@ test('warnings and skips are reported but a run with no failure succeeds', async
         {
           id: 'provider:codex:inference',
           status: 'warn',
-          summary: 'PROVIDER_RATE_LIMITED',
+          summary: 'PROVIDER_UPSTREAM_UNAVAILABLE',
         },
         {
           id: 'worker:power-loss-recovery',

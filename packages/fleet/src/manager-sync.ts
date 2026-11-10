@@ -10,7 +10,7 @@ import { discoverTailnet, type TailnetComputer } from './tailscale';
 import { matchComputers } from './tailnet-matching';
 import { sshArgs, sshFailure } from './ssh';
 import type { FleetDefinition, MachineDefinition } from './definition';
-import { hubUrl } from './topology';
+import { PUBLIC_HUB_URL } from './monitoring/beszel';
 import {
   convergeable,
   evaluatePlatform,
@@ -87,8 +87,13 @@ export async function synchronizeManager(
     progress?: (node: string, phase: string) => void;
     /** Called once per node as soon as its result is final. */
     finished?: (node: ManagerNode) => void;
-    /** Converges the manager locally before any worker; omitted in tests. */
+    /** Converges the manager locally; omitted in tests. */
     manager?: () => Promise<ManagerNode>;
+    /** Finish the manager before any worker (maintenance may restart the
+     * proxy). Otherwise it converges alongside the workers, which only
+     * consume its already-running services.
+     */
+    managerFirst?: boolean;
   },
   run: Runner,
   deploy: DeployNode
@@ -103,20 +108,22 @@ export async function synchronizeManager(
     applied: false,
     desiredRevision: input.revision,
     checks: tailnet.checks,
-    dashboardUrl: hubUrl(input.definition),
+    // Printed for people: the stable public name, never a tailnet address.
+    dashboardUrl: PUBLIC_HUB_URL,
     nodes: [],
     candidates: tailnet.computers.filter(
       (peer) => !peer.self && !matches.get(peer.id)?.length
     ).length,
   };
-  if (input.manager) report.nodes.push(await convergeManagerNode(input));
-  for (const machine of input.definition.workers.filter(convergeable)) {
-    input.progress?.(
-      machine.id,
-      'Inspecting enrolled identity and fresh SSH access'
-    );
-    report.nodes.push(
-      await inspectManagerNode(
+  const managerRun = input.manager ? convergeManagerNode(input) : null;
+  if (managerRun && input.managerFirst) await managerRun;
+  const workers = await Promise.all(
+    input.definition.workers.filter(convergeable).map((machine) => {
+      input.progress?.(
+        machine.id,
+        'Inspecting enrolled identity and fresh SSH access'
+      );
+      return inspectManagerNode(
         machine,
         {
           nodes: input.nodes,
@@ -125,14 +132,13 @@ export async function synchronizeManager(
           matches,
         },
         run
-      )
-    );
-  }
+      );
+    })
+  );
+  report.nodes.push(...workers);
   if (input.apply) await applyNodes(report, input, deploy);
-  else
-    report.nodes
-      .filter((node) => node.role !== 'manager')
-      .forEach((node) => input.finished?.(node));
+  else workers.forEach((node) => input.finished?.(node));
+  if (managerRun) report.nodes.unshift(await managerRun);
   report.ok = ready(report);
   for (const node of report.nodes)
     node.diagnostics = node.checks.map((check) => diagnostic(node.node, check));
@@ -175,24 +181,23 @@ async function applyNodes(
   },
   deploy: DeployNode
 ): Promise<void> {
-  const ordered = report.nodes
-    .filter((node) => node.role !== 'manager')
-    .sort(
-      (a, b) =>
-        Number(b.node === input.canary) - Number(a.node === input.canary)
-    );
+  const workers = report.nodes.filter((node) => node.role !== 'manager');
+  const canary = workers.find((node) => node.node === input.canary);
   let blocked = report.checks.some(blocking);
-  for (const result of ordered) {
+  const step = async (result: ManagerNode) => {
     const deployable = mayDeploy(result, input.nodes);
     if (await rollOut(result, { deployable, blocked }, input, deploy))
       report.applied = true;
-    if (
-      result.node === input.canary &&
-      (!deployable || result.checks.some(blocksPromotion))
-    )
-      blocked = true;
     input.finished?.(result);
+    return deployable;
+  };
+  // The canary goes first; a failed canary stops promotion. The remaining
+  // workers are independent, so they converge concurrently.
+  if (canary) {
+    const deployable = await step(canary);
+    if (!deployable || canary.checks.some(blocksPromotion)) blocked = true;
   }
+  await Promise.all(workers.filter((node) => node !== canary).map(step));
 }
 
 /** One node's rollout step; true when its remote operation ran. */
@@ -380,7 +385,7 @@ export function blocksPromotion(check: Check): boolean {
   if (!blocking(check)) return false;
   if (check.id === 't3:service' && T3_MAINTENANCE.has(check.summary))
     return false;
-  return !/^(worker:|beszel:|provider:|proxy:|t3:end-to-end$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
+  return !/^(worker:|beszel:|provider:|agent:|proxy:|t3:end-to-end$|t3:paired-access$|t3:policy-loaded$|ubuntu:boot-policy$)/.test(
     check.id
   );
 }

@@ -71,6 +71,23 @@ const diskAboveFloor =
     ];
   };
 
+/** Free space cannot show this: /tmp is RAM-backed with a per-user quota, so a
+ * write fails while the filesystem still reports room. Probe a real 1 MiB write.
+ */
+const tmpWritable: Probe = async (run) =>
+  (
+    await run([
+      'sh',
+      '-c',
+      'f=$(mktemp /tmp/personal-fleet-probe.XXXXXX) || exit 1; head -c 1048576 /dev/zero >"$f"; s=$?; rm -f -- "$f"; exit "$s"',
+    ])
+  ).ok
+    ? undefined
+    : [
+        'TMP_QUOTA_EXHAUSTED',
+        'This user cannot write to /tmp (full, or its per-user quota is used up), so agents and builds fail. The guard never deletes files; remove stale caches and scratch directories under /tmp.',
+      ];
+
 /** Measured memory and disk safety on an Ubuntu worker: the running managers,
  * not the files Ansible wrote. Free space below the guard floor fails because
  * the guard only stops runaway writers; a person must recover space.
@@ -86,6 +103,7 @@ export async function verifyResourceSafety(
     swapActive,
     diskAboveFloor('/'),
     diskAboveFloor(home),
+    tmpWritable,
   ];
   for (const probe of probes) {
     const failure = await probe(run);
@@ -104,7 +122,7 @@ export async function verifyResourceSafety(
       id: 'ubuntu:resource-safety',
       status: 'pass',
       summary:
-        'systemd-oomd and the disk guard are running, user workloads are capped below physical memory, T3 agents have per-agent limits, swap is active and free disk is above the guard floor.',
+        'systemd-oomd and the disk guard are running, user workloads are capped below physical memory, T3 agents have per-agent limits, swap is active, free disk is above the guard floor and /tmp is writable.',
     },
   ];
 }
