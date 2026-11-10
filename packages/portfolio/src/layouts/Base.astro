@@ -6,7 +6,8 @@ import {
   VARIANT_PRESENTATIONS,
   presentationOf,
 } from '../archetypes/presentation';
-import { ALL_THEMES_CSS, LOOKS_BY_ARCHETYPE } from '../archetypes/theme';
+import { ARCHETYPE_IDS, type ArchetypeId } from '../archetypes/definitions';
+import { ALL_THEMES_CSS, DEFAULT_THEME_CSS } from '../archetypes/theme';
 import {
   HOME_SEO,
   SITE_NAME,
@@ -21,6 +22,7 @@ import { publishedPosts } from '../lib/published-posts';
 interface Props {
   /** Omitted by the homepage, which is the canonical Person + WebSite page. */
   seo?: Seo;
+  archetype?: ArchetypeId;
 }
 // A presentation keeps the homepage's canonical URL and share card, but its
 // description is its own pitch, so a shared `/a/<id>/` link previews it.
@@ -31,8 +33,12 @@ const forcedLight = presentation.theme.scheme === 'light';
 // A homepage is built per archetype and carries its one theme. Every other
 // page is built once: it carries all of them, and the script below applies
 // the one named in the URL, so the look follows a visitor past the homepage.
-const shared = Astro.locals.presentation === undefined;
-const styles = shared ? ALL_THEMES_CSS : presentation.themeCss;
+const shared =
+  Astro.props.archetype === undefined &&
+  Astro.locals.presentation === undefined;
+const styles =
+  DEFAULT_THEME_CSS + (shared ? ALL_THEMES_CSS : presentation.themeCss);
+const themeIds = shared ? ARCHETYPE_IDS : [];
 const canonical = absoluteUrl(seo.path);
 const jsonLd = buildJsonLd(seo);
 const hasFeed = (await publishedPosts()).length > 0;
@@ -43,7 +49,7 @@ const redirectsOldLinks = !shared && presentation.isDefault;
 ---
 
 <!doctype html>
-<html lang="en" data-archetype={presentation.id} data-look={presentation.theme.looks.join(' ') || undefined}>
+<html lang="en" data-archetype={presentation.id} data-theme={presentation.theme.id}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -100,11 +106,11 @@ const redirectsOldLinks = !shared && presentation.isDefault;
     )}
     {styles !== '' && <style is:inline set:html={styles} />}
     {shared && (
-      <script is:inline define:vars={{ archetypeParam: ARCHETYPE_PARAM, looks: LOOKS_BY_ARCHETYPE }}>
+      <script is:inline define:vars={{ archetypeParam: ARCHETYPE_PARAM, themeIds }}>
         const id = new URLSearchParams(window.location.search).get(archetypeParam);
-        if (id !== null && Object.hasOwn(looks, id)) {
+        if (id !== null && themeIds.includes(id)) {
           document.documentElement.dataset.archetype = id;
-          if (looks[id] !== '') document.documentElement.dataset.look = looks[id];
+          document.documentElement.dataset.theme = id;
         }
       </script>
     )}

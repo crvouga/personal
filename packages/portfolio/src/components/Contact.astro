@@ -1,9 +1,15 @@
 ---
 import { presentationOf, sectionOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import { logisticsLines } from '../content/hero';
 import IconGitHub from './icons/IconGitHub.astro';
 import IconLinkedIn from './icons/IconLinkedIn.astro';
+
+interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
+}
 
 const presentation = presentationOf(Astro);
 const section = sectionOf(presentation, 'contact');
@@ -42,7 +48,7 @@ const meta = [presentation.voice.availability, CONTENT.HERO.location, ...logisti
 
 <style>
   .headline {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-2xl);
     font-weight: 600;
   }
@@ -51,7 +57,7 @@ const meta = [presentation.voice.availability, CONTENT.HERO.location, ...logisti
     margin-top: var(--space-2);
   }
   .meta {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
     margin-top: var(--space-2);
@@ -61,7 +67,7 @@ const meta = [presentation.voice.availability, CONTENT.HERO.location, ...logisti
     align-items: center;
     min-height: var(--tap);
     margin-top: var(--space-2);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-md);
     color: var(--accent);
     text-decoration: underline;

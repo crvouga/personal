@@ -4,6 +4,7 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "test/**/*.ts",
+    ".storybook/**/*.ts",
     "projects.ts",
     ".astro/types.d.ts"
   ],

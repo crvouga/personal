@@ -39,7 +39,7 @@
     "test:site": {
       "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$"],
-      "outputs": []
+      "outputs": ["storybook-static/**"]
     }
   }
 }

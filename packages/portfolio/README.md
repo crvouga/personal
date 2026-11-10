@@ -4,6 +4,15 @@ Source for [www.chrisvouga.dev](https://www.chrisvouga.dev): an Astro 7 static s
 
 The package is a Bun workspace inside `crvouga/workspace`. The production image (`ghcr.io/crvouga/chrisvouga-portfolio`) is built from the repository root by CI using `packages/portfolio/Dockerfile`, then served by nginx. Hosting is declared in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](../infra/tofu/modules/inventory/inventory.tf.json) (`id: portfolio`).
 
+## UI development: Storybook first
+
+All UI work happens in Storybook (`bun run storybook`, port 6006): build and review a component or screen there, in every archetype's theme, before it reaches a page. The static build (`bun run storybook:build` → `storybook-static/`) prerenders every story to HTML with [`@storybook-astro/framework`](https://storybook-astro.org) in `static` mode, so it needs no server and no network (the proof section reads the committed GitHub snapshot).
+
+- **Design system** (`src/design-system/`): typed tokens (`tokens.ts`), a base theme and `createTheme` (`base-theme.ts`), CSS generation (`css.ts`) and `ThemeProvider.astro`, which injects a theme into anything inside it. A theme is colour (dark and light), typefaces by role (`--font-body`, `--font-accent`, `--font-display`), heading weight and tracking, section numbers, and corner radii. Components read only these tokens. Spacing, type sizes and layout are fixed in `src/styles/global.css`, so a theme restyles but never re-lays out.
+- **Archetype themes** (`src/archetypes/theme.ts`): one theme per archetype. Pages put `data-theme` on `<html>`; stories get it from the preview decorator (`.storybook/preview.ts`), keyed by the story's `archetype` arg. `src/design-system/themes.test.ts` holds every theme to WCAG AA in each scheme it shows.
+- **Stories**: next to their component (`*.stories.ts`). Each file exports all of `VARIANTS` (`src/stories/variants.ts`): every archetype in every scheme its theme shows. Screens (`src/screens/`) are page bodies without the document; pages only add `Base`/`Page` around them. `src/stories/stories.test.ts` fails a component or screen without stories, or a story file missing a variant; `test/storybook.test.ts` checks the static build.
+- **Review**: `bun run storybook:screenshots [out-dir] [--filter <id>]` screenshots every story of `storybook-static/`.
+
 ## Architecture
 
 Astro static output emits a small set of HTML pages — `/`, `/projects/`, one case study per flagship at `/projects/<slug>/`, `/404`, and `/writing/` once a post is published — each with its CSS inlined and no client framework. Runtime JavaScript is limited to copy-to-clipboard feedback, the native project gallery dialog, the phone action bar and parking the heatmap at its latest week. A page load makes no third-party request (`test/site.test.ts` enforces it); YouTube is contacted only when a visitor opens a project's video in the gallery. There is no analytics: no cookies and no client-side tracking.
@@ -172,7 +181,9 @@ Run from the repository root with `bun run --filter @pkgs/portfolio <script>`, o
 | `lint`                                                        | ESLint with the shared workspace rules.                                                               |
 | `test`                                                        | Bun tests under `src/`; Docker E2E is intentionally excluded.                                         |
 | `test:docker`                                                 | Local Docker E2E; requires Docker and `PORTFOLIO_GITHUB_TOKEN`.                                       |
-| `test:site`                                                   | The built `dist/` in Chromium: axe (both themes), layout at 320/390/1440, budgets, link names.        |
+| `test:site`                                                   | The built `dist/` in Chromium (axe, layout, budgets, link names), then the static Storybook build.    |
+| `storybook` / `storybook:build`                               | Storybook dev server on port 6006 / static build into `storybook-static/`.                            |
+| `storybook:screenshots`                                       | Screenshot every story of `storybook-static/` into `storybook-screenshots/`.                          |
 | `gamezilla-facts`                                             | Recount gamezilla's specs from its private repository into `src/data/gamezilla-facts.json` (by hand). |
 | `gen:profile-readme`                                          | Regenerate `generated/github-profile-README.md` from the registry (drift-tested).                     |
 | `refresh-verification`                                        | Refresh the committed verification snapshot; exits non-zero on any API or clone failure.              |

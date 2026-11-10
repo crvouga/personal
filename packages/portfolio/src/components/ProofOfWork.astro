@@ -1,5 +1,6 @@
 ---
 import { presentationOf, sectionOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import { loadGitHubInsights } from '../lib/github-insights';
 import {
@@ -18,12 +19,19 @@ import ContributionCalendar from './ContributionCalendar.astro';
 // Uptime policy lives in lib/github-insights.ts: live GitHub data first, the
 // committed snapshot when GitHub is unreachable, and only then a failure. In
 // `astro dev` a missing token degrades to a notice card instead of failing.
+interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
+}
+
 const envToken = import.meta.env.PORTFOLIO_GITHUB_TOKEN;
 const isDev = import.meta.env.DEV;
 
 const { insights, freshness } = await loadGitHubInsights('crvouga', {
   ...(envToken ? { token: envToken } : {}),
   allowMissing: isDev,
+  // Set by .storybook/main.ts: stories render the committed snapshot.
+  snapshotOnly: process.env['PORTFOLIO_SNAPSHOT_ONLY'] === '1',
   // A dev server rebuilds on every edit; only real builds move the fallback.
   persist: !isDev,
 });
@@ -157,14 +165,14 @@ const provenance = ((): string => {
     gap: var(--space-1);
   }
   .tile .value {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-2xl);
     font-weight: 700;
     color: var(--accent);
     line-height: 1.1;
   }
   .tile .label {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--text);
   }
@@ -187,7 +195,7 @@ const provenance = ((): string => {
     display: none;
   }
   .calendar-title {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-md);
     font-weight: 600;
     color: var(--accent);
@@ -226,7 +234,7 @@ const provenance = ((): string => {
   }
   .caption {
     margin-top: var(--space-4);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
   }

@@ -1,7 +1,7 @@
 const { createSharedBlocks } = require('../eslint-rules/base-config.cjs');
 
 module.exports = [
-  { ignores: ['.astro/**'] },
+  { ignores: ['.astro/**', 'storybook-static/**', 'storybook-screenshots/**'] },
   ...createSharedBlocks(__dirname, {
     // Astro routes are named by the framework: `[slug].png.ts` is a dynamic
     // segment, not a style choice.

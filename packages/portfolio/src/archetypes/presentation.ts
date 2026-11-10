@@ -20,7 +20,8 @@ import {
   type ArchetypeId,
 } from './definitions';
 import { demandFor, type Demand } from './demand';
-import { THEMES, themeCss, type Theme } from './theme';
+import { themeCss } from '../design-system/css';
+import { THEMES, type Theme } from './theme';
 import { VOICES, type Voice } from './voice';
 
 /**
@@ -75,7 +76,7 @@ const build = (id: ArchetypeId): Presentation => {
     audience: archetype.audience,
     voice,
     theme,
-    themeCss: themeCss(id),
+    themeCss: themeCss(theme),
     demand,
     sections: sectionsFor(voice.sections, voice.titles),
     work,
@@ -113,10 +114,19 @@ export const resolvePresentation = (value: string | null): Presentation =>
     ? presentationFor(value)
     : DEFAULT_PRESENTATION;
 
-/** The presentation a page set on `Astro.locals`, else the default. */
+/**
+ * The presentation a component renders: its own `archetype` prop (how
+ * Storybook and parent components inject one), else the one the page set on
+ * `Astro.locals`, else the default.
+ */
 export const presentationOf = (astro: {
   readonly locals: App.Locals;
-}): Presentation => astro.locals.presentation ?? DEFAULT_PRESENTATION;
+  readonly props: Record<string, unknown>;
+}): Presentation => {
+  const archetype = astro.props['archetype'];
+  if (typeof archetype === 'string') return resolvePresentation(archetype);
+  return astro.locals.presentation ?? DEFAULT_PRESENTATION;
+};
 
 export const sectionOf = (
   presentation: Presentation,

@@ -1,9 +1,15 @@
 ---
 import { presentationOf, sectionOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import type { PrincipleFact, Story } from '../content/agentic';
 import { AI_TRAILERS, PLATFORM_FACTS, PUBLIC_TEST_CALL_SITES, count } from '../lib/proof-view';
 import { postHref, publishedPosts } from '../lib/published-posts';
+
+interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
+}
 
 const presentation = presentationOf(Astro);
 const section = sectionOf(presentation, 'agentic');
@@ -99,7 +105,7 @@ const essay = (await publishedPosts()).find(
 
 <style>
   .lede {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-lg);
     font-weight: 600;
     margin-bottom: var(--space-5);
@@ -124,7 +130,7 @@ const essay = (await publishedPosts()).find(
     gap: var(--space-2);
   }
   .principle h3 {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-md);
     font-weight: 600;
   }
@@ -133,7 +139,7 @@ const essay = (await publishedPosts()).find(
     font-size: var(--text-base);
   }
   .fact {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--accent);
   }
@@ -151,7 +157,7 @@ const essay = (await publishedPosts()).find(
     display: inline-flex;
     align-items: center;
     min-height: var(--tap);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
   }
   .contract {
@@ -183,7 +189,7 @@ const essay = (await publishedPosts()).find(
     display: none;
   }
   .story h3 {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-md);
     font-weight: 600;
   }

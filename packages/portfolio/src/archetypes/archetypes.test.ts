@@ -25,11 +25,9 @@ import {
 } from './presentation';
 import { SKILLS } from './skills';
 import { statusOf } from './status';
-import { LIGHT_SURFACES, THEMES, paletteTokens, type Palette } from './theme';
 import { VOICES } from './voice';
 
 const ROOT = join(import.meta.dir, '..', '..');
-const CSS = readFileSync(join(ROOT, 'src/styles/global.css'), 'utf8');
 const NGINX = readFileSync(join(ROOT, 'nginx.conf'), 'utf8');
 
 /** Enough postings that a share is a measurement, not an anecdote. */
@@ -245,90 +243,5 @@ describe('presentations reorder facts and never drop one', () => {
       ])
     );
     expect(new Set(orders).size).toBeGreaterThan(1);
-  });
-});
-
-// --- Colour contrast, the same arithmetic as src/styles/contrast.test.ts ---
-
-type Rgb = readonly [number, number, number];
-const AA = 4.5;
-
-const hex = (value: string): Rgb => {
-  const n = Number.parseInt(value.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-const luminance = ([r, g, b]: Rgb): number => {
-  const lin = (c: number): number => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-};
-
-const contrast = (a: string, b: string): number => {
-  const [hi = 0, lo = 0] = [luminance(hex(a)), luminance(hex(b))].sort(
-    (x, y) => y - x
-  );
-  return (hi + 0.05) / (lo + 0.05);
-};
-
-const token = (block: string, name: string): string =>
-  new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(block)?.[1] ?? '';
-
-const DARK_BLOCK = CSS.slice(CSS.indexOf(':root'));
-const LIGHT_BLOCK = CSS.slice(CSS.indexOf('prefers-color-scheme: light'));
-const SURFACES = {
-  dark: [token(DARK_BLOCK, 'bg'), token(DARK_BLOCK, 'paper')],
-  light: [LIGHT_SURFACES['bg'] ?? '', LIGHT_SURFACES['paper'] ?? ''],
-} as const;
-
-const failures = (palette: Palette, scheme: 'dark' | 'light'): string[] => {
-  const tokens = paletteTokens(palette, scheme);
-  const onSurfaces = ['accent', 'accent-hover'].flatMap((name) =>
-    SURFACES[scheme].map(
-      (surface) => [name, tokens[name] ?? '', surface] as const
-    )
-  );
-  const onButtons = ['accent-deep', 'accent-deep-hover'].map(
-    (name) => ['on-accent', '#ffffff', tokens[name] ?? ''] as const
-  );
-  return [...onSurfaces, ...onButtons]
-    .filter(([, fg, bg]) => contrast(fg, bg) < AA)
-    .map(([name, fg, bg]) => `${name} ${fg} on ${bg}`);
-};
-
-describe('themes', () => {
-  test('every palette holds WCAG AA on the surfaces it is drawn on', () => {
-    const failing = ARCHETYPE_IDS.flatMap((id) => [
-      ...(THEMES[id].dark === undefined
-        ? []
-        : failures(THEMES[id].dark, 'dark')),
-      ...(THEMES[id].light === undefined
-        ? []
-        : failures(THEMES[id].light, 'light')),
-    ]);
-    expect(failing).toEqual([]);
-  });
-
-  test('the résumé accent is readable on white paper', () => {
-    const faint = ARCHETYPE_IDS.filter(
-      (id) => contrast(THEMES[id].resumeAccent, '#ffffff') < AA
-    );
-    expect(faint).toEqual([]);
-  });
-
-  test('a forced-light theme has a light palette', () => {
-    const missing = ARCHETYPE_IDS.filter(
-      (id) => THEMES[id].scheme === 'light' && THEMES[id].light === undefined
-    );
-    expect(missing).toEqual([]);
-  });
-
-  test('the restated light surfaces match global.css', () => {
-    const drifted = Object.entries(LIGHT_SURFACES).filter(
-      ([name, value]) => !LIGHT_BLOCK.includes(`--${name}: ${value};`)
-    );
-    expect(drifted).toEqual([]);
   });
 });

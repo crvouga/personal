@@ -1,7 +1,13 @@
 ---
 import { presentationOf, sectionOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
 import { CONTENT } from '../content/content';
 import { workDateRange, workGalleryFor } from '../lib/work-view';
+
+interface Props {
+  /** Injected by stories and HomeScreen; defaults to the page's presentation. */
+  archetype?: ArchetypeId;
+}
 
 const presentation = presentationOf(Astro);
 const section = sectionOf(presentation, 'work');
@@ -100,13 +106,13 @@ const galleryOffset = presentation.projects.length;
     flex-wrap: wrap;
   }
   .years {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-xs);
     color: var(--text-muted);
     white-space: nowrap;
   }
   h3 {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-lg);
     font-weight: 600;
   }
@@ -116,7 +122,7 @@ const galleryOffset = presentation.projects.length;
     min-height: var(--tap);
   }
   .role {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--accent);
   }
@@ -139,7 +145,7 @@ const galleryOffset = presentation.projects.length;
     position: absolute;
     left: 0;
     color: var(--accent);
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
   }
   /* Recognition as crawlable text. The certificates themselves live in the
      gallery, where no crawler and no LLM researcher will ever see them. */
@@ -151,7 +157,7 @@ const galleryOffset = presentation.projects.length;
   .awards li {
     position: relative;
     padding-left: 20px;
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--text);
   }
@@ -167,7 +173,7 @@ const galleryOffset = presentation.projects.length;
     gap: var(--space-5);
   }
   .gap-note {
-    font-family: var(--font-mono);
+    font-family: var(--font-accent);
     font-size: var(--text-sm);
     color: var(--text-muted);
     padding-left: var(--space-5);

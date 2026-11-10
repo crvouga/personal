@@ -1,0 +1,58 @@
+---
+/**
+ * The homepage for one presentation, without the document around it, so
+ * Storybook can render it in any theme. Every section receives the same
+ * presentation, so the order, the headings, the ranking and the voice all
+ * come from one place.
+ */
+import { presentationOf } from '../archetypes/presentation';
+import type { ArchetypeId } from '../archetypes/definitions';
+import type { ArchetypeId } from '../archetypes/definitions';
+import About from '../components/About.astro';
+import Agentic from '../components/Agentic.astro';
+import Contact from '../components/Contact.astro';
+import Experience from '../components/Experience.astro';
+import Footer from '../components/Footer.astro';
+import GalleryDialog from '../components/GalleryDialog.astro';
+import Hero from '../components/Hero.astro';
+import Nav from '../components/Nav.astro';
+import ProofOfWork from '../components/ProofOfWork.astro';
+import Projects from '../components/Projects.astro';
+import StickyCta from '../components/StickyCta.astro';
+import Testimonials from '../components/Testimonials.astro';
+import type { SectionId } from '../content/sections';
+
+interface Props {
+  archetype?: ArchetypeId;
+}
+const presentation = presentationOf(Astro);
+
+const SECTION_COMPONENTS = {
+  work: Experience,
+  projects: Projects,
+  agentic: Agentic,
+  proof: ProofOfWork,
+  about: About,
+  contact: Contact,
+} satisfies Record<SectionId, unknown>;
+---
+
+<Nav archetype={presentation.id} />
+<main id="main">
+  <Hero archetype={presentation.id} />
+  {
+    presentation.sections.map((section) => {
+      const Section = SECTION_COMPONENTS[section.id];
+      // Quotes belong beside the proof they vouch for, wherever that sits.
+      return (
+        <>
+          <Section archetype={presentation.id} />
+          {section.id === 'proof' && <Testimonials />}
+        </>
+      );
+    })
+  }
+</main>
+<Footer />
+<StickyCta />
+<GalleryDialog galleries={presentation.galleries} />

@@ -1,0 +1,38 @@
+---
+/**
+ * Injects a theme into everything inside it: the theme's tokens, scoped to
+ * this element, plus its surface (background, text colour, body face). Used
+ * by Storybook to render any component or screen in any archetype's theme;
+ * pages put the same `data-theme` on `<html>` instead (Base.astro).
+ */
+import { themeCss } from './css';
+import type { Theme } from './tokens';
+
+interface Props {
+  theme: Theme;
+  /** Pin the colour scheme; omitted, an `auto` theme follows the visitor. */
+  scheme?: 'dark' | 'light';
+  /** Fill the viewport, as a whole page does. */
+  fullscreen?: boolean;
+}
+const { theme, scheme, fullscreen = false } = Astro.props;
+const forced = theme.scheme === 'light' ? 'light' : scheme;
+---
+
+<div class:list={['theme-root', { fullscreen }]} data-theme={theme.id} data-scheme={forced}>
+  <style is:inline set:html={themeCss(theme)}></style>
+  <slot />
+</div>
+
+<style>
+  .theme-root {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    padding: var(--space-5);
+  }
+  .fullscreen {
+    min-height: 100vh;
+    padding: 0;
+  }
+</style>

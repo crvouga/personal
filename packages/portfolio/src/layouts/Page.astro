@@ -1,7 +1,6 @@
 ---
 import Base from './Base.astro';
-import Nav from '../components/Nav.astro';
-import Footer from '../components/Footer.astro';
+import Chrome from './Chrome.astro';
 import type { Seo } from '../lib/seo-types';
 
 interface Props {
@@ -11,9 +10,7 @@ const { seo } = Astro.props;
 ---
 
 <Base seo={seo}>
-  <Nav variant="sub" />
-  <main id="main">
+  <Chrome>
     <slot />
-  </main>
-  <Footer />
+  </Chrome>
 </Base>
