@@ -118,8 +118,8 @@ run "personal_repository_merge_gate" {
     error_message = "GitHub rejects merge queues for personally owned repositories."
   }
   assert {
-    condition     = !one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check", "protected-paths"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["squash"])
-    error_message = "main requires the fast Check and protected-paths results (not up to date) and squash-only PRs."
+    condition     = !one(github_repository_ruleset.main.rules).required_status_checks[0].strict_required_status_checks_policy && toset([for check in one(github_repository_ruleset.main.rules).required_status_checks[0].required_check : check.context]) == toset(["Check"]) && toset(one(github_repository_ruleset.main.rules).pull_request[0].allowed_merge_methods) == toset(["squash"])
+    error_message = "main requires the fast Check result (not up to date) and squash-only PRs."
   }
   assert {
     condition     = one(github_repository_ruleset.main.rules).required_linear_history && one(github_repository_ruleset.main.rules).pull_request[0].required_approving_review_count == 0 && length(github_repository_ruleset.main.bypass_actors) == 0

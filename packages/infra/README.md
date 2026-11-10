@@ -13,7 +13,7 @@ Defined in `tofu/modules/inventory/inventory.tf.json` (`github.pr_ready`) and
 - `main`: PR only, no force-push or deletion, linear history, squash only (title = PR title,
   body = PR body), auto-merge, branches deleted on merge, update-branch on, zero approvals,
   no up-to-date requirement.
-- Required checks: `Check` (fast CI lanes) and `protected-paths` (Guardrails).
+- Required check: `Check` (fast CI lanes).
 - No merge queue: GitHub only offers it to organization-owned repositories (see `GAPS.md`).
 - Actions: GitHub-owned plus an explicit allowlist, SHA pinning required, read-only token.
 

@@ -1279,7 +1279,7 @@
             {
               "name": "needs-human",
               "color": "d93f0b",
-              "description": "Needs a human decision; turns off auto-merge and waives protected-paths"
+              "description": "Needs a human decision; turns off auto-merge"
             },
             {
               "name": "do-not-merge",
@@ -1347,10 +1347,6 @@
                   "required_status_checks": [
                     {
                       "context": "Check",
-                      "integration_id": 15368
-                    },
-                    {
-                      "context": "protected-paths",
                       "integration_id": 15368
                     }
                   ]

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "requiredChecks": ["Check", "protected-paths"],
+  "requiredChecks": ["Check"],
   "checkGateJobs": ["changes", "repository", "packages", "infra"],
   "checkGateJobInstances": 7,
   "openTofuRoots": [
@@ -18,8 +18,8 @@
   "healthChecks": 13,
   "inventoryServices": 22,
   "packages": 19,
-  "workspaceTestFiles": 250,
-  "workspaceTestCallSites": 1221,
+  "workspaceTestFiles": 253,
+  "workspaceTestCallSites": 1241,
   "agentCommandHarnesses": [
     "Claude Code",
     "Cursor",
@@ -29,11 +29,11 @@
     "Codex / Agent Skills"
   ],
   "aiCoAuthorTrailers": {
-    "asOfCommit": "589990da398e051d1f421723878432e936363f13",
-    "asOfDate": "2026-11-09T22:49:23-07:00",
-    "commits": 1953,
+    "asOfCommit": "11103e3965fb46ab5a3b262d38505f5ebd728b71",
+    "asOfDate": "2026-11-09T23:08:17-07:00",
+    "commits": 1969,
     "byTool": [
-      { "tool": "Claude Code", "trailers": 166 },
+      { "tool": "Claude Code", "trailers": 172 },
       { "tool": "Cursor", "trailers": 78 }
     ]
   }
