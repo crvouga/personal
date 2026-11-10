@@ -31,7 +31,7 @@ The site is tailored to the kind of job a visitor is hiring for. Three layers, e
 The default presentation is also the one story every machine-readable surface tells (`/resume.json`, `/llms.txt`, JSON-LD, the profile README, the LinkedIn checklist).
 
 ```sh
-bun run market:refresh      # fetch postings (cached a day under .cache/market), rewrite landscape.json
+bun run market:refresh      # fetch postings (cached a day under node_modules/.cache/market), rewrite landscape.json
 bun run archetypes:status   # per-archetype demand, fit, gaps, and what needs attention
 ```
 

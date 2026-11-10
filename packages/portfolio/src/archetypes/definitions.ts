@@ -17,6 +17,8 @@ export type ArchetypeDefinition = {
   readonly id: string;
   /** Who reads this presentation, in one phrase. */
   readonly audience: string;
+  /** What this segment of the market is and what sets it apart. */
+  readonly description: string;
   readonly cells: readonly {
     readonly context: Context;
     readonly levels: readonly SegmentLevel[];
@@ -29,27 +31,37 @@ export const ARCHETYPES = [
   {
     id: 'tech-company-senior-developer',
     audience: 'Senior engineer hiring at software product companies',
+    description:
+      "Senior individual-contributor roles at companies whose product is software, from scale-ups to big tech. The largest segment in the sample and the level currently held, so it is the default. These postings ask for ownership of a feature area, sound system design and reliable delivery alongside product and design.",
     cells: [{ context: 'tech', levels: ['mid', 'senior'] }],
   },
   {
     id: 'tech-company-staff-engineer',
     audience: 'Staff, principal and lead hiring at software product companies',
+    description:
+      "Staff, principal and lead roles at the same software companies. The asks shift from building to direction: architecture, technical leadership, mentoring and working with stakeholders. Postings ask for more years than any other segment, so this is the stretch target.",
     cells: [{ context: 'tech', levels: ['staff'] }],
   },
   {
     id: 'startup-small-company-senior-developer',
     audience: 'Founders and first engineers hiring at small companies',
+    description:
+      "Engineers hired directly by founders at small companies, including founding-engineer roles. Titles are loose and the stack is narrow; what is asked for is someone who owns a product end to end and ships quickly. The segment the knowledge base fits best.",
     cells: [{ context: 'startup', levels: ALL_LEVELS }],
   },
   {
     id: 'corporate-large-company-senior-developer',
     audience: 'Engineering managers and recruiters at large enterprises',
+    description:
+      "Software engineers at large enterprises whose product is not software: banks, insurers, health systems and retailers. These postings are process-heavy and name testing, release pipelines, integrations and regulated domains far more often than the rest of the market.",
     cells: [{ context: 'corporate', levels: ['mid', 'senior'] }],
   },
   {
     id: 'corporate-contractor-systems-architect',
     audience:
       'Consultancies and enterprises hiring contract leads and architects',
+    description:
+      "Contract engagements and consultancies, plus lead and architect roles inside large enterprises. The work is designing and delivering systems for a client: integrations, cloud, modernization, and time spent with stakeholders.",
     cells: [
       { context: 'contract', levels: ALL_LEVELS },
       { context: 'corporate', levels: ['staff'] },

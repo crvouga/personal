@@ -63,7 +63,11 @@ export default defineConfig({
   // Presentations under /a/ are not public URLs (nginx.conf), so they stay
   // out of the sitemap.
   integrations: [
-    sitemap({ filter: (page) => !new URL(page).pathname.startsWith('/a/') }),
+    sitemap({
+      // /archetypes/ is Chris's own index of the presentations, not a page
+      // for visitors.
+      filter: (page) => !/^\/(a|archetypes)\//.test(new URL(page).pathname),
+    }),
     cspHeader(),
   ],
   vite: { plugins: [archetypeQuery()] },

@@ -4,7 +4,7 @@
  * landscape, `src/data/market/landscape.json`.
  *
  * Deterministic and model-free: public job-board APIs, regular expressions,
- * arithmetic. Raw postings are cached under `.cache/market/` (git-ignored)
+ * arithmetic. Raw postings are cached under `node_modules/.cache/market/`
  * for a day, so re-running while tuning the taxonomy costs nothing. A source
  * that fails keeps its cached copy; with no copy it is reported and skipped,
  * and the run fails only when too few postings remain to trust the result.
@@ -33,7 +33,7 @@ const SOURCES: readonly Source[] = [
   ...ATS_SOURCES,
   WORKDAY_SOURCE,
 ];
-const CACHE_DIR = resolve(import.meta.dir, '../.cache/market');
+const CACHE_DIR = resolve(import.meta.dir, '../node_modules/.cache/market');
 const OUTPUT = resolve(import.meta.dir, '../src/data/market/landscape.json');
 const DAY_MS = 86_400_000;
 const CACHE_TTL_MS = DAY_MS;

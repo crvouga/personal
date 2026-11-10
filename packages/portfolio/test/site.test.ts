@@ -26,6 +26,7 @@ const PAGES = [
   '/?archetype=corporate-large-company-senior-developer',
   '/?archetype=corporate-contractor-systems-architect',
   '/projects/',
+  '/archetypes/',
   '/projects/mockingbird/',
   '/projects/gamezilla/',
   '/projects/workspace-platform/',
