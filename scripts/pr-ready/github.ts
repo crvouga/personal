@@ -5,6 +5,7 @@
 import { readFile } from 'node:fs/promises';
 import { currentBranch, remoteBranchExists } from './git';
 import {
+  ALLOWED_MERGE_METHODS,
   CommandError,
   EXIT,
   TRUNK_BRANCH,
@@ -314,10 +315,11 @@ export async function mergeCommand(flags: Flags): Promise<Outcome> {
       hint: 'run `pr` first',
     });
   const auto = flags.booleans.has('auto');
-  // Merge commits only — never --squash or --rebase (ALLOWED_MERGE_METHODS).
+  // The one method the OpenTofu inventory allows (squash).
+  const method = ALLOWED_MERGE_METHODS[0];
   await gh(
     'merge',
-    ['pr', 'merge', branch, '--merge', ...(auto ? ['--auto'] : [])],
+    ['pr', 'merge', branch, `--${method}`, ...(auto ? ['--auto'] : [])],
     'is auto-merge enabled? review the OpenTofu foundation plan'
   );
   return ok({

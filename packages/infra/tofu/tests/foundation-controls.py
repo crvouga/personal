@@ -47,9 +47,7 @@ class Handler(BaseHTTPRequestHandler):
             settings = inventory["github"]["pr_ready"]["repo_settings"]
             return self.reply({**settings, "id": 123, "name": repository_name, "full_name": repository,
                                "owner": {"login": "crvouga", "id": 1, "type": "User"},
-                               "private": False, "permissions": {"admin": True}, "has_pages": False,
-                               "squash_merge_commit_message": "COMMIT_MESSAGES",
-                               "squash_merge_commit_title": "COMMIT_OR_PR_TITLE"})
+                               "private": False, "permissions": {"admin": True}, "has_pages": False})
         raise AssertionError("Unexpected GitHub read: " + path)
 
     def do_POST(self):

@@ -63,6 +63,7 @@ jobs:
       TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
       TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
       TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+      TF_VAR_freeze: ${{ vars.FREEZE == 'true' }}
       VAULT_HOSTNAME: vault.chrisvouga.dev
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       DB_CONNECTION_URI: ${{ secrets.DB_CONNECTION_URI }}
