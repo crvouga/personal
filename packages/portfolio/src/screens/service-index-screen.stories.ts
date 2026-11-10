@@ -1,10 +1,12 @@
 import { ARCHETYPE_ARG_TYPES, VARIANTS } from '../stories/variants';
+import { SERVICE_INDEX_FIXTURE } from '../stories/service-index-fixture';
 import Chrome from '../layouts/Chrome.astro';
-import HostedIndexScreen from './HostedIndexScreen.astro';
+import ServiceIndexScreen from './ServiceIndexScreen.astro';
 
 export default {
-  title: 'Screens/Hosted',
-  component: HostedIndexScreen,
+  title: 'Screens/Index',
+  component: ServiceIndexScreen,
+  args: { view: SERVICE_INDEX_FIXTURE },
   decorators: [
     (_story: unknown, context: { args: Record<string, unknown> }) => ({
       component: Chrome,

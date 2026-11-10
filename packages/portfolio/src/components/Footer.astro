@@ -1,7 +1,7 @@
 ---
 import { CONTENT } from '../content/content';
 import { RESUME_JSON_PATH } from '../constants/resume';
-import { HOSTED_INDEX_PATH } from '../lib/hosted-index';
+import { SERVICE_INDEX_PATH } from '../lib/service-index';
 
 // Derived at build time: the site is rebuilt daily, so this says how fresh it is.
 const built = new Date();
@@ -23,10 +23,11 @@ const year = built.getFullYear();
       <a href={CONTENT.SITE_SOURCE_CODE_URL} rel="noopener" target="_blank">
         This site's source
       </a>
-      <a class="tiny" href={HOSTED_INDEX_PATH}>
-        hosted
-      </a>
     </nav>
+  </div>
+  {/* Last thing on the page, and quiet: /index/ is for Chris, not visitors. */}
+  <div class="container last">
+    <a class="quiet" href={SERVICE_INDEX_PATH}>index</a>
   </div>
 </footer>
 
@@ -57,8 +58,14 @@ const year = built.getFullYear();
     min-height: var(--tap);
     color: var(--text-muted);
   }
-  /* Deliberately easy to miss: /hosted/ is an index for Chris, not visitors. */
-  footer a.tiny {
+  .last {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-4);
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+  }
+  footer a.quiet {
     min-width: var(--tap);
     justify-content: center;
     color: var(--text-subtle);
