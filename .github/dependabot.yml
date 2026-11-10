@@ -1,0 +1,27 @@
+# Version updates. The bot owns dependency bumps; agents never bump dependencies.
+# PRs are labeled `deps` and auto-merged by agent-prs.yml once CI is green.
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [deps]
+    commit-message:
+      prefix: chore(deps)
+    open-pull-requests-limit: 5
+    groups:
+      bun:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directories: [/, /.github/actions/*]
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [deps]
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      actions:
+        patterns: ['*']

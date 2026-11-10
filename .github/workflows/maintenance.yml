@@ -70,10 +70,10 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       STORAGE_KEY: ${{ inputs.storage_key }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/setup
       - name: Log in to Vault (OIDC, read-only)
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ env.VAULT_ADDR }}
           method: jwt
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./.github/actions/setup
       - name: Read build and runtime logs
         env:
@@ -141,13 +141,13 @@ jobs:
         inputs.drift) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Cache verified providers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .cache/tofu-providers
           key: tofu-1.13-${{ runner.os }}-${{ runner.arch }}-health-${{
@@ -189,7 +189,7 @@ jobs:
           mode: prepare
       - name: Log in to Vault (OIDC, read-only)
         if: "!cancelled() && inputs.task != 'domains'"
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ env.VAULT_ADDR }}
           method: jwt
@@ -224,7 +224,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install dependencies
         uses: ./.github/actions/setup
       - name: Check every public link the portfolio shows
@@ -280,7 +280,7 @@ jobs:
       LANDSCAPE: packages/portfolio/src/data/market/landscape.json
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
           ref: main
@@ -302,7 +302,7 @@ jobs:
           echo "task=$task" >> "$GITHUB_OUTPUT"
       - name: Read snapshot credentials
         if: steps.task.outputs.task == 'snapshot'
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         continue-on-error: true
         with:
           url: https://vault.chrisvouga.dev
@@ -416,7 +416,7 @@ jobs:
       TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - name: Install dependencies
@@ -427,7 +427,7 @@ jobs:
           root: foundation
           mode: prepare
       - name: Log in to Vault (OIDC, read-only)
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ env.VAULT_ADDR }}
           method: jwt

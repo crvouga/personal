@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install PyYAML for the validate-config contract
         run: |
           sudo apt-get update
@@ -75,7 +75,7 @@ jobs:
           exit $code
       - name: Keep structured report
         if: ${{ always() && hashFiles('model-health-report/model-health.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: model-health-contract-${{ github.run_id }}
           path: model-health-report
@@ -89,14 +89,14 @@ jobs:
       id-token: write
       issues: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Install read-only backup client
         if: env.PROFILE == 'readiness'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends restic
       - name: Read-only Vault login using GitHub OIDC
-        uses: hashicorp/vault-action@v4
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: https://vault.chrisvouga.dev
           method: jwt
@@ -108,7 +108,7 @@ jobs:
         if: env.PROFILE == 'readiness'
         run: python3 -B packages/cliproxy-fleet/scripts/external-health.py
       - name: Restore last-success and rate-limit state
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: model-health-state.json
           key: cliproxy-model-health-state-${{ github.run_id }}
@@ -142,13 +142,13 @@ jobs:
           exit $code
       - name: Save last-success and rate-limit state
         if: ${{ always() && hashFiles('model-health-state.json') != '' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: model-health-state.json
           key: cliproxy-model-health-state-${{ github.run_id }}
       - name: Keep structured report
         if: ${{ always() && hashFiles('model-health-report/model-health.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: model-health-${{ env.PROFILE }}-${{ github.run_id }}
           path: model-health-report

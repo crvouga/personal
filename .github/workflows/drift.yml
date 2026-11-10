@@ -1,0 +1,95 @@
+name: Drift
+# Read-only plan of every GitHub resource OpenTofu manages. A non-empty plan
+# opens or updates one `drift` issue; a clean plan closes it. Dispatch it on a
+# PR branch to preview that branch's GitHub changes before merging.
+on:
+  schedule:
+    - cron: '17 12 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  github:
+    name: GitHub settings drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      VAULT_ADDR: https://vault.chrisvouga.dev
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.cache/tofu-providers
+      TF_VAR_state_passphrase: ${{ secrets.TOFU_STATE_PASSPHRASE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_state_access_key: ${{ secrets.TOFU_STATE_ACCESS_KEY }}
+      TF_VAR_state_secret_key: ${{ secrets.TOFU_STATE_SECRET_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CF_API_TOKEN }}
+      TF_VAR_railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      TF_VAR_planetscale_service_token_id: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+      TF_VAR_planetscale_service_token: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+      TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+      TF_VAR_github_token: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_vault_inputs: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_VAULT_INPUTS: ${{ secrets.TOFU_VAULT_INPUTS }}
+      TOFU_MIGRATION_READY: ${{ vars.TOFU_MIGRATION_READY }}
+      VAULT_HOSTNAME: vault.chrisvouga.dev
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      DB_CONNECTION_URI: ${{ secrets.DB_CONNECTION_URI }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      DEPLOY_DISPATCH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+      TF_VAR_freeze: ${{ vars.FREEZE == 'true' }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+      - name: Prepare foundation
+        uses: ./.github/actions/tofu
+        with:
+          root: foundation
+          mode: prepare
+      - name: Plan GitHub resources
+        id: plan
+        run: |
+          set -uo pipefail
+          ROOT=packages/infra/tofu/foundation
+          mapfile -t targets < <(tofu -chdir="$ROOT" state list | grep -E '^github_' | sed 's/^/-target=/')
+          if [ "${#targets[@]}" -eq 0 ]; then echo "::error::No GitHub resources in state"; exit 1; fi
+          set +e
+          tofu -chdir="$ROOT" plan -input=false -lock=false -no-color -detailed-exitcode \
+            -parallelism=1 "${targets[@]}" > "$RUNNER_TEMP/plan.txt" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/plan.txt"
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          test "$code" -ne 1
+      - name: Write the issue body
+        if: steps.plan.outputs.exit_code == '2' || steps.plan.outputs.exit_code == '0'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          fence='```'
+          {
+            echo "GitHub settings differ from packages/infra/tofu (ref $GITHUB_REF_NAME, $RUN_URL)."
+            echo "Fix: change them back through OpenTofu, or record the change in the inventory."
+            echo
+            echo "${fence}text"
+            grep -E '^(  [#~+-]|Plan:)' "$RUNNER_TEMP/plan.txt" || true
+            echo "$fence"
+          } > "$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Open or update the drift issue
+        if: steps.plan.outputs.exit_code == '2' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/ci/upsert-issue.ts --title "GitHub settings drift" --label drift --body-file "$RUNNER_TEMP/body.md"
+      - name: Close the drift issue
+        if: steps.plan.outputs.exit_code == '0' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/ci/upsert-issue.ts --title "GitHub settings drift" --label drift --body "No drift on ${GITHUB_SHA}." --close

@@ -33,10 +33,9 @@ GitHub outage).
 
 ## Repo facts
 
-- Bun + Turborepo monorepo. Trunk is `main`. CI always reports `Check` and
-  `Fleet` on PRs and merge-queue entries; the latter is a legacy alias of Check. `Required` temporarily covers
-  `Check` and `Fleet` while the OpenTofu-owned ruleset migrates; inspect the live ruleset
-  rather than assuming the migration has been applied.
+- Bun + Turborepo monorepo. Trunk is `main`. Follow the "Pull requests" rules at the top of
+  `AGENTS.md`. PRs require `Check` (CI) and `protected-paths` (Guardrails); the sticky
+  "CI report" comment on the PR summarizes each failure with `file:line` and a repro command.
 - Full local gate: `bun run check`. With Vault (portfolio build needs
   `PORTFOLIO_GITHUB_TOKEN`): `bun run check:ci`. Focused package checks:
   `bun run --filter @pkgs/<name> tc|lint|test|build`.
@@ -120,7 +119,8 @@ Run `bun run pr:ready checks`.
 <pkg> lint|tc|test|build`, `bun run check`), fix it, commit and publish (step
   3), then run `checks` again. If the same check fails twice, read the full log
   (`--tail 1000`) and reproduce it locally before pushing again.
-- Fix the failing validation or platform job. `Fleet` reports Check under its legacy name; the temporary `Required` status covers `Check` and `Fleet`.
+- Fix the failing validation or platform job. Start from the PR's "CI report" comment.
+- `protected-paths` fails → fix the change, or add `needs-human` and explain why; never weaken a check.
 
 ### 7. Land
 

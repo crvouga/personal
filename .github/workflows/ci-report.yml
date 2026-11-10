@@ -1,0 +1,45 @@
+name: CI report
+# Keeps one sticky comment per PR with the latest CI and Guardrails results.
+# workflow_run runs this file from main, never PR code; artifacts are read as data.
+on:
+  workflow_run:
+    workflows: [CI, Guardrails]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  report:
+    name: Update PR comment
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    concurrency:
+      group: ci-report-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: Download failure summaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -p 'ci-summary-*' -D summaries || echo "No failure summaries"
+      - name: Update the sticky comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SUMMARIES: summaries
+        run: bun scripts/ci/pr-report.ts

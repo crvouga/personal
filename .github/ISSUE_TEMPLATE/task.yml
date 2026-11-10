@@ -1,0 +1,26 @@
+name: Task
+description: One small change an agent can finish in one PR. Label it `ready` when it can be picked up.
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong or missing, and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable outcomes that mean this is done.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test plan
+      description: The automated tests that prove it. `bun run check` must pass.
+    validations:
+      required: true
