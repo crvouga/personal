@@ -32,7 +32,8 @@
     "gamezilla-facts": "bun run scripts/gamezilla-facts.ts",
     "storybook": "storybook dev -p 6006 --no-open",
     "storybook:build": "storybook build -o storybook-static --quiet",
-    "storybook:screenshots": "bun run scripts/storybook-screenshots.ts"
+    "storybook:screenshots": "bun run scripts/storybook-screenshots.ts",
+    "storybook:pr-comment": "bun run scripts/storybook-pr-comment.ts"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
