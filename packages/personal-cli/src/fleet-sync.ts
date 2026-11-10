@@ -45,6 +45,10 @@ export interface FleetSyncOptions {
   schedule?: ScheduleAction;
   /** Also apply proxy updates that restart the gateway (interrupts inference). */
   maintenance?: boolean;
+  /** Internal: this revision already converged the whole fleet, so no canary
+   * has to prove it first and every worker converges at once.
+   */
+  rolledOut?: boolean;
   /** Internal: set for interactive terminal runs (sudo enrollment prompts). */
   interactiveAuthorization?: boolean;
   expectedPlanFingerprint?: string;
@@ -121,7 +125,11 @@ function applyLocked(
       approvedRevision: revision,
     };
     await saveEnrollment(root, approval);
-    const result = await selected(request, settings, run);
+    const result = await selected(
+      { ...request, rolledOut: state?.appliedRevision === revision },
+      settings,
+      run
+    );
     if (result.exitCode === 0)
       await saveEnrollment(root, {
         ...approval,

@@ -116,6 +116,9 @@ if ! git -C "$deployment" rev-parse --verify HEAD >/dev/null 2>&1; then
   [ "$(git -C "$deployment" rev-parse --show-toplevel)" = "$deployment" ] || exit 1
   clean=$(git -C "$deployment" status --porcelain) || die SOURCE_STATUS_FAILED
   [ -z "$clean" ] || die SOURCE_CHECKOUT_CONFLICT
+  # The bundle holds this commit without its history: declare the checkout
+  # shallow at it so Git accepts a commit whose parents are absent.
+  printf '%s\n' "$revision" >"$deployment/.git/shallow"
   git -C "$deployment" fetch --no-tags "$bundle" "$revision" >/dev/null 2>&1 || exit 1
   git -C "$deployment" checkout --detach "$revision" >/dev/null 2>&1 || exit 1
 fi
@@ -131,10 +134,13 @@ export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/
 status_file="$root/toolchain-status.json"
 ready_file="$root/toolchain-ready"
 [ ! -L "$status_file" ] && [ ! -L "$ready_file" ] || die FLEET_STATE_PATH_UNSAFE
-# Warm: the same revision's locked toolchain passed within a day. Any other
-# revision, a failure or an older stamp runs the full idempotent setup; agent
-# versions are still checked (and reinstalled on drift) by node convergence.
-if [ "$(cat "$ready_file" 2>/dev/null)" = "$revision" ] && [ -n "$(find "$ready_file" -mmin -1440 2>/dev/null)" ]; then
+# Warm: the same toolchain inputs (tool pins, locks and the setup code itself)
+# passed within a day, so a revision that changes none of them skips the full
+# setup. Changed inputs, a failure or an older stamp run it; agent versions
+# are still checked (and reinstalled on drift) by node convergence.
+toolchain_key=$(git rev-parse HEAD:mise.toml HEAD:mise.lock HEAD:.mise HEAD:bun.lock HEAD:package.json HEAD:scripts/dev 2>/dev/null | tr '\n' ' ')
+[ -n "$toolchain_key" ] || toolchain_key=$revision
+if [ "$(cat "$ready_file" 2>/dev/null)" = "$toolchain_key" ] && [ -n "$(find "$ready_file" -mmin -1440 2>/dev/null)" ]; then
   toolchain_warm=1
 else
   toolchain_warm=''
@@ -154,7 +160,12 @@ if [ -z "$toolchain_warm" ] && ! $bounded bash scripts/dev/bootstrap.sh --worker
     *) die TOOLCHAIN_CONVERGENCE_FAILED;;
   esac
 fi
-[ -n "$toolchain_warm" ] || printf '%s' "$revision" >"$ready_file"
+# A new revision's checkout still needs its own (cached, frozen) dependencies.
+if [ -n "$toolchain_warm" ] && [ ! -d node_modules ]; then
+  # shellcheck disable=SC2086
+  $bounded mise exec --locked bun -- bun install --frozen-lockfile >/dev/null 2>&1 || die TOOLCHAIN_FROZEN_DEPENDENCIES_FAILED
+fi
+[ -n "$toolchain_warm" ] || printf '%s' "$toolchain_key" >"$ready_file"
 phase=configuration
 trap - EXIT INT TERM
 exec mise exec --locked bun -- bun packages/fleet/src/node-converge.ts "$node" "$revision" "$run_mode"

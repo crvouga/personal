@@ -48,8 +48,9 @@ The fleet has exactly two roles, declared in
   the manager.
 - Anything on a worker is disposable: T3 sessions and worktrees, caches,
   checkouts. Durable work lives in Git remotes; credentials come from Vault.
-- The first declared worker is the rollout canary: a failed canary stops
-  promotion to the other workers.
+- The first declared worker is the rollout canary for a revision new to the
+  fleet: a failed canary stops promotion to the other workers. Repeating a
+  revision that already converged everywhere runs all workers at once.
 
 ## Changing the topology
 

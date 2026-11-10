@@ -81,8 +81,12 @@ DNS name and SSH alias still resolve. Enrollment never copies host keys,
 Tailscale state, provider OAuth, or another machine’s T3 environment.
 
 Remote developer-tool prerequisites are not required: the initial SSH probe uses
-POSIX facilities. Approved application sends a Git bundle and the bootstrap
-script extracted from that exact commit over verified SSH. It installs missing
+POSIX facilities. Approved application sends a Git bundle of that one commit
+(its files, no history; the worker checkout is shallow) and the bootstrap
+script extracted from that exact commit over verified SSH. A worker that
+already has the revision receives nothing, and the toolchain setup is skipped
+while its inputs (`mise.toml`, the locks, `scripts/dev`) are unchanged since a
+successful setup within the last day. It installs missing
 Ubuntu bootstrap packages through signed APT, then uses the existing mise and
 frozen dependency installer. Bootstrap APT packages currently use the installed
 Ubuntu archive configuration; strict dependency closure/snapshot promotion is a

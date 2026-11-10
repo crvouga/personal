@@ -76,8 +76,8 @@ export async function selected(
       revision: options.revision,
       apply: Boolean(options.apply),
       // The manager converges alongside the workers (first only for
-      // maintenance); the first declared worker is the canary.
-      ...(canonical.workers[0] ? { canary: canonical.workers[0].id } : {}),
+      // maintenance).
+      ...canary(canonical, options),
       managerFirst: Boolean(options.maintenance),
       progress: (node, phase) => ui.progress.step(node, phase),
       finished: (node) => ui.progress.finished(node),
@@ -97,6 +97,18 @@ export async function selected(
     deployWithMonitoring(payload, canonical, run, deployUi)
   ).finally(() => ui.progress.stop());
   return outcome(report, planFingerprint, started);
+}
+
+/** A revision new to the fleet is proven on the first declared worker before
+ * the rest; repeating one that already converged everywhere needs no canary,
+ * so every worker converges at once.
+ */
+function canary(
+  canonical: ReturnType<typeof parseDefinition>,
+  options: FleetSyncOptions
+): { canary?: string } {
+  const first = canonical.workers[0];
+  return first && !options.rolledOut ? { canary: first.id } : {};
 }
 
 /** Saves the full JSON report, then renders the short human summary. */

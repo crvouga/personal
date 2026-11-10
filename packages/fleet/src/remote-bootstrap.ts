@@ -53,9 +53,18 @@ export async function prepareBootstrap(
   );
 }
 
-/** git bundle refuses a bare commit id ("empty bundle"); bundle a temporary ref
- * that names the approved revision and remove it afterwards.
+/** Workers run one revision and never need history: the bundle holds only the
+ * approved commit and its files (about a quarter of the full history), and the
+ * receiving checkout is marked shallow at that commit. `git bundle create`
+ * cannot cut history, so the v2 bundle is written directly: a header naming
+ * the commit, then a pack of exactly its objects.
  */
+const SNAPSHOT_BUNDLE = [
+  'objects=$(git rev-list --objects --no-walk "$1") || exit 1',
+  '{ printf \'# v2 git bundle\\n%s refs/personal-fleet/%s\\n\\n\' "$1" "$1"',
+  'printf \'%s\\n\' "$objects" | git pack-objects --stdout -q; } >"$2"',
+].join('\n');
+
 async function bundleRevision(
   {
     root,
@@ -66,14 +75,11 @@ async function bundleRevision(
   run: Runner
 ): Promise<BootstrapPayload | null> {
   const path = join(root, `transfer-${randomUUID()}.bundle`);
-  const ref = `refs/personal-fleet/${revision}`;
   try {
-    if (!(await run(['git', 'update-ref', ref, revision], { cwd: source })).ok)
-      return null;
-    const bundled = await run(['git', 'bundle', 'create', path, ref], {
-      cwd: source,
-      timeoutMs: 120_000,
-    });
+    const bundled = await run(
+      ['sh', '-c', SNAPSHOT_BUNDLE, 'bundle', revision, path],
+      { cwd: source, timeoutMs: 120_000 }
+    );
     if (!bundled.ok || (await stat(path)).size > 512 * 1024 * 1024) return null;
     const bundle = await readFile(path);
     return {
@@ -83,7 +89,6 @@ async function bundleRevision(
       digest: createHash('sha256').update(bundle).digest('hex'),
     };
   } finally {
-    await run(['git', 'update-ref', '-d', ref], { cwd: source });
     await unlink(path).catch(() => undefined);
   }
 }
