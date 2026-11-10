@@ -16,7 +16,6 @@ SCRIPTS = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 import cliproxy_host
 
-ENDPOINT = 'https://cli-proxy.chrisvouga.dev'
 DECOMMISSION = ('Workers never host singletons. Fence and decommission this local proxy with '
                 'packages/cliproxy-fleet/docs/migration.md (disable timers, drain, stop, disable, '
                 'final backup); fleet-sync never stops it automatically.')
@@ -239,7 +238,7 @@ def roles(definition):
     """Validate definition v3 and return (manager id, worker ids)."""
     manager = definition['manager']
     if (definition.get('version') != 3 or manager.get('os') != 'macOS'
-            or definition['services']['proxy']['endpoint'] != ENDPOINT):
+            or not re.fullmatch(r'https://[A-Za-z0-9.-]+', str(definition['services']['proxy'].get('endpoint')))):
         raise ValueError('Invalid definition')
     workers = {worker['id'] for worker in definition['workers']}
     if manager['id'] in workers:

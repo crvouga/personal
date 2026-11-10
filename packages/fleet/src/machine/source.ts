@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import type { Runner } from '../types';
 import { ensurePrivateRoot } from './state';
+import { fleet } from '../fleet-config';
 
-const REPOSITORY = 'https://github.com/crvouga/personal.git';
+const REPOSITORY = fleet.source.repository;
 
 /** Called after approval; local sources supply Git objects only, never dirty files. */
 export async function prepareSource(

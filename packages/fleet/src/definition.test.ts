@@ -37,7 +37,18 @@ test('singletons never name a host and the topology fails closed', () => {
       ...source,
       services: {
         ...source.services,
-        proxy: { endpoint: 'https://other.invalid' },
+        proxy: { endpoint: 'http://not-https.invalid/path' },
+      },
+    },
+    // Endpoints, accounts and the source repository are this fleet's own
+    // configuration: any well-formed value is accepted, a missing one is not.
+    { ...source, source: undefined },
+    { ...source, source: { repository: 'git@github.com:owner/repo' } },
+    {
+      ...source,
+      services: {
+        ...source.services,
+        monitoring: { hubPort: 8443 },
       },
     },
     // Exactly one manager, on macOS, kept awake.
@@ -80,4 +91,24 @@ test('portable definitions do not authorize peers or invent manager paths', () =
       nodes: [{ ...node, ssh: 'other' }],
     })
   ).toThrow('conflicts');
+});
+
+test('another fleet declares its own endpoints, accounts and repository', () => {
+  const other = parseDefinition({
+    ...source,
+    source: { repository: 'https://git.example.org/team/machines.git' },
+    services: {
+      proxy: { endpoint: 'https://proxy.example.org' },
+      monitoring: {
+        hubPort: 8443,
+        publicUrl: 'https://status.example.org',
+        managerAccount: 'fleet@example.org',
+        viewerAccount: 'viewer@example.org',
+      },
+    },
+  });
+  expect(other.services.proxy.endpoint).toBe('https://proxy.example.org');
+  expect(other.source.repository).toBe(
+    'https://git.example.org/team/machines.git'
+  );
 });

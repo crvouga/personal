@@ -1,6 +1,18 @@
 import { isRevision } from './state';
 import { resolve } from 'node:path';
 import type { Runner } from '../types';
+import { fleet } from '../fleet-config';
+
+/** `https://host/owner/repo.git` and `git@host:owner/repo` name one repository. */
+export function sameRepository(remote: string, declared: string): boolean {
+  const name = (url: string) =>
+    url
+      .replace(/^(https:\/\/|ssh:\/\/git@|git@)/, '')
+      .replace(':', '/')
+      .replace(/\.git$/, '')
+      .toLowerCase();
+  return name(remote) === name(declared);
+}
 
 /** Use committed objects, never working-tree files, for an approved local branch. */
 export async function approvedLocalSource(
@@ -14,9 +26,7 @@ export async function approvedLocalSource(
   const origin = await run(['git', 'remote', 'get-url', 'origin'], options);
   if (
     !origin.ok ||
-    !/^(https:\/\/github\.com\/|git@github\.com:)crvouga\/personal(?:\.git)?$/.test(
-      origin.stdout.trim()
-    )
+    !sameRepository(origin.stdout.trim(), fleet.source.repository)
   )
     return null;
   const commit = await run(

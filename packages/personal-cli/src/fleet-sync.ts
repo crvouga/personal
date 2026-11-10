@@ -1,6 +1,5 @@
 import { localCheckoutRevision } from '../../fleet/src/machine/local-source';
-import canonicalDefinition from '../../fleet/definition.json';
-import { parseDefinition } from '../../fleet/src/definition';
+import { fleet as canonicalDefinition } from '../../fleet/src/fleet-config';
 import { managerFailure } from '../../fleet/src/manager-failure';
 import { managerText, stdoutColor } from './fleet-sync-output';
 import { managerSchedule, type ScheduleAction } from './fleet-sync-schedule';
@@ -151,7 +150,7 @@ function applyLocked(
  * partial run there only produces misleading failures.
  */
 async function onManager(run: Runner): Promise<boolean> {
-  const { manager } = parseDefinition(canonicalDefinition);
+  const { manager } = canonicalDefinition;
   return (await managerIdentity(manager.id, run)).status === 'pass';
 }
 
@@ -164,7 +163,7 @@ async function offManager(
   run: Runner,
   forward: ForwardSpawn | undefined
 ): Promise<CommandOutcome> {
-  const definition = parseDefinition(canonicalDefinition);
+  const definition = canonicalDefinition;
   const revision =
     options.revision ??
     packageRevision() ??
@@ -209,12 +208,7 @@ function actionRequired(
   remedy: string,
   revision: string | null = null
 ): CommandOutcome {
-  const report = managerFailure(
-    parseDefinition(canonicalDefinition),
-    revision,
-    code,
-    remedy
-  );
+  const report = managerFailure(canonicalDefinition, revision, code, remedy);
   return {
     exitCode: 1,
     data: report,

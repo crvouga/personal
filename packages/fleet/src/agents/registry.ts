@@ -1,6 +1,7 @@
 import { AgentConfigurationError } from './errors';
 import source from '../../agents/registry.json';
 import { createHash } from 'node:crypto';
+import { fleet } from '../fleet-config';
 
 export type Tool = keyof typeof source.defaults;
 export type Profile = 'direct' | 'proxy';
@@ -10,7 +11,11 @@ export type Selection = {
   profile: Profile;
   model: string;
 };
-export const registry = source;
+/** The tracked registry plus the proxy endpoint from this fleet's config. */
+export const registry = {
+  ...source,
+  proxy: { endpoint: fleet.services.proxy.endpoint, ...source.proxy },
+};
 
 export function select(node: string, tool: string, profile: string): Selection {
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(node))

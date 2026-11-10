@@ -1,8 +1,8 @@
 import { verifyT3Linked } from '../../fleet/src/t3-linked-check';
 import { verifyT3Endpoint } from '../../fleet/src/t3-endpoint';
 import type { Check, NodeReport, Runner } from '../../fleet/src/types';
-import definition from '../../fleet/definition.json';
-import { enrolledRoster, parseDefinition } from '../../fleet/src/definition';
+import { fleet as definition } from '../../fleet/src/fleet-config';
+import { enrolledRoster } from '../../fleet/src/definition';
 import type { Tailnet } from '../../fleet/src/tailscale';
 import type { FleetNode } from '../../fleet/src/types';
 import {
@@ -19,7 +19,7 @@ export interface DashboardAccess {
 
 /** The hub always runs on the manager, reached by its MagicDNS name. */
 export function dashboardUrl(tailnet: Tailnet): string | null {
-  const canonical = parseDefinition(definition);
+  const canonical = definition;
   const visible = tailnet.computers.some(
     (computer) =>
       computer.dns.replace(/\.$/, '') ===
@@ -63,7 +63,7 @@ async function nodeEvidence(
   hub: string,
   access: DashboardAccess
 ): Promise<void> {
-  const canonical = parseDefinition(definition);
+  const canonical = definition;
   try {
     const { request } = await access(hub);
     for (const machine of canonical.workers) {
@@ -155,7 +155,7 @@ export function managedHealthScope(
   roster: FleetNode[],
   includeManager = true
 ) {
-  const canonical = parseDefinition(definition);
+  const canonical = definition;
   const declared = roster.filter((node) =>
     canonical.workers.some((entry) => entry.id === node.id)
   );
@@ -207,9 +207,7 @@ export async function appendManagerLinks(
   run: Runner
 ): Promise<void> {
   for (const node of registered) {
-    const machine = parseDefinition(definition).workers.find(
-      (entry) => entry.id === node.id
-    );
+    const machine = definition.workers.find((entry) => entry.id === node.id);
     const report = reports.find(
       (entry) =>
         entry.node === machine?.network?.tailscaleName || entry.node === node.id

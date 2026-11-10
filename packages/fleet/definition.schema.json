@@ -3,7 +3,7 @@
   "title": "Fleet topology: one manager (the human's machine, which runs every singleton service) and stateless Linux workers. Local paths remain in roster overrides.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "manager", "workers", "services", "ubuntu"],
+  "required": ["version", "manager", "workers", "services", "ubuntu", "source"],
   "properties": {
     "$schema": {
       "type": "string"
@@ -106,17 +106,39 @@
           "required": ["endpoint"],
           "properties": {
             "endpoint": {
-              "const": "https://cli-proxy.chrisvouga.dev"
+              "type": "string",
+              "pattern": "^https://[A-Za-z0-9.-]+$",
+              "description": "Public HTTPS origin of the CLI proxy every node uses."
             }
           }
         },
         "monitoring": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["hubPort"],
+          "required": [
+            "hubPort",
+            "publicUrl",
+            "managerAccount",
+            "viewerAccount"
+          ],
           "properties": {
             "hubPort": {
               "const": 8443
+            },
+            "publicUrl": {
+              "type": "string",
+              "pattern": "^https://[A-Za-z0-9.-]+$",
+              "description": "Public dashboard origin."
+            },
+            "managerAccount": {
+              "type": "string",
+              "format": "email",
+              "description": "Beszel account the manager enrolls nodes with."
+            },
+            "viewerAccount": {
+              "type": "string",
+              "format": "email",
+              "description": "Read-only Beszel account visitors are signed in as."
             }
           }
         }
@@ -185,6 +207,18 @@
         },
         "neverSleep": {
           "const": true
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository"],
+      "description": "The Git repository that holds this fleet's configuration and pins. Nodes only accept source from it.",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.git$"
         }
       }
     }

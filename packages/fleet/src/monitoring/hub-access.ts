@@ -4,19 +4,21 @@ import { resolveVaultConfig } from '../vault-config';
 import { privateHub } from './beszel';
 import type { HubRequest } from './enroll';
 import { record } from '../config';
+import { fleet } from '../fleet-config';
 
 /** The normal (non-superuser) Beszel account the manager enrolls nodes with.
  * OpenTofu generates its password as BESZEL_FLEET_AUTH. A fresh hub on the
  * manager creates the account itself on first start (hub-darwin.yml).
  */
-export const BESZEL_FLEET_IDENTITY = 'fleet-manager@chrisvouga.dev';
+export const BESZEL_FLEET_IDENTITY = fleet.services.monitoring.managerAccount;
 
 /** Read-only Beszel user the hub signs every visitor in as (AUTO_LOGIN), so the
  * dashboard needs no login. Create it once in the hub (Settings > Users, role
  * "Read-only"); it holds no secret and must never be an admin. If the account
  * does not exist the hub simply shows its normal login page.
  */
-export const BESZEL_PUBLIC_VIEWER_IDENTITY = 'public-viewer@chrisvouga.dev';
+export const BESZEL_PUBLIC_VIEWER_IDENTITY =
+  fleet.services.monitoring.viewerAccount;
 
 /** Accept the OpenTofu-generated password, or a legacy JSON identity/password pair. */
 export function fleetCredentials(secret: string): {

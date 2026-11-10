@@ -1,3 +1,4 @@
+import { fleet } from '../fleet-config';
 import type { Check } from '../types';
 
 export interface BeszelEvidence {
@@ -30,7 +31,7 @@ function check(
 /** Public dashboard hostname served through the OpenTofu-managed Cloudflare
  * tunnel `beszel`. Agents and the manager keep using the private hub URL.
  */
-export const PUBLIC_HUB_URL = 'https://beszel.chrisvouga.dev';
+export const PUBLIC_HUB_URL = fleet.services.monitoring.publicUrl;
 
 export function privateHub(value: string): string {
   const url = new URL(value);

@@ -16,12 +16,8 @@
     },
     "proxy": {
       "type": "object",
-      "required": ["endpoint", "secret", "models"],
+      "required": ["secret", "models"],
       "properties": {
-        "endpoint": {
-          "type": "string",
-          "pattern": "^https://"
-        },
         "secret": {
           "type": "object",
           "required": ["mount", "project", "config", "key"],
