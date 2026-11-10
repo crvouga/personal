@@ -1,4 +1,4 @@
-import { ARCHETYPE_ARG_TYPES, VARIANTS } from '../stories/variants';
+import { ROLE_ARG_TYPES, variant } from '../stories/variants';
 import Chrome from '../layouts/Chrome.astro';
 import CaseStudyScreen from './CaseStudyScreen.astro';
 
@@ -9,17 +9,20 @@ export default {
   decorators: [
     (_story: unknown, context: { args: Record<string, unknown> }) => ({
       component: Chrome,
-      props: { archetype: context.args['archetype'] },
+      props: { role: context.args['role'] },
     }),
   ],
-  argTypes: ARCHETYPE_ARG_TYPES,
+  argTypes: ROLE_ARG_TYPES,
 };
 
-export const SeniorDark = VARIANTS.SeniorDark;
-export const SeniorLight = VARIANTS.SeniorLight;
-export const StaffDark = VARIANTS.StaffDark;
-export const StaffLight = VARIANTS.StaffLight;
-export const StartupDark = VARIANTS.StartupDark;
-export const StartupLight = VARIANTS.StartupLight;
-export const Corporate = VARIANTS.Corporate;
-export const Contractor = VARIANTS.Contractor;
+// role-variants:start (bun run roles:sync)
+export const AIDark = variant('AIDark');
+export const AILight = variant('AILight');
+export const Contractor = variant('Contractor');
+export const Corporate = variant('Corporate');
+export const StartupDark = variant('StartupDark');
+export const StartupLight = variant('StartupLight');
+export const SeniorDark = variant('SeniorDark');
+export const SeniorLight = variant('SeniorLight');
+export const Staff = variant('Staff');
+// role-variants:end

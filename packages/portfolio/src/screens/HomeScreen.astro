@@ -5,9 +5,9 @@
  * presentation, so the order, the headings, the ranking and the voice all
  * come from one place.
  */
-import { presentationOf } from '../archetypes/presentation';
-import type { ArchetypeId } from '../archetypes/definitions';
-import type { ArchetypeId } from '../archetypes/definitions';
+import { presentationOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
+import type { RoleId } from '../roles/definitions';
 import About from '../components/About.astro';
 import Agentic from '../components/Agentic.astro';
 import Contact from '../components/Contact.astro';
@@ -23,7 +23,7 @@ import Testimonials from '../components/Testimonials.astro';
 import type { SectionId } from '../content/sections';
 
 interface Props {
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 const presentation = presentationOf(Astro);
 
@@ -37,16 +37,16 @@ const SECTION_COMPONENTS = {
 } satisfies Record<SectionId, unknown>;
 ---
 
-<Nav archetype={presentation.id} />
+<Nav role={presentation.id} />
 <main id="main">
-  <Hero archetype={presentation.id} />
+  <Hero role={presentation.id} />
   {
     presentation.sections.map((section) => {
       const Section = SECTION_COMPONENTS[section.id];
       // Quotes belong beside the proof they vouch for, wherever that sits.
       return (
         <>
-          <Section archetype={presentation.id} />
+          <Section role={presentation.id} />
           {section.id === 'proof' && <Testimonials />}
         </>
       );

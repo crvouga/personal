@@ -109,12 +109,12 @@ const grid = (title: string): string => {
 };
 
 const head = [
-  `## Storybook review: every archetype × every variation`,
+  `## Storybook review: every role × every variation`,
   ``,
-  `${String(shots.length)} stories from the static Storybook build at \`${sha.slice(0, 7)}\` (1280px wide, full page; \`phone\` stories at 390px). Each archetype renders in its own theme, in every colour scheme it shows. Click an image for full size. Regenerate: \`bun run storybook:build && bun run storybook:screenshots && bun run storybook:pr-comment ${pr}\`.`,
+  `${String(shots.length)} stories from the static Storybook build at \`${sha.slice(0, 7)}\` (1280px wide, full page; \`phone\` stories at 390px). Each role renders in its own theme, in every colour scheme it shows. Click an image for full size. Regenerate: \`bun run storybook:build && bun run storybook:screenshots && bun run storybook:pr-comment ${pr}\`.`,
   ``,
   ...(groups.has('Screens/Home')
-    ? [`### Home screen, by archetype`, ``, table('Screens/Home'), ``]
+    ? [`### Home screen, by role`, ``, table('Screens/Home'), ``]
     : []),
   ...(groups.has('Design system/Theme')
     ? [`### Design system themes`, ``, table('Design system/Theme'), ``]

@@ -4,13 +4,14 @@
  * a refresh costs network time and no model tokens.
  */
 import { THEME_IDS, type Theme } from '../../src/knowledge/themes';
-import { SKILLS } from '../../src/archetypes/skills';
+import { SKILLS } from '../../src/roles/skills';
+import { phrasesOf } from './phrases';
 import { THEME_PATTERNS } from './taxonomy';
 import {
   RELEVANT_FAMILIES,
   familyOf,
   levelOf,
-  type Family,
+  type JobFamily,
   type Level,
 } from './titles';
 import type { Posting } from './types';
@@ -20,9 +21,10 @@ export type Context = 'startup' | 'tech' | 'corporate' | 'contract';
 
 export type Features = {
   readonly id: string;
+  readonly company: string;
   readonly context: Context;
   readonly level: Level;
-  readonly family: Family;
+  readonly family: JobFamily;
   /** A role this candidate could credibly apply to, in a place they can work. */
   readonly eligible: boolean;
   readonly clearance: boolean;
@@ -30,6 +32,7 @@ export type Features = {
   readonly salary: number | null;
   readonly skills: readonly string[];
   readonly themes: readonly Theme[];
+  readonly phrases: readonly string[];
 };
 
 export const contextOf = (posting: Posting): Context => {
@@ -84,6 +87,7 @@ export const extract = (posting: Posting): Features => {
   const clearance = CLEARANCE.test(text);
   return {
     id: posting.id,
+    company: posting.company.toLowerCase(),
     context: contextOf(posting),
     level,
     family,
@@ -99,5 +103,6 @@ export const extract = (posting: Posting): Features => {
       (skill) => skill.id
     ),
     themes: THEME_IDS.filter((theme) => THEME_PATTERNS[theme].test(text)),
+    phrases: phrasesOf(posting.text),
   };
 };

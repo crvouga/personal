@@ -1,0 +1,446 @@
+{
+  "role": "ai-product-engineer",
+  "asOf": "2026-11-09",
+  "summary": "AI product engineers are software engineers who ship features on top of foundation-model APIs (RAG, tool-using agents, structured output), not researchers who train models. The segment is now large and well paid: Axial Search counted 43,480 US AI-engineering postings from January to July 2026, with a median posted salary of $176,000. Levels.fyi puts the senior-level AI pay premium at 14.2% in 2025. Hiring managers screen hardest for proof that a candidate shipped, measured (evals, cost, latency) and can defend an LLM system in production.",
+  "readers": [
+    {
+      "who": "Recruiter / talent partner at an AI startup or a product company's AI team",
+      "firstPassSeconds": 7,
+      "scansFor": "Matching title (AI Engineer / AI Product Engineer), LLM API and agent keywords, TypeScript or Python, and a line showing an LLM feature in production."
+    },
+    {
+      "who": "Hiring manager or AI engineering lead",
+      "firstPassSeconds": null,
+      "scansFor": "Evidence of shipped LLM features with an eval story: how you knew it worked, the baseline, failure modes, and cost or latency numbers."
+    },
+    {
+      "who": "Founder, CTO or founding engineer (common at seed to Series B)",
+      "firstPassSeconds": null,
+      "scansFor": "Public repos that clone and run, a written decision record, product sense, and whether the candidate can own a feature end to end across the stack."
+    },
+    {
+      "who": "Interview panel",
+      "firstPassSeconds": null,
+      "scansFor": "Eval design, prompt and agent debugging, token-cost reasoning, and how well the candidate verifies AI-assisted code."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "shipped-llm-feature",
+      "label": "Shipped LLM features to production",
+      "why": "Hiring managers filter out the many candidates who only finished tutorials or notebooks and never ran an LLM system for real users.",
+      "weight": 3,
+      "themes": ["ai-products", "ownership"],
+      "skills": ["llm-apis", "typescript"],
+      "howToDemonstrate": "A case study of one LLM feature in production: what the user problem was, the architecture (model, context, tools), traffic, what broke after launch, and the fix.",
+      "sources": [0, 6, 7]
+    },
+    {
+      "id": "evals-error-analysis",
+      "label": "Evals and error analysis",
+      "why": "Hiring managers treat never having run an eval as the top red flag, and the best-known practitioners say weak evaluation is the most common reason LLM products fail.",
+      "weight": 3,
+      "themes": ["ai-products", "testing-quality"],
+      "skills": ["llm-apis"],
+      "howToDemonstrate": "A public eval harness with a labelled dataset, a failure taxonomy built from reading traces, binary pass/fail checks, an LLM-as-judge validated against human labels, and before/after numbers against a baseline.",
+      "sources": [2, 3, 5, 6, 7]
+    },
+    {
+      "id": "cost-latency",
+      "label": "Cost, token and latency awareness",
+      "why": "A portfolio with no figures for cost per request, token budget or latency reads as a demo, and interviews increasingly ask candidates to estimate token cost.",
+      "weight": 3,
+      "themes": ["ai-products", "performance-scale"],
+      "skills": ["llm-apis", "observability"],
+      "howToDemonstrate": "Publish per-request cost and p50/p95 latency from the LLM proxy, plus the savings from routing, caching or a cheaper first-pass model.",
+      "sources": [6, 7]
+    },
+    {
+      "id": "full-stack-product",
+      "label": "Full-stack product engineering around the model",
+      "why": "With every team on the same models, the product built around them is the differentiator. AI engineering has moved toward full-stack work, and AI product engineer postings ask for TypeScript, React or Next.js plus Python.",
+      "weight": 3,
+      "themes": ["product-sense", "frontend-craft", "ai-products"],
+      "skills": ["typescript", "react", "nextjs", "python"],
+      "howToDemonstrate": "An end-to-end feature walkthrough: UI states for streaming, partial and failed model output, the API layer, storage, and how user feedback is captured.",
+      "sources": [1, 19, 20]
+    },
+    {
+      "id": "llm-observability",
+      "label": "Tracing and observability of model calls",
+      "why": "Human and model evals depend on logged traces you can search and read, and AI-engineering postings name observability as a core skill.",
+      "weight": 2,
+      "themes": ["ai-products", "data"],
+      "skills": ["observability", "llm-apis"],
+      "howToDemonstrate": "Screenshots or a short write-up of the trace viewer or logging schema: per-call model, prompt version, tokens, latency, tool calls and outcome.",
+      "sources": [2, 3, 8]
+    },
+    {
+      "id": "agents-tool-use",
+      "label": "Agents and tool use with simple, composable patterns",
+      "why": "Anthropic and OpenAI both say production agents work best when built from simple patterns on direct API calls, with stopping conditions and clear tool definitions.",
+      "weight": 2,
+      "themes": ["ai-products", "architecture"],
+      "skills": ["llm-apis", "typescript"],
+      "howToDemonstrate": "A diagram and short write-up of one workflow or agent: which pattern (routing, chaining, orchestrator-workers), the tool schemas, guardrails and stop conditions, and why a framework was or was not used.",
+      "sources": [4, 13]
+    },
+    {
+      "id": "guardrails-failure",
+      "label": "Guardrails and handling model failure",
+      "why": "Reviewers ask what happens when the model is wrong in front of a real user. Guardrails and defensive UX are standard patterns.",
+      "weight": 2,
+      "themes": ["ai-products", "testing-quality"],
+      "skills": ["llm-apis"],
+      "howToDemonstrate": "Document the validation layers: structured-output schema checks, PII or relevance filters, fallbacks and human escalation, each tied to a failure it prevents.",
+      "sources": [5, 7, 13]
+    },
+    {
+      "id": "defend-decisions",
+      "label": "Opinionated model and architecture choices",
+      "why": "Hiring managers want candidates who can defend their choice of model, framework and architecture against alternatives. 'The agent chose it' is not an answer.",
+      "weight": 2,
+      "themes": ["architecture", "documentation"],
+      "skills": ["llm-apis"],
+      "howToDemonstrate": "Short ADRs for model selection (small vs frontier model, hosted vs self-hosted), the routing policy in the LLM proxy, and the trade-offs considered.",
+      "sources": [6, 7]
+    },
+    {
+      "id": "rag-context",
+      "label": "RAG and context construction",
+      "why": "Supplying the right context (retrieval, memory) is a core application-layer skill, and RAG appears among the named skills in AI-engineering postings.",
+      "weight": 2,
+      "themes": ["ai-products", "data"],
+      "skills": ["postgres", "llm-apis"],
+      "howToDemonstrate": "A retrieval pipeline write-up covering chunking, the embedding store (for example Postgres with pgvector), retrieval evals separated from generation evals, and hit-rate numbers.",
+      "sources": [1, 5, 8]
+    },
+    {
+      "id": "ai-assisted-verified",
+      "label": "AI-assisted engineering with verification",
+      "why": "Employers expect candidates to use coding agents but want proof they verify the output, protect secrets and review high-risk changes. Interviews now test this directly.",
+      "weight": 2,
+      "themes": ["ai-assisted", "ci-cd", "testing-quality"],
+      "skills": ["ai-tools", "github-actions"],
+      "howToDemonstrate": "Publish the AGENTS.md policy and the CI gates that agent-written code must pass, with one example of a defect the gates caught.",
+      "sources": [7, 17, 18]
+    },
+    {
+      "id": "runnable-public-work",
+      "label": "Public repos that actually run",
+      "why": "Reviewers clone projects and follow the README. A broken repo or a generic GPT wrapper counts against the candidate.",
+      "weight": 2,
+      "themes": ["open-source", "documentation"],
+      "skills": ["git"],
+      "howToDemonstrate": "One to three polished repos (the API emulator, the LLM proxy) with a quickstart that works in a clean environment, tests, and a short section on evals and cost.",
+      "sources": [7]
+    },
+    {
+      "id": "python-fluency",
+      "label": "Python alongside TypeScript",
+      "why": "Python appears in 62% of AI-engineering postings. Even TypeScript-first AI product roles often list Python or FastAPI for the model-facing backend.",
+      "weight": 1,
+      "themes": ["ai-products"],
+      "skills": ["python"],
+      "howToDemonstrate": "Write the eval harness or one service in Python, and list it next to the TypeScript work.",
+      "sources": [8, 19]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "LLM wrapper with no evaluation",
+      "why": "A generic GPT wrapper with no user, baseline or eval is the most cited portfolio red flag. Hiring managers ask 'how did you know it worked?'",
+      "sources": [6, 7]
+    },
+    {
+      "label": "No cost, token or latency numbers",
+      "why": "Reviewers read missing cost and latency figures as demo-only work.",
+      "sources": [6, 7]
+    },
+    {
+      "label": "Debugging by rewording prompts",
+      "why": "Interviewers look for hypothesis-driven prompt debugging. Treating the model as magic is a named red flag.",
+      "sources": [6]
+    },
+    {
+      "label": "Benchmark scores or generic metrics as proof",
+      "why": "Leaderboard numbers, ROUGE or 'helpfulness' scores, or a claimed 100% pass rate criterion that the evals don't test the product.",
+      "sources": [3, 6, 7]
+    },
+    {
+      "label": "Framework-heavy with no grasp of the underlying calls",
+      "why": "Anthropic advises starting with direct API calls, because abstractions hide prompts and make debugging harder.",
+      "sources": [4]
+    },
+    {
+      "label": "Imprecise terminology",
+      "why": "Calling prompt engineering 'fine-tuning', or equating ML math with LLM engineering, undermines credibility.",
+      "sources": [6, 7]
+    },
+    {
+      "label": "Can't explain AI-generated code",
+      "why": "Agent use is expected, but 'the agent chose it' is not a defence, and interviews test finding bugs in AI output.",
+      "sources": [7, 17]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "evals",
+      "error analysis",
+      "LLM-as-judge",
+      "traces",
+      "failure modes",
+      "baseline",
+      "shipped to production",
+      "tool use",
+      "structured output",
+      "RAG",
+      "guardrails",
+      "cost per request",
+      "p95 latency",
+      "token budget",
+      "model routing",
+      "human-in-the-loop",
+      "agentic workflow",
+      "prompt versioning"
+    ],
+    "avoid": [
+      "AI enthusiast",
+      "passionate about AI",
+      "leveraged ChatGPT",
+      "cutting-edge AI",
+      "100% accuracy",
+      "fine-tuned (when it was prompting)",
+      "vibe coding",
+      "revolutionary",
+      "AGI",
+      "prompt wizard"
+    ],
+    "verbs": [
+      "Shipped",
+      "Evaluated",
+      "Instrumented",
+      "Routed",
+      "Cut",
+      "Built",
+      "Designed",
+      "Measured",
+      "Integrated",
+      "Hardened",
+      "Debugged",
+      "Automated"
+    ],
+    "titles": [
+      "AI Engineer",
+      "Applied AI Engineer",
+      "AI Product Engineer",
+      "Senior Software Engineer, AI",
+      "Full-Stack Engineer, AI",
+      "Product Engineer",
+      "Forward Deployed Engineer",
+      "LLM Engineer"
+    ]
+  },
+  "resume": {
+    "pages": 2,
+    "summaryStyle": "Two lines: senior full-stack TypeScript engineer who ships LLM features to production, then the strongest proof (the LLM proxy routing across providers, evals or cost numbers, AI-assisted delivery behind CI gates). Use the posting's title wording.",
+    "sectionOrder": [
+      "summary",
+      "projects",
+      "experience",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "verb + LLM system or feature + how it was measured (eval, cost, latency, users) + outcome",
+    "keywordStrategy": "Mirror the target title exactly (AI Engineer / AI Product Engineer). Name concrete terms the ATS can match: LLM APIs (OpenAI, Anthropic), RAG, agents, tool use, evals, structured output, observability, TypeScript, Python, React/Next.js, Postgres. List the coding agents (Claude Code, Cursor) under tooling, not as a headline skill. Never use hidden-text keyword stuffing.",
+    "notes": [
+      "Put the LLM proxy and the API emulator on page 1. They are the closest proof of AI product work.",
+      "Every AI bullet should carry a measurement: eval pass rate, cost per request, latency, or adoption.",
+      "Say what was built directly against the API and what used a framework. Reviewers value understanding the underlying calls.",
+      "Link runnable repos and one written case study."
+    ],
+    "sources": [4, 6, 7, 21, 23]
+  },
+  "portfolio": {
+    "leadWith": "One deep case study of an LLM system he built (the multi-provider LLM proxy): problem, architecture, eval method, cost/latency numbers, failure modes and the decisions he would revisit.",
+    "mustHave": [
+      "An eval write-up with dataset, failure taxonomy, binary checks and a baseline comparison",
+      "Cost and latency figures per request or per feature",
+      "A trace or observability view of model calls",
+      "An agent or tool-use pattern explained with guardrails and stop conditions",
+      "How he works with coding agents: the AGENTS.md policy and CI gates",
+      "Runnable public repos with working quickstarts"
+    ],
+    "notes": [
+      "Show one to three polished projects, not many demos.",
+      "Describe at least one wrong turn and how evals or traces exposed it. Hiring managers value stories about being wrong in production.",
+      "Keep claims precise: say prompting, RAG or tool use rather than 'AI-powered'."
+    ],
+    "sources": [2, 3, 6, 7]
+  },
+  "visual": {
+    "tone": "precise, instrumented, builder-grade",
+    "scheme": "auto",
+    "hue": 255,
+    "chroma": "moderate",
+    "display": "sans",
+    "accent": "mono",
+    "corners": "soft",
+    "density": "comfortable",
+    "rationale": "A blue accent maps to competence and reliability in Labrecque and Milne's colour-and-brand-personality research, which suits a reader judging engineering rigour over hype. Moderate rather than vivid saturation keeps it calm, since their work ties higher saturation to excitement. Mono labels echo the traces, logs and eval tables this audience lives in. 'Auto' honours the reader's OS setting: NN/g's review finds light, positive polarity reads better for most people, while many developers default to dark.",
+    "sources": [15, 16]
+  },
+  "interview": [
+    "Eval design from a vague spec: define failure modes, sample size and pass/fail checks for a two-sentence feature description. Pre-empt it with a published eval case study.",
+    "Prompt or agent debugging: diagnose hallucinated output with a hypothesis-driven fix. Pre-empt it with a trace-based debugging story.",
+    "Token-cost estimation for a high-volume pipeline and optimisations such as cheaper first-pass classification. Pre-empt it with the LLM proxy's cost and routing numbers.",
+    "AI-assisted coding rounds that score how candidates break down ambiguity and find and fix flaws in AI-generated code. Pre-empt them with the CI-gated agent workflow write-up.",
+    "Defend model, framework and architecture choices against alternatives, including when an agent is warranted over a fixed workflow."
+  ],
+  "sources": [
+    {
+      "url": "https://www.latent.space/p/ai-engineer",
+      "title": "The Rise of the AI Engineer",
+      "publisher": "Latent Space (swyx)",
+      "year": 2023
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/the-ai-engineering-stack",
+      "title": "The AI Engineering Stack",
+      "publisher": "The Pragmatic Engineer (Gergely Orosz, Chip Huyen)",
+      "year": 2025
+    },
+    {
+      "url": "https://hamel.dev/blog/posts/evals/",
+      "title": "Your AI Product Needs Evals",
+      "publisher": "Hamel Husain",
+      "year": 2024
+    },
+    {
+      "url": "https://hamel.dev/blog/posts/evals-faq/",
+      "title": "AI Evals: Everything You Need to Know (FAQ)",
+      "publisher": "Hamel Husain & Shreya Shankar",
+      "year": 2026
+    },
+    {
+      "url": "https://www.anthropic.com/engineering/building-effective-agents",
+      "title": "Building effective agents",
+      "publisher": "Anthropic",
+      "year": 2024
+    },
+    {
+      "url": "https://eugeneyan.com/writing/llm-patterns/",
+      "title": "Patterns for Building LLM-based Systems & Products",
+      "publisher": "Eugene Yan",
+      "year": 2023
+    },
+    {
+      "url": "https://tianpan.co/blog/2026-04-16-hiring-llm-engineers-interview-what-to-test",
+      "title": "Hiring for LLM Engineering: What the Interview Actually Needs to Test",
+      "publisher": "Tian Pan",
+      "year": 2026
+    },
+    {
+      "url": "https://www.louisbouchard.ai/what-i-look-for-when-hiring-ai-engineers/",
+      "title": "What I Look For When Hiring AI Engineers",
+      "publisher": "Louis-François Bouchard",
+      "year": 2026
+    },
+    {
+      "url": "https://axialsearch.com/insights/ai-ml-engineering-jobs/",
+      "title": "Inside the AI Engineering Job Market: 43,500 Postings Analyzed",
+      "publisher": "Axial Search",
+      "year": 2026
+    },
+    {
+      "url": "https://www.levels.fyi/blog/ai-engineer-compensation-trends-q3-2025.html",
+      "title": "AI Engineer Compensation Trends Q3 2025",
+      "publisher": "Levels.fyi",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/state-of-the-job-market-2026",
+      "title": "State of the software engineering job market in 2026",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2026
+    },
+    {
+      "url": "https://hiringlab.indeed.com/?p=20708",
+      "title": "AI and Job Postings: From Destruction to Creation?",
+      "publisher": "Indeed Hiring Lab",
+      "year": 2026
+    },
+    {
+      "url": "https://economicgraph.linkedin.com/content/dam/me/economicgraph/en-us/PDF/us-software-engineer-talent-landscape-2026.pdf",
+      "title": "U.S. Software Engineer Talent Landscape",
+      "publisher": "LinkedIn Economic Graph",
+      "year": 2026
+    },
+    {
+      "url": "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf",
+      "title": "A practical guide to building agents",
+      "publisher": "OpenAI",
+      "year": 2025
+    },
+    {
+      "url": "https://www.hrdive.com/news/dice-report-tech-hiring-AI/824902/",
+      "title": "AI skills now listed in 73% of tech job postings (Dice)",
+      "publisher": "HR Dive",
+      "year": 2026
+    },
+    {
+      "url": "https://link.springer.com/article/10.1007/s11747-010-0245-y",
+      "title": "Exciting red and competent blue: the importance of color in marketing",
+      "publisher": "Journal of the Academy of Marketing Science",
+      "year": 2012
+    },
+    {
+      "url": "https://www.nngroup.com/articles/dark-mode/",
+      "title": "Dark Mode vs. Light Mode: Which Is Better?",
+      "publisher": "Nielsen Norman Group",
+      "year": 2020
+    },
+    {
+      "url": "https://canva.dev/blog/engineering/yes-you-can-use-ai-in-our-interviews",
+      "title": "Yes, you can use AI in our interviews",
+      "publisher": "Canva Engineering",
+      "year": 2025
+    },
+    {
+      "url": "https://karat.com/engineering-interview-trends-2026/",
+      "title": "Engineering Interviews in 2026: 3 Trends Hiring Leaders Must Prepare For",
+      "publisher": "Karat",
+      "year": 2026
+    },
+    {
+      "url": "https://apply.workable.com/raydar/jobs/view/1D79CDE9C8",
+      "title": "Founding AI Product Engineer",
+      "publisher": "Raydar (job posting)",
+      "year": 2026
+    },
+    {
+      "url": "https://www.braintrust.dev/careers/7d0a5b62-a554-48f0-b2f7-8cbac0e98ae6",
+      "title": "Software Engineer, Product",
+      "publisher": "Braintrust (job posting)",
+      "year": 2026
+    },
+    {
+      "url": "https://www.jobscan.co/state-of-the-job-search",
+      "title": "The State of the Job Search in 2025",
+      "publisher": "Jobscan",
+      "year": 2025
+    },
+    {
+      "url": "https://stackoverflow.blog/2025/07/29/developers-remain-willing-but-reluctant-to-use-ai-the-2025-developer-survey-results-are-here",
+      "title": "Developers remain willing but reluctant to use AI: the 2025 Developer Survey results are here",
+      "publisher": "Stack Overflow",
+      "year": 2025
+    },
+    {
+      "url": "https://www.hrdive.com/news/eye-tracking-study-shows-recruiters-look-at-resumes-for-7-seconds/541582/",
+      "title": "Eye-tracking study shows recruiters look at resumes for 7 seconds",
+      "publisher": "HR Dive (Ladders study)",
+      "year": 2018
+    }
+  ]
+}

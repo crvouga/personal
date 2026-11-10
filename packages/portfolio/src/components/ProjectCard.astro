@@ -4,6 +4,8 @@ import type { Project } from '../content/project';
 import { caseStudyFor, caseStudyHref } from '../content/case-studies';
 import { authorshipOf } from '../lib/authorship';
 import { accessNote, galleryFor, projectHref } from '../lib/projects-view';
+import { presentationOf } from '../roles/presentation';
+import type { RoleId } from '../roles/definitions';
 
 interface Props {
   project: Project;
@@ -13,13 +15,19 @@ interface Props {
   compact?: boolean;
   /** Homepage flagships: show the case study's one-line "why it matters". */
   featured?: boolean;
+  /** The strongest flagship for this audience: spans the row, cover beside text. */
+  lead?: boolean;
+  /** Orders the chips by what this role's postings ask for. */
+  role?: RoleId;
 }
 const {
   project,
   galleryIndex = null,
   compact = false,
   featured = false,
+  lead = false,
 } = Astro.props;
+const { topicWeight } = presentationOf(Astro);
 
 const MAX_CHIPS = 6;
 const study = caseStudyFor(project.id);
@@ -28,14 +36,20 @@ const studyHref = study === undefined ? null : caseStudyHref(study);
 const href = studyHref ?? projectHref(project);
 const external = studyHref === null;
 const note = accessNote(project);
-const chips = project.topics.slice(0, MAX_CHIPS);
+// The technologies this audience asks for most come first; ties keep the
+// project's own order.
+const rankedTopics = project.topics
+  .map((topic, index) => ({ topic, index, weight: topicWeight.get(topic) ?? 0 }))
+  .sort((a, b) => b.weight - a.weight || a.index - b.index)
+  .map(({ topic }) => topic);
+const chips = rankedTopics.slice(0, MAX_CHIPS);
 const extraTopics = Math.max(0, project.topics.length - MAX_CHIPS);
 const cover = compact ? undefined : project.imageSrc[0];
 const hasGallery = galleryIndex !== null && galleryFor(project).length > 0;
 const badge = authorshipOf(project);
 ---
 
-<article class:list={['card', 'project', { compact }]}>
+<article class:list={['card', 'project', { compact, lead }]}>
   {
     !compact && (
       <div class="cover-box">
@@ -175,6 +189,20 @@ const badge = authorshipOf(project);
      from `aspect-ratio` — in flow, a tall screenshot's natural height wins
      and the cards stop matching. `flex: 0 0 auto` stops the column flex
      parent from shrinking it afterwards. */
+  /* The lead flagship: cover beside its text across the full row. */
+  @media (min-width: 1000px) {
+    .project.lead {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      align-items: stretch;
+    }
+    .project.lead .cover-box {
+      height: 100%;
+    }
+    .project.lead .desc {
+      font-size: var(--text-md);
+    }
+  }
   .cover-box {
     position: relative;
     flex: 0 0 auto;

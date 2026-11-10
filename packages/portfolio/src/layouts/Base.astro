@@ -1,13 +1,13 @@
 ---
 import '../styles/global.css';
 import {
-  ARCHETYPE_DIR,
-  ARCHETYPE_PARAM,
+  ROLE_DIR,
+  ROLE_PARAM,
   VARIANT_PRESENTATIONS,
   presentationOf,
-} from '../archetypes/presentation';
-import { ARCHETYPE_IDS, type ArchetypeId } from '../archetypes/definitions';
-import { ALL_THEMES_CSS, DEFAULT_THEME_CSS } from '../archetypes/theme';
+} from '../roles/presentation';
+import { ROLE_IDS, type RoleId } from '../roles/definitions';
+import { ALL_THEMES_CSS, DEFAULT_THEME_CSS } from '../roles/theme';
 import {
   HOME_SEO,
   SITE_NAME,
@@ -22,7 +22,7 @@ import { publishedPosts } from '../lib/published-posts';
 interface Props {
   /** Omitted by the homepage, which is the canonical Person + WebSite page. */
   seo?: Seo;
-  archetype?: ArchetypeId;
+  role?: RoleId;
 }
 // A presentation keeps the homepage's canonical URL and share card, but its
 // description is its own pitch, so a shared `/a/<id>/` link previews it.
@@ -30,26 +30,26 @@ const presentation = presentationOf(Astro);
 const { seo = { ...HOME_SEO, description: presentation.voice.statement } } =
   Astro.props;
 const forcedLight = presentation.theme.scheme === 'light';
-// A homepage is built per archetype and carries its one theme. Every other
+// A homepage is built per role and carries its one theme. Every other
 // page is built once: it carries all of them, and the script below applies
 // the one named in the URL, so the look follows a visitor past the homepage.
 const shared =
-  Astro.props.archetype === undefined &&
+  Astro.props.role === undefined &&
   Astro.locals.presentation === undefined;
 const styles =
   DEFAULT_THEME_CSS + (shared ? ALL_THEMES_CSS : presentation.themeCss);
-const themeIds = shared ? ARCHETYPE_IDS : [];
+const themeIds = shared ? ROLE_IDS : [];
 const canonical = absoluteUrl(seo.path);
 const jsonLd = buildJsonLd(seo);
 const hasFeed = (await publishedPosts()).length > 0;
-// Ids with their own `/a/<id>/` homepage (every archetype but the default).
+// Ids with their own `/a/<id>/` homepage (every role but the default).
 const variantIds = VARIANT_PRESENTATIONS.map((variant) => variant.id);
-// Only the default homepage (`/`) answers old `/?archetype=<id>` links.
+// Only the default homepage (`/`) answers old `/?role=<id>` links.
 const redirectsOldLinks = !shared && presentation.isDefault;
 ---
 
 <!doctype html>
-<html lang="en" data-archetype={presentation.id} data-theme={presentation.theme.id}>
+<html lang="en" data-role={presentation.id} data-theme={presentation.theme.id}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -95,21 +95,21 @@ const redirectsOldLinks = !shared && presentation.isDefault;
     <meta name="twitter:image" content={seo.image.url} />
     <meta name="twitter:image:alt" content={seo.image.alt} />
     {redirectsOldLinks && (
-      <script is:inline define:vars={{ archetypeParam: ARCHETYPE_PARAM, archetypeDir: ARCHETYPE_DIR, variantIds }}>
-        // Old `/?archetype=<id>` links: a static host ignores the query, so
+      <script is:inline define:vars={{ roleParam: ROLE_PARAM, roleDir: ROLE_DIR, variantIds }}>
+        // Old `/?role=<id>` links: a static host ignores the query, so
         // send the visitor to the presentation's own path.
-        const id = new URLSearchParams(window.location.search).get(archetypeParam);
+        const id = new URLSearchParams(window.location.search).get(roleParam);
         if (id !== null && variantIds.includes(id)) {
-          window.location.replace(`/${archetypeDir}/${id}/${window.location.hash}`);
+          window.location.replace(`/${roleDir}/${id}/${window.location.hash}`);
         }
       </script>
     )}
     {styles !== '' && <style is:inline set:html={styles} />}
     {shared && (
-      <script is:inline define:vars={{ archetypeParam: ARCHETYPE_PARAM, themeIds }}>
-        const id = new URLSearchParams(window.location.search).get(archetypeParam);
+      <script is:inline define:vars={{ roleParam: ROLE_PARAM, themeIds }}>
+        const id = new URLSearchParams(window.location.search).get(roleParam);
         if (id !== null && themeIds.includes(id)) {
-          document.documentElement.dataset.archetype = id;
+          document.documentElement.dataset.role = id;
           document.documentElement.dataset.theme = id;
         }
       </script>
@@ -125,29 +125,29 @@ const redirectsOldLinks = !shared && presentation.isDefault;
   </body>
 </html>
 
-<script is:inline define:vars={{ archetypeParam: ARCHETYPE_PARAM, archetypeDir: ARCHETYPE_DIR, variantIds }}>
+<script is:inline define:vars={{ roleParam: ROLE_PARAM, roleDir: ROLE_DIR, variantIds }}>
   // A visitor on a presentation (`/a/<id>/`, or a shared page reached from
-  // one with `?archetype=<id>`) keeps it: links home and to the résumé go to
+  // one with `?role=<id>`) keeps it: links home and to the résumé go to
   // the presentation's own paths, and every other same-site link carries the
   // parameter so shared pages take on its look. Without scripting the page
   // still works; a presentation's own links are already built with it.
   (() => {
-    const fromPath = new RegExp(`^/${archetypeDir}/([a-z0-9-]{1,64})/`).exec(window.location.pathname);
-    const value = fromPath?.[1] ?? new URLSearchParams(window.location.search).get(archetypeParam);
+    const fromPath = new RegExp(`^/${roleDir}/([a-z0-9-]{1,64})/`).exec(window.location.pathname);
+    const value = fromPath?.[1] ?? new URLSearchParams(window.location.search).get(roleParam);
     if (value === null || !variantIds.includes(value)) return;
-    const home = `/${archetypeDir}/${value}/`;
+    const home = `/${roleDir}/${value}/`;
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('a[href^="/"]').forEach((link) => {
         const url = new URL(link.getAttribute('href'), window.location.origin);
-        // The archetype index links to each presentation by name.
+        // The role index links to each presentation by name.
         if (link.hasAttribute('data-keep-href')) return;
-        if (url.pathname.startsWith(`/${archetypeDir}/`)) return;
+        if (url.pathname.startsWith(`/${roleDir}/`)) return;
         if (url.pathname === '/') {
           link.setAttribute('href', home + url.hash);
         } else if (url.pathname === '/chris-vouga-resume.pdf') {
           link.setAttribute('href', `${home}chris-vouga-resume.pdf`);
-        } else if (!url.searchParams.has(archetypeParam)) {
-          url.searchParams.set(archetypeParam, value);
+        } else if (!url.searchParams.has(roleParam)) {
+          url.searchParams.set(roleParam, value);
           link.setAttribute('href', url.pathname + url.search + url.hash);
         }
       });

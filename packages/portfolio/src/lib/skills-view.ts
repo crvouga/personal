@@ -4,7 +4,7 @@
  * reviewer comparing the site with the PDF sees the same person. Everything
  * else any project used is listed once, folded, as "Also shipped with".
  */
-import type { Presentation } from '../archetypes/presentation';
+import type { Presentation } from '../roles/presentation';
 import { CONTENT } from '../content/content';
 import type { SkillRow } from '../content/skills';
 import { buildSkills } from '../resume/content';

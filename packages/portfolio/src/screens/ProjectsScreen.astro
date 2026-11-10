@@ -1,29 +1,36 @@
 ---
-/** `/projects/`: every project, personal work and employer products apart. */
+/**
+ * `/projects/` and `/a/<id>/projects/`: every project, personal work and
+ * employer products apart, each group ranked for the role's audience.
+ */
 import ProjectCard from '../components/ProjectCard.astro';
 import GalleryDialog from '../components/GalleryDialog.astro';
 import { ARCHIVE_PROJECTS } from '../content/project';
-import {
-  LISTED_PROJECTS,
-  PROJECT_TOTALS,
-  galleryFor,
-} from '../lib/projects-view';
+import { PROJECT_TOTALS, galleryFor } from '../lib/projects-view';
+import type { RoleId } from '../roles/definitions';
+import { presentationOf } from '../roles/presentation';
+
+interface Props {
+  /** Injected by stories; defaults to the page's presentation. */
+  role?: RoleId;
+}
+const presentation = presentationOf(Astro);
 
 // Personal work and employer products are listed apart, so nothing built for
 // an employer reads as a side project. One flat gallery array spans both.
-const personal = LISTED_PROJECTS.filter((p) => p.setting === 'side');
-const atWork = LISTED_PROJECTS.filter((p) => p.setting === 'work');
+const personal = presentation.allProjects.filter((p) => p.setting === 'side');
+const atWork = presentation.allProjects.filter((p) => p.setting === 'work');
 const galleries = [...personal, ...atWork, ...ARCHIVE_PROJECTS].map(galleryFor);
 const archiveOffset = personal.length + atWork.length;
 ---
 
 <section class="container archive" aria-labelledby="projects-title">
-  <a class="back" href="/#projects">&#8592; Home</a>
+  <a class="back" href={`${presentation.home}#projects`}>&#8592; Home</a>
   <header>
     <h1 id="projects-title">All projects</h1>
     <p class="lede">
       <span data-project-count={PROJECT_TOTALS.listed}>{PROJECT_TOTALS.listed} projects</span>,
-      in the order I would show them, plus {PROJECT_TOTALS.archived} early ones in the
+      strongest evidence first for {presentation.audience.toLowerCase()}, plus {PROJECT_TOTALS.archived} early ones in the
       archive below. A{' '}
       <strong class="handwritten-text">Hand-written</strong>{' '}
       badge marks work from before AI coding agents, dated from each project's git history.
@@ -32,14 +39,14 @@ const archiveOffset = personal.length + atWork.length;
   <h2 class="group-title">Personal projects</h2>
   <div class="grid">
     {personal.map((project, index) => (
-      <ProjectCard project={project} galleryIndex={index} />
+      <ProjectCard project={project} galleryIndex={index} role={presentation.id} />
     ))}
   </div>
   <h2 class="group-title">Products I built at work</h2>
   <p class="group-note">Employer code: the products are live or shown in screenshots, the source is not public.</p>
   <div class="grid">
     {atWork.map((project, index) => (
-      <ProjectCard project={project} galleryIndex={personal.length + index} />
+      <ProjectCard project={project} galleryIndex={personal.length + index} role={presentation.id} />
     ))}
   </div>
   {/* Early games, toys and client sites, folded below the work samples so

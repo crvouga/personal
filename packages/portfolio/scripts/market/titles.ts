@@ -2,6 +2,7 @@
  * What a job title says: whether it is a software role at all, which kind,
  * and at what level. Tables are ordered; the first matching row wins.
  */
+import type { JobFamily } from '../../src/roles/landscape-types';
 
 const SOFTWARE =
   /\b(engineer|developer|architect|programmer|swe|sde|full[- ]?stack|front[- ]?end|back[- ]?end)\b/i;
@@ -12,23 +13,9 @@ const NOT_SOFTWARE =
 export const isEngineeringTitle = (title: string): boolean =>
   SOFTWARE.test(title) && !NOT_SOFTWARE.test(title);
 
-export type Family =
-  | 'manager'
-  | 'ml-research'
-  | 'data'
-  | 'security'
-  | 'embedded'
-  | 'qa'
-  | 'architect'
-  | 'platform'
-  | 'mobile'
-  | 'frontend'
-  | 'fullstack'
-  | 'backend'
-  | 'ai-product'
-  | 'generalist';
+export type { JobFamily };
 
-const FAMILIES: readonly (readonly [Family, RegExp])[] = [
+const FAMILIES: readonly (readonly [JobFamily, RegExp])[] = [
   ['manager', /\b(manager|director|head of|vp|vice president)\b/i],
   [
     'ml-research',
@@ -53,11 +40,11 @@ const FAMILIES: readonly (readonly [Family, RegExp])[] = [
   ['ai-product', /\b(ai|llm|agents?|genai|applied ai)\b/i],
 ];
 
-export const familyOf = (title: string): Family =>
+export const familyOf = (title: string): JobFamily =>
   FAMILIES.find(([, pattern]) => pattern.test(title))?.[0] ?? 'generalist';
 
 /** Roles a full-stack product engineer is a credible applicant for. */
-export const RELEVANT_FAMILIES: ReadonlySet<Family> = new Set<Family>([
+export const RELEVANT_FAMILIES: ReadonlySet<JobFamily> = new Set<JobFamily>([
   'generalist',
   'fullstack',
   'frontend',

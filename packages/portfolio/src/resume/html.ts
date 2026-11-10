@@ -11,6 +11,8 @@
 // Content shape
 // ---------------------------------------------------------------------------
 
+import type { ResumeSectionId } from '../market/schema';
+
 export type Identity = {
   readonly name: string;
   readonly title: string;
@@ -56,9 +58,38 @@ export type Education = {
   readonly dateRange: string;
 };
 
+/** The résumé sections a role's market research may order and rename. */
+export type { ResumeSectionId };
+
+export type ResumeLayout = {
+  /** Section order; a section left out is not printed. */
+  readonly order: readonly ResumeSectionId[];
+  readonly titles: Readonly<Partial<Record<ResumeSectionId, string>>>;
+  /** Face of the name and section headings; body text is always sans. */
+  readonly headingFont: 'sans' | 'serif';
+};
+
+export const DEFAULT_LAYOUT: ResumeLayout = {
+  order: ['summary', 'experience', 'projects', 'skills', 'education'],
+  titles: {},
+  headingFont: 'sans',
+};
+
+const DEFAULT_TITLES: Readonly<Record<ResumeSectionId, string>> = {
+  summary: 'Summary',
+  competencies: 'Core Competencies',
+  experience: 'Experience',
+  projects: 'Projects',
+  skills: 'Skills',
+  education: 'Education',
+};
+
 export type ResumeContent = {
   /** Rule and link colour; a presentation's theme may set its own. */
   readonly accent?: string;
+  readonly layout?: ResumeLayout;
+  /** The capabilities this audience screens for, as plain phrases. */
+  readonly competencies?: readonly string[];
   readonly identity: Identity;
   /** Complete sentences, joined with a space. */
   summary: string[];
@@ -250,6 +281,8 @@ const RESUME_CSS = `  <style>
     }
     .award strong { color: var(--text); font-weight: 600; }
 
+    .competencies { color: var(--text-secondary); }
+
     /* ---------- Projects ---------- */
     .project-url {
       overflow-wrap: anywhere;
@@ -350,12 +383,26 @@ function resumeSummaryHtml(content: ResumeContent): string {
     : '';
 }
 
+const titleOf = (content: ResumeContent, id: ResumeSectionId): string =>
+  escapeHtml(content.layout?.titles[id] ?? DEFAULT_TITLES[id]);
+
+function resumeCompetenciesHtml(content: ResumeContent): string {
+  const items = content.competencies ?? [];
+  return items.length > 0
+    ? `
+    <section>
+      <h2 class="section-title">${titleOf(content, 'competencies')}</h2>
+      <p class="competencies">${items.map(escapeHtml).join(' · ')}</p>
+    </section>`
+    : '';
+}
+
 function resumeExperienceHtml(content: ResumeContent): string {
   const { experience } = content;
 
   return `
     <section>
-      <h2 class="section-title">Experience</h2>
+      <h2 class="section-title">${titleOf(content, 'experience')}</h2>
       ${experience
         .map(
           (e) => `
@@ -382,7 +429,7 @@ function resumeProjectsHtml(content: ResumeContent): string {
   return projects.length > 0
     ? `
     <section>
-      <h2 class="section-title">Projects</h2>
+      <h2 class="section-title">${titleOf(content, 'projects')}</h2>
       ${projects
         .map(
           (p) => `
@@ -408,7 +455,7 @@ function resumeSkillsHtml(content: ResumeContent): string {
   return skills.length > 0
     ? `
     <section>
-      <h2 class="section-title">Skills</h2>
+      <h2 class="section-title">${titleOf(content, 'skills')}</h2>
       <div class="skills-grid">
         ${skills
           .map(
@@ -429,7 +476,7 @@ function resumeEducationHtml(content: ResumeContent): string {
 
   return `
     <section>
-      <h2 class="section-title">Education</h2>
+      <h2 class="section-title">${titleOf(content, 'education')}</h2>
       ${education
         .map(
           (e) => `
@@ -467,8 +514,25 @@ export const keepCompoundsWhole = (html: string): string =>
  * `setContent`, so a Google Fonts request would make every build depend on the
  * network and could silently fall back to a different face mid-measure.
  */
+const SECTIONS: Readonly<
+  Record<ResumeSectionId, (content: ResumeContent) => string>
+> = {
+  summary: resumeSummaryHtml,
+  competencies: resumeCompetenciesHtml,
+  experience: resumeExperienceHtml,
+  projects: resumeProjectsHtml,
+  skills: resumeSkillsHtml,
+  education: resumeEducationHtml,
+};
+
+const SERIF_HEADINGS = `<style>
+    .name, .section-title { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Liberation Serif", "Times New Roman", serif; letter-spacing: 0; }
+  </style>`;
+
 function renderHtml(content: ResumeContent, fontFaceCss = ''): string {
   const { identity } = content;
+  const headingCss =
+    content.layout?.headingFont === 'serif' ? SERIF_HEADINGS : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -477,6 +541,7 @@ function renderHtml(content: ResumeContent, fontFaceCss = ''): string {
   <title>${escapeHtml(identity.name)} — Résumé</title>
   <style>${fontFaceCss}</style>
 ${RESUME_CSS.replace(ACCENT, content.accent ?? ACCENT)}
+${headingCss}
 </head>
 <body>
   <header class="identity">
@@ -494,13 +559,9 @@ ${RESUME_CSS.replace(ACCENT, content.accent ?? ACCENT)}
   </header>
 
   ${keepCompoundsWhole(
-    [
-      resumeSummaryHtml(content),
-      resumeExperienceHtml(content),
-      resumeProjectsHtml(content),
-      resumeSkillsHtml(content),
-      resumeEducationHtml(content),
-    ].join('\n  ')
+    (content.layout ?? DEFAULT_LAYOUT).order
+      .map((id) => SECTIONS[id](content))
+      .join('\n  ')
   )}
 </body>
 </html>`;

@@ -11,6 +11,8 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 
+import { VARIANT_PRESENTATIONS } from '../src/roles/presentation';
+
 const DIST = join(import.meta.dir, '..', 'dist');
 const TIMEOUT_MS = 120_000;
 const HTML_BUDGET_BYTES = 100_000;
@@ -21,13 +23,13 @@ const TAP_MIN_WIDTH = 44;
 const PAGES = [
   '/',
   // Every other presentation, each at its own path.
-  '/a/tech-company-staff-engineer/',
-  '/a/startup-small-company-senior-developer/',
-  '/a/corporate-large-company-senior-developer/',
-  '/a/corporate-contractor-systems-architect/',
+  ...VARIANT_PRESENTATIONS.map((presentation) => presentation.home),
   '/projects/',
-  '/archetypes/',
-  '/archetypes/corporate-large-company-senior-developer/',
+  '/a/ai-product-engineer/projects/',
+  '/roles/',
+  '/roles/corporate-large-company-senior-developer/',
+  '/gaps/',
+  '/gaps/ai-product-engineer/',
   '/projects/mockingbird/',
   '/projects/gamezilla/',
   '/projects/workspace-platform/',
@@ -49,7 +51,7 @@ const fileFor = (pathname: string): string | null => {
 /**
  * A plain static host: no query routing at all. Presentations are paths
  * (`/a/<id>/`), so they must work without any help from the server; old
- * `/?archetype=<id>` links are redirected by the default homepage itself.
+ * `/?role=<id>` links are redirected by the default homepage itself.
  */
 const servedPath = (url: URL): string => decodeURIComponent(url.pathname);
 
@@ -489,31 +491,31 @@ describe('performance budget', () => {
   );
 });
 
-describe('archetype presentations', () => {
+describe('role presentations', () => {
   const CORPORATE = 'corporate-large-company-senior-developer';
   const HOME = `/a/${CORPORATE}/`;
 
   test(
-    'each archetype has its own path; old query links redirect to it',
+    'each role has its own path; old query links redirect to it',
     async () => {
-      const archetypeAt = async (path: string): Promise<string | null> => {
+      const roleAt = async (path: string): Promise<string | null> => {
         const { page } = await open(path);
-        const id = await page.locator('html').getAttribute('data-archetype');
+        const id = await page.locator('html').getAttribute('data-role');
         await page.close();
         return id;
       };
-      const fallback = await archetypeAt('/');
+      const fallback = await roleAt('/');
       expect(fallback).not.toBe(CORPORATE);
-      expect(await archetypeAt(HOME)).toBe(CORPORATE);
-      expect(await archetypeAt(`/?archetype=${CORPORATE}`)).toBe(CORPORATE);
-      expect(await archetypeAt('/?archetype=no-such-archetype')).toBe(fallback);
-      expect(await archetypeAt('/?archetype=../projects')).toBe(fallback);
+      expect(await roleAt(HOME)).toBe(CORPORATE);
+      expect(await roleAt(`/?role=${CORPORATE}`)).toBe(CORPORATE);
+      expect(await roleAt('/?role=no-such-role')).toBe(fallback);
+      expect(await roleAt('/?role=../projects')).toBe(fallback);
     },
     TIMEOUT_MS
   );
 
   test(
-    'the archetype follows the visitor: links, résumé and sub-page look',
+    'the role follows the visitor: links, résumé and sub-page look',
     async () => {
       const { page } = await open(HOME);
       const hrefs = await page
@@ -526,10 +528,10 @@ describe('archetype presentations', () => {
       );
       await page.close();
 
-      const sub = await open(`/projects/?archetype=${CORPORATE}`);
-      expect(
-        await sub.page.locator('html').getAttribute('data-archetype')
-      ).toBe(CORPORATE);
+      const sub = await open(`/projects/?role=${CORPORATE}`);
+      expect(await sub.page.locator('html').getAttribute('data-role')).toBe(
+        CORPORATE
+      );
       expect(
         await sub.page.locator('a.monogram').first().getAttribute('href')
       ).toBe(HOME);
@@ -538,7 +540,7 @@ describe('archetype presentations', () => {
     TIMEOUT_MS
   );
 
-  test('each archetype has its own résumé at its own path', async () => {
+  test('each role has its own résumé at its own path', async () => {
     const pdf = async (path: string): Promise<number> =>
       (await (await fetch(`${origin}${path}`)).bytes()).byteLength;
     expect(await pdf(`${HOME}chris-vouga-resume.pdf`)).not.toBe(
@@ -547,13 +549,13 @@ describe('archetype presentations', () => {
   });
 
   test(
-    'the index lists every archetype, each with its own page',
+    'the index lists every role, each with its own page',
     async () => {
-      const { page } = await open('/archetypes/');
+      const { page } = await open('/roles/');
       const details = await page
         .locator('.list a.main')
         .evaluateAll((links) => links.map((a) => a.getAttribute('href') ?? ''));
-      expect(details).toContain(`/archetypes/${CORPORATE}/`);
+      expect(details).toContain(`/roles/${CORPORATE}/`);
       await page.close();
       for (const href of details) {
         expect((await fetch(`${origin}${href}`)).status).toBe(200);

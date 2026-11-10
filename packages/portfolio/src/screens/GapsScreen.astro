@@ -1,0 +1,437 @@
+---
+/**
+ * `/gaps/`: where Chris falls short of what the market wants, as the
+ * personal knowledge base set against the market knowledge base
+ * (`src/analysis/gaps.ts`). Not for visitors: unlinked, `noindex`, and left
+ * out of the sitemap.
+ */
+import { gapReport, type Coverage } from '../analysis/gaps';
+
+const report = gapReport();
+const percent = (value: number): string => `${String(Math.round(value * 100))}%`;
+// An SVG attribute, not a style attribute: the CSP allows no inline styles.
+const width = (value: number): string =>
+  `${String(Math.max(0, Math.min(100, Math.round(value * 100))))}%`;
+const money = (value: number | null): string =>
+  value === null ? '—' : `$${String(Math.round(value / 1000))}k`;
+const years = (value: number | null): string =>
+  value === null ? '—' : `${value.toFixed(0)} yrs`;
+const COVERAGE: Readonly<Record<Coverage, string>> = {
+  shown: 'Shown',
+  partial: 'Partly shown',
+  missing: 'Not shown',
+};
+const direction = (value: string | null): string =>
+  value === null ? '' : value === 'rising' ? '↑ rising' : value === 'falling' ? '↓ falling' : '→ steady';
+---
+
+<section class="container gaps" aria-labelledby="gaps-title">
+  <header class="head">
+    <p class="eyebrow">Unlisted · for Chris</p>
+    <h1 id="gaps-title">Where to improve</h1>
+    <p class="lede">
+      Everything here is computed: your experience (jobs held,
+      achievements, projects, capabilities) set against the market knowledge
+      base ({report.postings.toLocaleString('en-US')} sampled postings from
+      {' '}{report.landscapeDate.slice(0, 10)}, and cited research as of {report.asOf}).
+      Add a fact and a gap closes on the next build; refresh the market and new
+      ones open.
+    </p>
+  </header>
+
+  <section aria-labelledby="readiness-title">
+    <h2 id="readiness-title">Readiness by role</h2>
+    <p class="summary-line">
+      {report.roles.map((role, index) => (
+        <span>{index > 0 && ' · '}<strong>{role.label}</strong> {percent(role.readiness)}</span>
+      ))}
+    </p>
+    <p class="note">
+      Readiness is the share of each role's hiring criteria (from its market
+      research: what its hiring managers and recruiters screen for) that your
+      experience can back, weighted by how decisive each criterion is: shown
+      counts in full, partly shown counts half, not shown counts nothing. A
+      criterion is shown when at least two facts back it, one of them from a
+      paid job (side projects count for open source, AI-assisted work and
+      writing, where public proof is the norm). Roles are ordered by
+      opportunity: how well your skills fit their postings × how many postings
+      there are.
+    </p>
+    <ul class="readiness">
+      {report.roles.map((role) => (
+        <li>
+          <a class="name" href={`/gaps/${role.id}/`}>{role.label}</a>
+          <span class="audience">{role.audience}</span>
+          <span class="value">{percent(role.readiness)}</span>
+          <svg class="track" aria-hidden="true" focusable="false">
+            <rect class="fill" width={width(role.readiness)} height="100%" />
+          </svg>
+          <dl class="facts">
+            <div><dt>Criteria</dt><dd>{role.counts.shown} shown · {role.counts.partial} partly · {role.counts.missing} not shown</dd></div>
+            <div><dt>Postings</dt><dd>{role.postings} ({percent(role.share)} of sample)</dd></div>
+            <div><dt>Skill fit</dt><dd>{percent(role.fit)}</dd></div>
+            <div><dt>Median pay posted</dt><dd>{money(role.salaryMedian)}</dd></div>
+            <div><dt>Experience asked</dt><dd>{years(role.yearsAsked)} · you have {role.yearsHeld}</dd></div>
+          </dl>
+          <ul class="role-notes">
+            {role.notes.map((note) => <li>{note}</li>)}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <p class="callout">
+    <strong>{report.quantified.count} of {report.quantified.total}</strong> work
+    achievements state a measured result. Every role's market research puts numbers first
+    (scope, users, latency, money, time saved); the open questions in{' '}
+    <code>CONTENT_QUESTIONS.md</code> are where they go.
+  </p>
+
+  <section aria-labelledby="actions-title">
+    <h2 id="actions-title">What to do next</h2>
+    <p class="note">
+      Criteria not yet shown, ranked by weight × the role's opportunity × how
+      much is missing. Each move is what that role's readers accept as
+      proof.
+    </p>
+    <ol class="actions">
+      {report.actions.map((action) => (
+        <li>
+          <div class="action-head">
+            <span class="action-label">{action.label}</span>
+            <span class:list={['chip', action.coverage]}>{COVERAGE[action.coverage]}</span>
+            <span class="tag">{action.role}</span>
+          </div>
+          <p>{action.move}</p>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <div class="columns">
+    <section aria-labelledby="skills-title">
+      <h2 id="skills-title">Skills postings ask for that nothing backs</h2>
+      <ul class="bars">
+        {report.skillGaps.map((skill) => (
+          <li>
+            <span class="bar-label">{skill.label}</span>
+            <span class="bar-value">{percent(skill.share)} {direction(skill.direction)}</span>
+            <svg class="track" aria-hidden="true" focusable="false">
+              <rect class="fill muted" width={width(skill.share)} height="100%" />
+            </svg>
+            {skill.note !== null && <span class="bar-note">{skill.note}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section aria-labelledby="themes-title">
+      <h2 id="themes-title">Kinds of evidence with no fact behind them</h2>
+      <ul class="plain">
+        {report.unevidencedThemes.map((theme) => (
+          <li><span class="chip missing">Missing</span> {theme.label}</li>
+        ))}
+      </ul>
+      <h2 class="spaced">What the research recommends</h2>
+      <ul class="moves">
+        {report.findings.recommendations.map((move) => (
+          <li>
+            <span class="action-label">{move.gap}</span>
+            <span class="tag">{move.effort}</span>
+            <p>{move.move}</p>
+            <p class="payoff">{move.payoff}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="trends-title">
+    <h2 id="trends-title">The market in {report.asOf.slice(0, 4)}</h2>
+    <ul class="trends">
+      {report.findings.trends.map((trend) => (
+        <li>
+          <span class="action-label">{trend.label}</span>
+          <p>{trend.finding}</p>
+          <p class="move">{trend.implication}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section aria-labelledby="rules-title">
+    <h2 id="rules-title">Résumé rules the research backs</h2>
+    <ul class="plain">
+      {report.findings.resumeRules.map((rule) => (
+        <li><strong>{rule.rule}</strong> {rule.why}</li>
+      ))}
+    </ul>
+  </section>
+
+  <section aria-labelledby="sources-title">
+    <h2 id="sources-title">Market-wide sources</h2>
+    <ol class="sources">
+      {report.findings.sources.map((source) => (
+        <li>
+          <a href={source.url} rel="noopener noreferrer" target="_blank">{source.title}</a>
+          <span class="tag">{source.publisher}, {source.year}</span>
+        </li>
+      ))}
+    </ol>
+  </section>
+</section>
+
+<style>
+  .role-notes li + li {
+    margin-top: var(--space-1);
+  }
+  /* Sub-sections of one page, not page sections: no page-section padding. */
+  .gaps section {
+    padding-block: 0;
+  }
+  .gaps {
+    padding-block: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .eyebrow,
+  .tag,
+  .meta,
+  .bar-value,
+  .cites,
+  .note {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 5vw, 44px);
+    line-height: 1.1;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-3);
+    overflow-wrap: anywhere;
+  }
+  h2 code {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-3);
+  }
+  .spaced {
+    margin-top: var(--space-5);
+  }
+  .lede,
+  .summary,
+  .note {
+    max-width: 85ch;
+    color: var(--text-muted);
+  }
+  .note {
+    margin-bottom: var(--space-3);
+  }
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .actions,
+  .sources {
+    list-style: decimal;
+    padding-left: var(--space-5);
+  }
+  .readiness > li,
+  .bars li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 2px var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .bars li {
+    grid-template-columns: 1fr auto;
+  }
+  .readiness .name {
+    font-weight: 600;
+  }
+  .readiness .value {
+    font-family: var(--font-accent);
+    color: var(--text);
+  }
+  .summary-line {
+    font-size: var(--text-lg);
+    color: var(--text);
+    margin-bottom: var(--space-3);
+  }
+  .facts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-5);
+    margin: 0;
+    font-size: var(--text-xs);
+  }
+  .facts dt {
+    display: inline;
+    font-family: var(--font-accent);
+    color: var(--text-subtle);
+  }
+  .facts dt::after {
+    content: ': ';
+  }
+  .facts dd {
+    display: inline;
+    margin: 0;
+    color: var(--text-muted);
+  }
+  .role-notes {
+    display: block;
+    grid-column: 1 / -1;
+    gap: var(--space-1);
+    list-style: disc;
+    padding-left: var(--space-5);
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+  .readiness > li {
+    padding-block: var(--space-3);
+    border-bottom: 1px solid var(--paper-border);
+  }
+  .readiness .meta,
+  .bar-note {
+    grid-column: 1 / -1;
+  }
+  .bar-note {
+    font-size: var(--text-xs);
+    color: var(--text-subtle);
+  }
+  .track {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--paper-border);
+  }
+  .fill {
+    fill: var(--accent);
+  }
+  .fill.muted,
+  .gap .fill {
+    fill: var(--text-subtle);
+  }
+  .action-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .action-label {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .actions p,
+  .criteria p,
+  .moves p,
+  .trends p,
+  .plain li {
+    max-width: 85ch;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .chip {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--paper-border);
+    color: var(--text-muted);
+  }
+  .chip.shown {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .chip.missing {
+    color: var(--text);
+    background: var(--accent-soft);
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+  @media (min-width: 860px) {
+    .columns {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .role {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--paper-border);
+  }
+  .criteria > li {
+    padding: var(--space-3);
+    border: 1px solid var(--paper-border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+  }
+  .criteria .evidence {
+    font-family: var(--font-accent);
+    font-size: var(--text-xs);
+  }
+  .gaps .move {
+    color: var(--text);
+  }
+  .cites {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .cites a,
+  .sources a {
+    overflow-wrap: anywhere;
+  }
+  .phrases {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .unused {
+    color: var(--text-subtle);
+  }
+  .callout {
+    max-width: 85ch;
+    padding: var(--space-4);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .warn {
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+</style>

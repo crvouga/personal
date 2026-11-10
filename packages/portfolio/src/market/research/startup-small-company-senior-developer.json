@@ -1,0 +1,407 @@
+{
+  "role": "startup-small-company-senior-developer",
+  "asOf": "2026-11-09",
+  "summary": "Seed–Series B startups in late 2026 hire senior and founding engineers as generalist 'product engineers' who own features from idea to production, talk to users, cut scope and ship fast, increasingly by directing AI coding agents. Founders read for proof of building (shipped products, side projects, open source, zero-to-one work, personal ownership) over pedigree, and they are drowning in inbound applications, so referrals, visible work and a paid work trial decide most hires.",
+  "readers": [
+    {
+      "who": "Founder / CEO (often the first screener, sometimes non-technical)",
+      "firstPassSeconds": null,
+      "scansFor": "What has this person built and shipped themselves? Startup or zero-to-one experience, comfort with ambiguity, a specific reason to join a small company, results they personally drove."
+    },
+    {
+      "who": "CTO / technical co-founder or first engineer",
+      "firstPassSeconds": null,
+      "scansFor": "Live products, GitHub/open source, end-to-end full-stack depth (TypeScript/React/Node/Postgres/cloud), architectural judgment and tradeoffs, daily fluency with AI coding tools backed by real engineering taste."
+    },
+    {
+      "who": "Startup-focused agency recruiter or talent lead",
+      "firstPassSeconds": null,
+      "scansFor": "Stack match (TypeScript, React, Python), a record of owning outcomes, startup tenure without 12-month job hopping, AI-tool usage; filters out keyword-stuffed AI résumés."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "shipped-end-to-end",
+      "label": "Owns features from idea to production",
+      "why": "Founders hire generalists who carry a problem from start to finish, including talking to users, because there is nobody to hand off to.",
+      "weight": 3,
+      "themes": ["ownership", "product-sense", "speed"],
+      "skills": ["typescript", "react", "nodejs", "postgres"],
+      "howToDemonstrate": "Two or three short case studies each showing problem → scope cut → shipped → adoption metric, with live links.",
+      "sources": [0, 3, 9, 10, 11]
+    },
+    {
+      "id": "builds-for-fun",
+      "label": "Side projects, open source, zero-to-one builds",
+      "why": "Founders read self-started projects and OSS as proof of intrinsic motivation and of being able to build without supervision.",
+      "weight": 3,
+      "themes": ["open-source", "ownership", "speed"],
+      "skills": ["git"],
+      "howToDemonstrate": "Projects section above the fold: Mockingbird (OSS API emulator) with repo, stars/usage, the game and the LLM proxy, each with a one-line what and why plus a live demo.",
+      "sources": [1, 7, 8]
+    },
+    {
+      "id": "personal-ownership-not-team",
+      "label": "Results you personally drove",
+      "why": "Founders screen out people who were 'along for the ride' and ask 'What did they build?' rather than 'Where did they work?'",
+      "weight": 3,
+      "themes": ["ownership", "leadership"],
+      "skills": [],
+      "howToDemonstrate": "First-person bullets ('I designed and shipped…'); tech-lead scope at One Origin stated as decisions you made and systems you built.",
+      "sources": [7, 9]
+    },
+    {
+      "id": "ai-native-workflow",
+      "label": "Daily AI coding tool fluency, with judgment",
+      "why": "2025–26 startups explicitly ask for engineers who direct agents like Claude Code/Cursor, but hiring managers distrust AI keywords without substance and value taste over hype.",
+      "weight": 3,
+      "themes": ["ai-assisted", "ci-cd", "testing-quality"],
+      "skills": ["ai-tools", "ci-cd", "github-actions"],
+      "howToDemonstrate": "A short write-up of your agent workflow: how automated CI gates, tests and review keep agent-written code shippable, with a throughput or defect example.",
+      "sources": [4, 5, 6]
+    },
+    {
+      "id": "product-sense",
+      "label": "Product sense / talks to users",
+      "why": "Product engineers challenge specs, ask 'why', weigh product and engineering tradeoffs together and check that what they built is actually used.",
+      "weight": 3,
+      "themes": ["product-sense", "stakeholders"],
+      "skills": [],
+      "howToDemonstrate": "In each case study, name the user, the feedback that changed the plan, what you cut and the usage criterion afterwards (events, retention, support tickets).",
+      "sources": [0, 2, 1]
+    },
+    {
+      "id": "ship-fast-iterate",
+      "label": "Ships early and often",
+      "why": "PostHog-style teams ship to get a fast feedback loop, descoping v1 and rolling out behind flags rather than planning endlessly.",
+      "weight": 2,
+      "themes": ["speed", "ci-cd"],
+      "skills": ["ci-cd"],
+      "howToDemonstrate": "Concrete cadence numbers (e.g. time from idea to production, deploys per week) and a feature-flag / staged-rollout story.",
+      "sources": [0, 1]
+    },
+    {
+      "id": "startup-stack-fit",
+      "label": "TypeScript + React full stack",
+      "why": "Recruiters report TypeScript as the most common startup backend language, React at ~95% of framework mentions and React Native as the mobile option that comes up.",
+      "weight": 2,
+      "themes": ["frontend-craft", "mobile", "architecture"],
+      "skills": ["typescript", "react", "react-native", "nodejs"],
+      "howToDemonstrate": "Compact stack line near the top; projects tagged by stack; the Geviti React Native member app as the mobile proof.",
+      "sources": [5]
+    },
+    {
+      "id": "ambiguity-comfort",
+      "label": "Thrives in ambiguity",
+      "why": "Founders say engineers who need clear tickets and roadmaps struggle; CTOs want people who 'can keep up with uncertainty in the business'.",
+      "weight": 2,
+      "themes": ["ownership", "product-sense"],
+      "skills": [],
+      "howToDemonstrate": "Freelance years framed as owning client products end to end from vague research; one story of a pivot or a call made on incomplete information.",
+      "sources": [6, 10, 11]
+    },
+    {
+      "id": "explains-architecture",
+      "label": "Can explain technical decisions in depth",
+      "why": "Interviews probe a walkthrough of a complex system you built; candidates who cannot go deeper than process ceremonies are rejected.",
+      "weight": 2,
+      "themes": ["architecture", "data", "documentation"],
+      "skills": ["postgres", "aws"],
+      "howToDemonstrate": "One short design note or ADR per flagship project: data model, key tradeoff, what you'd change.",
+      "sources": [6, 8, 11]
+    },
+    {
+      "id": "data-modelling-infra",
+      "label": "Data modelling and cloud basics",
+      "why": "At an early startup the senior engineer sets the patterns, from the Postgres schema to the AWS deploy, that determine velocity for years.",
+      "weight": 2,
+      "themes": ["data", "cloud-infra", "performance-scale"],
+      "skills": ["postgres", "aws", "docker", "sql"],
+      "howToDemonstrate": "Schema diagram and a performance win with before/after numbers (query latency, cost).",
+      "sources": [9, 11]
+    },
+    {
+      "id": "clear-writing",
+      "label": "Writes clearly",
+      "why": "Small, often async teams rely on written RFCs, PR descriptions and concise answers; clarity is a named hiring criterion.",
+      "weight": 1,
+      "themes": ["documentation", "stakeholders"],
+      "skills": [],
+      "howToDemonstrate": "Link one blog post, README or project write-up; keep portfolio copy short and plain.",
+      "sources": [1, 3, 8]
+    },
+    {
+      "id": "slope-over-credentials",
+      "label": "Slope over credentials",
+      "why": "Startups state they value growth trajectory over pedigree, so a non-CS degree and freelance start are not a liability if the trajectory is visible.",
+      "weight": 1,
+      "themes": ["leadership"],
+      "skills": [],
+      "howToDemonstrate": "A short timeline from freelance builder to tech lead to startup engineer, showing scope growing each step.",
+      "sources": [3, 7, 10]
+    }
+  ],
+  "redFlags": [
+    {
+      "label": "Big-company process speak",
+      "why": "Candidates who describe work as 'stand-ups, sprint planning and retros' or who thrive only inside structure read as unable to create structure from scratch.",
+      "sources": [6, 9, 12]
+    },
+    {
+      "label": "Team outcomes without personal contribution",
+      "why": "Founders reject 'along for the ride' profiles where brand-name employers or team results stand in for what the candidate built.",
+      "sources": [7]
+    },
+    {
+      "label": "AI keyword stuffing",
+      "why": "Hiring managers report résumés with 'lots of AI-related keywords' but little substance; claims need an artifact behind them.",
+      "sources": [6]
+    },
+    {
+      "label": "Planning endlessly instead of building",
+      "why": "PostHog lists heavy research and planning without shipping, and dogmatic 'how we've always done it' thinking, as warning signs.",
+      "sources": [1]
+    },
+    {
+      "label": "Job hopping every ~12 months / complaints about past roles",
+      "why": "Read as chasing pay or prestige and as low ownership.",
+      "sources": [1]
+    },
+    {
+      "label": "Self-promotion and monologues",
+      "why": "Ego-driven self-promotion and long, unfocused answers count against candidates; concise answers read as competence and a bias to action.",
+      "sources": [1, 8]
+    },
+    {
+      "label": "Generic motivation for joining a startup",
+      "why": "'Good founders' or 'strong VCs' as the reason to join criteria the candidate has not thought about why a startup, or this problem.",
+      "sources": [8]
+    }
+  ],
+  "vocabulary": {
+    "prefer": [
+      "shipped",
+      "end to end",
+      "owned",
+      "zero to one",
+      "built from scratch",
+      "talked to users",
+      "cut scope",
+      "in production",
+      "live",
+      "open source",
+      "side project",
+      "fast feedback loop",
+      "feature flags",
+      "full stack",
+      "product engineer",
+      "founding engineer",
+      "AI-native",
+      "agents",
+      "taste",
+      "judgment"
+    ],
+    "avoid": [
+      "stakeholder alignment",
+      "synergy",
+      "sprint ceremonies",
+      "cross-functional matrix",
+      "resource allocation",
+      "governance",
+      "enterprise-grade",
+      "rockstar / ninja",
+      "passionate about",
+      "responsible for",
+      "participated in",
+      "AI-powered everything"
+    ],
+    "verbs": [
+      "Shipped",
+      "Built",
+      "Launched",
+      "Owned",
+      "Designed",
+      "Rebuilt",
+      "Cut",
+      "Automated",
+      "Scaled",
+      "Prototyped",
+      "Migrated",
+      "Open-sourced"
+    ],
+    "titles": [
+      "Founding Engineer",
+      "Founding Product Engineer",
+      "Product Engineer",
+      "Senior Software Engineer",
+      "Senior Full Stack Engineer",
+      "Founding Full Stack Engineer",
+      "Founding AI Engineer",
+      "Early Engineer"
+    ]
+  },
+  "resume": {
+    "pages": 1,
+    "summaryStyle": "Two plain sentences in builder voice: what you build and ship end to end (TypeScript/React/React Native/Node/Postgres/AWS), the strongest proof (products shipped solo, tech-lead scope, AI-agent workflow with CI gates), and the kind of startup work you want. No adjectives you can't back with a link.",
+    "sectionOrder": [
+      "summary",
+      "experience",
+      "projects",
+      "skills",
+      "education"
+    ],
+    "bulletFormula": "Shipped/Built + what (product or feature) + for whom + measurable outcome or adoption, with you as the actor; end with stack only when it adds criterion.",
+    "keywordStrategy": "Startups rarely run heavy ATS filtering and founders often read résumés themselves; inbound is flooded, so the top third must carry the match. Mirror posting nouns (TypeScript, React, React Native, Node, Postgres, AWS, AI coding tools / Claude Code / Cursor, end-to-end ownership) once each in context, never as a keyword cloud, and avoid AI buzzword padding.",
+    "notes": [
+      "Put the live product and GitHub links in the header; founders click them before reading bullets.",
+      "Present freelance 2020–22 as owning client products from research to launch, which is the founding-engineer pattern.",
+      "Name Geviti as an early-stage startup to show recent startup context.",
+      "Include a Projects section (Mockingbird, game, LLM proxy) even on one page; side projects are a primary screening criterion here.",
+      "Expect a referral or direct outreach to matter more than the inbound résumé; keep the résumé consistent with the portfolio."
+    ],
+    "sources": [5, 6, 7, 8, 10]
+  },
+  "portfolio": {
+    "leadWith": "Shipped work: a short 'things I built and shipped' grid (Mockingbird OSS, the Geviti member app, the LLM proxy, the game) with live links and repos, followed by one-line proof of end-to-end ownership and an AI-agent workflow with automated CI gates.",
+    "mustHave": [
+      "Live demos and GitHub links for every project",
+      "2–3 short case studies: problem, what I cut, what I shipped, what users did",
+      "An 'How I build with AI agents' note showing CI gates, tests and review",
+      "Stack line: TypeScript, React, React Native, Node, Python, Postgres, AWS",
+      "One architecture/data-model note per flagship project",
+      "Short timeline showing scope growth from freelance to tech lead to startup engineer",
+      "Direct contact (email, GitHub, LinkedIn) with no friction"
+    ],
+    "notes": [
+      "Show, don't tell: replace adjectives like 'proactive' with artifacts.",
+      "Keep copy terse; founders and CTOs skim and click through.",
+      "Anticipate the paid work trial by showing how you scope, communicate progress and demo.",
+      "Avoid self-promotional tone; let numbers and links speak."
+    ],
+    "sources": [0, 1, 3, 7, 8, 10]
+  },
+  "visual": {
+    "tone": "terse, technical, shipped, unpretentious",
+    "scheme": "auto",
+    "hue": 215,
+    "chroma": "moderate",
+    "display": "sans",
+    "accent": "mono",
+    "corners": "square",
+    "density": "compact",
+    "rationale": "Builder-facing sites from developer-tool companies and design engineers use monospace for labels and structure to criterion technical credibility, with high contrast and restraint, but monospace fails as body copy, hence sans headlines/body and mono eyebrows. Auto scheme because NN/g finds light mode reads better for most users while recommending a dark option for preference, and this audience commonly works in dark UIs. A moderate blue draws on research linking blue with competence, kept unflashy so the shipped work and links stand out.",
+    "sources": [13, 14, 15]
+  },
+  "interview": [
+    "Expect a deep walkthrough of a system you built: data model, tradeoffs, what you'd change. Prepare one per flagship project.",
+    "A paid work trial (often 2–5 days) is common and the highest-criterion step, judged on craft, ownership, judgment and clarity, so show scoping, progress updates and a demo.",
+    "'Tell me about shipping with incomplete information / cutting scope / a pivot' questions test ambiguity tolerance and product judgment.",
+    "Some loops include a live coding session with no AI tools despite AI-native roles, so fundamentals still matter alongside agent fluency.",
+    "Founders probe motivation: why a startup, why this problem. Generic answers are disqualifying.",
+    "Reference calls are standard; past-manager praise for ownership and speed carries weight."
+  ],
+  "sources": [
+    {
+      "url": "https://posthog.com/handbook/engineering/product-engineering",
+      "title": "How to do product, as an engineer (Handbook)",
+      "publisher": "PostHog",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.posthog.com/p/beyond-the-10x-engineer",
+      "title": "Beyond the 10x engineer",
+      "publisher": "PostHog – Product for Engineers",
+      "year": 2024
+    },
+    {
+      "url": "https://blog.pragmaticengineer.com/the-product-minded-engineer/",
+      "title": "The Product-Minded Software Engineer",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2022
+    },
+    {
+      "url": "https://linear.app/now/how-we-hire-at-linear",
+      "title": "How we hire at Linear",
+      "publisher": "Linear",
+      "year": 2026
+    },
+    {
+      "url": "https://www.speak.com/blog/agentic-engineering",
+      "title": "Embracing the agentic engineering era at Speak",
+      "publisher": "Speak",
+      "year": 2026
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/startup-market-in-2025",
+      "title": "State of the startup and scaleup hiring markets – as seen by recruiters",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.pragmaticengineer.com/p/tech-jobs-market-in-2026-part-3-hiring",
+      "title": "Tech jobs market in 2026, part 3: hiring",
+      "publisher": "The Pragmatic Engineer",
+      "year": 2026
+    },
+    {
+      "url": "https://wellfound.com/blog/from-the-founder-or-stop-chasing-pedigrees-a-startup-hiring-reality-check",
+      "title": "Stop Chasing Pedigrees: A Startup Hiring Reality Check",
+      "publisher": "Wellfound",
+      "year": 2025
+    },
+    {
+      "url": "https://startup-frontrow.beehiiv.com/p/what-i-learned-while-hiring-founding-engineers-and-how-you-can-hack-it",
+      "title": "What I learned while hiring founding engineers & how you can 'HACK' it",
+      "publisher": "Startup Frontrow",
+      "year": 2023
+    },
+    {
+      "url": "https://www.crv.com/content/founding-engineer",
+      "title": "Founding Engineer: When to Hire Your First Technical Team Member",
+      "publisher": "CRV",
+      "year": 2026
+    },
+    {
+      "url": "https://jobsbyculture.com/blog/how-to-hire-your-first-engineer-2026",
+      "title": "How to hire your first engineer (2026)",
+      "publisher": "JobsByCulture",
+      "year": 2026
+    },
+    {
+      "url": "https://www.dover.com/blog/hire-founding-engineers-ai-startups-2025",
+      "title": "Where to find a founding engineer for AI startups?",
+      "publisher": "Dover",
+      "year": 2025
+    },
+    {
+      "url": "https://newsletter.eng-leadership.com/p/startups-should-evaluate-engineers",
+      "title": "Startups Should Evaluate Engineers Differently From Big Companies",
+      "publisher": "Engineering Leadership (Gregor Ojstersek)",
+      "year": 2026
+    },
+    {
+      "url": "https://uxtools.kit.com/posts/rise-of-a-visual-design-trend-retro-minimalism",
+      "title": "Rise of a visual design trend: retro-minimalism",
+      "publisher": "UX Tools",
+      "year": 2024
+    },
+    {
+      "url": "https://www.nngroup.com/articles/dark-mode/",
+      "title": "Dark Mode vs. Light Mode: Which Is Better?",
+      "publisher": "Nielsen Norman Group",
+      "year": 2020
+    },
+    {
+      "url": "https://colab.ws/articles/10.1007%2Fs11747-010-0245-y",
+      "title": "Exciting red and competent blue: the importance of color in marketing (Labrecque & Milne)",
+      "publisher": "Journal of the Academy of Marketing Science",
+      "year": 2012
+    },
+    {
+      "url": "https://www.ycombinator.com/blog/how-to-hire-your-first-engineer",
+      "title": "How to Hire Your First Engineer (Harj Taggar)",
+      "publisher": "Y Combinator",
+      "year": 2018
+    }
+  ]
+}

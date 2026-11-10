@@ -48,7 +48,7 @@ RUN --mount=type=secret,id=github_token,required=true \
   PORTFOLIO_GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
   bun run build
 
-# The static Storybook (every component and screen in every archetype's
+# The static Storybook (every component and screen in every role's
 # theme), served at /storybook/ with its own headers (nginx/storybook-headers.conf).
 # Built after the site, so the site's CSP hashes never include its scripts.
 RUN bun run storybook:build && mv storybook-static dist/storybook

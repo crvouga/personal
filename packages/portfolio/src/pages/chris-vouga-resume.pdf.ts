@@ -7,7 +7,7 @@
  * it renders on request; the cache only skips Chromium while content is
  * unchanged. The filename must equal `RESUME_FILENAME` (a test enforces it).
  */
-import { DEFAULT_PRESENTATION } from '../archetypes/presentation';
+import { DEFAULT_PRESENTATION } from '../roles/presentation';
 import { resumeResponse } from '../resume/response';
 
 export const GET = (): Promise<Response> =>

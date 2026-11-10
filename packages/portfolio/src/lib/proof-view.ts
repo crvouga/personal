@@ -8,6 +8,7 @@ import type { ContributionRange } from './github-types';
 import { loadPlatformFacts, trailersFor } from './platform-facts';
 import { loadVerification } from './verification';
 
+import type { Theme } from '../knowledge/themes';
 export const PLATFORM_FACTS = loadPlatformFacts();
 export const VERIFICATION = loadVerification();
 
@@ -28,34 +29,41 @@ export type ProofTile = {
   readonly value: string;
   readonly label: string;
   readonly detail: string;
+  /** What it is evidence of; each role leads with the tiles it values. */
+  readonly themes: readonly Theme[];
 };
 
 const ws = SNAPSHOT.workspace;
 
 /**
- * Ordered by what the section argues: the pipeline caught things, it is
- * strict, it is backed by tests, and agents write inside it.
+ * In the order the section argues by default: the pipeline caught things, it
+ * is strict, it is backed by tests, and agents write inside it. Each role
+ * re-ranks them by what its readers value (`Presentation.proofTiles`).
  */
 export const PROOF_TILES: readonly ProofTile[] = [
   {
     value: count(ws.prsFailedCiBeforeMerge),
     label: 'pull requests failed CI, were fixed, then merged',
     detail: `${percent(ws.prsFailedCiBeforeMerge, ws.mergedPrs)} of ${count(ws.mergedPrs)} merged; none merged until every required check passed`,
+    themes: ['testing-quality', 'ci-cd'],
   },
   {
     value: count(PLATFORM_FACTS.checkGateJobInstances),
     label: 'CI jobs gate every merge',
     detail: `behind ${count(PLATFORM_FACTS.requiredChecks.length)} required checks: ${PLATFORM_FACTS.requiredChecks.join(', ')}`,
+    themes: ['ci-cd', 'process'],
   },
   {
     value: count(PUBLIC_TEST_CALL_SITES),
     label: 'tests in three public repositories',
     detail: 'workspace, Mockingbird and headless-combobox',
+    themes: ['testing-quality', 'open-source'],
   },
   {
     value: count(ws.aiCoAuthoredPrs),
     label: 'pull requests co-written with AI coding agents',
     detail: `of the ${count(ws.mergedPrs)}, through the same gates`,
+    themes: ['ai-assisted'],
   },
 ];
 

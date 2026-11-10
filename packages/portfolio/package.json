@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "archetypes:status": "bun run scripts/archetypes-status.ts",
+    "roles:status": "bun run scripts/roles-status.ts",
+    "roles:sync": "bun run scripts/roles-sync.ts",
+    "roles:new": "bun run scripts/roles-new.ts",
     "assets:optimize": "bun run ./scripts/optimize-images.ts",
     "assets:prune": "bun run ./scripts/prune-unused-assets.ts",
     "build": "astro build",
@@ -42,15 +44,21 @@
     "@storybook-astro/framework": "1.15.0",
     "@storybook/builder-vite": "10.6.6",
     "@types/bun": "catalog:",
+    "@types/culori": "4.0.1",
+    "@types/stopword": "2.0.3",
     "astro": "^7.3.3",
     "cspell": "^10.4.0",
+    "culori": "4.0.2",
     "listr2": "^10.2.1",
     "p-limit": "^7.3.0",
     "pdf-lib": "^1.17.1",
     "picocolors": "^1.1.1",
     "playwright": "^1.48.0",
+    "prettier": "catalog:",
     "pretty-ms": "^9.3.0",
+    "stopword": "3.1.5",
     "storybook": "10.6.6",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "zod": "4.6.7"
   }
 }

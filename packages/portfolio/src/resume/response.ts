@@ -1,10 +1,10 @@
 /**
  * A presentation's résumé as an HTTP response. Shared by the canonical
- * endpoint and the per-archetype ones, so every PDF passes the same one-page
+ * endpoint and the per-role ones, so every PDF passes the same one-page
  * checks. Under `astro dev` the cache only skips Chromium while the content
  * is unchanged.
  */
-import type { Presentation } from '../archetypes/presentation';
+import type { Presentation } from '../roles/presentation';
 import { buildResumeContent } from './content';
 import { renderResume } from './pdf';
 
