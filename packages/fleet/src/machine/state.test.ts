@@ -1,5 +1,13 @@
 import { afterEach, expect, test } from 'bun:test';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  readFile,
+  writeFile,
+  utimes,
+  access,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readEnrollment, saveEnrollment, withMachineLock } from './state';
@@ -35,4 +43,50 @@ test('overlapping managers fail closed and a completed operation releases its lo
     ).rejects.toThrow('locked');
   });
   expect(await withMachineLock(directory, async () => 'next')).toBe('next');
+});
+
+async function plantLock(directory: string, owner: string | null) {
+  const lock = join(directory, 'sync.lock');
+  await mkdir(lock);
+  if (owner !== null) await writeFile(join(lock, 'owner.json'), owner);
+  return lock;
+}
+const exists = (path: string) =>
+  access(path).then(
+    () => true,
+    () => false
+  );
+
+test('a lock left by a dead process is reclaimed with its stale transfer bundle', async () => {
+  const directory = await root();
+  // PID 2^22 + 1 is above Linux and macOS pid ranges, so it is never alive.
+  await plantLock(
+    directory,
+    JSON.stringify({ version: 1, pid: 4_194_305, startedAt: 'x' })
+  );
+  const bundle = join(directory, `transfer-${'a'.repeat(8)}-0000.bundle`);
+  await writeFile(bundle, 'stale');
+  expect(await withMachineLock(directory, async () => 'ran')).toBe('ran');
+  expect(await exists(bundle)).toBe(false);
+  expect(await exists(join(directory, 'sync.lock'))).toBe(false);
+});
+
+test('a lock owned by a live process is never stolen', async () => {
+  const directory = await root();
+  await plantLock(directory, JSON.stringify({ version: 1, pid: process.pid }));
+  await expect(withMachineLock(directory, async () => 'no')).rejects.toThrow(
+    'locked'
+  );
+  expect(await exists(join(directory, 'sync.lock'))).toBe(true);
+});
+
+test('an ownerless lock is held while fresh and reclaimed once abandoned', async () => {
+  const directory = await root();
+  const lock = await plantLock(directory, null);
+  await expect(withMachineLock(directory, async () => 'no')).rejects.toThrow(
+    'locked'
+  );
+  const old = new Date(Date.now() - 120_000);
+  await utimes(lock, old, old);
+  expect(await withMachineLock(directory, async () => 'ran')).toBe('ran');
 });

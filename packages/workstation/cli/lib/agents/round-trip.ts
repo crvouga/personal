@@ -4,7 +4,9 @@ import { registry } from './registry';
 import { record } from '../../../../fleet/src/config';
 
 /** Reasoning models spend output tokens thinking before any text or tool call,
- * so a tight cap ends the response empty. Prompts are tiny; this is a ceiling. */
+ * so a tight cap ends the response without the tool call or text being
+ * verified. Prompts are tiny; this is a ceiling, not an expected length.
+ */
 const VERIFY_OUTPUT_TOKENS = 1024;
 
 /** Supported OpenAI Responses harness route. The only tool is a local echo;
