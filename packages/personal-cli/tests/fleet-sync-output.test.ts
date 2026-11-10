@@ -87,3 +87,12 @@ test('summaries split into a leading code and detail', () => {
     detail: 'Plain sentence.',
   });
 });
+
+test('a run with no failures never prints red', () => {
+  const text = managerText(report([node('w1', [pass('ssh:a'), rateLimited])]), {
+    color: true,
+  });
+  // Red (31) appears nowhere; the zero "failing" count is dimmed.
+  expect(text).not.toMatch(/\u001b\[(?:\d+;)*31m/);
+  expect(text).toMatch(/\u001b\[2m✖ 0 failing/);
+});

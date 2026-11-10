@@ -251,13 +251,11 @@ function totals(
   counts: Record<Status, number>,
   color: boolean
 ): string {
-  return ORDER.map((status) =>
-    paint(
-      c,
-      status,
-      `${color ? `${SYMBOL[status]} ` : ''}${counts[status]} ${LABEL[status]}`
-    )
-  ).join(c.dim('   '));
+  return ORDER.map((status) => {
+    const text = `${color ? `${SYMBOL[status]} ` : ''}${counts[status]} ${LABEL[status]}`;
+    // A zero count is not a signal: never show red/yellow for "0 failing".
+    return counts[status] ? paint(c, status, text) : c.dim(text);
+  }).join(c.dim('   '));
 }
 
 const LABEL: Record<Status, string> = {

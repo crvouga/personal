@@ -11,7 +11,11 @@ import cliproxy_host
 import fcntl, json, os, pathlib, shutil, subprocess, sys, tempfile, time, urllib.request, urllib.error
 
 root = cliproxy_host.default_root().resolve()
-os.environ["PATH"] = str(root / "scripts") + ":" + os.environ["PATH"]
+# tools/bin holds the pinned python3 + PyYAML venv. LaunchAgents already put it
+# first; interactive installs must too, or validate-config gets a system python3.
+os.environ["PATH"] = os.pathsep.join(
+    [str(root / "scripts"), str(root / "tools/bin"), os.environ["PATH"]]
+)
 os.umask(0o077)
 os.chdir(root)
 

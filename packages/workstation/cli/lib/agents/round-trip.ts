@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { registry } from './registry';
 import { record } from '../../../../fleet/src/config';
 
+/** Reasoning models spend output tokens thinking before any text or tool call,
+ * so a tight cap ends the response empty. Prompts are tiny; this is a ceiling. */
+const VERIFY_OUTPUT_TOKENS = 1024;
+
 /** Supported OpenAI Responses harness route. The only tool is a local echo;
  * model output can never select a command, file, URL or other side effect.
  */
@@ -36,7 +40,7 @@ export async function verifyRoundTrip(
       input: [prompt],
       tools: [tool],
       tool_choice: { type: 'function', name: 'fleet_echo' },
-      max_output_tokens: 128,
+      max_output_tokens: VERIFY_OUTPUT_TOKENS,
     },
     request
   );
@@ -57,7 +61,7 @@ export async function verifyRoundTrip(
       ],
       tools: [tool],
       tool_choice: 'none',
-      max_output_tokens: 128,
+      max_output_tokens: VERIFY_OUTPUT_TOKENS,
     },
     request
   );
@@ -154,7 +158,11 @@ async function verifyStream(
   const response = await call(
     model,
     key,
-    { input: 'Reply OK.', stream: true, max_output_tokens: 32 },
+    {
+      input: 'Reply OK.',
+      stream: true,
+      max_output_tokens: VERIFY_OUTPUT_TOKENS,
+    },
     request
   );
   const body = await boundedText(response);
