@@ -78,14 +78,14 @@ const homeOf = (instance: Instance): string | undefined => {
   return typeof home === 'string' ? home : undefined;
 };
 
-/** Every instance T3 lists gets its conventional name. Managed instances are
- * named by their definition; every other instance is renamed after its own
+/** Every instance T3 lists gets its conventional name. Managed instances
+ * (`managed`: ID to name) are named by their definition; every other instance is renamed after its own
  * signed-in account, and a signed-in default login T3 lists without a settings
  * entry gains one. Only `displayName` is ever written.
  */
 export async function conformNames(
   current: Record<string, unknown>,
-  managed: string[],
+  managed: Record<string, string>,
   accounts: Accounts = localAccounts
 ): Promise<Record<string, unknown>> {
   const next: Record<string, unknown> = { ...current };
@@ -93,8 +93,8 @@ export async function conformNames(
   for (const [id, value] of Object.entries(current)) {
     // A worker's policy owns its managed instances; a copy left in its
     // settings still shows until the policy loads, so it conforms too.
-    const renamed = managed.includes(id)
-      ? rename(value, proxyName)
+    const renamed = Object.hasOwn(managed, id)
+      ? rename(value, () => managed[id])
       : rename(value, accountName, await account(value, accounts));
     if (!renamed) continue;
     named.add(String(renamed['displayName']));
@@ -135,7 +135,7 @@ function rename(
  */
 export async function conformT3Names(
   settingsPath: string,
-  managed: string[],
+  managed: Record<string, string>,
   options: { apply: boolean; accounts?: Accounts }
 ): Promise<{ changed: boolean }> {
   const raw = await read(settingsPath);

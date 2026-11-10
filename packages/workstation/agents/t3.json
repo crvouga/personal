@@ -1,44 +1,12 @@
 {
   "version": 1,
   "instances": {
-    "personal_codex_proxy": {
-      "driver": "codex",
-      "displayName": "Codex CLI Proxy",
-      "enabled": true,
-      "config": {
-        "binaryPath": "${workspace}/packages/workstation/agents/codex-proxy.ts",
-        "homePath": "${agents}/${node}/codex/proxy"
-      },
-      "environment": [
-        {
-          "name": "WS_AGENT_NODE",
-          "value": "${node}",
-          "sensitive": false
-        }
-      ]
-    },
     "personal_gateway_models": {
       "driver": "opencode",
       "displayName": "OpenCode CLI Proxy",
       "enabled": true,
       "config": {
         "binaryPath": "${workspace}/packages/workstation/agents/opencode-proxy.ts"
-      },
-      "environment": [
-        {
-          "name": "WS_AGENT_NODE",
-          "value": "${node}",
-          "sensitive": false
-        }
-      ]
-    },
-    "personal_claude_proxy": {
-      "driver": "claudeAgent",
-      "displayName": "Claude CLI Proxy",
-      "enabled": true,
-      "config": {
-        "binaryPath": "${workspace}/packages/workstation/agents/claude-proxy",
-        "homePath": "${agents}/${node}/claude/proxy-home"
       },
       "environment": [
         {
@@ -64,27 +32,6 @@
         {
           "name": "XAI_API_KEY",
           "value": "fleet-cli-proxy",
-          "sensitive": false
-        }
-      ]
-    },
-    "personal_antigravity_proxy": {
-      "driver": "antigravity",
-      "displayName": "AntiGravity CLI Proxy",
-      "enabled": true,
-      "config": {
-        "authMethod": "gemini-api-key",
-        "apiKey": "••••••"
-      },
-      "environment": [
-        {
-          "name": "WS_AGENT_NODE",
-          "value": "${node}",
-          "sensitive": false
-        },
-        {
-          "name": "GOOGLE_GEMINI_BASE_URL",
-          "value": "https://cli-proxy.chrisvouga.dev",
           "sensitive": false
         }
       ]

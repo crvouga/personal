@@ -1,5 +1,6 @@
 import { desired, nodeId, paths } from './desired';
 import { conformT3Names } from './names';
+import type { Roster } from './accounts';
 import type { Check } from '../../../fleet/src/types';
 
 /** Fleet check: this machine's T3 lists every provider under the convention. */
@@ -7,12 +8,17 @@ export async function providerNames(
   id: string,
   workspace: string,
   apply: boolean,
-  t3Home?: string
+  { t3Home, roster }: { t3Home?: string; roster?: Roster } = {}
 ): Promise<Check> {
   try {
     const target = paths(t3Home ? { t3Home } : {}, workspace);
-    const managed = Object.keys(
-      await desired(target.definition, workspace, nodeId(id))
+    const managed = Object.fromEntries(
+      Object.entries(
+        await desired(target.definition, workspace, nodeId(id), roster)
+      ).map(([instance, value]) => [
+        instance,
+        String((value as { displayName?: unknown }).displayName),
+      ])
     );
     const { changed } = await conformT3Names(target.settings, managed, {
       apply,

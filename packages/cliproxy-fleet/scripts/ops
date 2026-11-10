@@ -6,6 +6,7 @@ sys.dont_write_bytecode = True
 import pathlib as _pathlib
 
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+import accounts
 import cliproxy_host
 
 import fcntl, json, os, pathlib, shutil, subprocess, sys, tempfile, time, urllib.request, urllib.error
@@ -35,7 +36,7 @@ def validate():
     compose("config", "--quiet")
 
 
-def request(path, key=None, data=None, base="http://127.0.0.1:8317"):
+def request(path, key=None, data=None, base="http://127.0.0.1:8317", method=None):
     headers = {}
     if key:
         headers["Authorization"] = "Bearer " + key
@@ -45,6 +46,7 @@ def request(path, key=None, data=None, base="http://127.0.0.1:8317"):
         base + path,
         data=json.dumps(data).encode() if data is not None else None,
         headers=headers,
+        method=method,
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -153,6 +155,30 @@ def hot_reloaded(expected):
             pass
         time.sleep(2)
     return False
+
+
+def pending_prefixes():
+    """Credentials that lack their account's model prefix."""
+    return accounts.pending(root / "state/runtime/auths")
+
+
+def apply_prefixes(prefixes):
+    # The proxy owns its credential files (it rewrites them on token refresh),
+    # so the prefix is set through its own API, never by editing a file.
+    admin = (root / "state/secrets/management-key").read_text().strip()
+    for name, prefix in prefixes:
+        code, _ = request(
+            "/v0/management/auth-files/fields",
+            admin,
+            {"name": name, "prefix": prefix},
+            method="PATCH",
+        )
+        assert code == 200, "Credential prefix update failed"
+    for _ in range(15):
+        if not pending_prefixes():
+            return
+        time.sleep(2)
+    sys.exit("The proxy did not record the declared account prefixes.")
 
 
 def lock():
@@ -331,30 +357,35 @@ try:
         operation_lock = lock()
         apply_config(pathlib.Path(sys.argv[2]).resolve())
     elif command == "declared":
-        # Fleet-owned settings from the tracked template; check exits 3 when
-        # the live config differs, --apply replaces only those settings.
+        # Fleet-owned settings: template config keys and one model prefix per
+        # signed-in account. Check exits 3 when the live proxy differs;
+        # --apply replaces only those settings.
         candidate = declared_candidate()
-        if candidate is None:
+        prefixes = pending_prefixes()
+        if candidate is None and not prefixes:
             print("Declared settings match the live config.")
         elif "--apply" not in sys.argv[2:]:
             print("Declared settings differ from the live config.")
             sys.exit(3)
         else:
             operation_lock = lock()
-            with tempfile.NamedTemporaryFile(
-                "w", dir=root / "state/runtime", suffix=".yaml", delete=False
-            ) as file:
-                file.write(candidate)
-            try:
-                os.chmod(file.name, 0o600)
-                # Restart-free: the proxy hot-reloads config.yaml. Restart
-                # only if the reload never serves the declared settings.
-                apply_config(pathlib.Path(file.name), restart=False)
-                if not hot_reloaded(declared_aliases()):
-                    compose("restart", "proxy")
-                    wait()
-            finally:
-                pathlib.Path(file.name).unlink(missing_ok=True)
+            if candidate is not None:
+                with tempfile.NamedTemporaryFile(
+                    "w", dir=root / "state/runtime", suffix=".yaml", delete=False
+                ) as file:
+                    file.write(candidate)
+                try:
+                    os.chmod(file.name, 0o600)
+                    # Restart-free: the proxy hot-reloads config.yaml. Restart
+                    # only if the reload never serves the declared settings.
+                    apply_config(pathlib.Path(file.name), restart=False)
+                    if not hot_reloaded(declared_aliases()):
+                        compose("restart", "proxy")
+                        wait()
+                finally:
+                    pathlib.Path(file.name).unlink(missing_ok=True)
+            if prefixes:
+                apply_prefixes(prefixes)
     elif command in ["upgrade", "rollback"]:
         sys.exit(
             "Install a reviewed Git revision with bun run cliproxy install --revision REV; use --rollback for the recorded previous revision."

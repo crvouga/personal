@@ -148,10 +148,10 @@ def inspect(root, node, owner, revision, run=execute, audit_fn=audit, compatible
                             'Public connector enabled', 'Endpoint marker absent', True))
     if not run(declared(root, apply=False)):
         checks.append(phase('PROXY_CONFIG_PENDING', 'action-required',
-                            'The live proxy config lacks fleet-declared settings (model aliases) and applying them '
-                            'failed. Inspect `ops declared --apply` on the manager; the previous config is kept as '
-                            'state/runtime/config.yaml.previous.',
-                            'Declared settings from config.template.yaml', 'Live config differs', True))
+                            'The live proxy lacks fleet-declared settings (model aliases, account prefixes) and '
+                            'applying them failed. Inspect `ops declared --apply` on the manager; the previous config '
+                            'is kept as state/runtime/config.yaml.previous.',
+                            'Declared config settings and a model prefix per signed-in account', 'Live proxy differs', True))
     return checks
 
 

@@ -1,12 +1,18 @@
 import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { AgentConfigurationError } from './errors';
 import { registry, type Selection } from './registry';
+import { accountPrefix, accountSlug, discoverAccounts } from './accounts';
+import { startAccountRelay } from './account-relay';
 import { proxyKey } from './secrets';
 import { pinnedBinary, pinnedPath } from './toolchain';
 
+/** `account` (its email) pins a proxy launch to one signed-in proxy account. */
 export async function launchProfile(
   root: string,
   selection: Selection,
-  args: string[]
+  args: string[],
+  account?: string
 ): Promise<number> {
   const directory = join(
     root,
@@ -36,12 +42,36 @@ export async function launchProfile(
     configureGatewayEnvironment(env, selection);
   }
   toolEnvironment(env, selection, directory);
+  const pinned =
+    account && selection.profile === 'proxy'
+      ? await pinAccount(env, selection, { account, directory })
+      : null;
+  try {
+    return await spawnAgent(selection, directory, env, [
+      pinned?.args ?? [],
+      args,
+    ]);
+  } finally {
+    pinned?.stop();
+  }
+}
+
+async function spawnAgent(
+  selection: Selection,
+  directory: string,
+  env: NodeJS.ProcessEnv,
+  [pinned, args]: [string[], string[]]
+): Promise<number> {
   // Resolve the executable before launchArgs may point HOME at the profile.
   const executable =
     selection.tool === 'antigravity' && args[0] !== 'acp'
       ? pinnedBinary(selection.tool, env)
       : selection.tool;
-  const command = [executable, ...launchArgs(selection, directory, args, env)];
+  const command = [
+    executable,
+    ...pinned,
+    ...launchArgs(selection, directory, args, env),
+  ];
   if (selection.tool === 'antigravity' && args[0] === 'acp')
     return relayAcp(command, env);
   const child = Bun.spawn(command, {
@@ -51,6 +81,91 @@ export async function launchProfile(
     stderr: 'inherit',
   });
   return child.exited;
+}
+
+/** Routes every request of this launch to one account's proxy credential.
+ * Claude and Codex send whichever model was picked, so they talk to a loopback
+ * relay that adds the account's model prefix. OpenCode lists exactly the
+ * account's prefixed models, so it needs no relay.
+ */
+export async function pinAccount(
+  env: NodeJS.ProcessEnv,
+  selection: Selection,
+  { account, directory }: { account: string; directory: string },
+  { relay = startAccountRelay, discover = discoverAccounts } = {}
+): Promise<{ args: string[]; stop: () => void }> {
+  const prefix = accountPrefix(selection.tool, account);
+  // What the account serves right now, preferred default first.
+  const served = (await discover(env['CLIPROXY_API_KEY'] ?? '')).find(
+    (entry) => entry.tool === selection.tool && entry.email === account
+  );
+  if (!served)
+    throw new AgentConfigurationError(
+      'This account is not signed in on the CLI proxy.'
+    );
+  if (selection.tool === 'opencode') {
+    delete env['OPENCODE_CONFIG'];
+    env['OPENCODE_CONFIG_CONTENT'] = JSON.stringify(accountOpenCode(served));
+    return { args: [], stop: () => {} };
+  }
+  const { url, stop } = relay(registry.proxy.endpoint, prefix);
+  if (selection.tool === 'claude') {
+    env['ANTHROPIC_BASE_URL'] = url;
+    // Aliases and the default must name models a Claude account serves.
+    const [opus, sonnet, haiku] = (
+      registry.proxy.accounts as Record<string, { models: string[] }>
+    )['claude']!.models;
+    env['ANTHROPIC_DEFAULT_OPUS_MODEL'] = opus;
+    env['ANTHROPIC_DEFAULT_SONNET_MODEL'] = sonnet;
+    env['ANTHROPIC_DEFAULT_HAIKU_MODEL'] = haiku;
+    env['ANTHROPIC_MODEL'] = sonnet;
+    return { args: [], stop };
+  }
+  // Each account keeps its own Codex sessions; the provider is declared on
+  // the command line because that home has no rendered config.
+  env['CODEX_HOME'] = join(directory, '..', `account-${accountSlug(account)}`);
+  mkdirSync(env['CODEX_HOME'], { recursive: true, mode: 0o700 });
+  const provider = {
+    name: 'Personal CLI Proxy',
+    base_url: `${url}/v1`,
+    env_key: 'CLIPROXY_API_KEY',
+    wire_api: 'responses',
+    requires_openai_auth: false,
+    supports_websockets: false,
+  };
+  return {
+    args: [
+      ['model', served.models[0]],
+      ['model_provider', 'personal_proxy'],
+      ...Object.entries(provider).map(
+        ([key, value]) =>
+          [`model_providers.personal_proxy.${key}`, value] as const
+      ),
+    ].flatMap(([key, value]) => ['-c', `${key}=${JSON.stringify(value)}`]),
+    stop,
+  };
+}
+
+/** OpenCode configuration that offers only one account's models. */
+function accountOpenCode(route: { prefix: string; models: string[] }) {
+  const models = route.models.map((model) => `${route.prefix}/${model}`);
+  return {
+    $schema: 'https://opencode.ai/config.json',
+    model: `personal_proxy/${models[0]}`,
+    enabled_providers: ['personal_proxy'],
+    provider: {
+      personal_proxy: {
+        npm: '@ai-sdk/openai',
+        options: {
+          baseURL: registry.proxy.endpoint + '/v1',
+          apiKey: '{env:CLIPROXY_API_KEY}',
+        },
+        models: Object.fromEntries(
+          models.map((id) => [id, { name: id.slice(route.prefix.length + 1) }])
+        ),
+      },
+    },
+  };
 }
 
 /** Per-tool profile selection and self-updater switches. */

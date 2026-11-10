@@ -9,11 +9,10 @@ import {
   verifyFleetProviders,
 } from '../../workstation/cli/lib/agents/fleet-verify';
 import { verifyNativeAgents } from '../../workstation/cli/lib/agents/native-verify';
-import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secrets';
-import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
 import { enrollManagerMonitoring } from './fleet-sync-monitoring';
 import { desired, nodeId, paths } from './t3/desired';
+import type { Roster } from './t3/accounts';
 import { reconcileT3 } from './t3/reconcile';
 import {
   stablePath,
@@ -44,7 +43,6 @@ export async function convergeManager(
     checks.push(await managerPower(run));
     checks.push(await managerProviders(id, input.workspace, input.apply));
     checks.push(await providerNames(id, input.workspace, input.apply));
-    if (input.apply) checks.push(await syncAntigravityKey(proxyKey));
     if (input.apply) {
       // Same provider profiles and the same Vault gateway credential as every
       // worker: the instances above launch from these profiles, and the check
@@ -97,7 +95,8 @@ export async function convergeManager(
 }
 
 /** The manager's T3 must offer the same managed provider instances as every
- * worker (workers receive them through T3 administrator policy). The manager's
+ * worker (workers receive them through T3 administrator policy): the fixed
+ * ones plus one per account signed in on the CLI proxy. The manager's
  * T3 is the human's own app with no administrator policy, so the same declared
  * instances are reconciled into its settings with the ownership-safe t3-apply
  * engine: unrelated settings and unmanaged instances are preserved, an existing
@@ -107,20 +106,25 @@ export async function managerProviders(
   id: string,
   workspace: string,
   apply: boolean,
-  t3Home?: string
+  options: { t3Home?: string; roster?: Roster } = {}
 ): Promise<Check> {
   const remedy = {
     action:
       'Run personal t3-apply --dry-run on the manager and review any conflicting instance; adopt it with t3-apply --import ID only if it should be managed.',
   };
   try {
-    const target = paths(t3Home ? { t3Home } : {}, workspace);
+    const target = paths(options, workspace);
     // Providers launch from the stable path of the applied run checkout, not
     // from this revision's own directory, which a later sync prunes.
     const home = apply
       ? await stableWorkspace(workspace)
       : stablePath(workspace);
-    const instances = await desired(target.definition, home, nodeId(id));
+    const instances = await desired(
+      target.definition,
+      home,
+      nodeId(id),
+      options.roster
+    );
     const plan = await reconcileT3(target, instances, { apply: false });
     const result =
       apply && plan.ok && plan.changed

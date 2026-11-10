@@ -47,7 +47,7 @@ test('native instances are named after their own account, managed ones as the pr
       antigravity: { driver: 'antigravity', displayName: 'Antigravity' },
       custom: { driver: 'pi', displayName: 'Pi thing' },
     },
-    ['personal_claude_proxy'],
+    { personal_claude_proxy: 'Claude CLI Proxy' },
     accounts
   );
   expect(next).toEqual({
@@ -70,7 +70,7 @@ test('native instances are named after their own account, managed ones as the pr
 });
 
 test('a signed-in default login gains an entry once, never a duplicate name', async () => {
-  const first = await conformNames({}, [], accounts);
+  const first = await conformNames({}, {}, accounts);
   expect(first).toEqual({
     claudeAgent: {
       driver: 'claudeAgent',
@@ -78,10 +78,10 @@ test('a signed-in default login gains an entry once, never a duplicate name', as
     },
     codex: { driver: 'codex', displayName: 'Codex crvouga@gmail.com' },
   });
-  expect(await conformNames(first, [], accounts)).toEqual(first);
+  expect(await conformNames(first, {}, accounts)).toEqual(first);
   const second = { driver: 'claudeAgent', displayName: 'Claude' };
   expect(
-    Object.keys(await conformNames({ claudeAgent_2: second }, [], accounts))
+    Object.keys(await conformNames({ claudeAgent_2: second }, {}, accounts))
   ).toEqual(['claudeAgent_2', 'codex']);
 });
 
@@ -95,20 +95,20 @@ test('only display names are written, live settings are preserved, and a repeat 
     })
   );
   expect(
-    await conformT3Names(settings, [], { apply: false, accounts })
+    await conformT3Names(settings, {}, { apply: false, accounts })
   ).toEqual({ changed: true });
   expect(
     JSON.parse(await readFile(settings, 'utf8')).providerInstances.codex
       .displayName
   ).toBe('Codex');
-  await conformT3Names(settings, [], { apply: true, accounts });
+  await conformT3Names(settings, {}, { apply: true, accounts });
   const written = JSON.parse(await readFile(settings, 'utf8'));
   expect(written.theme).toBe('dark');
   expect(written.providerInstances.codex).toEqual({
     driver: 'codex',
     displayName: 'Codex crvouga@gmail.com',
   });
-  expect(await conformT3Names(settings, [], { apply: true, accounts })).toEqual(
+  expect(await conformT3Names(settings, {}, { apply: true, accounts })).toEqual(
     {
       changed: false,
     }
@@ -135,6 +135,7 @@ test('account emails come from each client login record, never a token', async (
 
 test('the fleet check conforms an isolated T3 home', async () => {
   const repo = join(import.meta.dir, '../../..');
+  const options = { t3Home: dir, roster: async () => [] };
   await mkdir(join(dir, 'userdata'), { recursive: true });
   await writeFile(
     join(dir, 'userdata/settings.json'),
@@ -142,8 +143,12 @@ test('the fleet check conforms an isolated T3 home', async () => {
       providerInstances: { x: { driver: 'grok', displayName: 'g' } },
     })
   );
-  expect((await providerNames('node', repo, false, dir)).status).toBe('warn');
-  expect((await providerNames('node', repo, true, dir)).status).toBe('pass');
+  expect((await providerNames('node', repo, false, options)).status).toBe(
+    'warn'
+  );
+  expect((await providerNames('node', repo, true, options)).status).toBe(
+    'pass'
+  );
   const written = JSON.parse(
     await readFile(join(dir, 'userdata/settings.json'), 'utf8')
   );

@@ -70,7 +70,7 @@ A stale plan fails. A second apply with identical inputs performs no settings wr
 A provider instance becomes managed when created by personal, or explicitly imported:
 
 ```sh
-personal t3-apply --import personal_codex_proxy
+personal t3-apply --import personal_grok_proxy
 personal t3-apply
 ```
 

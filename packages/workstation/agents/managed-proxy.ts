@@ -36,7 +36,13 @@ export async function runManagedProxy(
       throw new AgentConfigurationError(
         `The ${tool} proxy profile for node ${selection.node} is missing or out of date.`
       );
-    process.exitCode = await launchProfile(root, selection, args);
+    // T3 sets WS_AGENT_ACCOUNT on a provider that is pinned to one account.
+    process.exitCode = await launchProfile(
+      root,
+      selection,
+      args,
+      process.env['WS_AGENT_ACCOUNT'] || undefined
+    );
   } catch (error) {
     // Configuration errors carry curated, secret-free messages; others do not.
     const reason =
