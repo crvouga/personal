@@ -1,33 +1,10 @@
 ---
-import Base from '../layouts/Base.astro';
-import Nav from '../components/Nav.astro';
-import Hero from '../components/Hero.astro';
-import Experience from '../components/Experience.astro';
-import Projects from '../components/Projects.astro';
-import Agentic from '../components/Agentic.astro';
-import ProofOfWork from '../components/ProofOfWork.astro';
-import About from '../components/About.astro';
-import Contact from '../components/Contact.astro';
-import Testimonials from '../components/Testimonials.astro';
-import Footer from '../components/Footer.astro';
-import StickyCta from '../components/StickyCta.astro';
-import GalleryDialog from '../components/GalleryDialog.astro';
-import { PAGE_GALLERIES } from '../lib/work-view';
+import { DEFAULT_PRESENTATION } from '../archetypes/presentation';
+import Home from '../components/Home.astro';
+
+// `/` is the default archetype. Every other one is built under `/a/<id>/`
+// and served for `/?archetype=<id>` (see nginx.conf).
+Astro.locals.presentation = DEFAULT_PRESENTATION;
 ---
 
-<Base>
-  <Nav />
-  <main id="main">
-    <Hero />
-    <Experience />
-    <Projects />
-    <Agentic />
-    <ProofOfWork />
-    <Testimonials />
-    <About />
-    <Contact />
-  </main>
-  <Footer />
-  <StickyCta />
-  <GalleryDialog galleries={PAGE_GALLERIES} />
-</Base>
+<Home />

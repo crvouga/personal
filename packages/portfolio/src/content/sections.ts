@@ -11,14 +11,14 @@ export type Section = {
 };
 
 /**
- * Declaration order is the page order (see pages/index.astro) and the header
- * order; `number` is derived from it so the two can never drift apart.
+ * Declaration order is the default page order and the header order (an
+ * archetype's voice may reorder it; see `sectionsFor`); `number` is derived from it so the two can never drift apart.
  *
  * Education is deliberately not a section: a diploma image in its own numbered
  * slot reads as credential anxiety at this much experience, so the degree is
  * one line inside About.
  */
-const ORDERED: readonly Omit<Section, 'number'>[] = [
+export const SECTION_DEFS: readonly Omit<Section, 'number'>[] = [
   { id: 'work', title: 'Work', navLabel: 'Work', nav: true },
   {
     id: 'projects',
@@ -37,10 +37,36 @@ const ORDERED: readonly Omit<Section, 'number'>[] = [
   { id: 'contact', title: 'Contact', navLabel: 'Contact', nav: true },
 ];
 
-export const SECTIONS: readonly Section[] = ORDERED.map((section, index) => ({
-  ...section,
-  number: String(index + 1).padStart(2, '0'),
-}));
+/**
+ * The sections in a presentation's order, numbered by position, with any of
+ * its own headings. Every section must appear exactly once.
+ */
+export const sectionsFor = (
+  order: readonly SectionId[],
+  titles: Partial<Record<SectionId, string>> = {}
+): readonly Section[] => {
+  if (
+    order.length !== SECTION_DEFS.length ||
+    new Set(order).size !== order.length
+  ) {
+    throw new Error(
+      `A section order must list every section once: ${order.join(', ')}`
+    );
+  }
+  return order.map((id, index) => {
+    const def = SECTION_DEFS.find((section) => section.id === id);
+    if (def === undefined) throw new Error(`Unknown section id: ${id}`);
+    return {
+      ...def,
+      title: titles[id] ?? def.title,
+      number: String(index + 1).padStart(2, '0'),
+    };
+  });
+};
+
+export const SECTIONS: readonly Section[] = sectionsFor(
+  SECTION_DEFS.map((section) => section.id)
+);
 
 export const getSection = (id: SectionId): Section => {
   const found = SECTIONS.find((s) => s.id === id);

@@ -1,3 +1,5 @@
+import { EDUCATION } from '../knowledge/education';
+
 export type School = {
   infoUrl?: string;
   institutionName: string;
@@ -9,15 +11,16 @@ export type School = {
   galleryImageSrc: string[];
 };
 
-export const SCHOOL: School[] = [
-  {
-    degree: 'Bachelor of Science in Mathematics & Statistics',
-    institutionName: 'Arizona State University',
-    yearEnd: 2020,
-    yearStart: 2015,
-    infoUrl: 'https://www.asu.edu/',
-    imageAlt: 'Diploma',
-    imageSrc: '/diploma.optimized.webp',
-    galleryImageSrc: ['/diploma.optimized.webp'],
-  },
-];
+/** The degrees in `src/knowledge/education.ts`, with the site's diploma image. */
+export const SCHOOL: School[] = EDUCATION.map((degree) => ({
+  degree: degree.degree,
+  institutionName: degree.institution,
+  yearEnd: degree.yearEnd,
+  yearStart: degree.yearStart,
+  ...(degree.institutionUrl === undefined
+    ? {}
+    : { infoUrl: degree.institutionUrl }),
+  imageSrc: '/diploma.optimized.webp',
+  imageAlt: 'Diploma',
+  galleryImageSrc: ['/diploma.optimized.webp'],
+}));

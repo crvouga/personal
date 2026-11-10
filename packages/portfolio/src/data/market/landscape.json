@@ -1,0 +1,3471 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-10",
+  "sources": [
+    { "id": "hn-who-is-hiring", "postings": 203 },
+    { "id": "remoteok", "postings": 32 },
+    { "id": "remotive", "postings": 5 },
+    { "id": "jobicy", "postings": 32 },
+    { "id": "greenhouse", "postings": 1262 },
+    { "id": "lever", "postings": 207 },
+    { "id": "ashby", "postings": 480 },
+    { "id": "workday", "postings": 781 }
+  ],
+  "totals": {
+    "fetched": 3002,
+    "eligible": 1381,
+    "needsClearance": 251,
+    "outOfScope": 1370
+  },
+  "segments": [
+    {
+      "context": "startup",
+      "level": "mid",
+      "postings": 155,
+      "share": 0.112,
+      "fit": 0.82,
+      "yearsMedian": 5,
+      "salaryMedian": 175000,
+      "families": [
+        { "id": "generalist", "share": 0.452 },
+        { "id": "platform", "share": 0.232 },
+        { "id": "fullstack", "share": 0.148 },
+        { "id": "ai-product", "share": 0.058 },
+        { "id": "backend", "share": 0.039 },
+        { "id": "mobile", "share": 0.039 },
+        { "id": "frontend", "share": 0.032 }
+      ],
+      "skills": [
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.361,
+          "lift": 2.741,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.316,
+          "lift": 1.265,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.316,
+          "lift": 1.011,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.271,
+          "lift": 1.137,
+          "have": false
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.271,
+          "lift": 0.849,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.258,
+          "lift": 0.867,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.232,
+          "lift": 1.059,
+          "have": true
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.219,
+          "lift": 0.588,
+          "have": true
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.194,
+          "lift": 1.162,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.194,
+          "lift": 1.193,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.181,
+          "lift": 0.945,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.155,
+          "lift": 0.766,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.142,
+          "lift": 0.807,
+          "have": true
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.135,
+          "lift": 1.572,
+          "have": true
+        },
+        {
+          "id": "rust",
+          "label": "Rust",
+          "share": 0.123,
+          "lift": 1.801,
+          "have": true
+        },
+        {
+          "id": "serverless",
+          "label": "Serverless",
+          "share": 0.123,
+          "lift": 2.775,
+          "have": false
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.116,
+          "lift": 0.5,
+          "have": true
+        },
+        {
+          "id": "linux",
+          "label": "Linux",
+          "share": 0.11,
+          "lift": 1.761,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.103,
+          "lift": 0.663,
+          "have": false
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.09,
+          "lift": 0.597,
+          "have": true
+        },
+        {
+          "id": "oauth",
+          "label": "OAuth/SSO",
+          "share": 0.09,
+          "lift": 1.371,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.077,
+          "lift": 0.591,
+          "have": true
+        },
+        {
+          "id": "nextjs",
+          "label": "Next.js",
+          "share": 0.058,
+          "lift": 1.513,
+          "have": false
+        },
+        {
+          "id": "django",
+          "label": "Django/Flask",
+          "share": 0.052,
+          "lift": 1.398,
+          "have": true
+        },
+        {
+          "id": "github-actions",
+          "label": "GitHub Actions",
+          "share": 0.052,
+          "lift": 1.426,
+          "have": true
+        },
+        {
+          "id": "swift",
+          "label": "Swift",
+          "share": 0.039,
+          "lift": 1.114,
+          "have": false
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.039,
+          "lift": 0.775,
+          "have": false
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.039,
+          "lift": 0.685,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.039,
+          "lift": 0.24,
+          "have": false
+        },
+        {
+          "id": "kotlin",
+          "label": "Kotlin",
+          "share": 0.026,
+          "lift": 0.392,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "ownership", "share": 0.716, "lift": 1.049 },
+        { "id": "performance-scale", "share": 0.606, "lift": 0.855 },
+        { "id": "architecture", "share": 0.516, "lift": 0.675 },
+        { "id": "integrations", "share": 0.503, "lift": 0.836 },
+        { "id": "ai-assisted", "share": 0.477, "lift": 1.074 },
+        { "id": "speed", "share": 0.477, "lift": 1.468 },
+        { "id": "cloud-infra", "share": 0.452, "lift": 0.998 },
+        { "id": "data", "share": 0.452, "lift": 1.371 },
+        { "id": "regulated", "share": 0.368, "lift": 0.703 },
+        { "id": "open-source", "share": 0.323, "lift": 2.489 },
+        { "id": "ai-products", "share": 0.316, "lift": 0.828 },
+        { "id": "testing-quality", "share": 0.271, "lift": 0.584 },
+        { "id": "product-sense", "share": 0.245, "lift": 0.424 },
+        { "id": "ci-cd", "share": 0.148, "lift": 0.594 },
+        { "id": "payments", "share": 0.142, "lift": 0.624 },
+        { "id": "modernization", "share": 0.135, "lift": 0.666 },
+        { "id": "stakeholders", "share": 0.129, "lift": 0.33 },
+        { "id": "documentation", "share": 0.129, "lift": 0.494 },
+        { "id": "mobile", "share": 0.103, "lift": 0.938 },
+        { "id": "leadership", "share": 0.09, "lift": 0.183 },
+        { "id": "frontend-craft", "share": 0.09, "lift": 0.426 },
+        { "id": "realtime", "share": 0.09, "lift": 0.322 },
+        { "id": "process", "share": 0.006, "lift": 0.033 }
+      ],
+      "samples": [
+        {
+          "title": "Backend Engineer, AI Coding Task Design",
+          "company": "OpenTrain AI",
+          "url": "https://news.ycombinator.com/item?id=50420399"
+        },
+        {
+          "title": "Azure Intune Engineer",
+          "company": "iCallidus",
+          "url": "https://news.ycombinator.com/item?id=50389352"
+        },
+        {
+          "title": "Site Reliability Engineer",
+          "company": "Zefr",
+          "url": "https://news.ycombinator.com/item?id=50386884"
+        },
+        {
+          "title": "Hiring Java Developer (Full-Time)",
+          "company": "Furtim Modus",
+          "url": "https://news.ycombinator.com/item?id=50372966"
+        },
+        {
+          "title": "Product Engineer (PM)",
+          "company": "Search Atlas",
+          "url": "https://news.ycombinator.com/item?id=50365279"
+        }
+      ]
+    },
+    {
+      "context": "startup",
+      "level": "senior",
+      "postings": 52,
+      "share": 0.038,
+      "fit": 0.813,
+      "yearsMedian": 5,
+      "salaryMedian": 204500,
+      "families": [
+        { "id": "generalist", "share": 0.462 },
+        { "id": "fullstack", "share": 0.212 },
+        { "id": "platform", "share": 0.173 },
+        { "id": "backend", "share": 0.096 },
+        { "id": "mobile", "share": 0.019 },
+        { "id": "ai-product", "share": 0.019 },
+        { "id": "frontend", "share": 0.019 }
+      ],
+      "skills": [
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.442,
+          "lift": 1.771,
+          "have": true
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.327,
+          "lift": 0.877,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.327,
+          "lift": 1.49,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.308,
+          "lift": 1.034,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.25,
+          "lift": 1.897,
+          "have": true
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.231,
+          "lift": 0.723,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.212,
+          "lift": 0.888,
+          "have": false
+        },
+        {
+          "id": "rust",
+          "label": "Rust",
+          "share": 0.192,
+          "lift": 2.825,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.173,
+          "lift": 0.984,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.173,
+          "lift": 0.553,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.154,
+          "lift": 0.948,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.154,
+          "lift": 0.805,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.154,
+          "lift": 0.762,
+          "have": true
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.135,
+          "lift": 0.808,
+          "have": true
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.135,
+          "lift": 1.562,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.135,
+          "lift": 0.865,
+          "have": false
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.115,
+          "lift": 0.538,
+          "have": false
+        },
+        {
+          "id": "nextjs",
+          "label": "Next.js",
+          "share": 0.096,
+          "lift": 2.505,
+          "have": false
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.096,
+          "lift": 1.702,
+          "have": true
+        },
+        {
+          "id": "express",
+          "label": "Express",
+          "share": 0.096,
+          "lift": 2.459,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.096,
+          "lift": 0.414,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.077,
+          "lift": 0.508,
+          "have": true
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.077,
+          "lift": 1.295,
+          "have": true
+        },
+        {
+          "id": "django",
+          "label": "Django/Flask",
+          "share": 0.077,
+          "lift": 2.083,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.058,
+          "lift": 0.885,
+          "have": false
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.058,
+          "lift": 1.155,
+          "have": false
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.058,
+          "lift": 0.409,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.058,
+          "lift": 0.357,
+          "have": false
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.058,
+          "lift": 0.517,
+          "have": false
+        },
+        {
+          "id": "serverless",
+          "label": "Serverless",
+          "share": 0.058,
+          "lift": 1.306,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "ownership", "share": 0.654, "lift": 0.958 },
+        { "id": "architecture", "share": 0.519, "lift": 0.679 },
+        { "id": "performance-scale", "share": 0.423, "lift": 0.596 },
+        { "id": "integrations", "share": 0.404, "lift": 0.671 },
+        { "id": "cloud-infra", "share": 0.404, "lift": 0.892 },
+        { "id": "product-sense", "share": 0.365, "lift": 0.632 },
+        { "id": "regulated", "share": 0.365, "lift": 0.699 },
+        { "id": "data", "share": 0.346, "lift": 1.051 },
+        { "id": "ai-assisted", "share": 0.269, "lift": 0.606 },
+        { "id": "ai-products", "share": 0.231, "lift": 0.605 },
+        { "id": "leadership", "share": 0.231, "lift": 0.469 },
+        { "id": "payments", "share": 0.212, "lift": 0.93 },
+        { "id": "realtime", "share": 0.212, "lift": 0.755 },
+        { "id": "speed", "share": 0.212, "lift": 0.651 },
+        { "id": "modernization", "share": 0.154, "lift": 0.756 },
+        { "id": "testing-quality", "share": 0.135, "lift": 0.29 },
+        { "id": "frontend-craft", "share": 0.135, "lift": 0.634 },
+        { "id": "documentation", "share": 0.115, "lift": 0.441 },
+        { "id": "open-source", "share": 0.115, "lift": 0.89 },
+        { "id": "ci-cd", "share": 0.096, "lift": 0.385 },
+        { "id": "stakeholders", "share": 0.096, "lift": 0.246 },
+        { "id": "process", "share": 0.077, "lift": 0.396 },
+        { "id": "mobile", "share": 0.019, "lift": 0.175 }
+      ],
+      "samples": [
+        {
+          "title": "Senior Backend/Infrastructure Engineer",
+          "company": "Stealth Health-Tech Startup",
+          "url": "https://news.ycombinator.com/item?id=50429861"
+        },
+        {
+          "title": "Senior Backend Engineer",
+          "company": "Piramidal (YC W24)",
+          "url": "https://news.ycombinator.com/item?id=50384764"
+        },
+        {
+          "title": "Senior Software Engineer",
+          "company": "Bikky",
+          "url": "https://news.ycombinator.com/item?id=50363693"
+        },
+        {
+          "title": "Senior Full-Stack Engineer (Frontend-Leaning)",
+          "company": "Marker Learning",
+          "url": "https://news.ycombinator.com/item?id=50350981"
+        },
+        {
+          "title": "Senior Systems / Rust Engineer",
+          "company": "Blockrotate",
+          "url": "https://news.ycombinator.com/item?id=50349000"
+        }
+      ]
+    },
+    {
+      "context": "startup",
+      "level": "staff",
+      "postings": 77,
+      "share": 0.056,
+      "fit": 0.795,
+      "yearsMedian": 5,
+      "salaryMedian": 200000,
+      "families": [
+        { "id": "generalist", "share": 0.429 },
+        { "id": "platform", "share": 0.182 },
+        { "id": "fullstack", "share": 0.117 },
+        { "id": "ai-product", "share": 0.091 },
+        { "id": "backend", "share": 0.078 },
+        { "id": "architect", "share": 0.065 },
+        { "id": "mobile", "share": 0.026 },
+        { "id": "frontend", "share": 0.013 }
+      ],
+      "skills": [
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.481,
+          "lift": 1.289,
+          "have": true
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.403,
+          "lift": 1.261,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.338,
+          "lift": 1.352,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.299,
+          "lift": 1.361,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.299,
+          "lift": 1.004,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.299,
+          "lift": 1.254,
+          "have": false
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.273,
+          "lift": 2.069,
+          "have": true
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.26,
+          "lift": 1.56,
+          "have": true
+        },
+        {
+          "id": "rust",
+          "label": "Rust",
+          "share": 0.195,
+          "lift": 2.862,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.182,
+          "lift": 1.033,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.169,
+          "lift": 0.883,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.169,
+          "lift": 0.836,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.169,
+          "lift": 0.54,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.143,
+          "lift": 0.667,
+          "have": false
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.143,
+          "lift": 0.881,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.13,
+          "lift": 0.559,
+          "have": true
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.117,
+          "lift": 2.339,
+          "have": false
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.117,
+          "lift": 0.751,
+          "have": false
+        },
+        {
+          "id": "serverless",
+          "label": "Serverless",
+          "share": 0.078,
+          "lift": 1.764,
+          "have": false
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.065,
+          "lift": 0.495,
+          "have": true
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.065,
+          "lift": 1.094,
+          "have": true
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.065,
+          "lift": 0.754,
+          "have": true
+        },
+        {
+          "id": "django",
+          "label": "Django/Flask",
+          "share": 0.065,
+          "lift": 1.758,
+          "have": true
+        },
+        {
+          "id": "redis",
+          "label": "Redis",
+          "share": 0.065,
+          "lift": 1.794,
+          "have": false
+        },
+        {
+          "id": "kotlin",
+          "label": "Kotlin",
+          "share": 0.052,
+          "lift": 0.788,
+          "have": false
+        },
+        {
+          "id": "swift",
+          "label": "Swift",
+          "share": 0.052,
+          "lift": 1.495,
+          "have": false
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.052,
+          "lift": 0.725,
+          "have": false
+        },
+        {
+          "id": "nextjs",
+          "label": "Next.js",
+          "share": 0.052,
+          "lift": 1.354,
+          "have": false
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.052,
+          "lift": 0.92,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.052,
+          "lift": 0.322,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "ownership", "share": 0.714, "lift": 1.046 },
+        { "id": "performance-scale", "share": 0.61, "lift": 0.86 },
+        { "id": "architecture", "share": 0.571, "lift": 0.747 },
+        { "id": "ai-products", "share": 0.494, "lift": 1.293 },
+        { "id": "integrations", "share": 0.442, "lift": 0.734 },
+        { "id": "ai-assisted", "share": 0.416, "lift": 0.935 },
+        { "id": "cloud-infra", "share": 0.403, "lift": 0.89 },
+        { "id": "product-sense", "share": 0.377, "lift": 0.652 },
+        { "id": "data", "share": 0.377, "lift": 1.143 },
+        { "id": "regulated", "share": 0.338, "lift": 0.646 },
+        { "id": "speed", "share": 0.312, "lift": 0.959 },
+        { "id": "realtime", "share": 0.286, "lift": 1.02 },
+        { "id": "leadership", "share": 0.26, "lift": 0.528 },
+        { "id": "testing-quality", "share": 0.221, "lift": 0.476 },
+        { "id": "payments", "share": 0.221, "lift": 0.971 },
+        { "id": "open-source", "share": 0.182, "lift": 1.403 },
+        { "id": "stakeholders", "share": 0.156, "lift": 0.399 },
+        { "id": "ci-cd", "share": 0.143, "lift": 0.572 },
+        { "id": "documentation", "share": 0.143, "lift": 0.546 },
+        { "id": "frontend-craft", "share": 0.117, "lift": 0.551 },
+        { "id": "modernization", "share": 0.117, "lift": 0.574 },
+        { "id": "mobile", "share": 0.091, "lift": 0.826 },
+        { "id": "process", "share": 0.013, "lift": 0.067 }
+      ],
+      "samples": [
+        {
+          "title": "Founding MTS, Full-Stack",
+          "company": "Polymath",
+          "url": "https://news.ycombinator.com/item?id=50432950"
+        },
+        {
+          "title": "Senior/Staff Software Engineer",
+          "company": "3ive",
+          "url": "https://news.ycombinator.com/item?id=50398466"
+        },
+        {
+          "title": "Founding Engineer",
+          "company": "BuildQ",
+          "url": "https://news.ycombinator.com/item?id=50396245"
+        },
+        {
+          "title": "Principal Engineer",
+          "company": "Bubblehouse",
+          "url": "https://news.ycombinator.com/item?id=50363483"
+        },
+        {
+          "title": "Founding Engineer, Founding Engineer (RL Environments), Founding Product Designer",
+          "company": "Thankly",
+          "url": "https://news.ycombinator.com/item?id=50357360"
+        }
+      ]
+    },
+    {
+      "context": "tech",
+      "level": "mid",
+      "postings": 264,
+      "share": 0.191,
+      "fit": 0.775,
+      "yearsMedian": 4,
+      "salaryMedian": 197000,
+      "families": [
+        { "id": "generalist", "share": 0.424 },
+        { "id": "platform", "share": 0.17 },
+        { "id": "ai-product", "share": 0.125 },
+        { "id": "backend", "share": 0.102 },
+        { "id": "fullstack", "share": 0.068 },
+        { "id": "mobile", "share": 0.064 },
+        { "id": "frontend", "share": 0.045 }
+      ],
+      "skills": [
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.42,
+          "lift": 1.317,
+          "have": true
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.345,
+          "lift": 0.924,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.273,
+          "lift": 1.092,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.235,
+          "lift": 0.789,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.227,
+          "lift": 0.727,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.201,
+          "lift": 0.915,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.163,
+          "lift": 0.806,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.159,
+          "lift": 0.981,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.155,
+          "lift": 1.026,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.155,
+          "lift": 0.652,
+          "have": false
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.152,
+          "lift": 0.91,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.144,
+          "lift": 0.672,
+          "have": false
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.136,
+          "lift": 0.587,
+          "have": true
+        },
+        {
+          "id": "salesforce",
+          "label": "Salesforce",
+          "share": 0.129,
+          "lift": 2.31,
+          "have": true
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.121,
+          "lift": 1.691,
+          "have": false
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.121,
+          "lift": 0.634,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.117,
+          "lift": 0.896,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.117,
+          "lift": 0.667,
+          "have": true
+        },
+        {
+          "id": "stripe",
+          "label": "Stripe",
+          "share": 0.11,
+          "lift": 3.16,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.106,
+          "lift": 0.657,
+          "have": false
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.102,
+          "lift": 0.724,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.083,
+          "lift": 0.535,
+          "have": false
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.072,
+          "lift": 0.929,
+          "have": false
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.072,
+          "lift": 0.454,
+          "have": false
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.064,
+          "lift": 0.489,
+          "have": true
+        },
+        {
+          "id": "figma",
+          "label": "Figma",
+          "share": 0.064,
+          "lift": 3.066,
+          "have": false
+        },
+        {
+          "id": "kotlin",
+          "label": "Kotlin",
+          "share": 0.061,
+          "lift": 0.92,
+          "have": false
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.057,
+          "lift": 0.659,
+          "have": true
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.053,
+          "lift": 1.061,
+          "have": false
+        },
+        {
+          "id": "nextjs",
+          "label": "Next.js",
+          "share": 0.053,
+          "lift": 1.382,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "performance-scale", "share": 0.75, "lift": 1.057 },
+        { "id": "ownership", "share": 0.735, "lift": 1.076 },
+        { "id": "architecture", "share": 0.678, "lift": 0.887 },
+        { "id": "product-sense", "share": 0.655, "lift": 1.134 },
+        { "id": "integrations", "share": 0.542, "lift": 0.9 },
+        { "id": "regulated", "share": 0.489, "lift": 0.935 },
+        { "id": "ai-assisted", "share": 0.451, "lift": 1.014 },
+        { "id": "testing-quality", "share": 0.409, "lift": 0.881 },
+        { "id": "ai-products", "share": 0.394, "lift": 1.032 },
+        { "id": "leadership", "share": 0.36, "lift": 0.731 },
+        { "id": "cloud-infra", "share": 0.333, "lift": 0.737 },
+        { "id": "stakeholders", "share": 0.33, "lift": 0.843 },
+        { "id": "speed", "share": 0.326, "lift": 1.002 },
+        { "id": "payments", "share": 0.318, "lift": 1.399 },
+        { "id": "data", "share": 0.288, "lift": 0.874 },
+        { "id": "frontend-craft", "share": 0.284, "lift": 1.339 },
+        { "id": "realtime", "share": 0.284, "lift": 1.014 },
+        { "id": "documentation", "share": 0.254, "lift": 0.971 },
+        { "id": "ci-cd", "share": 0.159, "lift": 0.637 },
+        { "id": "modernization", "share": 0.129, "lift": 0.633 },
+        { "id": "process", "share": 0.117, "lift": 0.605 },
+        { "id": "mobile", "share": 0.117, "lift": 1.067 },
+        { "id": "open-source", "share": 0.083, "lift": 0.643 }
+      ],
+      "samples": [
+        {
+          "title": "UI Developer",
+          "company": "RainFocus",
+          "url": "https://remoteOK.com/remote-jobs/remote-ui-developer-rainfocus-1137704"
+        },
+        {
+          "title": "AI Developer",
+          "company": "Salvo Software",
+          "url": "https://remoteOK.com/remote-jobs/remote-ai-developer-salvo-software-1137701"
+        },
+        {
+          "title": "Front End Developer",
+          "company": "Cambridge Information Group",
+          "url": "https://remoteOK.com/remote-jobs/remote-front-end-developer-cambridge-information-group-1137597"
+        },
+        {
+          "title": "Software Engineer AI Coding Tasks",
+          "company": "Askable",
+          "url": "https://remoteOK.com/remote-jobs/remote-software-engineer-ai-coding-tasks-askable-1137538"
+        },
+        {
+          "title": "Software Engineer",
+          "company": "Prenosis",
+          "url": "https://remoteOK.com/remote-jobs/remote-software-engineer-prenosis-1137427"
+        }
+      ]
+    },
+    {
+      "context": "tech",
+      "level": "senior",
+      "postings": 232,
+      "share": 0.168,
+      "fit": 0.683,
+      "yearsMedian": 5,
+      "salaryMedian": 202483,
+      "families": [
+        { "id": "generalist", "share": 0.375 },
+        { "id": "platform", "share": 0.233 },
+        { "id": "backend", "share": 0.155 },
+        { "id": "ai-product", "share": 0.086 },
+        { "id": "mobile", "share": 0.065 },
+        { "id": "fullstack", "share": 0.052 },
+        { "id": "frontend", "share": 0.034 }
+      ],
+      "skills": [
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.453,
+          "lift": 1.214,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.392,
+          "lift": 1.254,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.366,
+          "lift": 1.231,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.28,
+          "lift": 1.307,
+          "have": false
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.267,
+          "lift": 1.605,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.263,
+          "lift": 1.104,
+          "have": false
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.25,
+          "lift": 0.783,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.241,
+          "lift": 0.966,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.22,
+          "lift": 1.088,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.211,
+          "lift": 0.963,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.207,
+          "lift": 1.329,
+          "have": false
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.194,
+          "lift": 0.834,
+          "have": true
+        },
+        {
+          "id": "kotlin",
+          "label": "Kotlin",
+          "share": 0.164,
+          "lift": 2.486,
+          "have": false
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.151,
+          "lift": 0.789,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.147,
+          "lift": 0.908,
+          "have": false
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.142,
+          "lift": 1.007,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.142,
+          "lift": 0.877,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.138,
+          "lift": 0.911,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.121,
+          "lift": 0.686,
+          "have": true
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.103,
+          "lift": 1.443,
+          "have": false
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.103,
+          "lift": 0.789,
+          "have": true
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.103,
+          "lift": 1.335,
+          "have": false
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.099,
+          "lift": 1.67,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.099,
+          "lift": 0.752,
+          "have": true
+        },
+        {
+          "id": "mongodb",
+          "label": "MongoDB",
+          "share": 0.082,
+          "lift": 2.218,
+          "have": false
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.078,
+          "lift": 0.696,
+          "have": false
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.073,
+          "lift": 0.85,
+          "have": true
+        },
+        {
+          "id": "mysql",
+          "label": "MySQL",
+          "share": 0.073,
+          "lift": 2.153,
+          "have": true
+        },
+        {
+          "id": "redis",
+          "label": "Redis",
+          "share": 0.069,
+          "lift": 1.905,
+          "have": false
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.069,
+          "lift": 0.435,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.828, "lift": 1.082 },
+        { "id": "performance-scale", "share": 0.784, "lift": 1.105 },
+        { "id": "ownership", "share": 0.772, "lift": 1.13 },
+        { "id": "product-sense", "share": 0.664, "lift": 1.149 },
+        { "id": "leadership", "share": 0.603, "lift": 1.226 },
+        { "id": "integrations", "share": 0.603, "lift": 1.003 },
+        { "id": "testing-quality", "share": 0.591, "lift": 1.272 },
+        { "id": "regulated", "share": 0.534, "lift": 1.022 },
+        { "id": "cloud-infra", "share": 0.483, "lift": 1.067 },
+        { "id": "ai-assisted", "share": 0.478, "lift": 1.076 },
+        { "id": "ai-products", "share": 0.418, "lift": 1.096 },
+        { "id": "stakeholders", "share": 0.405, "lift": 1.036 },
+        { "id": "speed", "share": 0.358, "lift": 1.1 },
+        { "id": "documentation", "share": 0.353, "lift": 1.352 },
+        { "id": "data", "share": 0.31, "lift": 0.942 },
+        { "id": "realtime", "share": 0.284, "lift": 1.015 },
+        { "id": "frontend-craft", "share": 0.254, "lift": 1.199 },
+        { "id": "modernization", "share": 0.211, "lift": 1.038 },
+        { "id": "ci-cd", "share": 0.198, "lift": 0.794 },
+        { "id": "mobile", "share": 0.19, "lift": 1.723 },
+        { "id": "payments", "share": 0.172, "lift": 0.758 },
+        { "id": "open-source", "share": 0.099, "lift": 0.765 },
+        { "id": "process", "share": 0.086, "lift": 0.444 }
+      ],
+      "samples": [
+        {
+          "title": "Senior Vue Developer",
+          "company": "Lemon.io",
+          "url": "https://remoteOK.com/remote-jobs/remote-senior-vue-developer-lemon-io-1137688"
+        },
+        {
+          "title": "Senior Software Engineer",
+          "company": "Klardaten",
+          "url": "https://remoteOK.com/remote-jobs/remote-senior-software-engineer-klardaten-1137571"
+        },
+        {
+          "title": "Senior Backend Engineer",
+          "company": "DuckDuckGo",
+          "url": "https://remoteOK.com/remote-jobs/remote-senior-backend-engineer-duckduckgo-1137551"
+        },
+        {
+          "title": "Senior Software Engineer",
+          "company": "Sothebyâs",
+          "url": "https://remoteOK.com/remote-jobs/remote-senior-software-engineer-sothebys-1137545"
+        },
+        {
+          "title": "Senior Backend Engineer",
+          "company": "Rain",
+          "url": "https://remoteOK.com/remote-jobs/remote-senior-backend-engineer-rain-1137544"
+        }
+      ]
+    },
+    {
+      "context": "tech",
+      "level": "staff",
+      "postings": 248,
+      "share": 0.18,
+      "fit": 0.751,
+      "yearsMedian": 8,
+      "salaryMedian": 264000,
+      "families": [
+        { "id": "generalist", "share": 0.391 },
+        { "id": "architect", "share": 0.274 },
+        { "id": "platform", "share": 0.194 },
+        { "id": "ai-product", "share": 0.044 },
+        { "id": "fullstack", "share": 0.028 },
+        { "id": "frontend", "share": 0.028 },
+        { "id": "backend", "share": 0.028 },
+        { "id": "mobile", "share": 0.012 }
+      ],
+      "skills": [
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.315,
+          "lift": 0.843,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.29,
+          "lift": 0.928,
+          "have": true
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.282,
+          "lift": 0.884,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.254,
+          "lift": 1.257,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.185,
+          "lift": 0.845,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.181,
+          "lift": 0.61,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.137,
+          "lift": 0.59,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.129,
+          "lift": 0.517,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.129,
+          "lift": 0.602,
+          "have": false
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.129,
+          "lift": 0.984,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.129,
+          "lift": 0.542,
+          "have": false
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.121,
+          "lift": 1.687,
+          "have": false
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.113,
+          "lift": 0.678,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.097,
+          "lift": 0.55,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.093,
+          "lift": 0.585,
+          "have": false
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.081,
+          "lift": 0.533,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.081,
+          "lift": 0.518,
+          "have": false
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.081,
+          "lift": 0.422,
+          "have": true
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.081,
+          "lift": 0.723,
+          "have": false
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.077,
+          "lift": 0.474,
+          "have": false
+        },
+        {
+          "id": "salesforce",
+          "label": "Salesforce",
+          "share": 0.077,
+          "lift": 1.374,
+          "have": true
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.073,
+          "lift": 1.453,
+          "have": false
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.073,
+          "lift": 0.447,
+          "have": true
+        },
+        {
+          "id": "scala",
+          "label": "Scala",
+          "share": 0.065,
+          "lift": 1.681,
+          "have": false
+        },
+        {
+          "id": "oauth",
+          "label": "OAuth/SSO",
+          "share": 0.065,
+          "lift": 0.979,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.048,
+          "lift": 0.742,
+          "have": false
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.048,
+          "lift": 0.367,
+          "have": true
+        },
+        {
+          "id": "accessibility",
+          "label": "Accessibility",
+          "share": 0.048,
+          "lift": 1.028,
+          "have": true
+        },
+        {
+          "id": "kotlin",
+          "label": "Kotlin",
+          "share": 0.044,
+          "lift": 0.673,
+          "have": false
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.044,
+          "lift": 0.572,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.935, "lift": 1.223 },
+        { "id": "leadership", "share": 0.774, "lift": 1.572 },
+        { "id": "performance-scale", "share": 0.762, "lift": 1.074 },
+        { "id": "ownership", "share": 0.754, "lift": 1.104 },
+        { "id": "product-sense", "share": 0.706, "lift": 1.221 },
+        { "id": "ai-assisted", "share": 0.585, "lift": 1.315 },
+        { "id": "stakeholders", "share": 0.548, "lift": 1.402 },
+        { "id": "integrations", "share": 0.532, "lift": 0.885 },
+        { "id": "regulated", "share": 0.532, "lift": 1.018 },
+        { "id": "ai-products", "share": 0.44, "lift": 1.152 },
+        { "id": "testing-quality", "share": 0.383, "lift": 0.825 },
+        { "id": "realtime", "share": 0.367, "lift": 1.309 },
+        { "id": "speed", "share": 0.29, "lift": 0.893 },
+        { "id": "cloud-infra", "share": 0.266, "lift": 0.588 },
+        { "id": "data", "share": 0.23, "lift": 0.698 },
+        { "id": "payments", "share": 0.218, "lift": 0.958 },
+        { "id": "modernization", "share": 0.206, "lift": 1.011 },
+        { "id": "documentation", "share": 0.185, "lift": 0.71 },
+        { "id": "frontend-craft", "share": 0.185, "lift": 0.874 },
+        { "id": "ci-cd", "share": 0.145, "lift": 0.581 },
+        { "id": "process", "share": 0.109, "lift": 0.561 },
+        { "id": "mobile", "share": 0.101, "lift": 0.916 },
+        { "id": "open-source", "share": 0.069, "lift": 0.529 }
+      ],
+      "samples": [
+        {
+          "title": "AWS Cloud Solutions Architect",
+          "company": "Cloudary SAS",
+          "url": "https://remoteOK.com/remote-jobs/remote-aws-cloud-solutions-architect-cloudary-sas-1137606"
+        },
+        {
+          "title": "Sr Solutions Architect",
+          "company": "ExtraHop",
+          "url": "https://remoteOK.com/remote-jobs/remote-sr-solutions-architect-extrahop-1137394"
+        },
+        {
+          "title": "Principal Engineer",
+          "company": "The AI Whistleblower Initiative",
+          "url": "https://remoteOK.com/remote-jobs/remote-principal-engineer-the-ai-whistleblower-initiative-1137162"
+        },
+        {
+          "title": "Tech Lead Full-Stack Rails Engineer",
+          "company": "Mitre Media",
+          "url": "https://remotive.com/remote-jobs/software-development/tech-lead-full-stack-rails-engineer-2069746"
+        },
+        {
+          "title": "Principal Engineer, Product Engineering",
+          "company": "1Password",
+          "url": "https://jobicy.com/jobs/154957-principal-engineer-product-engineering"
+        }
+      ]
+    },
+    {
+      "context": "corporate",
+      "level": "mid",
+      "postings": 85,
+      "share": 0.062,
+      "fit": 0.593,
+      "yearsMedian": 4,
+      "salaryMedian": 134600,
+      "families": [
+        { "id": "generalist", "share": 0.471 },
+        { "id": "fullstack", "share": 0.235 },
+        { "id": "platform", "share": 0.118 },
+        { "id": "ai-product", "share": 0.094 },
+        { "id": "mobile", "share": 0.059 },
+        { "id": "frontend", "share": 0.024 }
+      ],
+      "skills": [
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.529,
+          "lift": 1.42,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.518,
+          "lift": 2.227,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.471,
+          "lift": 2.967,
+          "have": false
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.459,
+          "lift": 2.141,
+          "have": false
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.447,
+          "lift": 2.339,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.412,
+          "lift": 1.384,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.4,
+          "lift": 2.477,
+          "have": false
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.388,
+          "lift": 2.206,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.388,
+          "lift": 1.241,
+          "have": true
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.376,
+          "lift": 3.376,
+          "have": false
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.353,
+          "lift": 2.332,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.353,
+          "lift": 1.481,
+          "have": false
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.318,
+          "lift": 1.272,
+          "have": true
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.306,
+          "lift": 2.166,
+          "have": true
+        },
+        {
+          "id": "nosql",
+          "label": "NoSQL",
+          "share": 0.282,
+          "lift": 4.587,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.271,
+          "lift": 4.152,
+          "have": false
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.271,
+          "lift": 1.668,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.259,
+          "lift": 1.662,
+          "have": false
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.235,
+          "lift": 2.731,
+          "have": true
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.224,
+          "lift": 1.342,
+          "have": true
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.2,
+          "lift": 0.626,
+          "have": true
+        },
+        {
+          "id": "scala",
+          "label": "Scala",
+          "share": 0.176,
+          "lift": 4.598,
+          "have": false
+        },
+        {
+          "id": "rust",
+          "label": "Rust",
+          "share": 0.153,
+          "lift": 2.247,
+          "have": true
+        },
+        {
+          "id": "jenkins",
+          "label": "Jenkins",
+          "share": 0.153,
+          "lift": 3.462,
+          "have": false
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.129,
+          "lift": 0.987,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.129,
+          "lift": 0.59,
+          "have": true
+        },
+        {
+          "id": "linux",
+          "label": "Linux",
+          "share": 0.129,
+          "lift": 2.078,
+          "have": true
+        },
+        {
+          "id": "spring",
+          "label": "Spring",
+          "share": 0.118,
+          "lift": 2.196,
+          "have": false
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.106,
+          "lift": 0.524,
+          "have": true
+        },
+        {
+          "id": "github-actions",
+          "label": "GitHub Actions",
+          "share": 0.094,
+          "lift": 2.6,
+          "have": true
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.835, "lift": 1.092 },
+        { "id": "integrations", "share": 0.812, "lift": 1.349 },
+        { "id": "regulated", "share": 0.776, "lift": 1.485 },
+        { "id": "testing-quality", "share": 0.765, "lift": 1.648 },
+        { "id": "performance-scale", "share": 0.694, "lift": 0.978 },
+        { "id": "product-sense", "share": 0.647, "lift": 1.12 },
+        { "id": "cloud-infra", "share": 0.624, "lift": 1.378 },
+        { "id": "ci-cd", "share": 0.541, "lift": 2.166 },
+        { "id": "process", "share": 0.541, "lift": 2.789 },
+        { "id": "leadership", "share": 0.459, "lift": 0.932 },
+        { "id": "payments", "share": 0.447, "lift": 1.966 },
+        { "id": "ai-assisted", "share": 0.376, "lift": 0.847 },
+        { "id": "ownership", "share": 0.376, "lift": 0.551 },
+        { "id": "stakeholders", "share": 0.353, "lift": 0.903 },
+        { "id": "documentation", "share": 0.353, "lift": 1.35 },
+        { "id": "speed", "share": 0.294, "lift": 0.905 },
+        { "id": "frontend-craft", "share": 0.282, "lift": 1.331 },
+        { "id": "modernization", "share": 0.247, "lift": 1.214 },
+        { "id": "ai-products", "share": 0.235, "lift": 0.617 },
+        { "id": "data", "share": 0.224, "lift": 0.678 },
+        { "id": "realtime", "share": 0.2, "lift": 0.714 },
+        { "id": "open-source", "share": 0.188, "lift": 1.452 },
+        { "id": "mobile", "share": 0.118, "lift": 1.069 }
+      ],
+      "samples": [
+        {
+          "title": "Full Stack Engineer 4 (Python, AWS, AI, Snowflake, Databricks)",
+          "company": "capitalone",
+          "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Plano-TX/Full-Stack-Engineer-4--Python--AWS--AI--Snowflake--Databricks-_R1000984-1"
+        },
+        {
+          "title": "AI Cloud Platform Engineer",
+          "company": "allstate",
+          "url": "https://allstate.wd5.myworkdayjobs.com/allstate_careers/job/USA---TX-Remote/AI-Cloud-Platform-Engineer_R35902"
+        },
+        {
+          "title": "Technology Engineer I  VDI (Citrix)",
+          "company": "travelers",
+          "url": "https://travelers.wd5.myworkdayjobs.com/External/job/CT---Hartford/Technology-Engineer-I--VDI--Citrix-_R-52391"
+        },
+        {
+          "title": "AI Engineer ||",
+          "company": "mastercard",
+          "url": "https://mastercard.wd1.myworkdayjobs.com/CorporateCareers/job/OFallon-Missouri/AI-Engineer---_R-278791"
+        },
+        {
+          "title": "Infrastructure Engineer - DB2 Support",
+          "company": "pnc",
+          "url": "https://pnc.wd5.myworkdayjobs.com/External/job/PA---Pittsburgh-15219/Infrastructure-Engineer---DB2-Support_R239235-1"
+        }
+      ]
+    },
+    {
+      "context": "corporate",
+      "level": "senior",
+      "postings": 79,
+      "share": 0.057,
+      "fit": 0.596,
+      "yearsMedian": 4,
+      "salaryMedian": 152350,
+      "families": [
+        { "id": "generalist", "share": 0.608 },
+        { "id": "fullstack", "share": 0.152 },
+        { "id": "platform", "share": 0.089 },
+        { "id": "ai-product", "share": 0.063 },
+        { "id": "mobile", "share": 0.051 },
+        { "id": "backend", "share": 0.025 },
+        { "id": "frontend", "share": 0.013 }
+      ],
+      "skills": [
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.532,
+          "lift": 1.786,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.519,
+          "lift": 2.421,
+          "have": false
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.519,
+          "lift": 3.675,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.519,
+          "lift": 2.233,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.506,
+          "lift": 3.193,
+          "have": false
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.392,
+          "lift": 1.052,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.38,
+          "lift": 1.986,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.354,
+          "lift": 1.615,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.354,
+          "lift": 2.014,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.354,
+          "lift": 1.133,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.342,
+          "lift": 2.117,
+          "have": false
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.342,
+          "lift": 1.435,
+          "have": false
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.329,
+          "lift": 2.175,
+          "have": true
+        },
+        {
+          "id": "spring",
+          "label": "Spring",
+          "share": 0.329,
+          "lift": 6.142,
+          "have": false
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.329,
+          "lift": 2.951,
+          "have": false
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.291,
+          "lift": 1.165,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.291,
+          "lift": 2.221,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.291,
+          "lift": 1.87,
+          "have": false
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.278,
+          "lift": 0.872,
+          "have": true
+        },
+        {
+          "id": "jenkins",
+          "label": "Jenkins",
+          "share": 0.253,
+          "lift": 5.731,
+          "have": false
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.228,
+          "lift": 2.941,
+          "have": false
+        },
+        {
+          "id": "nosql",
+          "label": "NoSQL",
+          "share": 0.215,
+          "lift": 3.496,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.215,
+          "lift": 1.327,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.215,
+          "lift": 1.065,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.203,
+          "lift": 1.537,
+          "have": true
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.165,
+          "lift": 2.914,
+          "have": true
+        },
+        {
+          "id": "mongodb",
+          "label": "MongoDB",
+          "share": 0.152,
+          "lift": 4.113,
+          "have": false
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.139,
+          "lift": 2.345,
+          "have": true
+        },
+        {
+          "id": "oracle",
+          "label": "Oracle",
+          "share": 0.139,
+          "lift": 4.18,
+          "have": false
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.127,
+          "lift": 1.469,
+          "have": true
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.911, "lift": 1.192 },
+        { "id": "testing-quality", "share": 0.81, "lift": 1.745 },
+        { "id": "integrations", "share": 0.81, "lift": 1.346 },
+        { "id": "performance-scale", "share": 0.759, "lift": 1.07 },
+        { "id": "cloud-infra", "share": 0.709, "lift": 1.566 },
+        { "id": "product-sense", "share": 0.684, "lift": 1.183 },
+        { "id": "regulated", "share": 0.633, "lift": 1.211 },
+        { "id": "process", "share": 0.608, "lift": 3.131 },
+        { "id": "ci-cd", "share": 0.57, "lift": 2.28 },
+        { "id": "ownership", "share": 0.557, "lift": 0.816 },
+        { "id": "stakeholders", "share": 0.544, "lift": 1.392 },
+        { "id": "leadership", "share": 0.532, "lift": 1.08 },
+        { "id": "data", "share": 0.43, "lift": 1.306 },
+        { "id": "realtime", "share": 0.43, "lift": 1.536 },
+        { "id": "documentation", "share": 0.418, "lift": 1.598 },
+        { "id": "speed", "share": 0.304, "lift": 0.934 },
+        { "id": "frontend-craft", "share": 0.291, "lift": 1.372 },
+        { "id": "ai-products", "share": 0.278, "lift": 0.73 },
+        { "id": "ai-assisted", "share": 0.253, "lift": 0.569 },
+        { "id": "payments", "share": 0.241, "lift": 1.058 },
+        { "id": "modernization", "share": 0.241, "lift": 1.182 },
+        { "id": "mobile", "share": 0.089, "lift": 0.805 },
+        { "id": "open-source", "share": 0.076, "lift": 0.586 }
+      ],
+      "samples": [
+        {
+          "title": "Product Engineer Senior Java Springboot",
+          "company": "allstate",
+          "url": "https://allstate.wd5.myworkdayjobs.com/allstate_careers/job/US---Remote/Product-Engineer-Senior-Java-Springboot_R31924"
+        },
+        {
+          "title": "Senior Software Engineer - Personal Insurance",
+          "company": "travelers",
+          "url": "https://travelers.wd5.myworkdayjobs.com/External/job/CT---Hartford/Senior-Software-Engineer---Personal-Insurance_R-51278"
+        },
+        {
+          "title": "Senior AI Engineer",
+          "company": "mastercard",
+          "url": "https://mastercard.wd1.myworkdayjobs.com/CorporateCareers/job/Prague-Czech-Rep/Senior-AI-Engineer_R-294531"
+        },
+        {
+          "title": "Senior Engineer",
+          "company": "geico",
+          "url": "https://geico.wd1.myworkdayjobs.com/External/job/Bethesda-MD/Senior-Engineer_R0066124"
+        },
+        {
+          "title": "Site Rel Engineer Sr",
+          "company": "pnc",
+          "url": "https://pnc.wd5.myworkdayjobs.com/External/job/PA---Pittsburgh-15222/Site-Rel-Engineer-Sr_R239075-1"
+        }
+      ]
+    },
+    {
+      "context": "corporate",
+      "level": "staff",
+      "postings": 105,
+      "share": 0.076,
+      "fit": 0.611,
+      "yearsMedian": 6,
+      "salaryMedian": 193000,
+      "families": [
+        { "id": "generalist", "share": 0.457 },
+        { "id": "architect", "share": 0.152 },
+        { "id": "platform", "share": 0.152 },
+        { "id": "ai-product", "share": 0.105 },
+        { "id": "fullstack", "share": 0.048 },
+        { "id": "mobile", "share": 0.038 },
+        { "id": "backend", "share": 0.029 },
+        { "id": "frontend", "share": 0.019 }
+      ],
+      "skills": [
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.571,
+          "lift": 2.458,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.495,
+          "lift": 1.583,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.486,
+          "lift": 2.266,
+          "have": false
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.457,
+          "lift": 1.226,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.448,
+          "lift": 1.504,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.438,
+          "lift": 2.713,
+          "have": false
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.41,
+          "lift": 1.719,
+          "have": false
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.41,
+          "lift": 2.582,
+          "have": false
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.39,
+          "lift": 1.223,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.362,
+          "lift": 2.325,
+          "have": false
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.343,
+          "lift": 1.949,
+          "have": true
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.333,
+          "lift": 2.989,
+          "have": false
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.324,
+          "lift": 1.603,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.305,
+          "lift": 1.879,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.295,
+          "lift": 1.544,
+          "have": true
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.257,
+          "lift": 1.821,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.2,
+          "lift": 0.801,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.2,
+          "lift": 1.526,
+          "have": true
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.19,
+          "lift": 2.458,
+          "have": false
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.181,
+          "lift": 1.196,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.181,
+          "lift": 0.825,
+          "have": true
+        },
+        {
+          "id": "nosql",
+          "label": "NoSQL",
+          "share": 0.171,
+          "lift": 2.785,
+          "have": true
+        },
+        {
+          "id": "jenkins",
+          "label": "Jenkins",
+          "share": 0.152,
+          "lift": 3.45,
+          "have": false
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.143,
+          "lift": 2.192,
+          "have": false
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.143,
+          "lift": 1.658,
+          "have": true
+        },
+        {
+          "id": "spring",
+          "label": "Spring",
+          "share": 0.143,
+          "lift": 2.666,
+          "have": false
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.124,
+          "lift": 0.743,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.095,
+          "lift": 0.723,
+          "have": true
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.086,
+          "lift": 1.518,
+          "have": true
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.086,
+          "lift": 1.444,
+          "have": true
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.962, "lift": 1.258 },
+        { "id": "leadership", "share": 0.867, "lift": 1.76 },
+        { "id": "performance-scale", "share": 0.857, "lift": 1.208 },
+        { "id": "integrations", "share": 0.829, "lift": 1.377 },
+        { "id": "cloud-infra", "share": 0.81, "lift": 1.789 },
+        { "id": "regulated", "share": 0.752, "lift": 1.439 },
+        { "id": "product-sense", "share": 0.648, "lift": 1.121 },
+        { "id": "testing-quality", "share": 0.6, "lift": 1.293 },
+        { "id": "ci-cd", "share": 0.59, "lift": 2.364 },
+        { "id": "ownership", "share": 0.581, "lift": 0.851 },
+        { "id": "stakeholders", "share": 0.533, "lift": 1.364 },
+        { "id": "process", "share": 0.486, "lift": 2.503 },
+        { "id": "modernization", "share": 0.419, "lift": 2.059 },
+        { "id": "ai-assisted", "share": 0.41, "lift": 0.921 },
+        { "id": "ai-products", "share": 0.39, "lift": 1.023 },
+        { "id": "realtime", "share": 0.39, "lift": 1.393 },
+        { "id": "documentation", "share": 0.371, "lift": 1.421 },
+        { "id": "data", "share": 0.352, "lift": 1.07 },
+        { "id": "speed", "share": 0.295, "lift": 0.908 },
+        { "id": "payments", "share": 0.248, "lift": 1.089 },
+        { "id": "frontend-craft", "share": 0.21, "lift": 0.988 },
+        { "id": "open-source", "share": 0.181, "lift": 1.396 },
+        { "id": "mobile", "share": 0.067, "lift": 0.606 }
+      ],
+      "samples": [
+        {
+          "title": "Staff Full Stack Engineer, AI & Emerging Tech",
+          "company": "capitalone",
+          "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/New-York-NY/Staff-Full-Stack-Engineer--AI---Emerging-Tech_R1005376-1"
+        },
+        {
+          "title": "Lead Engineer - Classic Products-2",
+          "company": "allstate",
+          "url": "https://allstate.wd5.myworkdayjobs.com/allstate_careers/job/US---Remote/Lead-Engineer---Classic-Products-2_R34786-1"
+        },
+        {
+          "title": "Corporate Architect - AI Focused",
+          "company": "travelers",
+          "url": "https://travelers.wd5.myworkdayjobs.com/External/job/CT---Hartford/Corporate-Architect---AI-Focused_R-52911-1"
+        },
+        {
+          "title": "Lead AI Engineer",
+          "company": "mastercard",
+          "url": "https://mastercard.wd1.myworkdayjobs.com/CorporateCareers/job/Purchase-New-York/Lead-AI-Engineer_R-295260-1"
+        },
+        {
+          "title": "Staff Engineer",
+          "company": "geico",
+          "url": "https://geico.wd1.myworkdayjobs.com/External/job/Palo-Alto-CA/Staff-Engineer_R0065203"
+        }
+      ]
+    },
+    {
+      "context": "contract",
+      "level": "mid",
+      "postings": 49,
+      "share": 0.035,
+      "fit": 0.73,
+      "yearsMedian": 3,
+      "salaryMedian": 126800,
+      "families": [
+        { "id": "generalist", "share": 0.653 },
+        { "id": "ai-product", "share": 0.163 },
+        { "id": "platform", "share": 0.082 },
+        { "id": "frontend", "share": 0.041 },
+        { "id": "mobile", "share": 0.02 },
+        { "id": "fullstack", "share": 0.02 },
+        { "id": "backend", "share": 0.02 }
+      ],
+      "skills": [
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.51,
+          "lift": 1.598,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.408,
+          "lift": 2.574,
+          "have": false
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.388,
+          "lift": 1.04,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.306,
+          "lift": 2.023,
+          "have": true
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.306,
+          "lift": 2.168,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.306,
+          "lift": 0.979,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.286,
+          "lift": 1.229,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.265,
+          "lift": 1.388,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.245,
+          "lift": 1.116,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.224,
+          "lift": 1.713,
+          "have": true
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.204,
+          "lift": 0.817,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.184,
+          "lift": 0.771,
+          "have": false
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.163,
+          "lift": 1.011,
+          "have": false
+        },
+        {
+          "id": "cloudflare",
+          "label": "Cloudflare",
+          "share": 0.163,
+          "lift": 5.933,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.163,
+          "lift": 0.808,
+          "have": true
+        },
+        {
+          "id": "stripe",
+          "label": "Stripe",
+          "share": 0.163,
+          "lift": 4.697,
+          "have": true
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.143,
+          "lift": 2.529,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.143,
+          "lift": 0.812,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.122,
+          "lift": 0.571,
+          "have": false
+        },
+        {
+          "id": "express",
+          "label": "Express",
+          "share": 0.102,
+          "lift": 2.61,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.102,
+          "lift": 0.774,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.102,
+          "lift": 0.343,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.082,
+          "lift": 1.253,
+          "have": false
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.082,
+          "lift": 0.524,
+          "have": false
+        },
+        {
+          "id": "accessibility",
+          "label": "Accessibility",
+          "share": 0.082,
+          "lift": 1.734,
+          "have": true
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.061,
+          "lift": 0.368,
+          "have": true
+        },
+        {
+          "id": "rust",
+          "label": "Rust",
+          "share": 0.061,
+          "lift": 0.899,
+          "have": true
+        },
+        {
+          "id": "angular",
+          "label": "Angular",
+          "share": 0.061,
+          "lift": 2.168,
+          "have": false
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.061,
+          "lift": 1.031,
+          "have": true
+        },
+        {
+          "id": "nodejs",
+          "label": "Node.js",
+          "share": 0.061,
+          "lift": 0.711,
+          "have": true
+        }
+      ],
+      "themes": [
+        { "id": "integrations", "share": 0.714, "lift": 1.187 },
+        { "id": "stakeholders", "share": 0.633, "lift": 1.618 },
+        { "id": "architecture", "share": 0.612, "lift": 0.801 },
+        { "id": "testing-quality", "share": 0.469, "lift": 1.011 },
+        { "id": "ownership", "share": 0.469, "lift": 0.687 },
+        { "id": "data", "share": 0.469, "lift": 1.425 },
+        { "id": "product-sense", "share": 0.449, "lift": 0.777 },
+        { "id": "ai-products", "share": 0.429, "lift": 1.123 },
+        { "id": "process", "share": 0.429, "lift": 2.208 },
+        { "id": "performance-scale", "share": 0.408, "lift": 0.575 },
+        { "id": "regulated", "share": 0.388, "lift": 0.742 },
+        { "id": "cloud-infra", "share": 0.367, "lift": 0.812 },
+        { "id": "documentation", "share": 0.306, "lift": 1.171 },
+        { "id": "ci-cd", "share": 0.286, "lift": 1.144 },
+        { "id": "leadership", "share": 0.245, "lift": 0.497 },
+        { "id": "frontend-craft", "share": 0.224, "lift": 1.058 },
+        { "id": "speed", "share": 0.224, "lift": 0.69 },
+        { "id": "ai-assisted", "share": 0.204, "lift": 0.459 },
+        { "id": "realtime", "share": 0.184, "lift": 0.655 },
+        { "id": "modernization", "share": 0.122, "lift": 0.602 },
+        { "id": "open-source", "share": 0.082, "lift": 0.63 },
+        { "id": "mobile", "share": 0.061, "lift": 0.556 },
+        { "id": "payments", "share": 0.02, "lift": 0.09 }
+      ],
+      "samples": [
+        {
+          "title": "iOS Engineer",
+          "company": "Sendery ( https://sendery.co )",
+          "url": "https://news.ycombinator.com/item?id=50345770"
+        },
+        {
+          "title": "Full-Stack Developer",
+          "company": "Fluence International, Inc.",
+          "url": "https://remotive.com/remote-jobs/software-development/full-stack-developer-2091165"
+        },
+        {
+          "title": "Software Engineer, AI Coding Tasks",
+          "company": "Askable",
+          "url": "https://remotive.com/remote-jobs/software-development/software-engineer-ai-coding-tasks-2091158"
+        },
+        {
+          "title": "Forward Deployed Engineer",
+          "company": " Nearform",
+          "url": "https://job-boards.greenhouse.io/nearform/jobs/7795871003"
+        },
+        {
+          "title": "Software Engineer",
+          "company": "Pluribus Digital",
+          "url": "https://pluribusdigital.com/join/openings?gh_jid=7931434003"
+        }
+      ]
+    },
+    {
+      "context": "contract",
+      "level": "senior",
+      "postings": 15,
+      "share": 0.011,
+      "fit": 0.66,
+      "yearsMedian": 8,
+      "salaryMedian": 150000,
+      "families": [
+        { "id": "generalist", "share": 0.467 },
+        { "id": "fullstack", "share": 0.2 },
+        { "id": "platform", "share": 0.2 },
+        { "id": "ai-product", "share": 0.133 }
+      ],
+      "skills": [
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.533,
+          "lift": 2.79,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.533,
+          "lift": 3.363,
+          "have": false
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.467,
+          "lift": 1.959,
+          "have": false
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.467,
+          "lift": 1.461,
+          "have": true
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.4,
+          "lift": 1.073,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.4,
+          "lift": 1.823,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.4,
+          "lift": 2.273,
+          "have": true
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.4,
+          "lift": 1.721,
+          "have": true
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.333,
+          "lift": 2.361,
+          "have": true
+        },
+        {
+          "id": "express",
+          "label": "Express",
+          "share": 0.333,
+          "lift": 8.525,
+          "have": true
+        },
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.333,
+          "lift": 2.064,
+          "have": false
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.267,
+          "lift": 1.067,
+          "have": true
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.267,
+          "lift": 2.035,
+          "have": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "share": 0.267,
+          "lift": 2.023,
+          "have": true
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.267,
+          "lift": 0.896,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.267,
+          "lift": 1.32,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.267,
+          "lift": 0.852,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.2,
+          "lift": 1.322,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.2,
+          "lift": 3.069,
+          "have": false
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.2,
+          "lift": 1.233,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.133,
+          "lift": 0.622,
+          "have": false
+        },
+        {
+          "id": "angular",
+          "label": "Angular",
+          "share": 0.133,
+          "lift": 4.721,
+          "have": false
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.133,
+          "lift": 2.361,
+          "have": true
+        },
+        {
+          "id": "django",
+          "label": "Django/Flask",
+          "share": 0.133,
+          "lift": 3.61,
+          "have": true
+        },
+        {
+          "id": "spring",
+          "label": "Spring",
+          "share": 0.133,
+          "lift": 2.488,
+          "have": false
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.133,
+          "lift": 0.856,
+          "have": false
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.133,
+          "lift": 1.196,
+          "have": false
+        },
+        {
+          "id": "go",
+          "label": "Go",
+          "share": 0.067,
+          "lift": 0.4,
+          "have": true
+        },
+        {
+          "id": "cpp",
+          "label": "C++",
+          "share": 0.067,
+          "lift": 1.334,
+          "have": false
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.067,
+          "lift": 0.93,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "architecture", "share": 0.733, "lift": 0.959 },
+        { "id": "cloud-infra", "share": 0.733, "lift": 1.62 },
+        { "id": "ownership", "share": 0.667, "lift": 0.976 },
+        { "id": "integrations", "share": 0.667, "lift": 1.108 },
+        { "id": "process", "share": 0.6, "lift": 3.092 },
+        { "id": "modernization", "share": 0.6, "lift": 2.949 },
+        { "id": "testing-quality", "share": 0.533, "lift": 1.149 },
+        { "id": "leadership", "share": 0.533, "lift": 1.083 },
+        { "id": "regulated", "share": 0.533, "lift": 1.02 },
+        { "id": "stakeholders", "share": 0.533, "lift": 1.364 },
+        { "id": "ai-products", "share": 0.467, "lift": 1.223 },
+        { "id": "data", "share": 0.467, "lift": 1.416 },
+        { "id": "ai-assisted", "share": 0.4, "lift": 0.9 },
+        { "id": "ci-cd", "share": 0.4, "lift": 1.601 },
+        { "id": "performance-scale", "share": 0.4, "lift": 0.564 },
+        { "id": "speed", "share": 0.267, "lift": 0.82 },
+        { "id": "product-sense", "share": 0.2, "lift": 0.346 },
+        { "id": "documentation", "share": 0.2, "lift": 0.765 },
+        { "id": "realtime", "share": 0.2, "lift": 0.714 },
+        { "id": "open-source", "share": 0.133, "lift": 1.029 },
+        { "id": "mobile", "share": 0.067, "lift": 0.606 },
+        { "id": "frontend-craft", "share": 0.067, "lift": 0.314 },
+        { "id": "payments", "share": 0.067, "lift": 0.293 }
+      ],
+      "samples": [
+        {
+          "title": "Senior Full-Stack Engineer (backend-heavy)",
+          "company": "Collabify",
+          "url": "https://news.ycombinator.com/item?id=50428062"
+        },
+        {
+          "title": "Senior Software Engineer – LLVM/Fuzzing/Program Analysis",
+          "company": "Quantum Minds",
+          "url": "https://news.ycombinator.com/item?id=49979600"
+        },
+        {
+          "title": "Senior SWE/Game dev",
+          "company": "MaFi Games",
+          "url": "https://news.ycombinator.com/item?id=49966852"
+        },
+        {
+          "title": "Senior Software Engineer - Python & AI",
+          "company": " Nearform",
+          "url": "https://job-boards.greenhouse.io/nearform/jobs/7614572003"
+        },
+        {
+          "title": "Evergreen:  Senior Software Engineer - Fullstack (Ruby on Rails)",
+          "company": "Pluribus Digital",
+          "url": "https://pluribusdigital.com/join/openings?gh_jid=8045980003"
+        }
+      ]
+    },
+    {
+      "context": "contract",
+      "level": "staff",
+      "postings": 20,
+      "share": 0.014,
+      "fit": 0.654,
+      "yearsMedian": 10,
+      "salaryMedian": 173285,
+      "families": [
+        { "id": "architect", "share": 0.55 },
+        { "id": "generalist", "share": 0.3 },
+        { "id": "platform", "share": 0.05 },
+        { "id": "fullstack", "share": 0.05 },
+        { "id": "backend", "share": 0.05 }
+      ],
+      "skills": [
+        {
+          "id": "azure",
+          "label": "Azure",
+          "share": 0.45,
+          "lift": 2.787,
+          "have": false
+        },
+        {
+          "id": "ci-cd",
+          "label": "CI/CD",
+          "share": 0.4,
+          "lift": 1.721,
+          "have": true
+        },
+        {
+          "id": "git",
+          "label": "Git",
+          "share": 0.4,
+          "lift": 2.092,
+          "have": true
+        },
+        {
+          "id": "agile",
+          "label": "Agile/Scrum",
+          "share": 0.4,
+          "lift": 2.522,
+          "have": false
+        },
+        {
+          "id": "aws",
+          "label": "AWS",
+          "share": 0.35,
+          "lift": 1.176,
+          "have": true
+        },
+        {
+          "id": "observability",
+          "label": "Observability",
+          "share": 0.3,
+          "lift": 0.959,
+          "have": true
+        },
+        {
+          "id": "csharp",
+          "label": "C#/.NET",
+          "share": 0.25,
+          "lift": 3.836,
+          "have": false
+        },
+        {
+          "id": "sql",
+          "label": "SQL",
+          "share": 0.25,
+          "lift": 1.907,
+          "have": true
+        },
+        {
+          "id": "docker",
+          "label": "Docker",
+          "share": 0.25,
+          "lift": 1.421,
+          "have": true
+        },
+        {
+          "id": "terraform",
+          "label": "Terraform/OpenTofu",
+          "share": 0.25,
+          "lift": 1.541,
+          "have": true
+        },
+        {
+          "id": "llm-apis",
+          "label": "LLM APIs",
+          "share": 0.25,
+          "lift": 0.783,
+          "have": true
+        },
+        {
+          "id": "ai-tools",
+          "label": "AI coding tools",
+          "share": 0.25,
+          "lift": 1.237,
+          "have": true
+        },
+        {
+          "id": "python",
+          "label": "Python",
+          "share": 0.2,
+          "lift": 0.536,
+          "have": true
+        },
+        {
+          "id": "rest",
+          "label": "REST APIs",
+          "share": 0.2,
+          "lift": 1.416,
+          "have": true
+        },
+        {
+          "id": "gcp",
+          "label": "GCP",
+          "share": 0.2,
+          "lift": 1.285,
+          "have": false
+        },
+        {
+          "id": "microservices",
+          "label": "Microservices",
+          "share": 0.2,
+          "lift": 1.794,
+          "have": false
+        },
+        {
+          "id": "oauth",
+          "label": "OAuth/SSO",
+          "share": 0.2,
+          "lift": 3.035,
+          "have": true
+        },
+        {
+          "id": "javascript",
+          "label": "JavaScript",
+          "share": 0.15,
+          "lift": 0.991,
+          "have": true
+        },
+        {
+          "id": "react",
+          "label": "React",
+          "share": 0.15,
+          "lift": 0.684,
+          "have": true
+        },
+        {
+          "id": "html-css",
+          "label": "HTML/CSS",
+          "share": 0.15,
+          "lift": 2.656,
+          "have": true
+        },
+        {
+          "id": "express",
+          "label": "Express",
+          "share": 0.15,
+          "lift": 3.836,
+          "have": true
+        },
+        {
+          "id": "kubernetes",
+          "label": "Kubernetes",
+          "share": 0.15,
+          "lift": 0.63,
+          "have": false
+        },
+        {
+          "id": "typescript",
+          "label": "TypeScript",
+          "share": 0.1,
+          "lift": 0.4,
+          "have": true
+        },
+        {
+          "id": "java",
+          "label": "Java",
+          "share": 0.1,
+          "lift": 0.467,
+          "have": false
+        },
+        {
+          "id": "graphql",
+          "label": "GraphQL",
+          "share": 0.1,
+          "lift": 1.684,
+          "have": true
+        },
+        {
+          "id": "nosql",
+          "label": "NoSQL",
+          "share": 0.1,
+          "lift": 1.625,
+          "have": true
+        },
+        {
+          "id": "snowflake",
+          "label": "Snowflake",
+          "share": 0.1,
+          "lift": 3.946,
+          "have": false
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka",
+          "share": 0.1,
+          "lift": 1.291,
+          "have": false
+        },
+        {
+          "id": "salesforce",
+          "label": "Salesforce",
+          "share": 0.1,
+          "lift": 1.794,
+          "have": true
+        },
+        {
+          "id": "ruby",
+          "label": "Ruby/Rails",
+          "share": 0.05,
+          "lift": 0.697,
+          "have": false
+        }
+      ],
+      "themes": [
+        { "id": "integrations", "share": 0.9, "lift": 1.496 },
+        { "id": "stakeholders", "share": 0.9, "lift": 2.302 },
+        { "id": "architecture", "share": 0.85, "lift": 1.112 },
+        { "id": "leadership", "share": 0.75, "lift": 1.523 },
+        { "id": "cloud-infra", "share": 0.7, "lift": 1.547 },
+        { "id": "ownership", "share": 0.65, "lift": 0.952 },
+        { "id": "data", "share": 0.65, "lift": 1.973 },
+        { "id": "regulated", "share": 0.65, "lift": 1.243 },
+        { "id": "performance-scale", "share": 0.65, "lift": 0.916 },
+        { "id": "testing-quality", "share": 0.6, "lift": 1.293 },
+        { "id": "modernization", "share": 0.5, "lift": 2.457 },
+        { "id": "ci-cd", "share": 0.45, "lift": 1.801 },
+        { "id": "process", "share": 0.45, "lift": 2.319 },
+        { "id": "documentation", "share": 0.45, "lift": 1.721 },
+        { "id": "ai-assisted", "share": 0.4, "lift": 0.9 },
+        { "id": "product-sense", "share": 0.4, "lift": 0.692 },
+        { "id": "ai-products", "share": 0.35, "lift": 0.917 },
+        { "id": "realtime", "share": 0.2, "lift": 0.714 },
+        { "id": "speed", "share": 0.2, "lift": 0.615 },
+        { "id": "frontend-craft", "share": 0.1, "lift": 0.471 },
+        { "id": "payments", "share": 0.05, "lift": 0.22 },
+        { "id": "mobile", "share": 0, "lift": 0 },
+        { "id": "open-source", "share": 0, "lift": 0 }
+      ],
+      "samples": [
+        {
+          "title": "Prototype Developer; Technical Product Lead",
+          "company": "ORFF Maestra",
+          "url": "https://news.ycombinator.com/item?id=50339081"
+        },
+        {
+          "title": "Senior/Staff DevOps Engineer (U.S. Air Force)",
+          "company": "Skylight",
+          "url": "https://job-boards.greenhouse.io/skylighthq/jobs/4747399005"
+        },
+        {
+          "title": "Lead Engineer (d/f/m)",
+          "company": "DEPT®",
+          "url": "https://job-boards.greenhouse.io/dept/jobs/7823875"
+        },
+        {
+          "title": "Staff Fullstack Engineer",
+          "company": "andela",
+          "url": "https://jobs.ashbyhq.com/andela/9829c4f1-548f-4ef9-b4a2-c0ba2e11b90c"
+        },
+        {
+          "title": "Principal Software Engineer(Back End)",
+          "company": "gdit",
+          "url": "https://gdit.wd5.myworkdayjobs.com/External_Career_Site/job/Any-Location--Remote/Principal-Software-Engineer-Back-End-_RQ226922"
+        }
+      ]
+    }
+  ],
+  "gaps": [
+    {
+      "id": "kubernetes",
+      "label": "Kubernetes",
+      "share": 0.238,
+      "lift": 1,
+      "have": false
+    },
+    { "id": "java", "label": "Java", "share": 0.214, "lift": 1, "have": false },
+    {
+      "id": "azure",
+      "label": "Azure",
+      "share": 0.161,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "agile",
+      "label": "Agile/Scrum",
+      "share": 0.159,
+      "lift": 1,
+      "have": false
+    },
+    { "id": "gcp", "label": "GCP", "share": 0.156, "lift": 1, "have": false },
+    {
+      "id": "microservices",
+      "label": "Microservices",
+      "share": 0.112,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "kafka",
+      "label": "Kafka",
+      "share": 0.077,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "ruby",
+      "label": "Ruby/Rails",
+      "share": 0.072,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "kotlin",
+      "label": "Kotlin",
+      "share": 0.066,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "csharp",
+      "label": "C#/.NET",
+      "share": 0.065,
+      "lift": 1,
+      "have": false
+    },
+    {
+      "id": "spring",
+      "label": "Spring",
+      "share": 0.054,
+      "lift": 1,
+      "have": false
+    },
+    { "id": "cpp", "label": "C++", "share": 0.05, "lift": 1, "have": false }
+  ]
+}

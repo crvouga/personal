@@ -1,9 +1,12 @@
 ---
+import { presentationOf, sectionOf } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
-import { ALSO_SHIPPED_WITH, SKILL_PROFILE } from '../lib/skills-view';
+import { ALSO_SHIPPED_WITH, skillProfileFor } from '../lib/skills-view';
 
-const section = CONTENT.GET_SECTION('about');
+const presentation = presentationOf(Astro);
+const section = sectionOf(presentation, 'about');
 const school = CONTENT.SCHOOL[0];
+const skillProfile = skillProfileFor(presentation);
 ---
 
 <section id="about" aria-labelledby="about-title">
@@ -36,7 +39,7 @@ const school = CONTENT.SCHOOL[0];
     <div class="toolbox">
       <h3 class="toolbox-title">Toolbox</h3>
       {
-        SKILL_PROFILE.map((row) => (
+        skillProfile.map((row) => (
           <div class="tool-row">
             <span class="tool-cat">{row.category}</span>
             <span class="tool-items">{row.items.join(' · ')}</span>

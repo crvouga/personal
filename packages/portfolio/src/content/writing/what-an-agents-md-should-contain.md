@@ -18,7 +18,7 @@ Most `AGENTS.md` files I have read describe the project. That part is useful, bu
 
 ## A map, with the edges marked
 
-The file opens with one line per package. Most of each line is location: the portfolio's content lives in `src/content/projects/`, and new projects go in `entries-part-2.ts`. The rest marks edges: "Do not commit `dist/` or the generated PDF." An agent that knows where the boundary is does not have to guess which package owns a change.
+The file opens with one line per package. Most of each line is location: the portfolio's facts live in `src/knowledge/`, and new projects are appended to `projects.ts` there. The rest marks edges: "Do not commit `dist/` or the generated PDF." An agent that knows where the boundary is does not have to guess which package owns a change.
 
 ## One owner for infrastructure
 

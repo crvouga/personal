@@ -20,6 +20,11 @@ const TAP_MIN_WIDTH = 44;
 
 const PAGES = [
   '/',
+  // Every other presentation, addressed the only way it can be.
+  '/?archetype=tech-company-staff-engineer',
+  '/?archetype=startup-small-company-senior-developer',
+  '/?archetype=corporate-large-company-senior-developer',
+  '/?archetype=corporate-contractor-systems-architect',
   '/projects/',
   '/projects/mockingbird/',
   '/projects/gamezilla/',
@@ -39,11 +44,28 @@ const fileFor = (pathname: string): string | null => {
   return existsSync(index) ? index : null;
 };
 
+/**
+ * nginx.conf's routing: `?archetype=<id>` serves the presentation built under
+ * `/a/<id>/` for the homepage and the résumé, anything unknown falls back to
+ * the default, and `/a/…` itself is not a public path.
+ */
+const ARCHETYPE_ROUTES = new Set(['/', '/chris-vouga-resume.pdf']);
+const servedPath = (url: URL): string => {
+  const pathname = decodeURIComponent(url.pathname);
+  if (pathname.startsWith('/a/')) return '/no-such-page';
+  const id = url.searchParams.get('archetype') ?? '';
+  const variant = `/a/${id}${pathname}`;
+  return ARCHETYPE_ROUTES.has(pathname) &&
+    /^[a-z0-9-]{1,64}$/.test(id) &&
+    fileFor(variant) !== null
+    ? variant
+    : pathname;
+};
+
 const server = Bun.serve({
   port: 0,
   fetch: (request) => {
-    const { pathname } = new URL(request.url);
-    const file = fileFor(decodeURIComponent(pathname));
+    const file = fileFor(servedPath(new URL(request.url)));
     if (file === null)
       return new Response(Bun.file(join(DIST, '404.html')), { status: 404 });
     return new Response(Bun.file(file));
@@ -474,6 +496,63 @@ describe('performance budget', () => {
     },
     TIMEOUT_MS
   );
+});
+
+describe('archetype presentations', () => {
+  const CORPORATE = 'corporate-large-company-senior-developer';
+
+  test(
+    'a named archetype gets its own page; anything else gets the default',
+    async () => {
+      const seen: (string | null)[] = [];
+      for (const query of [
+        '',
+        `?archetype=${CORPORATE}`,
+        '?archetype=no-such-archetype',
+        '?archetype=../projects',
+      ]) {
+        const { page } = await open(`/${query}`);
+        seen.push(await page.locator('html').getAttribute('data-archetype'));
+        await page.close();
+      }
+      expect(seen[1]).toBe(CORPORATE);
+      expect(seen[0]).not.toBe(CORPORATE);
+      expect([seen[2], seen[3]]).toEqual([seen[0], seen[0]]);
+    },
+    TIMEOUT_MS
+  );
+
+  test(
+    'the archetype follows the visitor: links, résumé and sub-page look',
+    async () => {
+      const { page } = await open(`/?archetype=${CORPORATE}`);
+      const hrefs = await page
+        .locator('a[href^="/"]')
+        .evaluateAll((links) => links.map((a) => a.getAttribute('href') ?? ''));
+      expect(hrefs.length).toBeGreaterThan(0);
+      expect(hrefs.filter((href) => !href.includes(CORPORATE))).toEqual([]);
+      expect(await page.locator('a.resume').first().getAttribute('href')).toBe(
+        `/chris-vouga-resume.pdf?archetype=${CORPORATE}`
+      );
+      await page.close();
+
+      const sub = await open(`/projects/?archetype=${CORPORATE}`);
+      expect(
+        await sub.page.locator('html').getAttribute('data-archetype')
+      ).toBe(CORPORATE);
+      await sub.page.close();
+    },
+    TIMEOUT_MS
+  );
+
+  test('each archetype has its own résumé, and /a/ is not a public path', async () => {
+    const pdf = async (query: string): Promise<number> =>
+      (await (await fetch(`${origin}/chris-vouga-resume.pdf${query}`)).bytes())
+        .byteLength;
+    expect(await pdf(`?archetype=${CORPORATE}`)).not.toBe(await pdf(''));
+    expect(await pdf('?archetype=no-such-archetype')).toBe(await pdf(''));
+    expect((await fetch(`${origin}/a/${CORPORATE}/`)).status).toBe(404);
+  });
 });
 
 describe('the site’s own guarantees', () => {

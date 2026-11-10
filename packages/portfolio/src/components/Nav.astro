@@ -1,6 +1,6 @@
 ---
+import { presentationOf } from '../archetypes/presentation';
 import { CONTENT } from '../content/content';
-import { RESUME_HREF } from '../constants/resume';
 import { publishedPosts } from '../lib/published-posts';
 
 interface Props {
@@ -9,7 +9,8 @@ interface Props {
 }
 const { variant = 'home' } = Astro.props;
 
-const links = CONTENT.SECTIONS.filter((section) => section.nav);
+const presentation = presentationOf(Astro);
+const links = presentation.sections.filter((section) => section.nav);
 // Writing joins the nav with its first published post, never before.
 const hasWriting = (await publishedPosts()).length > 0;
 const sectionHref = (id: string): string =>
@@ -35,7 +36,7 @@ const homeLabel =
       }
       {hasWriting && <a href="/writing/">Writing</a>}
     </nav>
-    <a href={RESUME_HREF} class="resume" target="_blank" rel="noopener" aria-label="Résumé (PDF)">Résumé</a>
+    <a href={presentation.resumeHref} class="resume" target="_blank" rel="noopener" aria-label="Résumé (PDF)">Résumé</a>
   </div>
 </header>
 

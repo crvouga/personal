@@ -1,7 +1,9 @@
 import { CONTENT } from '../content/content';
+import type { Project } from '../content/project';
 import type { Work, YearMonth } from '../content/work';
 import {
   VISIBLE_GALLERIES,
+  galleryFor,
   toGalleryItems,
   type GalleryItem,
 } from './projects-view';
@@ -57,6 +59,18 @@ export const WORK_GALLERIES: readonly (readonly GalleryItem[])[] =
  * project ones and carry this offset.
  */
 export const WORK_GALLERY_OFFSET = VISIBLE_GALLERIES.length;
+
+/**
+ * The gallery payload for one presentation of the homepage: its project
+ * cards first, then its roles, each addressed by `data-gallery` index.
+ */
+export const pageGalleriesFor = (
+  projects: readonly Project[],
+  work: readonly Work[]
+): readonly (readonly GalleryItem[])[] => [
+  ...projects.map(galleryFor),
+  ...work.map(workGalleryFor),
+];
 
 /** Every gallery reachable from the homepage, in `data-gallery` index order. */
 export const PAGE_GALLERIES: readonly (readonly GalleryItem[])[] = [
