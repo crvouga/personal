@@ -94,6 +94,10 @@ provider "github" {{
 }}
 module "inventory" {{ source = {json.dumps(str(tofu_root / "modules/inventory"))} }}
 locals {{ config = module.inventory.config }}
+variable "freeze" {{
+  type    = bool
+  default = false
+}}
 '''
         (root / "main.tf").write_text(config + initial_locals + blocks)
         lock = (tofu_root / "foundation/.terraform.lock.hcl").read_text()
