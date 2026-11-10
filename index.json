@@ -1,0 +1,4506 @@
+[
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--senior-dark",
+    "name": "Senior Dark",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "design-system-theme--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--senior-light",
+    "name": "Senior Light",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "design-system-theme--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--staff-dark",
+    "name": "Staff Dark",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "design-system-theme--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--staff-light",
+    "name": "Staff Light",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "design-system-theme--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--startup-dark",
+    "name": "Startup Dark",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "design-system-theme--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--startup-light",
+    "name": "Startup Light",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "design-system-theme--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--corporate",
+    "name": "Corporate",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "design-system-theme--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "design-system-theme--contractor",
+    "name": "Contractor",
+    "title": "Design system/Theme",
+    "importPath": "./src/design-system/theme.stories.ts",
+    "componentPath": "./src/design-system/ThemeShowcase.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "design-system-theme--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-contractor-systems-architect--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetype details/corporate-contractor-systems-architect",
+    "importPath": "./src/screens/archetype-detail-contractor.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetype-details-corporate-contractor-systems-architect--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-corporate-large-company-senior-developer--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetype details/corporate-large-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-corporate.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetype-details-corporate-large-company-senior-developer--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetype-details-tech-company-senior-developer--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetype-details-tech-company-senior-developer--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetype-details-tech-company-senior-developer--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetype-details-tech-company-senior-developer--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetype-details-tech-company-senior-developer--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetype-details-tech-company-senior-developer--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetype-details-tech-company-senior-developer--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-senior-developer--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetype details/tech-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-senior.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetype-details-tech-company-senior-developer--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetype-details-tech-company-staff-engineer--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetype-details-tech-company-staff-engineer--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetype-details-tech-company-staff-engineer--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetype-details-tech-company-staff-engineer--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetype-details-tech-company-staff-engineer--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetype-details-tech-company-staff-engineer--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetype-details-tech-company-staff-engineer--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-tech-company-staff-engineer--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetype details/tech-company-staff-engineer",
+    "importPath": "./src/screens/archetype-detail-staff.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetype-details-tech-company-staff-engineer--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetype-details-startup-small-company-senior-developer--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetype details/startup-small-company-senior-developer",
+    "importPath": "./src/screens/archetype-detail-startup.stories.ts",
+    "componentPath": "./src/screens/ArchetypeDetailScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetype-details-startup-small-company-senior-developer--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-archetypes-index--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-archetypes-index--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-archetypes-index--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-archetypes-index--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-archetypes-index--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-archetypes-index--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--corporate",
+    "name": "Corporate",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-archetypes-index--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-archetypes-index--contractor",
+    "name": "Contractor",
+    "title": "Screens/Archetypes index",
+    "importPath": "./src/screens/archetypes-index-screen.stories.ts",
+    "componentPath": "./src/screens/ArchetypesIndexScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-archetypes-index--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-case-study-gamezilla--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-case-study-gamezilla--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-case-study-gamezilla--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-case-study-gamezilla--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-case-study-gamezilla--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-case-study-gamezilla--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--corporate",
+    "name": "Corporate",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-case-study-gamezilla--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-gamezilla--contractor",
+    "name": "Contractor",
+    "title": "Screens/Case study/gamezilla",
+    "importPath": "./src/screens/case-study-gamezilla.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-case-study-gamezilla--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-case-study-mockingbird--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-case-study-mockingbird--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-case-study-mockingbird--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-case-study-mockingbird--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-case-study-mockingbird--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-case-study-mockingbird--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--corporate",
+    "name": "Corporate",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-case-study-mockingbird--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-mockingbird--contractor",
+    "name": "Contractor",
+    "title": "Screens/Case study/mockingbird",
+    "importPath": "./src/screens/case-study-mockingbird.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-case-study-mockingbird--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-case-study-workspace-platform--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-case-study-workspace-platform--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-case-study-workspace-platform--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-case-study-workspace-platform--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-case-study-workspace-platform--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-case-study-workspace-platform--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--corporate",
+    "name": "Corporate",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-case-study-workspace-platform--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-case-study-workspace-platform--contractor",
+    "name": "Contractor",
+    "title": "Screens/Case study/workspace-platform",
+    "importPath": "./src/screens/case-study-workspace-platform.stories.ts",
+    "componentPath": "./src/screens/CaseStudyScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-case-study-workspace-platform--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-home--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-home--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-home--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-home--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-home--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-home--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--corporate",
+    "name": "Corporate",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-home--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-home--contractor",
+    "name": "Contractor",
+    "title": "Screens/Home",
+    "importPath": "./src/screens/home-screen.stories.ts",
+    "componentPath": "./src/screens/HomeScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-home--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-404--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-404--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-404--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-404--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-404--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-404--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--corporate",
+    "name": "Corporate",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-404--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-404--contractor",
+    "name": "Contractor",
+    "title": "Screens/404",
+    "importPath": "./src/screens/not-found-screen.stories.ts",
+    "componentPath": "./src/screens/NotFoundScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-404--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--senior-dark",
+    "name": "Senior Dark",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "screens-all-projects--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--senior-light",
+    "name": "Senior Light",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "screens-all-projects--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--staff-dark",
+    "name": "Staff Dark",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "screens-all-projects--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--staff-light",
+    "name": "Staff Light",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "screens-all-projects--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--startup-dark",
+    "name": "Startup Dark",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "screens-all-projects--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--startup-light",
+    "name": "Startup Light",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "screens-all-projects--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--corporate",
+    "name": "Corporate",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "screens-all-projects--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "screens-all-projects--contractor",
+    "name": "Contractor",
+    "title": "Screens/All projects",
+    "importPath": "./src/screens/projects-screen.stories.ts",
+    "componentPath": "./src/screens/ProjectsScreen.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "screens-all-projects--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-about--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-about--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-about--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-about--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-about--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-about--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--corporate",
+    "name": "Corporate",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-about--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-about--contractor",
+    "name": "Contractor",
+    "title": "Sections/About",
+    "importPath": "./src/components/about.stories.ts",
+    "componentPath": "./src/components/About.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-about--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-agentic-how-i-build--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-agentic-how-i-build--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-agentic-how-i-build--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-agentic-how-i-build--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-agentic-how-i-build--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-agentic-how-i-build--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--corporate",
+    "name": "Corporate",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-agentic-how-i-build--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-agentic-how-i-build--contractor",
+    "name": "Contractor",
+    "title": "Sections/Agentic (how I build)",
+    "importPath": "./src/components/agentic.stories.ts",
+    "componentPath": "./src/components/Agentic.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-agentic-how-i-build--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-contact--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-contact--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-contact--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-contact--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-contact--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-contact--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--corporate",
+    "name": "Corporate",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-contact--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-contact--contractor",
+    "name": "Contractor",
+    "title": "Sections/Contact",
+    "importPath": "./src/components/contact.stories.ts",
+    "componentPath": "./src/components/Contact.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-contact--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-experience-work--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-experience-work--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-experience-work--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-experience-work--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-experience-work--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-experience-work--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--corporate",
+    "name": "Corporate",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-experience-work--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-experience-work--contractor",
+    "name": "Contractor",
+    "title": "Sections/Experience (work)",
+    "importPath": "./src/components/experience.stories.ts",
+    "componentPath": "./src/components/Experience.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-experience-work--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-footer--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-footer--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-footer--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-footer--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-footer--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-footer--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--corporate",
+    "name": "Corporate",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-footer--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-footer--contractor",
+    "name": "Contractor",
+    "title": "Sections/Footer",
+    "importPath": "./src/components/footer.stories.ts",
+    "componentPath": "./src/components/Footer.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-footer--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-hero--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-hero--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-hero--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-hero--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-hero--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-hero--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--corporate",
+    "name": "Corporate",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-hero--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-hero--contractor",
+    "name": "Contractor",
+    "title": "Sections/Hero",
+    "importPath": "./src/components/hero.stories.ts",
+    "componentPath": "./src/components/Hero.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-hero--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-nav-sub-page--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-nav-sub-page--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-nav-sub-page--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-nav-sub-page--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-nav-sub-page--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-nav-sub-page--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--corporate",
+    "name": "Corporate",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-nav-sub-page--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-sub-page--contractor",
+    "name": "Contractor",
+    "title": "Sections/Nav/Sub-page",
+    "importPath": "./src/components/nav-sub.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-nav-sub-page--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-nav-homepage--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-nav-homepage--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-nav-homepage--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-nav-homepage--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-nav-homepage--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-nav-homepage--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--corporate",
+    "name": "Corporate",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-nav-homepage--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-nav-homepage--contractor",
+    "name": "Contractor",
+    "title": "Sections/Nav/Homepage",
+    "importPath": "./src/components/nav.stories.ts",
+    "componentPath": "./src/components/Nav.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-nav-homepage--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-projects--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-projects--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-projects--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-projects--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-projects--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-projects--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--corporate",
+    "name": "Corporate",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-projects--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-projects--contractor",
+    "name": "Contractor",
+    "title": "Sections/Projects",
+    "importPath": "./src/components/projects.stories.ts",
+    "componentPath": "./src/components/Projects.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-projects--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-proof-of-work--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-proof-of-work--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-proof-of-work--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-proof-of-work--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-proof-of-work--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-proof-of-work--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--corporate",
+    "name": "Corporate",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-proof-of-work--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-proof-of-work--contractor",
+    "name": "Contractor",
+    "title": "Sections/Proof of work",
+    "importPath": "./src/components/proof-of-work.stories.ts",
+    "componentPath": "./src/components/ProofOfWork.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-proof-of-work--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-sticky-cta-phone--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-sticky-cta-phone--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-sticky-cta-phone--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-sticky-cta-phone--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-sticky-cta-phone--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-sticky-cta-phone--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--corporate",
+    "name": "Corporate",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-sticky-cta-phone--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-sticky-cta-phone--contractor",
+    "name": "Contractor",
+    "title": "Sections/Sticky CTA (phone)",
+    "importPath": "./src/components/sticky-cta.stories.ts",
+    "componentPath": "./src/components/StickyCta.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "phone"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-sticky-cta-phone--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--senior-dark",
+    "name": "Senior Dark",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "sections-testimonials--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--senior-light",
+    "name": "Senior Light",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "sections-testimonials--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--staff-dark",
+    "name": "Staff Dark",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "sections-testimonials--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--staff-light",
+    "name": "Staff Light",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "sections-testimonials--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--startup-dark",
+    "name": "Startup Dark",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "sections-testimonials--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--startup-light",
+    "name": "Startup Light",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "sections-testimonials--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--corporate",
+    "name": "Corporate",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "sections-testimonials--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "sections-testimonials--contractor",
+    "name": "Contractor",
+    "title": "Sections/Testimonials",
+    "importPath": "./src/components/testimonials.stories.ts",
+    "componentPath": "./src/components/Testimonials.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "sections-testimonials--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-project-card-archive-compact--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-project-card-archive-compact--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-project-card-archive-compact--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-project-card-archive-compact--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-project-card-archive-compact--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-project-card-archive-compact--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--corporate",
+    "name": "Corporate",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-project-card-archive-compact--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-archive-compact--contractor",
+    "name": "Contractor",
+    "title": "Components/Project card/Archive (compact)",
+    "importPath": "./src/components/project-card-archive.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-project-card-archive-compact--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-project-card-featured-homepage-case-study--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-project-card-featured-homepage-case-study--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-project-card-featured-homepage-case-study--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-project-card-featured-homepage-case-study--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-project-card-featured-homepage-case-study--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-project-card-featured-homepage-case-study--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--corporate",
+    "name": "Corporate",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-project-card-featured-homepage-case-study--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-featured-homepage-case-study--contractor",
+    "name": "Contractor",
+    "title": "Components/Project card/Featured (homepage, case study)",
+    "importPath": "./src/components/project-card-featured.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-project-card-featured-homepage-case-study--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-project-card-hand-written-badge--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-project-card-hand-written-badge--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-project-card-hand-written-badge--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-project-card-hand-written-badge--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-project-card-hand-written-badge--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-project-card-hand-written-badge--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--corporate",
+    "name": "Corporate",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-project-card-hand-written-badge--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-hand-written-badge--contractor",
+    "name": "Contractor",
+    "title": "Components/Project card/Hand-written badge",
+    "importPath": "./src/components/project-card-handwritten.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-project-card-hand-written-badge--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-project-card-personal-project--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-project-card-personal-project--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-project-card-personal-project--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-project-card-personal-project--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-project-card-personal-project--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-project-card-personal-project--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--corporate",
+    "name": "Corporate",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-project-card-personal-project--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-personal-project--contractor",
+    "name": "Contractor",
+    "title": "Components/Project card/Personal project",
+    "importPath": "./src/components/project-card-personal.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-project-card-personal-project--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-project-card-employer-product-private-code--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-project-card-employer-product-private-code--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-project-card-employer-product-private-code--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-project-card-employer-product-private-code--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-project-card-employer-product-private-code--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-project-card-employer-product-private-code--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--corporate",
+    "name": "Corporate",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-project-card-employer-product-private-code--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-project-card-employer-product-private-code--contractor",
+    "name": "Contractor",
+    "title": "Components/Project card/Employer product (private code)",
+    "importPath": "./src/components/project-card-work.stories.ts",
+    "componentPath": "./src/components/ProjectCard.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-project-card-employer-product-private-code--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-contribution-calendar--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-contribution-calendar--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-contribution-calendar--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-contribution-calendar--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-contribution-calendar--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-contribution-calendar--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--corporate",
+    "name": "Corporate",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-contribution-calendar--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-calendar--contractor",
+    "name": "Contractor",
+    "title": "Components/Contribution calendar",
+    "importPath": "./src/stories/contribution-calendar.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-contribution-calendar--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-contribution-heatmap--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-contribution-heatmap--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-contribution-heatmap--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-contribution-heatmap--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-contribution-heatmap--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-contribution-heatmap--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--corporate",
+    "name": "Corporate",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Corporate",
+    "file": "components-contribution-heatmap--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-contribution-heatmap--contractor",
+    "name": "Contractor",
+    "title": "Components/Contribution heatmap",
+    "importPath": "./src/stories/contribution-heatmap.stories.ts",
+    "componentPath": "./src/stories/ContributionDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs"
+    ],
+    "exportName": "Contractor",
+    "file": "components-contribution-heatmap--contractor.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--senior-dark",
+    "name": "Senior Dark",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "SeniorDark",
+    "file": "components-gallery-dialog-open--senior-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--senior-light",
+    "name": "Senior Light",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "SeniorLight",
+    "file": "components-gallery-dialog-open--senior-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--staff-dark",
+    "name": "Staff Dark",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "StaffDark",
+    "file": "components-gallery-dialog-open--staff-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--staff-light",
+    "name": "Staff Light",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "StaffLight",
+    "file": "components-gallery-dialog-open--staff-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--startup-dark",
+    "name": "Startup Dark",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "StartupDark",
+    "file": "components-gallery-dialog-open--startup-dark.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--startup-light",
+    "name": "Startup Light",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "StartupLight",
+    "file": "components-gallery-dialog-open--startup-light.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--corporate",
+    "name": "Corporate",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "Corporate",
+    "file": "components-gallery-dialog-open--corporate.png"
+  },
+  {
+    "type": "story",
+    "subtype": "story",
+    "id": "components-gallery-dialog-open--contractor",
+    "name": "Contractor",
+    "title": "Components/Gallery dialog (open)",
+    "importPath": "./src/stories/gallery-dialog.stories.ts",
+    "componentPath": "./src/stories/GalleryDemo.astro",
+    "tags": [
+      "dev",
+      "test",
+      "manifest",
+      "autodocs",
+      "opens-gallery"
+    ],
+    "exportName": "Contractor",
+    "file": "components-gallery-dialog-open--contractor.png"
+  }
+]
