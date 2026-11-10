@@ -27,7 +27,6 @@ if ! ready; then
   chmod 700 "$runs"
   # A fleet-owned, disposable run checkout: recreate it when stale or dirty.
   if [ -e "$dir" ]; then git -C "$repo" worktree remove --force "$dir" 2>/dev/null || rm -rf -- "$dir"; fi
-  rm -f -- "$runs/$revision.ready"
   git -C "$repo" worktree prune
   git -C "$repo" worktree add --quiet --detach "$dir" "$revision"
 fi
@@ -36,19 +35,26 @@ cd "$dir"
 mise trust --quiet "$dir/mise.toml" >/dev/null 2>&1 || true
 # The manager runs the same locked toolchain (and so the same agent versions)
 # as every worker: publish this revision's global config, install it and the
-# frozen dependencies. Warm: skipped when this checkout did it within a day.
+# frozen dependencies. Warm: the toolchain is skipped when the same inputs
+# (tool pins, locks, setup code) were installed within a day, so a revision
+# that changes none of them only installs its own dependencies.
 # Stamp and log sit beside the checkout: inside it they would make it dirty.
-stamp="$runs/$revision.ready"
+stamp="$runs/toolchain-ready"
 log="$runs/$revision.setup.log"
-if [ -z "$(find "$stamp" -mmin -1440 2>/dev/null)" ]; then
+key=$(git rev-parse HEAD:mise.toml HEAD:mise.lock HEAD:.mise HEAD:bun.lock HEAD:package.json HEAD:scripts/dev 2>/dev/null | tr '\n' ' ')
+[ -n "$key" ] || key=$revision
+failed() {
+  tail -n 20 "$log" >&2
+  say "toolchain or dependency install failed in the run checkout; full log: $log"
+  exit 5
+}
+if [ "$(cat "$stamp" 2>/dev/null)" != "$key" ] || [ -z "$(find "$stamp" -mmin -1440 2>/dev/null)" ]; then
   rm -f -- "$stamp"
-  if ! { mise exec --locked bun -- bun scripts/dev/setup.ts --tools-only &&
-    mise exec --locked bun -- bun install --frozen-lockfile --silent; } >"$log" 2>&1; then
-    tail -n 20 "$log" >&2
-    say "toolchain or dependency install failed in the run checkout; full log: $log"
-    exit 5
-  fi
-  touch "$stamp"
+  mise exec --locked bun -- bun scripts/dev/setup.ts --tools-only >"$log" 2>&1 || failed
+  printf '%s' "$key" >"$stamp"
+fi
+if [ ! -d node_modules ]; then
+  mise exec --locked bun -- bun install --frozen-lockfile --silent >>"$log" 2>&1 || failed
 fi
 # Keep the three most recent run checkouts (names are commit SHAs) and the
 # applied one: fleet/current points at it and T3's providers launch from there.
@@ -57,7 +63,7 @@ applied=$(basename "$(readlink "$(dirname "$runs")/current" 2>/dev/null || true)
 for old in $(ls -1td "$runs"/*/ | tail -n +4); do
   [ "$(basename "$old")" != "$applied" ] || continue
   git -C "$repo" worktree remove --force "$old" 2>/dev/null || true
-  rm -f -- "${old%/}.setup.log" "${old%/}.ready"
+  rm -f -- "${old%/}.setup.log"
 done
 git -C "$repo" worktree prune
 export PERSONAL_WORKSPACE="$dir" PERSONAL_FLEET_RUN_CHECKOUT="$revision"
