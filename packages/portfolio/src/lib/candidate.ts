@@ -154,10 +154,10 @@ export const buildLlmsTxt = (): string =>
     `- Contact: ${CONTENT.EMAIL_ADDRESS}`,
     '',
     '## Developer machine setup',
-    `- [Ubuntu developer-fleet synchronization: setup, maintenance and implementation status](${abs('/llms-infra.txt')}#ubuntu-developer-fleet-synchronization): public fleet-sync entry point, approved revisions, recovery and outstanding acceptance gates.`,
-    `- [Complete developer fleet configuration runbook](${abs('/llms-infra.txt')}#developer-fleet-configuration-setup): node registration, independent authentication, direct/proxy profiles, T3 setup, verification, rollout and rollback.`,
+    `- [Ubuntu developer-fleet synchronization: setup, maintenance and implementation status](${abs('/llms-local.txt')}#ubuntu-developer-fleet-synchronization): public fleet-sync entry point, approved revisions, recovery and outstanding acceptance gates.`,
+    `- [Complete developer fleet configuration runbook](${abs('/llms-local.txt')}#developer-fleet-configuration-setup): node registration, independent authentication, direct/proxy profiles, T3 setup, verification, rollout and rollback.`,
     '',
-    `- [Shared setup for macOS, Windows and Linux](${abs('/llms-infra.txt')}#machine-setup-macos-windows-and-linux): bootstrap commands, locked developer tools, Docker, authentication and updates for agents setting up Chris's computers.`,
+    `- [Shared setup for macOS, Windows and Linux](${abs('/llms-local.txt')}#machine-setup-macos-windows-and-linux): bootstrap commands, locked developer tools, Docker, authentication and updates for agents setting up Chris's computers.`,
     '',
     '## Experience',
     '',
@@ -180,7 +180,7 @@ export const buildLlmsTxt = (): string =>
     '',
     '## Optional',
     '',
-    `- [Infrastructure integration guide](${abs('/llms-infra.txt')}): for AI coding agents working in Chris's own repositories, not candidate information.`,
+    `- [Infrastructure guides index](${abs('/llms-infra.txt')}): for AI coding agents working in Chris's own repositories, not candidate information. Routes to two separate guides: [local development infrastructure](${abs('/llms-local.txt')}) and [cloud app infrastructure](${abs('/llms-cloud.txt')}).`,
     '',
   ].join('\n');
 

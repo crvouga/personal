@@ -177,7 +177,7 @@ References: [Keycloak production](https://www.keycloak.org/server/configuration-
 ## Scoped registration credentials
 
 [Agent onboarding](README.md#agent-registration) and the generated public
-[consumer guide](https://www.chrisvouga.dev/llms.txt#6-auth-relay-google-sign-in)
+[consumer guide](https://www.chrisvouga.dev/llms-cloud.txt#5-auth-relay-google-sign-in)
 cover the CLI/HTTP interface. The additive `agent_grants` table and nullable
 `clients.agent_id` are Atlas-owned; apply a reviewed foundation schema plan before
 deploying this gateway. Readiness checks those tables/columns as well as provider

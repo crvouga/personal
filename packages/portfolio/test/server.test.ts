@@ -317,7 +317,7 @@ test('Docker container serves the multi-route site on port 80', async () => {
       (llms.headers.get('content-type') || '').includes('text/plain')
     ).toBe(true);
     // /llms.txt is candidate information for recruiters' screening agents;
-    // the infrastructure guide moved to /llms-infra.txt and is linked from it.
+    // /llms-infra.txt indexes the separate local and cloud infrastructure guides.
     const llmsBody = await llms.text();
     expect(llmsBody.startsWith('# Chris Vouga')).toBe(true);
     expect(llmsBody.includes('/llms-infra.txt')).toBe(true);
@@ -325,8 +325,20 @@ test('Docker container serves the multi-route site on port 80', async () => {
     const infra = await fetch(`${TEST_URL}/llms-infra.txt`);
     expect(infra.status).toBe(200);
     const infraBody = await infra.text();
-    expect(infraBody.includes('infrastructure integration guide')).toBe(true);
-    expect(infraBody.includes('## 2. PostgreSQL')).toBe(true);
+    expect(infraBody.includes('/llms-local.txt')).toBe(true);
+    expect(infraBody.includes('/llms-cloud.txt')).toBe(true);
+
+    const cloud = await fetch(`${TEST_URL}/llms-cloud.txt`);
+    expect(cloud.status).toBe(200);
+    const cloudBody = await cloud.text();
+    expect(cloudBody.includes('## 2. PostgreSQL')).toBe(true);
+    expect(cloudBody.includes('## Machine setup')).toBe(false);
+
+    const local = await fetch(`${TEST_URL}/llms-local.txt`);
+    expect(local.status).toBe(200);
+    const localBody = await local.text();
+    expect(localBody.includes('## Machine setup')).toBe(true);
+    expect(localBody.includes('## 2. PostgreSQL')).toBe(false);
 
     const resumeJson = await fetch(`${TEST_URL}/resume.json`);
     expect(resumeJson.status).toBe(200);

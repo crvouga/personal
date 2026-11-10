@@ -185,7 +185,7 @@ Register reconciles project/environment/instance, retains the client ID and uses
 the current revision. No write or one-time code is automatically retried.
 Without expiresAt, register requests one hour, capped at the approved grant expiry.
 --callback supplies the actual bound callback; --ttl-seconds overrides expiresAt.
-Guide: https://www.chrisvouga.dev/llms.txt`;
+Guide: https://www.chrisvouga.dev/llms-cloud.txt#5-auth-relay-google-sign-in`;
 
 if (import.meta.main) {
   try {

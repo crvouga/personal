@@ -19,9 +19,11 @@ packages/portfolio/src/data/github-insights.json
 # Superset design-feedback attachments (generated, not source)
 .superset/attachments
 
-# Template for the generated root llms.txt; Prettier would rewrite the
-# {{block:…}} tokens inside its fenced YAML. Its output (llms.txt) is not Markdown-formatted either.
+# Templates for the generated llms.txt / llms-local.txt / llms-cloud.txt; Prettier would
+# rewrite the {{block:…}} tokens inside fenced YAML. The outputs are not Markdown-formatted either.
 scripts/llms-txt.template.md
+scripts/llms-local.template.md
+scripts/llms-cloud.template.md
 
 # Generated session metadata is not source.
 .sc/
