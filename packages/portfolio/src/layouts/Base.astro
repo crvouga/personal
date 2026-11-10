@@ -113,6 +113,8 @@ const hasFeed = (await publishedPosts()).length > 0;
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('a[href^="/"]').forEach((link) => {
         const url = new URL(link.getAttribute('href'), window.location.origin);
+        // The archetype index links to each presentation by name.
+        if (link.hasAttribute('data-keep-href')) return;
         if (url.searchParams.has(archetypeParam)) return;
         url.searchParams.set(archetypeParam, value);
         link.setAttribute('href', url.pathname + url.search + url.hash);
