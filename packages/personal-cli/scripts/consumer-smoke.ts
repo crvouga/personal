@@ -200,7 +200,9 @@ async function exerciseManager(
       '--dry-run',
       '--json',
     ],
-    { cwd: directory, env }
+    // Never hand off to the real manager over SSH: CI cannot reach it, and a
+    // fleet machine would run a live dry run. Check the local refusal instead.
+    { cwd: directory, env: { ...env, PERSONAL_FLEET_NO_FORWARD: '1' } }
   );
   const report = JSON.parse(result.stdout);
   assert(

@@ -162,6 +162,16 @@ Reuse these instead of creating duplicates. Adding a key means a human updates t
 | `AUTH_MANAGER_CLIENT_ID` | dev, prd | auth-relay, auth-relay-dev |  |
 | `AUTH_MANAGER_CLIENT_SECRET` | dev, prd | auth-relay, auth-relay-dev |  |
 | `MOVIEFINDER_AUTH_SECRET` | dev, prd | moviefinder | yes |
+| `LANES_SESSION_SECRET` | dev, prd | lanes | yes |
+| `LANES_GITHUB_WEBHOOK_SECRET` | dev, prd | lanes | yes |
+| `LANES_TOKEN_ENCRYPTION_KEY` | dev, prd | lanes | yes |
+| `LANES_ZERO_API_KEY` | dev, prd | lanes, lanes-zero | yes |
+| `LANES_ZERO_ADMIN_PASSWORD` | dev, prd | lanes-zero | yes |
+| `LANES_GITHUB_CLIENT_ID` | dev, prd | lanes |  |
+| `LANES_GITHUB_CLIENT_SECRET` | dev, prd | lanes |  |
+| `LANES_GITHUB_PUBLIC_TOKEN` | dev, prd | lanes |  |
+| `ZERO_UPSTREAM_DB` | dev, prd | lanes-zero |  |
+| `MOCKINGBIRD_FLEET_OPERATOR_TOKEN` | prd | mockingbird-fleet | yes |
 | `CLIPROXY_FLEET_CLIENT_API_KEY` | prd | cliproxy-fleet, fleet-agents | yes |
 | `CLIPROXY_FLEET_MANAGEMENT_KEY` | prd | cliproxy-fleet | yes |
 | `CLIPROXY_FLEET_RESTIC_PASSWORD` | prd | cliproxy-fleet | yes |

@@ -18,7 +18,6 @@
         "chalk": "catalog:",
         "eslint": "catalog:",
         "eslint-plugin-lingui": "catalog:",
-        "eslint-plugin-naming": "catalog:",
         "eslint-plugin-no-only-tests": "catalog:",
         "eslint-plugin-react-hooks": "catalog:",
         "ora": "catalog:",
@@ -313,7 +312,6 @@
     "commander": "^14.0.2",
     "eslint": "^9.25.0",
     "eslint-plugin-lingui": "^0.13.1",
-    "eslint-plugin-naming": "^0.1.10",
     "eslint-plugin-no-only-tests": "^3.4.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "hono": "^4.7.0",
@@ -1525,7 +1523,6 @@
 
     "eslint-plugin-lingui": ["eslint-plugin-lingui@0.13.1", "", { "dependencies": { "@typescript-eslint/utils": "^8.57.2", "micromatch": "^4.0.8" }, "peerDependencies": { "eslint": "^8.37.0 || ^9 || ^10", "typescript": "^5.0.0 || ^6.0.0" } }, "sha512-tnMmVXRwXK32ks5GFzAftC6CCSOkQ77z8obwDclgOEulzMpOjjKjNL7/BV1X74KQhnkHBCr/PA0wwX/h6ZZMcg=="],
 
-    "eslint-plugin-naming": ["eslint-plugin-naming@0.1.10", "", { "peerDependencies": { "eslint": ">=7.28.0" } }, "sha512-J1OofB0yFlebUN3cpVkErOq+KyD9o19UDciTaiy+ne00oujl4W0amqVkwG8XctmUtWPPZcGPahz3wR12PABXkA=="],
 
     "eslint-plugin-no-only-tests": ["eslint-plugin-no-only-tests@3.4.0", "", {}, "sha512-4S3/9Nb7A2tiMcpzEQE9bQSlpeOz6WJkgryBuou/SA8W2x2c8Zf4j0NvTKBjv6qNhF9T79tmkecm/0CHqV0UGg=="],
 

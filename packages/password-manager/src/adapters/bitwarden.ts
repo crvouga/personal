@@ -8,7 +8,12 @@ import { ManagerError } from '../domain/errors.ts';
 import { baseEnvironment, command, type Command } from './process.ts';
 import { ensurePrivateDirectory } from './paths.ts';
 const require = createRequire(import.meta.url);
-export const BW_VERSION = '2026.10.0';
+/** The exact version this package pins, so a dependency bump needs no code change. */
+export const BW_VERSION = (
+  JSON.parse(readFileSync(require.resolve('../../package.json'), 'utf8')) as {
+    dependencies: Record<string, string>;
+  }
+).dependencies['@bitwarden/cli']!;
 export function bitwardenExecutable(): string {
   const manifest = require.resolve('@bitwarden/cli/package.json');
   const pkg = JSON.parse(readFileSync(manifest, 'utf8')) as {
