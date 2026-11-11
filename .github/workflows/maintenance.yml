@@ -223,42 +223,16 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install dependencies
         uses: ./.github/actions/setup
+      # A failure opens a `ci-failed` issue through failure-issues.yml.
       - name: Check every public link the portfolio shows
-        id: check
-        continue-on-error: true
         run: >
-          set -o pipefail
-
-          bun run packages/portfolio/scripts/health-check-urls.ts \
-            --timeout-ms 30000 --retries 4 --retry-delay-ms 5000 2>&1 | tee link-report.txt
-      - name: Open or update the broken-link issue
-        if: steps.check.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TITLE: "Portfolio: broken public links"
-        run: |
-          set -euo pipefail
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          {
-            echo "The daily portfolio link check failed: ${run_url}"
-            echo
-            echo '~~~'
-            tail -n 60 link-report.txt
-            echo '~~~'
-          } > issue-body.md
-          number="$(gh issue list --state open --search "in:title \"${TITLE}\"" --json number --jq '.[0].number // empty')"
-          if [ -n "$number" ]; then
-            gh issue comment "$number" --body-file issue-body.md
-          else
-            gh issue create --title "$TITLE" --body-file issue-body.md
-          fi
-          exit 1
+          bun run packages/portfolio/scripts/health-check-urls.ts
+          --timeout-ms 30000 --retries 4 --retry-delay-ms 5000
   update:
     name: Update
     if: github.ref == 'refs/heads/main' && ((github.event_name == 'schedule' &&

@@ -6,12 +6,13 @@ All code is written by agents and merged by CI; nobody reviews it. CI is the onl
 
 - Only pick up issues labeled `ready`. One task = one small PR.
 - Branch from fresh `main`: `git fetch origin && git switch -c agent/<task>-<slug> origin/main` (T3 worktrees use `t3/*`; both count as agent branches). Never push to `main`.
-- Open the PR as a draft, run `bun run check` until it passes, then mark it ready and run `gh pr merge --auto --squash`.
+- Open the PR as a draft, run `bun run check` until it passes, then mark it ready. Marking an agent PR ready turns on squash auto-merge, so it merges by itself once `Check` passes (`gh pr merge --auto --squash` does the same by hand).
 - Title: Conventional Commit (`feat(scope): …`, commitlint enforces it). The PR body becomes the squash commit body; fill in `.github/pull_request_template.md`.
 - Breaking changes are fine: there is one user and one deployed version. Delete old code; no compatibility shims, flags or migrations for old callers.
 - Never weaken a check to go green. Fix the code, or add the `needs-human` label and explain why in the PR body.
 - Do not bump dependencies; Dependabot owns that (`deps` label).
 - `needs-human` and `do-not-merge` turn off auto-merge; a human merges or closes the PR.
+- **Failures on `main` become issues.** Any failing job on `main` (CI, Deploy, Maintenance, Developer toolchain, Agent PRs, Drift) opens one issue per job, `<workflow>: <job> failing on main`, labeled `ci-failed` and `ready`, with `file:line`, the repro command, a log excerpt and a JSON block. Fix it like any task and put `Fixes #<n>` in the PR body; the issue also closes itself when that job next passes on `main` (`.github/workflows/failure-issues.yml`).
 - **When CI fails**, read the PR's sticky "CI report" comment: each failure lists `file:line`, a `Reproduce:` command and a JSON block (`failures[].job`, `.command`, `.locations`). Reproduce locally, fix, push. After 3 failing commits the PR is labeled `needs-human`.
 - Idle agent PRs are labeled `stale` after 2 days and closed after 5. Branches behind `main` are updated hourly; a conflict labels `needs-human` and lists the files.
 

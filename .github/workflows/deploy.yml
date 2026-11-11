@@ -30,7 +30,6 @@ permissions:
   contents: read
   packages: write
   id-token: write
-  issues: write
 defaults:
   run:
     shell: bash
@@ -228,18 +227,3 @@ jobs:
         env:
           VAULT_ADDR: https://vault.chrisvouga.dev
         run: bun run --cwd packages/zoomies configure
-      - name: Open or update the deploy-failure issue
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: >
-          bun scripts/ci/upsert-issue.ts --title "Deploy failed" --label deploy-failed
-          --body "Deploy of ${GITHUB_SHA} failed (${GITHUB_EVENT_NAME}): ${RUN_URL}"
-      - name: Close the deploy-failure issue
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >
-          bun scripts/ci/upsert-issue.ts --title "Deploy failed" --label deploy-failed
-          --body "Deploy of ${GITHUB_SHA} succeeded." --close

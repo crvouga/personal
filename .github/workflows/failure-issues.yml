@@ -1,0 +1,47 @@
+name: Failure issues
+# Turns failing jobs on main into `ci-failed` + `ready` issues agents can pick
+# up, and closes each one when its job passes again. See
+# scripts/ci/failure-issues.ts. workflow_run runs this file from main, never PR
+# code; artifacts are read as data.
+on:
+  workflow_run:
+    workflows: [CI, Deploy, Maintenance, Developer toolchain, Agent PRs, Drift]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  report:
+    name: Open or close failure issues
+    if: github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.event != 'merge_group' &&
+      github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    concurrency:
+      group: failure-issues
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: Download failure summaries
+        if: github.event.workflow_run.conclusion != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -p 'ci-summary-*' -D summaries || echo "No failure summaries"
+      - name: Open or close issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SUMMARIES: summaries
+        run: bun scripts/ci/failure-issues.ts

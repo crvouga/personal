@@ -498,7 +498,8 @@ jobs:
             fi
           done
   # Slow lanes run on main, merge-queue and manual runs, never on PR pushes.
-  # Deploy and release wait for them; a failure on main opens an issue.
+  # Deploy and release wait for them; a failing job on main opens an issue
+  # (failure-issues.yml).
   slow:
     name: Slow checks
     if: always() && inputs.service_id == '' && github.event_name != 'pull_request'
@@ -538,30 +539,6 @@ jobs:
               exit 1
             fi
           done
-  main_failure:
-    name: Report main failure
-    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-      && inputs.service_id == ''
-    needs:
-      - check
-      - slow
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
-      - name: Open or update the main-failure issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: >
-          bun scripts/ci/upsert-issue.ts --title "CI failed on main" --label
-          ci-failed --body "CI failed on main at ${GITHUB_SHA}: ${RUN_URL}"
   deploy:
     name: Deploy
     if: "!cancelled() && needs.check.result == 'success' && needs.slow.result ==
@@ -574,7 +551,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-      issues: write
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
   publish:

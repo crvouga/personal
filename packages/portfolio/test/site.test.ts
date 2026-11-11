@@ -4,6 +4,8 @@
  * phone and desktop widths in both themes, the performance budget, and that no
  * page talks to a third party. Runs against `dist/` (`bun run test:site`, which
  * Turbo orders after `build`), served the way nginx serves it: real 404s.
+ * Tests run concurrently (`--concurrent`), so each opens its own browser
+ * context and shares no state with the others.
  */
 import AxeBuilder from '@axe-core/playwright';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
