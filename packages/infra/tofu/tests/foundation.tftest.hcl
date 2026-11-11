@@ -110,6 +110,10 @@ run "application_owned_publisher" {
     condition     = alltrue([for name, ruleset in github_repository_ruleset.application_default_branch : ruleset.enforcement == "active" && toset([for check in one(ruleset.rules).required_status_checks[0].required_check : check.context]) == toset(local.application_repositories[name].required_status_checks)])
     error_message = "Transferring publisher ownership must preserve required application checks."
   }
+  assert {
+    condition     = alltrue([for name, ruleset in github_repository_ruleset.application_default_branch : toset(one(ruleset.rules).pull_request[0].allowed_merge_methods) == toset(try(local.application_repositories[name].allowed_merge_methods, ["merge"]))]) && toset(one(github_repository_ruleset.application_default_branch["gitty"].rules).pull_request[0].allowed_merge_methods) == toset(["squash"])
+    error_message = "Each application ruleset must allow exactly the repository's declared merge methods; gitty merges by squash only."
+  }
 }
 
 run "personal_repository_merge_gate" {
@@ -170,7 +174,7 @@ run "protected_publisher_handoff" {
 run "application_namespace_allocation_is_opt_in" {
   command = plan
   assert {
-    condition     = toset(keys(postgresql_schema.application)) == toset(["moviefinder"]) && postgresql_schema.application["moviefinder"].name == "moviefinder" && postgresql_schema.application["moviefinder"].if_not_exists
+    condition     = toset(keys(postgresql_schema.application)) == toset(["moviefinder", "mockingbird-fleet"]) && postgresql_schema.application["moviefinder"].name == "moviefinder" && postgresql_schema.application["mockingbird-fleet"].name == "mockingbird_fleet" && alltrue([for schema in values(postgresql_schema.application) : schema.if_not_exists])
     error_message = "Allocate only the new namespace; never adopt or alter existing application schemas."
   }
 }

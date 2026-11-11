@@ -108,6 +108,13 @@
       "sourceUrl": "https://github.com/crvouga/mockingbird/tree/main/sites/docs"
     },
     {
+      "hostname": "mockingbird-fleet.chrisvouga.dev",
+      "url": "https://mockingbird-fleet.chrisvouga.dev/",
+      "id": "mockingbird-fleet",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/mockingbird/tree/main/sites/fleet"
+    },
+    {
       "hostname": "llm-proxy.chrisvouga.dev",
       "url": "https://llm-proxy.chrisvouga.dev/",
       "id": "llm-proxy",

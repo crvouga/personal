@@ -1135,6 +1135,53 @@
             "publish_dispatch": true,
             "required_status_checks": ["Fleet", "Container"]
           },
+          "gitty": {
+            "description": null,
+            "homepage": null,
+            "default_branch": "main",
+            "topics": [],
+            "vulnerability_alerts": true,
+            "dependabot_security_updates": true,
+            "secret_scanning": "enabled",
+            "secret_scanning_push_protection": "enabled",
+            "has_wiki": false,
+            "allow_merge_commit": false,
+            "allow_rebase_merge": false,
+            "allow_auto_merge": true,
+            "allow_update_branch": true,
+            "delete_branch_on_merge": true,
+            "squash_merge_commit_title": "PR_TITLE",
+            "squash_merge_commit_message": "PR_BODY",
+            "environments": ["production"],
+            "actions_secrets": [],
+            "managed_publisher": false,
+            "publisher_file": ".github/workflows/publish.yml",
+            "publish_dispatch": true,
+            "required_status_checks": ["CI ok"],
+            "allowed_merge_methods": ["squash"],
+            "extra_labels": [
+              {
+                "name": "accessibility",
+                "color": "f143ab",
+                "description": "Barrier affecting people with disabilities"
+              },
+              {
+                "name": "dependencies",
+                "color": "0366d6",
+                "description": "Pull requests that update a dependency file"
+              },
+              {
+                "name": "docker",
+                "color": "21ceff",
+                "description": "Pull requests that update docker code"
+              },
+              {
+                "name": "github_actions",
+                "color": "000000",
+                "description": "Pull requests that update GitHub Actions code"
+              }
+            ]
+          },
           "moviefinder": {
             "description": "Movie and TV discovery with shared lists and reactive social features.",
             "homepage": "https://moviefinder.chrisvouga.dev",
@@ -1541,31 +1588,61 @@
           {
             "name": "S3_ENDPOINT",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
+            "used_by": [
+              "ci",
+              "9router",
+              "fleet-api",
+              "zoomies",
+              "mockingbird-fleet"
+            ],
             "required": true
           },
           {
             "name": "S3_REGION",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
+            "used_by": [
+              "ci",
+              "9router",
+              "fleet-api",
+              "zoomies",
+              "mockingbird-fleet"
+            ],
             "required": true
           },
           {
             "name": "S3_ACCESS_KEY_ID",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
+            "used_by": [
+              "ci",
+              "9router",
+              "fleet-api",
+              "zoomies",
+              "mockingbird-fleet"
+            ],
             "required": true
           },
           {
             "name": "S3_SECRET_ACCESS_KEY",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
+            "used_by": [
+              "ci",
+              "9router",
+              "fleet-api",
+              "zoomies",
+              "mockingbird-fleet"
+            ],
             "required": true
           },
           {
             "name": "S3_BUCKET",
             "configs": ["dev", "prd"],
-            "used_by": ["ci", "9router", "fleet-api", "zoomies"],
+            "used_by": [
+              "ci",
+              "9router",
+              "fleet-api",
+              "zoomies",
+              "mockingbird-fleet"
+            ],
             "required": true
           },
           {
@@ -1587,7 +1664,14 @@
           {
             "name": "DATABASE_URL",
             "configs": ["dev", "prd"],
-            "used_by": ["moviefinder", "llm-proxy", "ci", "9router", "pickflix"]
+            "used_by": [
+              "moviefinder",
+              "llm-proxy",
+              "ci",
+              "9router",
+              "pickflix",
+              "mockingbird-fleet"
+            ]
           },
           {
             "name": "TMDB_API_READ_ACCESS_TOKEN",
@@ -2347,6 +2431,58 @@
           "env": {
             "PORT": "80"
           }
+        },
+        {
+          "id": "mockingbird-fleet",
+          "database_schema": "mockingbird_fleet",
+          "manage_database_schema": true,
+          "kind": "railway",
+          "hostname": "mockingbird-fleet.chrisvouga.dev",
+          "github_repo": "crvouga/mockingbird",
+          "source_code_url": "https://github.com/crvouga/mockingbird/tree/main/sites/fleet",
+          "dockerfile": "sites/fleet/Dockerfile",
+          "build_context": ".",
+          "port": 8080,
+          "health_check": true,
+          "health_path": "/health",
+          "env": {
+            "PORT": "8080",
+            "PUBLIC_URL": "https://mockingbird-fleet.chrisvouga.dev",
+            "TRUSTED_PROXY_HOPS": "1",
+            "DATABASE_SCHEMA": "mockingbird_fleet",
+            "S3_PREFIX": "mockingbird-fleet"
+          },
+          "secrets": [
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "S3_ENDPOINT",
+              "source": "vault"
+            },
+            {
+              "name": "S3_REGION",
+              "source": "vault"
+            },
+            {
+              "name": "S3_ACCESS_KEY_ID",
+              "source": "vault"
+            },
+            {
+              "name": "S3_SECRET_ACCESS_KEY",
+              "source": "vault"
+            },
+            {
+              "name": "S3_BUCKET",
+              "source": "vault"
+            },
+            {
+              "name": "OPERATOR_TOKEN",
+              "source": "vault",
+              "vault_key": "MOCKINGBIRD_FLEET_OPERATOR_TOKEN"
+            }
+          ]
         },
         {
           "id": "llm-proxy",

@@ -69,6 +69,9 @@ locals {
         local.standard_labels,
         contains(["connect-four", "match-three", "simon-says"], name) ? [local.dependency_label] : [],
         name == "violets-garden" ? [local.accessibility_label] : [],
+        # Labels a repository already uses beyond the standard set, such as
+        # Dependabot's, so adoption does not delete them.
+        try(local.application_repositories[name].extra_labels, []),
       )
     )
   }
@@ -264,7 +267,7 @@ resource "github_repository_ruleset" "application_default_branch" {
     deletion         = true
     non_fast_forward = true
     pull_request {
-      allowed_merge_methods             = ["merge"]
+      allowed_merge_methods             = try(each.value.allowed_merge_methods, ["merge"])
       dismiss_stale_reviews_on_push     = false
       require_code_owner_review         = false
       require_last_push_approval        = false
