@@ -19,18 +19,20 @@ function run(args: string[]): void {
     throw new Error(`${args.join(' ')} failed (${result.status})`);
 }
 
-export async function syncTools(): Promise<void> {
+/** Resolves to false when dev-fleet owns this machine's global config. */
+export async function syncTools(): Promise<boolean> {
   const dir = globalConfigDir();
   assertManagedConfig(dir);
   run(['mise', 'install', '--locked']);
   await installNativeAws();
-  publishGlobalConfig(dir);
+  const published = publishGlobalConfig(dir);
   run(['mise', 'reshim']);
   configureShellPath();
+  return published;
 }
 
 if (import.meta.main) {
-  await syncTools();
+  const published = await syncTools();
   if (!process.argv.includes('--tools-only'))
     run([
       'mise',
@@ -42,7 +44,9 @@ if (import.meta.main) {
       '--frozen-lockfile',
     ]);
   console.log(
-    'Shared toolchain installed globally. Reopen terminals/editors, or refresh this terminal with: exec "$SHELL" -l (Unix).'
+    published
+      ? 'Shared toolchain installed globally. Reopen terminals/editors, or refresh this terminal with: exec "$SHELL" -l (Unix).'
+      : 'Shared toolchain installed for this checkout. The global mise config is the one dev-fleet published on this fleet machine and was left unchanged.'
   );
   console.log(
     'Verify: mise exec -- bun scripts/dev/doctor.ts (add --docker to require a running Docker engine).'

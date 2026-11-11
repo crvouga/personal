@@ -27,10 +27,27 @@ CLI products. Third-party tools, including dev-fleet, retain their own CLIs.
 
 ## The fleet runs from dev-fleet
 
-All fleet management (machines, Ansible policy, agent launchers, T3 provider instances, monitoring and the CLI proxy) lives in [crvouga/dev-fleet](https://github.com/crvouga/dev-fleet). This repository holds only this fleet's configuration, `fleet.json`, and the pinned dev-fleet commit, `fleet.revision`. `bash scripts/dev/project-action.sh fleet-sync` (also `fleet-status`, `fleet-repair`, `infra-cliproxy`) runs dev-fleet at that pin through `scripts/dev/fleet.sh`; `bun run fleet <command>` and `bun run cliproxy` do the same. The **CLI proxy health** workflow runs dev-fleet's proxy checks at the pin.
+All fleet management (machines, Ansible policy, agent launchers, T3 provider instances, monitoring and the CLI proxy) lives in [crvouga/dev-fleet](https://github.com/crvouga/dev-fleet). This repository holds only this fleet's configuration, `fleet.json`, and the pinned dev-fleet commit, `fleet.revision`. `scripts/dev/fleet.sh` runs any dev-fleet command at that pin with this `fleet.json`; everything below goes through it. The **CLI proxy health** workflow runs dev-fleet's proxy checks at the pin.
 
+| Task                                       | Root script               | T3 project action (`bash scripts/dev/project-action.sh …`) |
+| ------------------------------------------ | ------------------------- | ---------------------------------------------------------- |
+| Preview a sync (`fleet-sync --dry-run`)    | `bun run fleet:preview`   | `fleet-preview`                                            |
+| Converge the manager and every worker      | `bun run fleet:sync`      | `fleet-sync`                                               |
+| Read-only audit of every worker            | `bun run fleet:status`    | `fleet-status`                                             |
+| Workers, T3 providers and (manager) proxy  | `bun run fleet:health`    | `fleet-health`                                             |
+| Preview repairs (`--apply --yes` executes) | `bun run fleet:repair`    | `fleet-repair`                                             |
+| T3 provider drift on this machine          | `bun run fleet:t3`        | `fleet-t3-status`                                          |
+| The CLI proxy's operations                 | `bun run cliproxy <op>`   | `infra-cliproxy <op>`                                      |
+| Any other dev-fleet command                | `bun run fleet <command>` |                                                            |
+| The command catalog and agent contract     | `bun run fleet:commands`  |                                                            |
+
+- Read `bun run fleet:commands` before using a dev-fleet command. `fleet-sync`, `fleet-node-sync`, `t3-apply` and `t3-cleanup` apply when invoked; only `--dry-run` previews. `--json` does not make a command read-only. The preview is not free of side effects on the manager either: it installs the pinned revision's toolchain there first ([dev-fleet#18](https://github.com/crvouga/dev-fleet/issues/18)), so preview a new `fleet.revision` only when you mean to move the manager to it.
+- `fleet-sync` runs on the manager; started on a worker it hands off to the manager over SSH. Every other command needs the checkout of the pinned revision that `fleet-sync` leaves on the machine.
 - Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change this fleet's machines, endpoints or secret locations in `fleet.json`.
+- **Never edit dev-fleet itself**: not `node_modules`, not a clone, not a checkout or file it installs on a machine; the next install or `fleet-sync` replaces them. Do not work around a dev-fleet defect here either. A bug in dev-fleet or a feature it lacks is a GitHub issue at https://github.com/crvouga/dev-fleet/issues (one per defect, after searching the open ones); tell the user what is blocked and link it. Issues are public: no credentials, hostnames, accounts, domains, tailnet names, home-directory paths, raw subprocess output or `fleet.json` contents. Include the dev-fleet version or commit, the command and flags, the failing check IDs and what was expected.
 - Never add fleet code back here. `packages/workstation` uses dev-fleet's platform and agent modules through the published `@crvouga/dev-fleet` npm package.
+- On a fleet machine the global mise configuration belongs to dev-fleet: `scripts/dev/setup.ts` installs this checkout's tools and leaves a global config that carries dev-fleet's marker unchanged. Fleet actions never run this repository's bootstrap.
+- dev-fleet documents a different pin: the `@crvouga/dev-fleet` version in `package.json`, run as `npx devfleet`, with the fleet state in a bucket named under `state` in `fleet.json`. No published release supports that yet ([dev-fleet#17](https://github.com/crvouga/dev-fleet/issues/17)). When one does, replace `fleet.revision` and the clone in `scripts/dev/fleet.sh` with that dependency; the bucket is a cloud resource and goes through OpenTofu first.
 
 ## Local development infra vs cloud app infra
 

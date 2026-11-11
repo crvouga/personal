@@ -16,7 +16,7 @@ export function agentGuide(release: Release) {
         'This machine’s tools, agent profiles and launcher lifecycle',
     },
     fleet:
-      'Fleet machines, T3 provider instances and the CLI proxy are managed by dev-fleet (https://github.com/crvouga/dev-fleet), not this CLI. From the checkout: bash scripts/dev/project-action.sh fleet-sync | fleet-status | fleet-repair | infra-cliproxy.',
+      'Fleet machines, T3 provider instances and the CLI proxy are managed by dev-fleet (https://github.com/crvouga/dev-fleet), not this CLI. From the checkout: bun run fleet:preview | fleet:sync | fleet:health | fleet:repair | cliproxy, or bun run fleet <command>. Report dev-fleet defects as issues there; never patch it.',
     configuration: {
       workspace:
         '--workspace PATH, PERSONAL_WORKSPACE, closest ancestor mise.toml, then current directory',

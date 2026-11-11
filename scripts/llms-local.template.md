@@ -49,11 +49,25 @@ This repository holds only this fleet's configuration, {{path:fleet.json}}, and 
 dev-fleet commit it runs, {{path:fleet.revision}}. From the checkout:
 
 ```sh
-bash scripts/dev/project-action.sh fleet-sync --dry-run   # preview
-bash scripts/dev/project-action.sh fleet-sync             # apply on the manager
-bash scripts/dev/project-action.sh fleet-status           # read-only worker audit
-bun run cliproxy help                                      # the proxy's operations
+bun run fleet:preview        # fleet-sync --dry-run: what a sync would change
+bun run fleet:sync           # converge the manager and every worker
+bun run fleet:health         # read-only: workers, T3 providers and, on the manager, the proxy
+bun run fleet:repair         # preview repairs; --apply --yes executes them
+bun run fleet <command>      # any other dev-fleet command, for example t3-apply --dry-run
+bun run fleet:commands       # the command catalog and agent contract
+bun run cliproxy help        # the proxy's operations
 ```
+
+The same commands are T3 project actions (`bash scripts/dev/project-action.sh
+fleet-preview | fleet-sync | fleet-status | fleet-health | fleet-repair |
+fleet-t3-status`). `fleet-sync` runs on the manager; started on a worker it hands
+off to the manager over SSH. `fleet-sync`, `fleet-node-sync`, `t3-apply` and
+`t3-cleanup` apply when invoked: only `--dry-run` previews.
+
+Never edit dev-fleet, a checkout it owns or a file it manages on a machine. A
+defect or a missing feature is an issue at
+https://github.com/crvouga/dev-fleet/issues, without credentials, hostnames,
+accounts, domains or `fleet.json` contents.
 
 Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change machines,
 endpoints or secret locations in `fleet.json`. The proxy runs only on the fleet
