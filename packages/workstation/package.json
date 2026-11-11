@@ -21,7 +21,7 @@
     "@pkgs/openrouter": "workspace:*",
     "@pkgs/secret-store": "workspace:*",
     "@pkgs/vault": "workspace:*",
-    "@opencode-ai/plugin": "1.18.29",
+    "@opencode-ai/plugin": "1.19.5",
     "chalk": "catalog:",
     "commander": "catalog:",
     "ora": "catalog:",
