@@ -144,6 +144,11 @@ export const CATALOG: Readonly<Record<string, CatalogEntry>> = {
     'public-app',
     'Docs for stateful emulators of third-party APIs and SQL databases, for end-to-end tests.'
   ),
+  'mockingbird-fleet.chrisvouga.dev': entry(
+    'Mockingbird Fleet',
+    'public-app',
+    'Hosted fleets of Mockingbird API emulators at stable URLs for staging and CI.'
+  ),
   'headlesscombobox.chrisvouga.dev': entry(
     'headless-combobox',
     'public-app',

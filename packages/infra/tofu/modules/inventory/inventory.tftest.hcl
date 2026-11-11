@@ -2,8 +2,8 @@
 run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 22
-    error_message = "Zoomies hosting must retain all 21 existing service entries."
+    condition     = length(output.config.services) == 23
+    error_message = "Every hosted service entry must be retained."
   }
   assert {
     condition     = length(distinct([for service in output.config.services : service.id])) == length(output.config.services)
@@ -46,7 +46,7 @@ run "services_contract" {
     error_message = "Cloudflare TLS and DNS policy must remain explicit desired state."
   }
   assert {
-    condition     = length(output.config.github.repositories) == 17 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
+    condition     = length(output.config.github.repositories) == 18 && alltrue([for repository in values(output.config.github.repositories) : contains(["main", "master"], repository.default_branch)])
     error_message = "Every application repository and its default branch must be declared."
   }
   assert {
