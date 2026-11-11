@@ -149,6 +149,11 @@ export const CATALOG: Readonly<Record<string, CatalogEntry>> = {
     'public-app',
     'Hosted fleets of Mockingbird API emulators at stable URLs for staging and CI.'
   ),
+  'gitty-storybook.chrisvouga.dev': entry(
+    'Lanes Storybook',
+    'public-app',
+    'The component Storybook for Lanes, a keyboard-first Git graph for GitHub repositories.'
+  ),
   'headlesscombobox.chrisvouga.dev': entry(
     'headless-combobox',
     'public-app',

@@ -7,7 +7,7 @@
  * quietly kept yesterday's numbers would report success forever. The site
  * build never runs this — it only reads the committed JSON.
  *
- * API budget (crvouga/workspace today): ~4 GraphQL pages for merged PRs and
+ * API budget (crvouga/personal today): ~4 GraphQL pages for merged PRs and
  * their commit messages, ~6 REST pages of `pull_request` runs, one request per
  * earlier attempt of a re-run PR run, and ~7 requests per repository.
  *
@@ -49,7 +49,7 @@ import {
 import { fetchMergedPrs } from './verification/workspace-prs';
 import { writeJson } from './verification/write-json';
 
-const WORKSPACE = 'crvouga/workspace';
+const WORKSPACE = 'crvouga/personal';
 const REPOS = ['crvouga/mockingbird', 'crvouga/headless-combobox', WORKSPACE];
 const WINDOW_DAYS = 90;
 const DAY_MS = 86_400_000;

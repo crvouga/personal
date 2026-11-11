@@ -2485,6 +2485,20 @@
           ]
         },
         {
+          "id": "gitty-storybook",
+          "kind": "railway",
+          "hostname": "gitty-storybook.chrisvouga.dev",
+          "github_repo": "crvouga/gitty",
+          "source_code_url": "https://github.com/crvouga/gitty",
+          "dockerfile": "Dockerfile.storybook",
+          "build_context": ".",
+          "port": 80,
+          "health_check": true,
+          "env": {
+            "PORT": "80"
+          }
+        },
+        {
           "id": "llm-proxy",
           "kind": "railway",
           "hostname": "llm-proxy.chrisvouga.dev",
