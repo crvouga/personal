@@ -4,6 +4,7 @@ import type { CommandOutcome } from './contracts';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type { Settings } from './settings';
+import { movedToDevFleet, MOVED_REMEDY } from './fleet-moved';
 
 interface SourceOperation {
   title: string;
@@ -82,6 +83,10 @@ export async function forwardSourceOperation(
   settings: Settings
 ): Promise<number> {
   const name = args[0]!;
+  if (name === 'infra-cliproxy' && movedToDevFleet(settings.workspace)) {
+    process.stderr.write(MOVED_REMEDY + '\n');
+    return 1;
+  }
   const operation = SOURCE_OPERATIONS[name]!;
   const rest = args.slice(1);
   const variant =

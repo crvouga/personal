@@ -1,0 +1,95 @@
+{
+  "$schema": "https://raw.githubusercontent.com/crvouga/dev-fleet/main/schema/fleet.schema.json",
+  "version": 3,
+  "source": {
+    "repository": "https://github.com/crvouga/dev-fleet.git"
+  },
+  "secrets": {
+    "provider": "vault",
+    "address": "https://vault.chrisvouga.dev",
+    "mount": "secret",
+    "locations": {
+      "proxy-client-key": {
+        "path": "personal/prd",
+        "field": "CLIPROXY_FLEET_CLIENT_API_KEY"
+      },
+      "monitoring-account-password": {
+        "path": "personal/prd",
+        "field": "BESZEL_FLEET_AUTH"
+      },
+      "monitoring-tunnel-token": {
+        "path": "beszel/tunnel",
+        "field": "TUNNEL_TOKEN"
+      },
+      "proxy-tunnel-token": {
+        "path": "cliproxy-fleet/tunnel",
+        "field": "TUNNEL_TOKEN"
+      }
+    }
+  },
+  "manager": {
+    "id": "chriss-macbook-air",
+    "os": "macOS",
+    "network": {
+      "tailscaleName": "chriss-macbook-air-1.tail4829dc.ts.net",
+      "user": "chrisvouga"
+    },
+    "neverSleepOnPower": true
+  },
+  "workers": [
+    {
+      "id": "chris-vouga-ms-a2",
+      "ssh": "chris-vouga-ms-a2",
+      "os": "linux",
+      "network": {
+        "tailscaleName": "chris-vouga-ms-a2.tail4829dc.ts.net",
+        "sshPort": 22,
+        "user": "chris-vouga",
+        "t3Port": 3773
+      }
+    },
+    {
+      "id": "chris-vouga-mac-studio",
+      "ssh": "chris-vouga-mac-studio",
+      "os": "linux",
+      "network": {
+        "tailscaleName": "chris-vouga-mac-studio.tail4829dc.ts.net",
+        "sshPort": 22,
+        "user": "chrisvouga",
+        "t3Port": 3773
+      }
+    }
+  ],
+  "services": {
+    "proxy": {
+      "endpoint": "https://cli-proxy.chrisvouga.dev"
+    },
+    "monitoring": {
+      "hubPort": 8443,
+      "publicUrl": "https://beszel.chrisvouga.dev",
+      "managerAccount": "fleet-manager@chrisvouga.dev",
+      "viewerAccount": "public-viewer@chrisvouga.dev"
+    }
+  },
+  "ubuntu": {
+    "release": "26.04",
+    "architectures": ["amd64", "arm64"]
+  },
+  "worker": {
+    "requiredCapabilities": [
+      "github",
+      "vault",
+      "t3",
+      "toolchain",
+      "workstation",
+      "worker"
+    ],
+    "githubLogin": "crvouga",
+    "vaultUser": "crvouga",
+    "toolchain": "mise.lock",
+    "agentProfile": "proxy",
+    "unattendedSudo": true,
+    "persistentT3": true,
+    "neverSleep": true
+  }
+}

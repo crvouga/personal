@@ -35,30 +35,30 @@ commands, cloud inventory and docs.
 ## Steps and their state
 
 1. **Inventory.** Done: this file.
-2. **Remove this fleet's identity from the code, in this repository**, so
-   every step can be proven with a real `fleet-sync`:
-   - 2a. Endpoints, accounts and the source repository come from the fleet
-     configuration (`packages/fleet/definition.json`, read only by
-     `src/fleet-config.ts`). **Done.**
-   - 2b. Rename launchd labels, state directories and unit names that carry
-     this fleet's name. This migrates running machines, so it is its own
-     change.
-   - 2c. Secrets provider interface; Vault becomes one provider.
-   - 2d. Source repository and package name in the proxy installer, the
-     bootstrap and the scheduler.
+2. **Remove this fleet's identity from the code.** Done in dev-fleet: endpoints,
+   accounts, the source repository, the Vault address, paths and login, and
+   launchd labels no longer name this fleet (`tests/identity.test.ts` there).
+3. **Create dev-fleet.** Done as a fresh import without history
+   (crvouga/dev-fleet PR 1).
+4. **Scrub check.** Done on the tree and on every commit before the push.
+5. **README, MIT license, CI, Renovate, release workflow.** Done. There is no
+   manager container image, so the release workflow creates a GitHub release
+   only.
+6. **This repository consumes dev-fleet.** Partly done: `fleet.json`,
+   `fleet.revision` and `scripts/dev/fleet.sh` run the fleet from dev-fleet.
+   **Not done: deleting the older copy here.** `@crvouga/personal` is a
+   published package whose build, cross-OS smoke tests and release hash are
+   built around the fleet commands, and `packages/workstation` imports the
+   platform adapters that moved with the fleet. Removing the copy means
+   reworking both, and the publish path only runs on `main`.
+7. **End-to-end verification.** A real `fleet-sync` through
+   `project-action.sh` and the fresh-box test, both from dev-fleet.
 
-   `scripts/fleet-identifiers.test.ts` lists every file still naming this
-   fleet, grouped by 2b, 2c and 2d. The list can only shrink.
+## Not migrated on machines
 
-3. **Create dev-fleet** from the cleaned tree as a fresh import. History is not
-   carried: the fleet paths lived under three package names and their history
-   holds hostnames, the tailnet name and a once-tracked account list, so a
-   fresh import is the only way to be certain none of it is published.
-4. **Scrub check** on the dev-fleet tree before anything is pushed.
-5. **dev-fleet README, MIT license, CI, Renovate, release workflow.**
-6. **This repository consumes dev-fleet** at a pinned revision and keeps only
-   its configuration.
-7. **End-to-end verification**: real `fleet-sync` and the fresh-box test.
+- State paths and unit names keep the `personal` prefix
+  (`~/.local/share/personal/fleet`, `/etc/personal-fleet`, `personal-worker-*`).
+- Workers no longer run `personal workstation sync` during fleet-sync.
 
 ## Known hard parts
 
