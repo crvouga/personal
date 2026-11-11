@@ -6,6 +6,7 @@ const pr = (overrides: Partial<PullRequest>): PullRequest => ({
   headRefName: 't3/abc123',
   headRefOid: 'a'.repeat(40),
   author: { login: 'crvouga' },
+  isDraft: false,
   labels: [{ name: 'agent-generated' }],
   mergeable: 'MERGEABLE',
   autoMergeRequest: { mergeMethod: 'SQUASH' },
@@ -57,4 +58,19 @@ test('Dependabot PRs get deps and auto-merge unless held', () => {
   expect(
     kinds({ ...bot, labels: [{ name: 'deps' }, { name: 'do-not-merge' }] })
   ).toEqual([]);
+});
+
+test('ready agent PRs get auto-merge; drafts and held PRs do not', () => {
+  const ready = pr({ autoMergeRequest: null });
+  expect(kinds(ready)).toEqual(['auto-merge']);
+  expect(kinds(ready, 2)).toEqual(['update-branch', 'auto-merge']);
+  expect(kinds({ ...ready, isDraft: true })).toEqual([]);
+  expect(
+    kinds({
+      ...ready,
+      labels: [{ name: 'agent-generated' }, { name: 'do-not-merge' }],
+    })
+  ).toEqual([]);
+  expect(kinds({ ...ready, mergeable: 'CONFLICTING' })).toEqual(['conflict']);
+  expect(kinds({ ...ready, headRefName: 'feature/x' })).toEqual([]);
 });

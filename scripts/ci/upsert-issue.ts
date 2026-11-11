@@ -2,7 +2,9 @@
  * Keeps exactly one open issue per title: comments on it when it exists,
  * opens it otherwise, and `--close` closes it once the condition clears.
  *
- *   bun scripts/ci/upsert-issue.ts --title T --label L (--body B | --body-file F) [--close]
+ *   bun scripts/ci/upsert-issue.ts --title T --label L [--label L2…] (--body B | --body-file F) [--close]
+ *
+ * The first label finds the existing issue; every label is set on a new one.
  */
 import { readFileSync } from 'node:fs';
 import { flag, gh, ghJson, repository } from './github';
@@ -18,7 +20,10 @@ export function truncate(body: string): string {
 if (import.meta.main) {
   const argv = process.argv.slice(2);
   const title = flag(argv, 'title');
-  const label = flag(argv, 'label');
+  const labels = argv.flatMap((arg, i) =>
+    arg === '--label' && argv[i + 1] ? [argv[i + 1]] : []
+  );
+  const label = labels[0];
   const bodyFile = flag(argv, 'body-file');
   const body = truncate(
     bodyFile ? readFileSync(bodyFile, 'utf8') : (flag(argv, 'body') ?? '')
@@ -68,8 +73,7 @@ if (import.meta.main) {
         repo,
         '--title',
         title,
-        '--label',
-        label,
+        ...labels.flatMap((name) => ['--label', name]),
         '--body-file',
         '-',
       ],

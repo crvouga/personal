@@ -1,17 +1,21 @@
 name: Agent PRs
-# Hourly hygiene for agent PRs: label, update behind branches, flag conflicts,
-# auto-merge Dependabot, and mark/close idle PRs. See scripts/ci/agent-prs.ts.
+# Agent PRs merge themselves: a non-draft agent PR gets squash auto-merge as
+# soon as it is opened or marked ready, so it merges when `Check` passes.
+# Hourly hygiene re-applies that, updates behind branches, flags conflicts,
+# auto-merges Dependabot and marks/closes idle PRs (scripts/ci/agent-prs.ts).
 # Labeling a PR needs-human or do-not-merge turns off its auto-merge.
 on:
   schedule:
     - cron: '23 * * * *'
   pull_request:
-    types: [opened, reopened, labeled]
+    types: [opened, reopened, ready_for_review, labeled]
   workflow_dispatch: {}
 permissions:
   contents: read
+# One group per PR, so PR events never wait behind (or get dropped by) the
+# hourly run, which GitHub would do with a single shared group.
 concurrency:
-  group: agent-prs
+  group: agent-prs-${{ github.event.pull_request.number || 'hygiene' }}
   cancel-in-progress: false
 jobs:
   label:
@@ -28,6 +32,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: gh pr edit "$PR" -R "$GITHUB_REPOSITORY" --add-label agent-generated
+  auto_merge:
+    name: Enable auto-merge
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.head_ref, 't3/') || startsWith(github.head_ref, 'agent/')) &&
+      !contains(github.event.pull_request.labels.*.name, 'needs-human') &&
+      !contains(github.event.pull_request.labels.*.name, 'do-not-merge')
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    steps:
+      - name: Squash when Check passes
+        env:
+          # A merge made with GITHUB_TOKEN starts no workflows, so main would
+          # never run CI or deploy. Use the PAT.
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --auto --squash
   hold_auto_merge:
     name: Hold auto-merge
     if: github.event_name == 'pull_request' && github.event.action == 'labeled' &&

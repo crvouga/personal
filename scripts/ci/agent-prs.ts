@@ -1,9 +1,10 @@
 /**
  * Hourly agent PR hygiene (agent-prs.yml). Stale handling is actions/stale.
- *   - Agent PRs (branches t3/* or agent/*) get `agent-generated`.
+ *   - Agent PRs (branches t3/* or agent/*) get `agent-generated`, and squash
+ *     auto-merge once they are out of draft and not held.
  *   - Branches behind main are updated; a conflict labels `needs-human`,
  *     turns off auto-merge and comments the conflicting files.
- *   - Dependabot PRs get squash auto-merge.
+ *   - Dependabot PRs get `deps` and squash auto-merge.
  * GH_TOKEN must be a token whose pushes trigger workflows (not GITHUB_TOKEN),
  * or updated branches never get the required checks.
  */
@@ -14,6 +15,7 @@ export type PullRequest = {
   headRefName: string;
   headRefOid: string;
   author: { login: string };
+  isDraft: boolean;
   labels: { name: string }[];
   mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
   autoMergeRequest: unknown;
@@ -25,19 +27,19 @@ export type Action =
   | { kind: 'auto-merge' };
 
 export const AGENT_BRANCH = /^(t3|agent)\//;
+export const HOLD_LABELS = ['needs-human', 'do-not-merge'];
 const isDependabot = (pr: PullRequest) => /dependabot/.test(pr.author.login);
 
 export function plan(pr: PullRequest, behindBy: number): Action[] {
   const labels = new Set(pr.labels.map((l) => l.name));
   const actions: Action[] = [];
+  const wantsAutoMerge =
+    !pr.isDraft &&
+    !pr.autoMergeRequest &&
+    !HOLD_LABELS.some((label) => labels.has(label));
   if (isDependabot(pr)) {
     if (!labels.has('deps')) actions.push({ kind: 'label', label: 'deps' });
-    if (
-      !pr.autoMergeRequest &&
-      !labels.has('needs-human') &&
-      !labels.has('do-not-merge')
-    )
-      actions.push({ kind: 'auto-merge' });
+    if (wantsAutoMerge) actions.push({ kind: 'auto-merge' });
     return actions;
   }
   if (!AGENT_BRANCH.test(pr.headRefName)) return actions;
@@ -45,8 +47,11 @@ export function plan(pr: PullRequest, behindBy: number): Action[] {
     actions.push({ kind: 'label', label: 'agent-generated' });
   if (pr.mergeable === 'CONFLICTING') {
     if (!labels.has('needs-human')) actions.push({ kind: 'conflict' });
-  } else if (pr.mergeable === 'MERGEABLE' && behindBy > 0)
+    return actions;
+  }
+  if (pr.mergeable === 'MERGEABLE' && behindBy > 0)
     actions.push({ kind: 'update-branch' });
+  if (wantsAutoMerge) actions.push({ kind: 'auto-merge' });
   return actions;
 }
 
@@ -80,7 +85,7 @@ if (import.meta.main) {
     '--limit',
     '100',
     '--json',
-    'number,headRefName,headRefOid,author,labels,mergeable,autoMergeRequest',
+    'number,headRefName,headRefOid,author,isDraft,labels,mergeable,autoMergeRequest',
   ]);
   let failures = 0;
   for (const pr of prs) {

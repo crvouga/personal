@@ -31,7 +31,7 @@
     "test": "bun test src --pass-with-no-tests",
     "test:docker": "bun test test/server.test.ts",
     "gen:profile-readme": "bun run scripts/gen-profile-readme.ts",
-    "test:site": "bun test test/site.test.ts && bun run storybook:build && bun test test/storybook.test.ts",
+    "test:site": "bun test --concurrent --max-concurrency 4 test/site.test.ts && bun run storybook:build && bun test test/storybook.test.ts",
     "gamezilla-facts": "bun run scripts/gamezilla-facts.ts",
     "storybook": "storybook dev -p 6006 --no-open",
     "storybook:build": "storybook build -o storybook-static --quiet",
