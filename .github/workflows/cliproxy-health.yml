@@ -1,19 +1,17 @@
 name: CLI proxy health
-# One workflow, five entry points, deliberately cheap by default:
+# Live health of this fleet's CLI proxy. The checks are dev-fleet's
+# (cliproxy/scripts at the revision pinned in fleet.revision), run against this
+# repository's fleet.json; dev-fleet's own CI runs their offline contract tests.
+# Deliberately cheap by default:
 #   every 15 min  readiness: free (no inference) + cloud checkpoint freshness
 #   hourly        light: 2 tiny requests per model (about 200 requests a day)
 #   03:41 nightly comprehensive suite (bounded by models.json budgets)
-#   pull request  contract: offline, no credentials, no inference
 #   manual        any profile, one model or one check, optional force-probe
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
     - cron: '17 * * * *'
     - cron: '41 3 * * *'
-  pull_request:
-    paths:
-      - packages/cliproxy-fleet/**
-      - .github/workflows/cliproxy-health.yml
   workflow_dispatch:
     inputs:
       profile:
@@ -27,7 +25,7 @@ on:
         default: all
         options: [all, core, cursor]
       model:
-        description: Optional single model id from packages/cliproxy-fleet/models.json (partial runs never open or close the tracking issue).
+        description: Optional single model id from dev-fleet's cliproxy/models.json (partial runs never open or close the tracking issue).
         type: string
         default: ''
       check:
@@ -45,43 +43,15 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cliproxy-model-health-${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || github.event_name == 'workflow_dispatch' && inputs.profile || github.event.schedule }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: cliproxy-model-health-${{ github.event_name == 'workflow_dispatch' && inputs.profile || github.event.schedule }}
+  cancel-in-progress: false
 env:
+  DEVFLEET_CONFIG: ${{ github.workspace }}/fleet.json
+  PROXY: dev-fleet/cliproxy/scripts
   PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || github.event.schedule == '41 3 * * *' && 'nightly' || github.event.schedule == '17 * * * *' && 'light' || 'readiness' }}
 jobs:
-  contract:
-    # Pull requests: deterministic protocol, routing and report contracts. No credentials, no inference.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install PyYAML for the validate-config contract
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-yaml
-      - name: Lint models.json and run the offline contract tests
-        run: |
-          python3 -B packages/cliproxy-fleet/scripts/check.py
-          python3 -B -m unittest discover -s packages/cliproxy-fleet/tests -p "test_model_*.py"
-      - name: Run the full declarative suite against the local emulator
-        run: |
-          set +e
-          python3 -B packages/cliproxy-fleet/scripts/model_health.py model-suite --target mock --profile manual \
-            --fail-on degraded --output model-health-report --seed 1 > /dev/null
-          code=$?
-          if [ -f model-health-report/model-health.md ]; then cat model-health-report/model-health.md >> "$GITHUB_STEP_SUMMARY"; fi
-          exit $code
-      - name: Keep structured report
-        if: ${{ always() && hashFiles('model-health-report/model-health.json') != '' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: model-health-contract-${{ github.run_id }}
-          path: model-health-report
-          retention-days: 14
   health:
-    if: github.event_name != 'pull_request' && github.repository == 'crvouga/personal' && github.ref == 'refs/heads/main'
+    if: github.repository == 'crvouga/personal' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -90,6 +60,16 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read the pinned dev-fleet revision
+        id: pin
+        run: echo "revision=$(tr -d '[:space:]' < fleet.revision)" >> "$GITHUB_OUTPUT"
+      - name: Check out dev-fleet at the pinned revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: crvouga/dev-fleet
+          ref: ${{ steps.pin.outputs.revision }}
+          path: dev-fleet
+          persist-credentials: false
       - name: Install read-only backup client
         if: env.PROFILE == 'readiness'
         run: |
@@ -106,7 +86,7 @@ jobs:
           exportToken: true
       - name: Verify endpoint and cloud recovery freshness
         if: env.PROFILE == 'readiness'
-        run: python3 -B packages/cliproxy-fleet/scripts/external-health.py
+        run: python3 -B "$PROXY/external-health.py"
       - name: Restore last-success and rate-limit state
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -135,7 +115,7 @@ jobs:
           if [ -n "$MAX_REQUESTS" ]; then args+=(--max-requests "$MAX_REQUESTS"); fi
           if [ "$FORCE_PROBE" = "true" ]; then args+=(--force-probe); fi
           set +e
-          python3 -B packages/cliproxy-fleet/scripts/model_health.py "$command" "${args[@]}" > /dev/null
+          python3 -B "$PROXY/model_health.py" "$command" "${args[@]}" > /dev/null
           code=$?
           if [ -f model-health-report/agent-brief.md ]; then cat model-health-report/agent-brief.md >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f model-health-report/model-health.md ]; then cat model-health-report/model-health.md >> "$GITHUB_STEP_SUMMARY"; fi

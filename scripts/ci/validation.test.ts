@@ -39,7 +39,6 @@ function gate(
 
 test('the Slow checks gate applies the same rules to the slow lanes', () => {
   const slow = {
-    personal_cli: { result: 'success' },
     auth: { result: 'skipped' },
     portfolio_urls: { result: 'success' },
   };
@@ -56,7 +55,7 @@ test('the Slow checks gate applies the same rules to the slow lanes', () => {
     )
   ).not.toBe(0);
   expect(
-    gate({ ...slow, personal_cli: { result: 'failure' } }, selected, jobs.slow)
+    gate({ ...slow, auth: { result: 'failure' } }, selected, jobs.slow)
   ).not.toBe(0);
 });
 

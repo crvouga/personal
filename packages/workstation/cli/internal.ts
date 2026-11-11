@@ -6,6 +6,7 @@
  * - Subcommands → scriptable + LLM-friendly (`--json`, `--yes`,
  *   `--non-interactive`, stable exit codes, secrets never printed).
  */
+import './fleet-config-env';
 import { runInteractive } from './interactive';
 import { buildProgram } from './program';
 import { isExitPromptError } from './lib/cli-opts';

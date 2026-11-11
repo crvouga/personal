@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { spawn } from 'node:child_process';
 
-import { psProcesses } from '../../../../fleet/src/platform/ps';
+import { psProcesses } from '@crvouga/dev-fleet/src/platform/ps';
 import { descendants } from './plan';
 import { terminateProcesses } from './terminate';
 

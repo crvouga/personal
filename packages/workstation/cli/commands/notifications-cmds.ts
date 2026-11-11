@@ -19,8 +19,8 @@ import {
 } from '../lib/focus';
 import { describeLink, ensureLink, managedLinks } from '../lib/links';
 import { writeSoundConfig } from '../lib/notifier-build';
-import { currentPlatform } from '../../../fleet/src/platform';
-import type { NotificationKind } from '../../../fleet/src/platform/types';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
+import type { NotificationKind } from '@crvouga/dev-fleet/src/platform/types';
 import { workstationRoot } from '../lib/paths';
 import {
   muted,

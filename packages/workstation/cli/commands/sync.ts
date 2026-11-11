@@ -1,6 +1,6 @@
 import { buildNotifier, writeSoundConfig } from '../lib/notifier-build';
 import { ensureLink, managedLinks } from '../lib/links';
-import type { Platform } from '../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import { workstationRoot } from '../lib/paths';
 import { syncProvidersFromVault } from '../lib/providers-sync';
 import { ensureTuiPlugin } from '../lib/tui-config';

@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import type { DoctorCheck } from '../doctor';
 import { failCheck, passCheck, warnCheck } from './make-check';
-import type { Platform } from '../../../../fleet/src/platform/types';
-import { diskCheck } from '../../../../fleet/src/machine-health';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
+import { diskCheck } from '@crvouga/dev-fleet/src/machine-health';
 import { findOnPath } from './run';
 import { fetchT3Environment, LOCAL_T3_ORIGIN } from './t3';
 import type { TailscaleStatus } from './tailscale';

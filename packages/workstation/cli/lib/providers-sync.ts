@@ -11,11 +11,8 @@ import {
   loadConfig,
   writeConfig,
 } from './opencode-config';
-import type { Platform } from '../../../fleet/src/platform/types';
-import {
-  resolveVaultConfig,
-  type VaultConfig,
-} from '../../../fleet/src/vault-config';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
+import { resolveVaultConfig, type VaultConfig } from './vault-config';
 
 export type ProviderSyncResult = {
   connected: Array<{ id: string; vaultKey: string }>;

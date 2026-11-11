@@ -7,7 +7,6 @@ on:
       - .mise/locks/**
       - scripts/dev/**
       - packages/workstation/**
-      - packages/fleet/**
       - .github/workflows/toolchain.yml
   push:
     branches: [main]
@@ -17,7 +16,6 @@ on:
       - .mise/locks/**
       - scripts/dev/**
       - packages/workstation/**
-      - packages/fleet/**
       - .github/workflows/toolchain.yml
   workflow_dispatch: {}
 permissions:

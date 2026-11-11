@@ -6,7 +6,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Platform } from '../../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import type { NetCheck } from './inventory';
 
 const LOG_MAX_LINES = 3000;

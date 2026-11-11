@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { NOTIFIER_SOUNDS } from '../../notifier/sounds';
-import type { Platform } from '../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 
 export const NOTIFIER_KINDS = Object.keys(NOTIFIER_SOUNDS);
 

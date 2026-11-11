@@ -1,29 +1,19 @@
 {
   "name": "@crvouga/personal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Interactive, agent-friendly developer fleet command center",
+  "description": "Platform and workstation operations from the personal checkout",
   "bin": {
     "personal": "./bin.mjs"
   },
   "scripts": {
     "dev": "bun src/cli.ts",
-    "build": "bun scripts/build.ts",
-    "smoke": "bun scripts/smoke.ts",
     "tc": "tsc --noEmit",
-    "lint": "eslint src scripts --max-warnings 0",
-    "test": "bun test src tests"
+    "lint": "eslint src --max-warnings 0",
+    "test": "bun test src"
   },
   "dependencies": {
-    "@inquirer/prompts": "8.7.5",
-    "boxen": "9.0.0",
-    "chalk": "6.0.1",
-    "cli-table3": "0.6.5",
     "commander": "15.1.0",
-    "fuse.js": "7.5.0",
-    "ora": "10.0.0"
-  },
-  "devDependencies": {
-    "@pkgs/fleet": "workspace:*"
+    "fuse.js": "7.5.0"
   }
 }

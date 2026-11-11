@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 
 import { AUTO_ROUTER_MODEL_REFERENCE } from '@pkgs/openrouter';
 
-import type { Platform } from '../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 
 export const OPENCODE_SCHEMA = 'https://opencode.ai/config.json';
 

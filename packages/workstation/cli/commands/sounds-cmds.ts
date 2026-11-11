@@ -1,7 +1,7 @@
 import { NOTIFIER_SOUNDS } from '../../notifier/sounds';
 import type { GlobalOpts } from '../lib/cli-opts';
-import { currentPlatform } from '../../../fleet/src/platform';
-import type { Platform } from '../../../fleet/src/platform/types';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import { askInput, askSelect } from '../lib/prompt';
 import {
   NOTIFIER_KINDS,

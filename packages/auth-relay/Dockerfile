@@ -8,7 +8,6 @@ COPY packages/turborepo-remote-cache/package.json ./packages/turborepo-remote-ca
 COPY packages/assert/package.json ./packages/assert/
 COPY packages/admin-ui/package.json ./packages/admin-ui/
 COPY packages/auth-relay/package.json ./packages/auth-relay/
-COPY packages/fleet/package.json ./packages/fleet/
 COPY packages/personal-cli/package.json ./packages/personal-cli/
 COPY packages/infra/package.json ./packages/infra/
 COPY packages/logger/package.json ./packages/logger/
@@ -20,7 +19,6 @@ COPY packages/workstation/package.json ./packages/workstation/
 COPY packages/password-manager/package.json ./packages/password-manager/
 COPY packages/9router/package.json ./packages/9router/
 COPY packages/zoomies/package.json ./packages/zoomies/
-COPY packages/cliproxy-fleet/package.json ./packages/cliproxy-fleet/
 COPY packages/openrouter/package.json ./packages/openrouter/
 COPY packages/portfolio/package.json ./packages/portfolio/
 RUN --mount=type=cache,id=bun-1.4.4-${TARGETARCH},target=/root/.bun/install/cache bun install --filter @pkgs/auth-relay --production --frozen-lockfile --ignore-scripts

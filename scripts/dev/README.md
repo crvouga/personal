@@ -275,28 +275,12 @@ existing workstation convergence. `personal workstation tools sync` reapplies to
 without pulling or touching project dependencies; `personal workstation tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
-For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
-`personal fleet-node-add` registers an existing SSH alias in a local roster,
-`personal fleet-nodes --onboard` generates per-node connection/auth/editor steps,
-and `personal fleet-status --json` diagnoses SSH, authentication, T3 Connect
-settings/API and checkout/lockfile drift. `personal fleet-repair --repair workspace`
-previews convergence through this same setup script; applying requires
-`--apply --yes`. No credentials are copied or cloud resources provisioned;
-VS Code/T3 end-to-end tests remain explicit operator steps.
+Multiple development computers are kept in sync by
+[dev-fleet](https://github.com/crvouga/dev-fleet), run from this checkout at the
+pinned `fleet.revision` with `fleet.json` (see [T3 project actions](#t3-project-actions)).
+Fleet machines get their toolchain from dev-fleet's own pins, not from this file.
 
-Bootstrap each node once using the same reviewed checkout revision, then check
-tool discovery through its actual SSH alias (not just an interactive terminal):
-
-```sh
-ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
-personal fleet-status --json
-personal fleet-repair --repair workspace
-personal fleet-repair --repair workspace --apply --yes
-```
-
-Review the sync plan before applying. SSH must already work and nodes must be in
-your local fleet roster; bootstrap does not create accounts, pair T3, authorize
-SSH keys or copy credentials. Remote Bash sessions depend on sshd sourcing
+Remote Bash sessions depend on sshd sourcing
 `.bashrc`; shells launched with startup files disabled need an explicit PATH or
 the absolute `~/.local/bin/mise exec --locked -- COMMAND` entry point. On Windows,
 restart the parent editor/agent process to inherit the updated user PATH.
@@ -330,59 +314,22 @@ instruction files pointing to that same canonical document; Codex/OpenCode use
 `AGENTS.md` directly. Harness credentials and personal settings remain per machine. Bootstrap is authorized only when the user requests machine
 setup; fetching a public guide alone does not authorize installs or logins.
 
-### Pinned native T3 for Ubuntu fleet services
-
-The shared setup owner verifies the Linux T3 release archive against the
-architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
-`t3_linux_*_sha256`). Artifacts live under `~/.local/share/personal/tools/`.
-Workstation uses that absolute executable for policy commands. The worker's
-only running T3 is the T3 Code desktop app, installed from the same release's
-`.deb` (pinned by `t3_desktop_*_sha256`, computed from the release assets since
-upstream `SHA256SUMS` omits packages) and started by the `t3code-desktop.service`
-user unit in the GDM auto-login session. It shares `~/.t3` with the former
-headless service, so environment identity and pairing are kept. A conflicting
-launcher version or a still-running headless service requires reviewed
-maintenance; routine fleet-sync never restarts active turns to promote a new
-pin. The disposable Ubuntu VM test still exercises the former headless service
-and does not cover the desktop session. Private routing and paired execution
-require separate evidence.
-
-Normal Ubuntu fleet setup is controller-led:
-`npx @crvouga/personal fleet-sync`. See the
-[Fleet runbook](../../packages/fleet/docs/ubuntu-sync.md). A controller without
-Node/npm must first run this tracked bootstrap (or install the documented Node
-prerequisite); `npx` cannot execute before Node/npm exist. Reachable remote targets
-are bootstrapped over verified SSH by the same shared owner.
-
-Repeated approved setup reuses an observed matching mise executable and preserves
-unchanged managed configuration/lockfile timestamps. It still asks mise and the
-frozen dependency owner to inspect actual installations; a previous success marker
-is not a reason to skip drift inspection.
-
 ### T3 project actions
 
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
-Actions are named exactly like the `personal` command they run, so a T3 script
-label reads the same as the CLI: `warm`, `portfolio`, `workstation-sync`,
+Actions: `warm`, `portfolio`, `workstation-sync`,
 `workstation-update`, `workstation-net-fix`, `workstation-net-check`,
-`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`. Label
-each T3 script `Domain: Command words` (`Fleet: Sync`, `Fleet: Status`,
-`Workstation: Net check`, `Infra: Cliproxy model health` running `infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the offline, credential-free suite). `fleet-sync` selects the current checkout HEAD as its
-exact revision and retains its approval flow; extra arguments such as `--dry-run`
-are forwarded. `fleet-status` runs `personal fleet-status --workers`, the
-canonical worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`.
+Workstation actions run the `personal workstation` command of the same name. The
+fleet actions and `infra-cliproxy` run [dev-fleet](https://github.com/crvouga/dev-fleet)
+at the commit pinned in `fleet.revision`, with this repository's `fleet.json`, through
+`scripts/dev/fleet.sh`. Label each T3 script `Domain: Command words` (`Fleet: Sync`,
+`Fleet: Status`, `Workstation: Net check`, `Infra: Cliproxy model health` running
+`infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the
+offline, credential-free suite). Extra arguments such as `--dry-run` are forwarded.
+`fleet-status` runs dev-fleet's `fleet-status --workers`; `fleet-repair` previews
+without applying. Each invocation runs the shared bootstrap first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)
 remain per-machine prerequisites. Configuration actions affect the current machine.
-
-### Minimal worker profile
-
-Controller-driven remote bootstrap passes `--worker` to the shared setup owner.
-It installs the `vars.worker_tools` subset from `mise.toml`, with versions and
-artifacts taken from the same `mise.lock`; native T3 and Ubuntu Docker/service
-policy remain source-pinned. `bun scripts/dev/doctor.ts --worker --docker --json`
-checks that profile. It does not require unrelated cloud CLIs on workers.
-The source-owned `worker-auth.ts` timer renews the worker's existing Vault token
-and can restore the declared GitHub account from its authorized Vault service
-credential, without copying another machine's login directory.

@@ -2,11 +2,9 @@
 // Source-owned launcher; installed as a symlink, never rendered outside Git.
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { resolve, dirname, sep } from 'node:path';
+import { resolve, dirname } from 'node:path';
 const entry = fileURLToPath(new URL('./src/cli.ts', import.meta.url));
-const checkout = resolve(dirname(entry), '../../..').split(
-  `${sep}node_modules${sep}.fleet-revisions${sep}`
-)[0];
+const checkout = resolve(dirname(entry), '../../..');
 const result = spawnSync('bun', [entry, ...process.argv.slice(2)], {
   stdio: 'inherit',
   env: {

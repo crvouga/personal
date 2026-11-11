@@ -17,25 +17,25 @@ All code is written by agents and merged by CI; nobody reviews it. CI is the onl
 
 ## Single CLI ownership
 
-`personal` (published as `@crvouga/personal`) is the only repository-owned user CLI.
-Add domains and commands to `packages/personal-cli`; packages may implement private
-adapters/workers but must not declare another executable, installer, launcher or
-independent user command interface. Root task scripts are aliases or build/test
-and bootstrap tasks, not additional CLI products. Third-party tools retain their
-upstream CLIs. Keep command discovery and interactive routing in the shared registry.
+`personal` (`packages/personal-cli`) is the only repository-owned user CLI. It is
+source-only (not published) and holds `infra-*` passthroughs, `workstation` and
+`commands`. Packages may implement private adapters/workers but must not declare
+another executable, installer, launcher or independent user command interface.
+Root task scripts are aliases or build/test and bootstrap tasks, not additional
+CLI products. Third-party tools, including dev-fleet, retain their own CLIs.
 
 ## The fleet runs from dev-fleet
 
-The fleet code lives in [crvouga/dev-fleet](https://github.com/crvouga/dev-fleet). This repository holds only this fleet's configuration, `fleet.json`, and the pinned dev-fleet commit, `fleet.revision`. `bash scripts/dev/project-action.sh fleet-sync` (also `fleet-status`, `fleet-repair`, `infra-cliproxy`) runs dev-fleet at that pin through `scripts/dev/fleet.sh`.
+All fleet management (machines, Ansible policy, agent launchers, T3 provider instances, monitoring and the CLI proxy) lives in [crvouga/dev-fleet](https://github.com/crvouga/dev-fleet). This repository holds only this fleet's configuration, `fleet.json`, and the pinned dev-fleet commit, `fleet.revision`. `bash scripts/dev/project-action.sh fleet-sync` (also `fleet-status`, `fleet-repair`, `infra-cliproxy`) runs dev-fleet at that pin through `scripts/dev/fleet.sh`; `bun run fleet <command>` and `bun run cliproxy` do the same. The **CLI proxy health** workflow runs dev-fleet's proxy checks at the pin.
 
 - Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change this fleet's machines, endpoints or secret locations in `fleet.json`.
-- `packages/fleet`, `packages/cliproxy-fleet`, the fleet commands in `packages/personal-cli` and the fleet scripts in `scripts/dev` are an **older copy pending removal**. Do not change them or run them against machines: `personal fleet-sync` and `personal infra-cliproxy` refuse from this checkout. `packages/fleet/definition.json` must stay equal to `fleet.json` (`scripts/fleet-config.test.ts`) until the copy is gone.
+- Never add fleet code back here. `packages/workstation` uses dev-fleet's platform and agent modules through the published `@crvouga/dev-fleet` npm package.
 
 ## Local development infra vs cloud app infra
 
 These are two separate domains. Never mix their commands, owners, credentials or docs.
 
-- **Local development infrastructure**: developer machines. mise toolchain, `packages/workstation`, `packages/fleet` (manager + Ubuntu workers), T3, the `packages/cliproxy-fleet` process, Beszel agents, local Turborepo cache, disposable test containers. Owned by `mise.toml`/`mise.lock`, Fleet Ansible and `personal fleet-*`. Agent guide: `llms-local.txt` (`scripts/llms-local.template.md`).
+- **Local development infrastructure**: developer machines. mise toolchain, `packages/workstation`, the fleet (manager + Ubuntu workers), T3, the CLI proxy, Beszel agents, local Turborepo cache, disposable test containers. Owned by `mise.toml`/`mise.lock`, `packages/workstation` and dev-fleet (`fleet.json`, `fleet.revision`). Agent guide: `llms-local.txt` (`scripts/llms-local.template.md`).
 - **Cloud app infrastructure**: OpenTofu resources apps use. Vault/OpenBao, PostgreSQL, R2, Railway services, GHCR images, DNS/TLS/tunnels, GitHub OIDC/rulesets, auth relay. Owned only by `packages/infra/tofu` (`bun run infra*`). Agent guide: `llms-cloud.txt` (`scripts/llms-cloud.template.md`).
 
 - `dev` is not local: the Vault `dev` config, `dev` bucket and `dev` `DATABASE_URL` are cloud resources.
@@ -50,12 +50,10 @@ Flat Turborepo + Bun workspace. All packages live under `packages/` and use `@pk
 - `packages/turborepo-remote-cache`: Dormant Bun cache server; excluded from hosting and normal development. Runtime closure: `@pkgs/{assert,logger,object-store,secret-store,secret-string,vault}`.
 - `packages/infra`: OpenTofu definitions and read-only build/health/documentation adapters.
 - `packages/vault-service`: OpenBao runtime image and local read/auth CLI. Its infrastructure, schema, initialization, policies, auth and KV values are owned by OpenTofu.
-- `packages/cliproxy-fleet`: private CLIProxyAPI Compose service, reproducible Git-based local installation, fleet clients and encrypted recovery. Read its `AGENTS.md`; it runs only on the fleet manager (macOS launchd under `~/Library/Application Support/cliproxy-fleet`); never patch installed code or add cloud provisioning helpers.
 - `packages/9router`: upstream Railway service with ephemeral SQLite restored and replicated to shared R2 using Litestream. No persistent service volume.
 - `packages/zoomies`: official Zoomies GitHub Actions runner controller wrapper on Railway (`zoomies.chrisvouga.dev`) with a Railway volume for SQLite and built-in encrypted backups to shared R2; `bun run zoomies:configure` / `zoomies:join-token` drive the running controller's API. Read its `README.md` runbook.
-- `packages/workstation`: one person's portable dev-machine configuration (OpenCode, notifier, sounds, SSH/editor network setup). It may import `packages/fleet`; fleet never imports it. Read its `AGENTS.md` before editing it. Install with `bun run personal:install`; converge local configuration with `personal workstation sync`.
-- `packages/fleet`: canonical developer membership, manager-driven Ubuntu synchronization and diagnostics. Read its `README.md`, `AGENTS.md`, `docs/topology.md` and `docs/ubuntu-sync.md` release gates. Topology: one singleton **manager** (the human's macOS machine) runs `fleet-sync` and every singleton service (CLI proxy, Beszel hub); Linux **workers** are stateless cattle and only consume those services. Public `fleet-sync` runs on the manager and applies on invocation without a prompt (`--dry-run` previews); `fleet-status --workers` audits mandatory worker policy and the Beszel dashboard without mutations; `fleet-repair` and `fleet-node-add` preview until `--apply --yes`. Fleet owns everything a fleet machine runs: machine policy as Ansible (`ubuntu/`, `macos/`, `monitoring/`, builtin modules only), agent launchers and profiles (`agents/`), platform, monitoring and T3 provider code (`src/`). It imports neither `packages/workstation` nor `packages/personal-cli` (`src/boundary.test.ts`); workers are Ubuntu, the manager is macOS, Windows is never converged. Private connection overrides are not cloud inventory. Never copy identities, bypass SSH trust, or install node pull schedules; use the shared toolchain.
-- `packages/personal-cli`: private source workspace for the public `@crvouga/personal` Node/npm CLI. Read its `README.md`, `AGENTS.md` and `releasing.md`. `bun run personal` prints help; inside the checkout `npx @crvouga/personal` resolves to this working tree (workspace link), not the registry; `--interactive` opts into the command palette. Commands are flat and prefixed by domain (`fleet-*`, `t3-*`, `infra-*`, `workstation`); `commands --json` is the single noninteractive discovery and agent contract. `--version` and help print the release build timestamp. CI publishes only after Check; `personal:publish:bootstrap` is plan-only unless `--apply --yes`. Never publish the workspace or include a roster/credentials.
+- `packages/workstation`: one person's portable dev-machine configuration (OpenCode, notifier, sounds, SSH/editor network setup). It imports platform and agent modules from the `@crvouga/dev-fleet` npm package and reads machines from `fleet.json`. Read its `AGENTS.md` before editing it. Install with `bun run personal:install`; converge local configuration with `personal workstation sync`.
+- `packages/personal-cli`: the source-only `personal` CLI (`infra-*`, `workstation`, `commands`). Read its `README.md` and `AGENTS.md`. `bun run personal` prints help; `commands --json` is the agent catalog. It has no fleet or T3 commands; dev-fleet supersedes them.
 
 ## Shared authentication relay
 

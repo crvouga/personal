@@ -100,20 +100,20 @@ test('the wrapper runs the manager entry of the pinned revision with this fleet.
   }
 });
 
-test('project actions are named exactly like the personal commands they run', async () => {
-  const { COMMANDS } = await import('../packages/personal-cli/src/registry');
-  const ids = new Set(COMMANDS.map((command) => command.id.split(' ')[0]));
-  const script = readFileSync(join(import.meta.dir, 'dev/project-action.sh'));
-  const list = /^warm \|.*\) ;;$/m.exec(script.toString())?.[0] ?? '';
+test('project actions are documented, and fleet actions go to dev-fleet', () => {
+  const script = readFileSync(
+    join(import.meta.dir, 'dev/project-action.sh'),
+    'utf8'
+  );
+  const list = /^warm \|.*\) ;;$/m.exec(script)?.[0] ?? '';
   const actions = list.replace(/\) ;;$/, '').split(' | ');
   expect(actions.length).toBeGreaterThan(3);
-  for (const action of actions) {
-    if (action === 'warm' || action === 'portfolio') continue;
-    const domain = action.startsWith('workstation-') ? 'workstation' : action;
-    expect(ids.has(domain), action).toBe(true);
-  }
-  expect(script.toString()).not.toMatch(/fleet-converge|fleet-health/);
+  for (const action of actions.filter(
+    (action) => action.startsWith('fleet-') || action === 'infra-cliproxy'
+  ))
+    expect(script).toMatch(
+      new RegExp(`^${action}\\) sh scripts/dev/fleet\\.sh `, 'm')
+    );
   const readme = readFileSync(join(import.meta.dir, 'dev/README.md'), 'utf8');
   for (const action of actions) expect(readme).toContain(`\`${action}\``);
-  expect(readme).not.toMatch(/fleet-converge|fleet-health/);
 });

@@ -34,7 +34,7 @@ import {
   section,
   warn as warnColor,
 } from '../lib/output-and-theme';
-import { currentPlatform } from '../../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 
 type CheckOpts = GlobalOpts & {
   host?: string | undefined;
