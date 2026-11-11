@@ -11,7 +11,7 @@ export const IDENTITY = {
   phone: '4802098698',
   siteUrl: 'https://www.chrisvouga.dev',
   siteSourceUrl:
-    'https://github.com/crvouga/workspace/tree/main/packages/portfolio',
+    'https://github.com/crvouga/personal/tree/main/packages/portfolio',
   profiles: {
     github: 'https://github.com/crvouga',
     linkedin: 'https://www.linkedin.com/in/chris-vouga',

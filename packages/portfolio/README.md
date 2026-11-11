@@ -2,7 +2,7 @@
 
 Source for [www.chrisvouga.dev](https://www.chrisvouga.dev): an Astro 7 static site, its content registry, generated assets, resume PDF, and container image.
 
-The package is a Bun workspace inside `crvouga/workspace`. The production image (`ghcr.io/crvouga/chrisvouga-portfolio`) is built from the repository root by CI using `packages/portfolio/Dockerfile`, then served by nginx. Hosting is declared in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](../infra/tofu/modules/inventory/inventory.tf.json) (`id: portfolio`).
+The package is a Bun workspace inside `crvouga/personal`. The production image (`ghcr.io/crvouga/chrisvouga-portfolio`) is built from the repository root by CI using `packages/portfolio/Dockerfile`, then served by nginx. Hosting is declared in [`packages/infra/tofu/modules/inventory/inventory.tf.json`](../infra/tofu/modules/inventory/inventory.tf.json) (`id: portfolio`).
 
 ## UI development: Storybook first
 

@@ -691,6 +691,7 @@ Working examples to copy from — each links to its source repo:
 | `violets-garden` | https://violetsgarden.chrisvouga.dev | [crvouga/violets-garden](https://github.com/crvouga/violets-garden) | `./Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-docs` | https://mockingbird.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/docs) | `sites/docs/Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-fleet` | https://mockingbird-fleet.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/fleet) | `sites/fleet/Dockerfile` (`.`) | 8080 | `/health` |
+| `gitty-storybook` | https://gitty-storybook.chrisvouga.dev | [crvouga/gitty](https://github.com/crvouga/gitty) | `Dockerfile.storybook` (`.`) | 80 | `/` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
 | `9router` | https://9router.chrisvouga.dev | [crvouga/personal](https://github.com/crvouga/personal/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |

@@ -71,7 +71,7 @@ export const PROJECT_FACTS: readonly ProjectFact[] = [
     },
     code: {
       t: 'public',
-      url: 'https://github.com/crvouga/workspace',
+      url: 'https://github.com/crvouga/personal',
     },
     description:
       'The monorepo and self-hosted platform behind this site and my side projects, where declared code is the only way to change infrastructure.',

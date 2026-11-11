@@ -358,7 +358,7 @@ jobs:
               --body "$PR_BODY"
           fi
 
-          gh pr merge "${REFRESH_BRANCH}" --auto --merge
+          gh pr merge "${REFRESH_BRANCH}" --auto --squash
   repair:
     name: Repair
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'vault-inputs' &&

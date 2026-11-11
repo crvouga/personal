@@ -8,7 +8,7 @@
  * `src/data/platform-facts.json`, never typed here.
  */
 
-export const WORKSPACE_REPO_URL = 'https://github.com/crvouga/workspace';
+export const WORKSPACE_REPO_URL = 'https://github.com/crvouga/personal';
 
 const blob = (path: string): string =>
   `${WORKSPACE_REPO_URL}/blob/main/${path}`;

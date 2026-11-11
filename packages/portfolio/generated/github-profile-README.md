@@ -9,16 +9,16 @@ Senior full-stack engineer on member-facing health and education products; previ
 ## Flagships
 
 - **gamezilla.app** ([case study](https://www.chrisvouga.dev/projects/gamezilla/)): Local-first multiplayer game app defined by 2,702 executable spec scenarios and 129 formal state models that every pull request must pass.
-- **Workspace platform** ([case study](https://www.chrisvouga.dev/projects/workspace-platform/), [code](https://github.com/crvouga/workspace)): Runs 23 services on OpenTofu-only infrastructure; 7 CI jobs gate every merge, and 27 of 120 pull requests failed CI before merging green.
+- **Workspace platform** ([case study](https://www.chrisvouga.dev/projects/workspace-platform/), [code](https://github.com/crvouga/personal)): Runs 24 services on OpenTofu-only infrastructure; 7 CI jobs gate every merge, and 42 of 190 pull requests failed CI before merging green.
 - **Mockingbird** ([case study](https://www.chrisvouga.dev/projects/mockingbird/), [code](https://github.com/crvouga/mockingbird)): 125 stateful vendor-API emulators, published to npm and checked against the vendors’ OpenAPI contracts by property-based parity tests.
 
 ## How I build
 
-- **Start from the spec.** [Acceptance spec for the shared sign-in service](https://github.com/crvouga/workspace/blob/main/packages/auth-relay/acceptance.md) · [The pull-request checklist every agent runs](https://github.com/crvouga/workspace/blob/main/.agents/commands/pr-ready.md)
-- **Make verification automatic.** [Résumé one-page tests](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/resume/pdf.test.ts) · [Share-card overflow tests](https://github.com/crvouga/workspace/blob/main/packages/portfolio/src/social/card.test.ts) · [Structural size limits on all code](https://github.com/crvouga/workspace/blob/main/packages/eslint-rules/size-limits.cjs)
-- **Let the pipeline decide.** [The CI workflow](https://github.com/crvouga/workspace/blob/main/.github/workflows/ci.yml) · [Required checks, declared as code](https://github.com/crvouga/workspace/blob/main/packages/infra/tofu/foundation/repository.tf) · [Policy tests that hold agents to the rules](https://github.com/crvouga/workspace/blob/main/scripts/iac-policy.test.ts)
-- **Own the outcome.** [Health checks](https://github.com/crvouga/workspace/tree/main/packages/infra/lib/health) · [The daily health report, which turns red when the platform drifts](https://github.com/crvouga/workspace/blob/main/.github/workflows/maintenance.yml)
-- [AGENTS.md — the contract every AI coding agent in my repositories works under](https://github.com/crvouga/workspace/blob/main/AGENTS.md)
+- **Start from the spec.** [Acceptance spec for the shared sign-in service](https://github.com/crvouga/personal/blob/main/packages/auth-relay/acceptance.md) · [The pull-request checklist every agent runs](https://github.com/crvouga/personal/blob/main/.agents/commands/pr-ready.md)
+- **Make verification automatic.** [Résumé one-page tests](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/resume/pdf.test.ts) · [Share-card overflow tests](https://github.com/crvouga/personal/blob/main/packages/portfolio/src/social/card.test.ts) · [Structural size limits on all code](https://github.com/crvouga/personal/blob/main/packages/eslint-rules/size-limits.cjs)
+- **Let the pipeline decide.** [The CI workflow](https://github.com/crvouga/personal/blob/main/.github/workflows/ci.yml) · [Required checks, declared as code](https://github.com/crvouga/personal/blob/main/packages/infra/tofu/foundation/repository.tf) · [Policy tests that hold agents to the rules](https://github.com/crvouga/personal/blob/main/scripts/iac-policy.test.ts)
+- **Own the outcome.** [Health checks](https://github.com/crvouga/personal/tree/main/packages/infra/lib/health) · [The daily health report, which turns red when the platform drifts](https://github.com/crvouga/personal/blob/main/.github/workflows/maintenance.yml)
+- [AGENTS.md — the contract every AI coding agent in my repositories works under](https://github.com/crvouga/personal/blob/main/AGENTS.md)
 
 ## Contact
 

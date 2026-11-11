@@ -13,7 +13,7 @@
     "dev": "bun ../personal-cli/src/cli.ts infra-vault run --config ${VAULT_CONFIG:-dev} -- bun ../../scripts/dev-server.ts portfolio 4321 astro dev --ignore-lock --port {port}",
     "gen": "bun run generate-all",
     "generate-all": "bun run ./src/generate-all.ts",
-    "gh": "open https://github.com/crvouga/workspace/actions",
+    "gh": "open https://github.com/crvouga/personal/actions",
     "health-check-urls": "bun run scripts/health-check-urls.ts",
     "lint": "astro sync && eslint . --max-warnings 0",
     "market:refresh": "bun run scripts/market-refresh.ts",

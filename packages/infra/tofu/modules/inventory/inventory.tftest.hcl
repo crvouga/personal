@@ -2,7 +2,7 @@
 run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 23
+    condition     = length(output.config.services) == 24
     error_message = "Every hosted service entry must be retained."
   }
   assert {

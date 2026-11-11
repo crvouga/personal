@@ -61,7 +61,7 @@ RUN test -s .astro/csp-header.conf \
 
 FROM nginx:alpine
 
-LABEL org.opencontainers.image.source=https://github.com/crvouga/workspace
+LABEL org.opencontainers.image.source=https://github.com/crvouga/personal
 LABEL org.opencontainers.image.description="chrisvouga.dev portfolio static site"
 
 RUN rm /etc/nginx/conf.d/default.conf

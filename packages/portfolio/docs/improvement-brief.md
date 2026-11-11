@@ -1,6 +1,6 @@
 # Prompt: make chrisvouga.dev audit-proof for senior/staff hiring (agentic-era, late 2026)
 
-Paste everything below this line into Claude Code (or Codex/Cursor) from the root of `crvouga/workspace`. It is a backlog of issues plus a mandatory self-audit protocol. Work the issues top to bottom (ordered by hiring leverage), one PR each, then run the audit protocol in Part 4 until it finds nothing. **The bar: a fresh, adversarial auditor given Part 5's checklist should find nothing material.**
+Paste everything below this line into Claude Code (or Codex/Cursor) from the root of `crvouga/personal`. It is a backlog of issues plus a mandatory self-audit protocol. Work the issues top to bottom (ordered by hiring leverage), one PR each, then run the audit protocol in Part 4 until it finds nothing. **The bar: a fresh, adversarial auditor given Part 5's checklist should find nothing material.**
 
 ---
 
@@ -8,7 +8,7 @@ Paste everything below this line into Claude Code (or Codex/Cursor) from the roo
 
 ## Where you are
 
-`packages/portfolio` in the `crvouga/workspace` monorepo: Astro 7 static site, Bun, Turborepo, nginx in Docker, built and redeployed daily by `.github/workflows/ci.yml`. Read root `AGENTS.md` and `packages/portfolio/README.md` first. Content lives in a typed registry under `src/content/**` that feeds the pages, the generated résumé PDF (`src/resume/`), the OG card (`src/social/`), and the screenshot jobs. **Keep that architecture**: content changes go in the registry, never in components; derived values stay derived. Every PR must pass `bun run check` and `bun test src`.
+`packages/portfolio` in the `crvouga/personal` monorepo: Astro 7 static site, Bun, Turborepo, nginx in Docker, built and redeployed daily by `.github/workflows/ci.yml`. Read root `AGENTS.md` and `packages/portfolio/README.md` first. Content lives in a typed registry under `src/content/**` that feeds the pages, the generated résumé PDF (`src/resume/`), the OG card (`src/social/`), and the screenshot jobs. **Keep that architecture**: content changes go in the registry, never in components; derived values stay derived. Every PR must pass `bun run check` and `bun test src`.
 
 ## The outcome every change is judged against
 

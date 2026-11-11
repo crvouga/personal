@@ -1,6 +1,6 @@
 import type { CaseStudy } from './types';
 
-const REPO = 'https://github.com/crvouga/workspace';
+const REPO = 'https://github.com/crvouga/personal';
 const blob = (path: string): string => `${REPO}/blob/main/${path}`;
 
 export const WORKSPACE_CASE_STUDY: CaseStudy = {

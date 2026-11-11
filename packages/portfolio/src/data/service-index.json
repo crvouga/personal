@@ -115,6 +115,13 @@
       "sourceUrl": "https://github.com/crvouga/mockingbird/tree/main/sites/fleet"
     },
     {
+      "hostname": "gitty-storybook.chrisvouga.dev",
+      "url": "https://gitty-storybook.chrisvouga.dev/",
+      "id": "gitty-storybook",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/gitty"
+    },
+    {
       "hostname": "llm-proxy.chrisvouga.dev",
       "url": "https://llm-proxy.chrisvouga.dev/",
       "id": "llm-proxy",

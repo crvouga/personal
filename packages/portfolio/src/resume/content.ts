@@ -126,7 +126,7 @@ const tidyHost = (url: string): string =>
     .replace(/^www\./, '')
     .replace(/\/$/, '');
 
-/** `github.com/crvouga/workspace/tree/main/…` → `github.com/crvouga/workspace`. */
+/** `github.com/crvouga/personal/tree/main/…` → `github.com/crvouga/personal`. */
 const MAX_DISPLAY_PATH_SEGMENTS = 2;
 const shortUrl = (url: string): string => {
   const [host = '', ...segments] = tidyHost(url).split('/');
