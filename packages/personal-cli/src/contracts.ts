@@ -14,12 +14,3 @@ export interface CommandOutcome {
   data: unknown;
   text?: string;
 }
-
-export interface InteractiveOptions {
-  version: string;
-  releasedAt: string | null;
-  workspace: string;
-  config: string;
-  commands: CommandSpec[];
-  execute: (args: string[]) => Promise<CommandOutcome>;
-}

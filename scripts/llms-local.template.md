@@ -1,6 +1,6 @@
 # {{infraRepo}} — LOCAL development infrastructure guide
 
-> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/fleet/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
+> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md` and `mise.toml`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
 **This guide never covers cloud-hosted app infrastructure.** Vault/OpenBao coordinates and policies, PostgreSQL `DATABASE_URL`, the R2 object store, Railway hosting, GHCR images, DNS/TLS, GitHub OIDC and the Google sign-in auth relay are **cloud app infrastructure** → {{cloudGuideUrl}}. If your task is about any of those, stop and use that guide instead. Do not mix the two.
 
@@ -11,7 +11,7 @@ Canonical deployed URL: {{localGuideUrl}} · Index of both guides: {{siteGuideUr
 | Question | Local (this guide) | Cloud (the other guide) |
 | --- | --- | --- |
 | Where does it run? | A developer's computer or a fleet node | Railway, Cloudflare, managed PostgreSQL, GHCR, GitHub Actions |
-| Who owns it? | mise (`mise.toml`, `mise.lock`), `packages/workstation`, `packages/fleet`, `packages/cliproxy-fleet` | OpenTofu in `{{infraRepo}}` only |
+| Who owns it? | mise (`mise.toml`, `mise.lock`), `packages/workstation`, [dev-fleet](https://github.com/crvouga/dev-fleet) with this repository's `fleet.json` | OpenTofu in `{{infraRepo}}` only |
 | How is it changed? | The documented local commands below, when the user asks for machine setup | A GitHub issue on `{{infraRepo}}`, then a reviewed OpenTofu PR |
 
 Rules:
@@ -30,36 +30,37 @@ Rules:
 
 {{block:workstationTools}}
 
-{{block:agentSetup}}
+### The `personal` CLI
 
-### Portable developer fleet CLI
-
-`npx --yes @crvouga/personal` opens a searchable terminal command center without
-a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`
-or `fleet-status --local --json`. Commands are flat and prefixed by domain
-(`fleet-*`, `t3-*`, `infra-*`, `workstation`). `infra-*` commands are thin
-clients of cloud infrastructure (for example `infra-vault run` reads cloud
-Vault); their contracts are in {{cloudGuideUrl}}. Pin an exact published version
-in automation. See {{path:packages/personal-cli/README.md}} and
-{{path:packages/personal-cli/releasing.md}} for installation, onboarding and CI publishing.
-
-`fleet-status --json` checks the manager and every node in the local,
-secret-free roster. Missing rosters and credentials never count as a pass.
-Register actual SSH aliases and checkout paths with `fleet-node-add`; preview before
-`--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic
-repairs. Shared mise/workstation remain the toolchain owners.
+`bun run personal` runs from the checkout. Commands are flat and prefixed by
+domain: `infra-*` commands are thin clients of cloud infrastructure (for example
+`infra-vault run` reads cloud Vault; their contracts are in {{cloudGuideUrl}}),
+and `workstation` configures this machine. `bun run personal commands --json` is
+the agent catalog. See {{path:packages/personal-cli/README.md}}.
 
 ---
 
-## Private fleet AI proxy
+## Developer fleet and private AI proxy (dev-fleet)
 
-`@pkgs/cliproxy-fleet` owns the private CLIProxyAPI service and fleet-client bootstrap.
-The proxy process runs only on the fleet manager; it is not a hosted app and is never deployed to Railway.
-Run `bun run cliproxy help` from this repository. Install only committed revisions;
-never patch `/opt/cliproxy-fleet` manually. Source and recovery instructions: {{path:packages/cliproxy-fleet/README.md}}.
-The cloud pieces it uses are OpenTofu-owned and out of scope here: its Cloudflare tunnel
-hostname, its Vault keys and the encrypted R2 backup of its provider state. The local
-install reads them and never creates or changes them.
+The fleet (one macOS manager, stateless Ubuntu workers), T3 provider instances,
+Beszel monitoring and the private CLIProxyAPI service are managed by
+[dev-fleet](https://github.com/crvouga/dev-fleet); none of that code lives here.
+This repository holds only this fleet's configuration, {{path:fleet.json}}, and the
+dev-fleet commit it runs, {{path:fleet.revision}}. From the checkout:
+
+```sh
+bash scripts/dev/project-action.sh fleet-sync --dry-run   # preview
+bash scripts/dev/project-action.sh fleet-sync             # apply on the manager
+bash scripts/dev/project-action.sh fleet-status           # read-only worker audit
+bun run cliproxy help                                      # the proxy's operations
+```
+
+Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change machines,
+endpoints or secret locations in `fleet.json`. The proxy runs only on the fleet
+manager; it is not a hosted app and is never deployed to Railway. The cloud pieces
+it uses (its Cloudflare tunnel hostname, its Vault keys and the encrypted R2 backup
+of its provider state) are OpenTofu-owned and out of scope here: the fleet reads
+them and never creates or changes them.
 
 ---
 
@@ -87,8 +88,4 @@ GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ## Maintaining this file (agents working inside `{{infraRepo}}`)
 
-`llms-local.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-local.template.md}}; the embedded runbooks come from {{path:scripts/dev/README.md}}, {{path:mise.toml}}, {{path:packages/fleet/agents/setup.md}} and {{path:packages/fleet/docs/ubuntu-sync.md}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
-
-## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
-
-{{block:fleetSync}}
+`llms-local.txt` is generated — never edit it by hand. Prose lives in {{path:scripts/llms-local.template.md}}; the embedded runbooks come from {{path:scripts/dev/README.md}} and {{path:mise.toml}} via {{path:scripts/llms-txt.ts}}. Run `{{script:llms:sync}}` after changing any of them; `{{script:check:llms}}` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).

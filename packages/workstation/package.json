@@ -16,12 +16,13 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@crvouga/dev-fleet": "0.1.0",
     "@inquirer/prompts": "catalog:",
+    "@opencode-ai/plugin": "1.19.5",
     "@pkgs/assert": "workspace:*",
     "@pkgs/openrouter": "workspace:*",
     "@pkgs/secret-store": "workspace:*",
     "@pkgs/vault": "workspace:*",
-    "@opencode-ai/plugin": "1.19.5",
     "chalk": "catalog:",
     "commander": "catalog:",
     "ora": "catalog:",

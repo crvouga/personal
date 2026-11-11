@@ -1,13 +1,11 @@
 import { access } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { homedir } from 'node:os';
 
 export interface Settings {
   workspace: string;
-  config: string;
 }
 
-export async function exists(path: string): Promise<boolean> {
+async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
     return true;
@@ -26,6 +24,7 @@ async function findUp(start: string, name: string): Promise<string | null> {
   }
 }
 
+/** The checkout: --workspace, PERSONAL_WORKSPACE, closest mise.toml, then cwd. */
 export async function resolveSettings(
   overrides: Partial<Settings> = {},
   cwd = process.cwd(),
@@ -36,11 +35,5 @@ export async function resolveSettings(
       env['PERSONAL_WORKSPACE'] ??
       dirname((await findUp(cwd, 'mise.toml')) ?? join(cwd, 'mise.toml'))
   );
-  const config = resolve(
-    overrides.config ??
-      env['PERSONAL_FLEET_CONFIG'] ??
-      (await findUp(cwd, '.fleet.local.json')) ??
-      join(homedir(), '.config/personal/fleet.json')
-  );
-  return { workspace, config };
+  return { workspace };
 }

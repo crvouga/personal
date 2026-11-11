@@ -1,4 +1,4 @@
-import { currentPlatform } from '../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 import { workstationRoot } from './lib/paths';
 import { describeLink, managedLinks } from './lib/links';
 import { listProviders, loadConfig } from './lib/opencode-config';

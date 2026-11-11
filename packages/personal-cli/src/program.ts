@@ -1,13 +1,15 @@
 import { Command, CommanderError } from 'commander';
-import { FleetUsageError } from '../../fleet/src/errors';
 import { indexedCommands } from './command-index';
-import { registerT3 } from './t3/register';
 import { registerSourceOperations } from './source-operations';
 import { registerWorkstation } from './workstation';
-import { registerFleet } from './register-fleet';
 import { agentGuide } from './agent-guide';
 import type { Settings } from './settings';
-import type { CliOptions } from './options';
+
+interface CliOptions {
+  json?: boolean;
+  search?: string;
+  group?: string;
+}
 import type { CommandOutcome } from './contracts';
 
 export interface Release {
@@ -24,9 +26,8 @@ export const GLOBAL_OPTIONS = [
   { flag: '--non-interactive', description: 'Never open interactive prompts' },
   {
     flag: '--workspace <path>',
-    description: 'Existing manager checkout; does not clone or change it',
+    description: 'The personal checkout; does not clone or change it',
   },
-  { flag: '--config <path>', description: 'Local, secret-free fleet roster' },
 ];
 
 export function releaseLabel(release: Release): string {
@@ -41,16 +42,14 @@ function createProgram(
 ): Command {
   const program = new Command()
     .name('personal')
-    .description('Developer fleet, T3 and platform operations')
+    .description(
+      'Platform and workstation operations from the personal checkout'
+    )
     .version(releaseLabel(release))
     .exitOverride()
     .configureOutput({ writeOut: output, writeErr: () => undefined })
     .showSuggestionAfterError(false)
-    .addHelpCommand('help [command]', 'Show help for a command')
-    .option(
-      '--interactive',
-      'Open the interactive terminal application (TTY required)'
-    );
+    .addHelpCommand('help [command]', 'Show help for a command');
   for (const option of GLOBAL_OPTIONS)
     program.option(option.flag, option.description);
   program.addHelpText(
@@ -58,10 +57,9 @@ function createProgram(
     [
       '',
       `Release: ${releaseLabel(release)}`,
-      'Groups: fleet-* developer computers · t3-* T3 provider instances · infra-* platform operations from the checkout · workstation this machine.',
-      'Apply on invocation (--dry-run previews): fleet-node-sync, t3-apply, t3-cleanup. fleet-sync confirms interactively or with --apply --yes.',
-      'Preview until --apply --yes: fleet-repair, fleet-node-add. --json does not make a command read-only.',
-      'Agents: personal commands --json. Menu: personal --interactive.',
+      'Groups: infra-* platform operations from the checkout · workstation this machine.',
+      'Fleet machines, T3 and the CLI proxy are managed by dev-fleet: bash scripts/dev/project-action.sh fleet-sync.',
+      'Agents: personal commands --json.',
     ].join('\n')
   );
   return program;
@@ -80,13 +78,12 @@ function catalog(options: CliOptions, release: Release): CommandOutcome {
       commands,
       globalOptions: GLOBAL_OPTIONS,
       defaultCommand: 'help',
-      schema: 'personal fleet-nodes --schema --json',
       agent: agentGuide(release),
     },
     text: [
       `Personal command catalog · ${releaseLabel(release)}`,
       ...commands.map((entry) => `\n  ${entry.id}\n    ${entry.description}`),
-      '\nUse personal <command> --help for options; personal --interactive opens the menu.',
+      '\nUse personal <command> --help for options.',
     ].join('\n'),
   };
 }
@@ -106,18 +103,13 @@ export async function execute(
   const complete = (result: CommandOutcome) => {
     outcome = result;
   };
-  registerFleet(program, defaults, complete);
-  registerT3(program, defaults, complete);
   registerSourceOperations(program, defaults, complete);
   registerWorkstation(program, defaults, complete);
   program
     .command('commands')
     .description('Search the command catalog and agent contract')
     .option('--search <text>', 'Filter names, descriptions and keywords')
-    .option(
-      '--group <name>',
-      'Filter group: Fleet, T3, Infra, Workstation, Reference'
-    )
+    .option('--group <name>', 'Filter group: Infra, Workstation, Reference')
     .action((_options, command: Command) => {
       outcome = catalog(command.optsWithGlobals<CliOptions>(), release);
     });
@@ -147,20 +139,16 @@ function commandError(error: unknown, output: string): CommandOutcome {
       data: { version: 1, help: output.trim() },
       text: output.trim(),
     };
-  const usage =
-    error instanceof CommanderError || error instanceof FleetUsageError;
+  const usage = error instanceof CommanderError;
   return {
     exitCode: usage ? 2 : 1,
     data: {
       version: 1,
       ok: false,
       code: usage ? 'invalid_usage' : 'operation_failed',
-      error:
-        error instanceof FleetUsageError
-          ? error.message
-          : usage
-            ? 'Invalid command or option. Run personal --help or personal commands --json.'
-            : 'Operation failed. Inspect configuration and permissions locally; raw errors are withheld to protect credentials.',
+      error: usage
+        ? 'Invalid command or option. Run personal --help or personal commands --json.'
+        : 'Operation failed. Inspect configuration and permissions locally; raw errors are withheld to protect credentials.',
     },
   };
 }

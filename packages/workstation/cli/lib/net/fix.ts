@@ -14,7 +14,7 @@ import { globalLauncherPath } from '../global-install';
 import type {
   Platform,
   ScheduledJob,
-} from '../../../../fleet/src/platform/types';
+} from '@crvouga/dev-fleet/src/platform/types';
 import { netStateDir } from './history';
 import type { NetHost } from './inventory';
 import { findOnPath } from './run';

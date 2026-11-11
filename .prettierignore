@@ -29,7 +29,6 @@ scripts/llms-cloud.template.md
 .sc/
 
 # Vendored release schema; preserve upstream formatting.
-packages/cliproxy-fleet/vendor/
 
 # Static Storybook build and its screenshots (generated).
 packages/portfolio/storybook-static

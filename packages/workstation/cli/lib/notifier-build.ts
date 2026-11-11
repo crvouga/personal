@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Platform } from '../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import { readSounds, writeSounds } from './sounds';
 
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>

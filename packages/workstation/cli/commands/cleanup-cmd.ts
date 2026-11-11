@@ -8,8 +8,8 @@ import {
   type CleanupPlan,
 } from '../lib/cleanup/plan';
 import { terminateProcesses } from '../lib/cleanup/terminate';
-import { currentPlatform } from '../../../fleet/src/platform';
-import type { ProcessInfo } from '../../../fleet/src/platform/types';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
+import type { ProcessInfo } from '@crvouga/dev-fleet/src/platform/types';
 import {
   muted,
   printFail,

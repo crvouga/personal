@@ -1,7 +1,0 @@
-{
-  "schemaVersion": 1,
-  "organization": "Personal developer fleet",
-  "limits": {
-    "updates": { "mode": "off", "allowNightly": true }
-  }
-}

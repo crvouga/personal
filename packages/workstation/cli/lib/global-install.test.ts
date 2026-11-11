@@ -48,7 +48,8 @@ test('one source-owned personal launcher can move to a new deployment', async ()
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
   const { installGlobalLauncher } = await import('./global-install');
-  const { LinuxPlatform } = await import('../../../fleet/src/platform/linux');
+  const { LinuxPlatform } =
+    await import('@crvouga/dev-fleet/src/platform/linux');
   const dir = await mkdtemp(join(tmpdir(), 'personal-install-'));
   const platform = new LinuxPlatform();
   platform.globalBinDir = () => join(dir, 'bin');

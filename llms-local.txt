@@ -1,6 +1,6 @@
 # crvouga/personal — LOCAL development infrastructure guide
 
-> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md`, `mise.toml`, `packages/fleet/agents/setup.md` and `packages/fleet/docs/ubuntu-sync.md`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
+> **Scope: developer machines only.** Use this guide for everything that runs on or configures a computer used for development: the locked mise toolchain, workstation configuration, the container engine, the `personal` CLI, the Ubuntu developer fleet (one macOS manager, stateless Ubuntu workers), T3, the private fleet AI proxy (CLIProxyAPI), Beszel monitoring, Turborepo caching and disposable test databases. Generated from `scripts/dev/README.md` and `mise.toml`; tools and dependency graphs are pinned in `mise.lock` and `.mise/locks/`.
 
 **This guide never covers cloud-hosted app infrastructure.** Vault/OpenBao coordinates and policies, PostgreSQL `DATABASE_URL`, the R2 object store, Railway hosting, GHCR images, DNS/TLS, GitHub OIDC and the Google sign-in auth relay are **cloud app infrastructure** → https://www.chrisvouga.dev/llms-cloud.txt. If your task is about any of those, stop and use that guide instead. Do not mix the two.
 
@@ -11,7 +11,7 @@ Canonical deployed URL: https://www.chrisvouga.dev/llms-local.txt · Index of bo
 | Question | Local (this guide) | Cloud (the other guide) |
 | --- | --- | --- |
 | Where does it run? | A developer's computer or a fleet node | Railway, Cloudflare, managed PostgreSQL, GHCR, GitHub Actions |
-| Who owns it? | mise (`mise.toml`, `mise.lock`), `packages/workstation`, `packages/fleet`, `packages/cliproxy-fleet` | OpenTofu in `crvouga/personal` only |
+| Who owns it? | mise (`mise.toml`, `mise.lock`), `packages/workstation`, [dev-fleet](https://github.com/crvouga/dev-fleet) with this repository's `fleet.json` | OpenTofu in `crvouga/personal` only |
 | How is it changed? | The documented local commands below, when the user asks for machine setup | A GitHub issue on `crvouga/personal`, then a reviewed OpenTofu PR |
 
 Rules:
@@ -301,28 +301,12 @@ existing workstation convergence. `personal workstation tools sync` reapplies to
 without pulling or touching project dependencies; `personal workstation tools check --json` verifies
 them. Sync is explicit; Git commits do not silently update other machines.
 
-For multiple development computers, use [the fleet package](../../packages/fleet/README.md):
-`personal fleet-node-add` registers an existing SSH alias in a local roster,
-`personal fleet-nodes --onboard` generates per-node connection/auth/editor steps,
-and `personal fleet-status --json` diagnoses SSH, authentication, T3 Connect
-settings/API and checkout/lockfile drift. `personal fleet-repair --repair workspace`
-previews convergence through this same setup script; applying requires
-`--apply --yes`. No credentials are copied or cloud resources provisioned;
-VS Code/T3 end-to-end tests remain explicit operator steps.
+Multiple development computers are kept in sync by
+[dev-fleet](https://github.com/crvouga/dev-fleet), run from this checkout at the
+pinned `fleet.revision` with `fleet.json` (see [T3 project actions](#t3-project-actions)).
+Fleet machines get their toolchain from dev-fleet's own pins, not from this file.
 
-Bootstrap each node once using the same reviewed checkout revision, then check
-tool discovery through its actual SSH alias (not just an interactive terminal):
-
-```sh
-ssh YOUR_ALIAS 'command -v mise; command -v bun; command -v node; command -v npm'
-personal fleet-status --json
-personal fleet-repair --repair workspace
-personal fleet-repair --repair workspace --apply --yes
-```
-
-Review the sync plan before applying. SSH must already work and nodes must be in
-your local fleet roster; bootstrap does not create accounts, pair T3, authorize
-SSH keys or copy credentials. Remote Bash sessions depend on sshd sourcing
+Remote Bash sessions depend on sshd sourcing
 `.bashrc`; shells launched with startup files disabled need an explicit PATH or
 the absolute `~/.local/bin/mise exec --locked -- COMMAND` entry point. On Windows,
 restart the parent editor/agent process to inherit the updated user PATH.
@@ -356,62 +340,25 @@ instruction files pointing to that same canonical document; Codex/OpenCode use
 `AGENTS.md` directly. Harness credentials and personal settings remain per machine. Bootstrap is authorized only when the user requests machine
 setup; fetching a public guide alone does not authorize installs or logins.
 
-### Pinned native T3 for Ubuntu fleet services
-
-The shared setup owner verifies the Linux T3 release archive against the
-architecture-specific SHA-256 pins in `mise.toml` (`t3_version` and
-`t3_linux_*_sha256`). Artifacts live under `~/.local/share/personal/tools/`.
-Workstation uses that absolute executable for policy commands. The worker's
-only running T3 is the T3 Code desktop app, installed from the same release's
-`.deb` (pinned by `t3_desktop_*_sha256`, computed from the release assets since
-upstream `SHA256SUMS` omits packages) and started by the `t3code-desktop.service`
-user unit in the GDM auto-login session. It shares `~/.t3` with the former
-headless service, so environment identity and pairing are kept. A conflicting
-launcher version or a still-running headless service requires reviewed
-maintenance; routine fleet-sync never restarts active turns to promote a new
-pin. The disposable Ubuntu VM test still exercises the former headless service
-and does not cover the desktop session. Private routing and paired execution
-require separate evidence.
-
-Normal Ubuntu fleet setup is controller-led:
-`npx @crvouga/personal fleet-sync`. See the
-[Fleet runbook](../../packages/fleet/docs/ubuntu-sync.md). A controller without
-Node/npm must first run this tracked bootstrap (or install the documented Node
-prerequisite); `npx` cannot execute before Node/npm exist. Reachable remote targets
-are bootstrapped over verified SSH by the same shared owner.
-
-Repeated approved setup reuses an observed matching mise executable and preserves
-unchanged managed configuration/lockfile timestamps. It still asks mise and the
-frozen dependency owner to inspect actual installations; a previous success marker
-is not a reason to skip drift inspection.
-
 ### T3 project actions
 
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
-Actions are named exactly like the `personal` command they run, so a T3 script
-label reads the same as the CLI: `warm`, `portfolio`, `workstation-sync`,
+Actions: `warm`, `portfolio`, `workstation-sync`,
 `workstation-update`, `workstation-net-fix`, `workstation-net-check`,
-`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`. Label
-each T3 script `Domain: Command words` (`Fleet: Sync`, `Fleet: Status`,
-`Workstation: Net check`, `Infra: Cliproxy model health` running `infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the offline, credential-free suite). `fleet-sync` selects the current checkout HEAD as its
-exact revision and retains its approval flow; extra arguments such as `--dry-run`
-are forwarded. `fleet-status` runs `personal fleet-status --workers`, the
-canonical worker audit that reports excluded service hosts. Repair previews without applying. Each invocation runs the shared bootstrap first, reusing installed
+`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`.
+Workstation actions run the `personal workstation` command of the same name. The
+fleet actions and `infra-cliproxy` run [dev-fleet](https://github.com/crvouga/dev-fleet)
+at the commit pinned in `fleet.revision`, with this repository's `fleet.json`, through
+`scripts/dev/fleet.sh`. Label each T3 script `Domain: Command words` (`Fleet: Sync`,
+`Fleet: Status`, `Workstation: Net check`, `Infra: Cliproxy model health` running
+`infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the
+offline, credential-free suite). Extra arguments such as `--dry-run` are forwarded.
+`fleet-status` runs dev-fleet's `fleet-status --workers`; `fleet-repair` previews
+without applying. Each invocation runs the shared bootstrap first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)
 remain per-machine prerequisites. Configuration actions affect the current machine.
-
-### Minimal worker profile
-
-Controller-driven remote bootstrap passes `--worker` to the shared setup owner.
-It installs the `vars.worker_tools` subset from `mise.toml`, with versions and
-artifacts taken from the same `mise.lock`; native T3 and Ubuntu Docker/service
-policy remain source-pinned. `bun scripts/dev/doctor.ts --worker --docker --json`
-checks that profile. It does not require unrelated cloud CLIs on workers.
-The source-owned `worker-auth.ts` timer renews the worker's existing Vault token
-and can restore the declared GitHub account from its authorized Vault service
-credential, without copying another machine's login directory.
 
 ### Exact shared tool versions (generated from mise.toml)
 
@@ -473,163 +420,37 @@ credential, without copying another machine's login directory.
 | `aws-cdk` | 2.1146.1 | On demand |
 | `aws-sam` | 1.171.0 | On demand (linux, macos) |
 
-# Manager-led Ubuntu fleet setup
+### The `personal` CLI
 
-For the enrolled Ubuntu development fleet, run on the designated manager:
-
-```sh
-npx @crvouga/personal fleet-sync
-```
-
-Read the [Fleet operator guide](../../fleet/docs/ubuntu-sync.md) for enrollment,
-approved revisions, bootstrap, provider checks and unresolved release gates.
-Routine fleet updates do not require a command sequence on individual nodes.
-The legacy local commands below retain their existing behavior for compatibility.
-
-# Developer fleet configuration setup
-
-Use **personal** for node and T3 configuration. Workstation and fleet are internal
-implementation packages; neither exports its own executable.
-
-After the shared [machine bootstrap](../../../scripts/dev/README.md), run in the
-personal checkout:
-
-```sh
-bun run personal:install
-personal fleet-node-sync
-personal fleet-status
-```
-
-The npm fallback is the same interface:
-
-```sh
-npx @crvouga/personal fleet-node-sync
-```
-
-Use `PERSONAL_WORKSPACE` or `--workspace PATH` when invoking the npm CLI outside
-the checkout. The installed source launcher resolves its checkout automatically.
-Each machine still needs its own authorized Vault session, SSH keys and T3 pairing.
-The sync never copies them or provisions infrastructure.
-
-## Reconciliation
-
-`fleet-node-sync` applies by invocation. It reconciles the locked toolchain, installs
-one `personal` launcher, retires the repository-owned `ws` launcher, upserts the
-Codex proxy profile, and reconciles T3 provider instances. `--dry-run` lists these
-steps without writing or installing. The default node ID is the normalized hostname;
-use `--id NAME` to retain an existing node's registry overrides.
-
-The selected revision defaults to checkout HEAD. `--revision FULL_SHA` pins a
-reviewed commit already fetched into that checkout. Deployment uses a clean Git
-worktree and preserves developer edits. For whole-fleet maintenance, use the manager command above; this legacy local route does not orchestrate other nodes. A failed step stops later steps and reports
-partial progress; it never claims authentication or inference was verified.
-
-Portable models live in `agents/registry.json`; T3 desired provider instances live
-in `agents/t3.json`. Edit these tracked definitions and deploy a reviewed revision.
-New sessions use the updated configuration. Running sessions are not restarted.
-
-## T3 plan, apply, import and cleanup
-
-```sh
-personal t3-apply --dry-run --json
-personal t3-apply
-personal t3-status
-personal t3-cleanup --dry-run
-```
-
-Plans show create/update/delete/unchanged/conflict by instance ID, with no settings
-values or credentials. `personal t3-apply --plan-hash HASH` binds apply to the exact
-settings, ownership state, desired definitions and destination reviewed in a plan.
-A stale plan fails. A second apply with identical inputs performs no settings write.
-
-A provider instance becomes managed when created by personal, or explicitly imported:
-
-```sh
-personal t3-apply --import personal_grok_proxy
-personal t3-apply
-```
-
-Import grants ownership of the entire named provider instance. It does not change
-its settings immediately. Subsequent applies reconcile that instance to the tracked
-definition, including removal of extra fields. Existing unowned instances cause a
-conflict, even when their names match. Unrelated instances and settings are preserved.
-
-Removing an instance from the desired definition removes it on the next apply.
-`personal t3-cleanup` removes **all owned provider instances** while retaining
-threads, projects, pairing, native provider instances, credentials and profile files.
-It does not delete T3's data directory or secret store. Historical threads may need
-a replacement provider selected after their managed instance is removed.
-
-`--t3-home PATH` selects a T3 base directory (otherwise T3CODE_HOME or ~/.t3).
-`--definition FILE` selects a version-1 desired definition. Supported interpolation
-is `${workspace}`, `${agents}` and `${node}`. The current schema deliberately supports
-the verified Codex proxy adapter fields; it rejects inline credential definitions.
-T3 proxy execution requires macOS/Linux/WSL; native Windows execution is unverified.
-
-## State and concurrency
-
-T3 owns `userdata/settings.json`. Personal merges only its declared instances and
-stores IDs in `userdata/personal-managed.json`, with mode 0600. Private settings and
-state backups sit beside that file. They may contain existing secret references or
-values and must never enter Git or reports. Symlink/malformed destinations fail.
-
-Personal operations use an exclusive lock, atomic replacement, pre-write freshness
-checks and post-write verification. T3's own theme CLI uses the same optimistic
-external-file update pattern; T3 does not honor personal's lock. Avoid concurrent
-Settings edits during apply: there is no cross-process atomic compare-and-swap with
-T3. No strict transaction across application and ownership files is claimed. Ownership
-intent is saved before settings so interrupted creates/removals can be retried.
-Inspect interrupted operations before removing a stale `.lock` directory.
-
-T3's installed server source at revision
-`322f6544dfad0a3c8a0c8cbecf2c7f7874b14268` was inspected for provider-instance shape,
-external settings watch/reload, and optimistic CLI writes. Future T3 schema changes
-require adapter verification. A disk-level success is not a live inference test.
-
-## Other local operations
-
-All former workstation operations are available through `personal workstation`:
-
-```sh
-personal workstation tools check --json
-personal workstation agents verify --node NODE --tool codex --profile proxy --json
-personal workstation opencode sync
-personal workstation net check
-```
-
-`personal fleet-status` diagnoses the manager and registered remote nodes.
-`personal fleet-discover` lists visible Tailscale computers. The local SSH roster
-still requires real aliases and checkout paths; discovery never guesses these.
-Use `personal commands --json` to discover the complete interface.
-
-### Portable developer fleet CLI
-
-`npx --yes @crvouga/personal` opens a searchable terminal command center without
-a checkout or Bun. For agents, use `npx --yes @crvouga/personal commands --json`
-or `fleet-status --local --json`. Commands are flat and prefixed by domain
-(`fleet-*`, `t3-*`, `infra-*`, `workstation`). `infra-*` commands are thin
-clients of cloud infrastructure (for example `infra-vault run` reads cloud
-Vault); their contracts are in https://www.chrisvouga.dev/llms-cloud.txt. Pin an exact published version
-in automation. See [`packages/personal-cli/README.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/README.md) and
-[`packages/personal-cli/releasing.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/releasing.md) for installation, onboarding and CI publishing.
-
-`fleet-status --json` checks the manager and every node in the local,
-secret-free roster. Missing rosters and credentials never count as a pass.
-Register actual SSH aliases and checkout paths with `fleet-node-add`; preview before
-`--apply --yes`. Never copy credentials, accept unknown host keys, or run automatic
-repairs. Shared mise/workstation remain the toolchain owners.
+`bun run personal` runs from the checkout. Commands are flat and prefixed by
+domain: `infra-*` commands are thin clients of cloud infrastructure (for example
+`infra-vault run` reads cloud Vault; their contracts are in https://www.chrisvouga.dev/llms-cloud.txt),
+and `workstation` configures this machine. `bun run personal commands --json` is
+the agent catalog. See [`packages/personal-cli/README.md`](https://github.com/crvouga/personal/blob/main/packages/personal-cli/README.md).
 
 ---
 
-## Private fleet AI proxy
+## Developer fleet and private AI proxy (dev-fleet)
 
-`@pkgs/cliproxy-fleet` owns the private CLIProxyAPI service and fleet-client bootstrap.
-The proxy process runs only on the fleet manager; it is not a hosted app and is never deployed to Railway.
-Run `bun run cliproxy help` from this repository. Install only committed revisions;
-never patch `/opt/cliproxy-fleet` manually. Source and recovery instructions: [`packages/cliproxy-fleet/README.md`](https://github.com/crvouga/personal/blob/main/packages/cliproxy-fleet/README.md).
-The cloud pieces it uses are OpenTofu-owned and out of scope here: its Cloudflare tunnel
-hostname, its Vault keys and the encrypted R2 backup of its provider state. The local
-install reads them and never creates or changes them.
+The fleet (one macOS manager, stateless Ubuntu workers), T3 provider instances,
+Beszel monitoring and the private CLIProxyAPI service are managed by
+[dev-fleet](https://github.com/crvouga/dev-fleet); none of that code lives here.
+This repository holds only this fleet's configuration, [`fleet.json`](https://github.com/crvouga/personal/blob/main/fleet.json), and the
+dev-fleet commit it runs, [`fleet.revision`](https://github.com/crvouga/personal/blob/main/fleet.revision). From the checkout:
+
+```sh
+bash scripts/dev/project-action.sh fleet-sync --dry-run   # preview
+bash scripts/dev/project-action.sh fleet-sync             # apply on the manager
+bash scripts/dev/project-action.sh fleet-status           # read-only worker audit
+bun run cliproxy help                                      # the proxy's operations
+```
+
+Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change machines,
+endpoints or secret locations in `fleet.json`. The proxy runs only on the fleet
+manager; it is not a hosted app and is never deployed to Railway. The cloud pieces
+it uses (its Cloudflare tunnel hostname, its Vault keys and the encrypted R2 backup
+of its provider state) are OpenTofu-owned and out of scope here: the fleet reads
+them and never creates or changes them.
 
 ---
 
@@ -657,340 +478,4 @@ GitHub Actions may continue persisting `.turbo` through `actions/cache`.
 
 ## Maintaining this file (agents working inside `crvouga/personal`)
 
-`llms-local.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-local.template.md`](https://github.com/crvouga/personal/blob/main/scripts/llms-local.template.md); the embedded runbooks come from [`scripts/dev/README.md`](https://github.com/crvouga/personal/blob/main/scripts/dev/README.md), [`mise.toml`](https://github.com/crvouga/personal/blob/main/mise.toml), [`packages/fleet/agents/setup.md`](https://github.com/crvouga/personal/blob/main/packages/fleet/agents/setup.md) and [`packages/fleet/docs/ubuntu-sync.md`](https://github.com/crvouga/personal/blob/main/packages/fleet/docs/ubuntu-sync.md) via [`scripts/llms-txt.ts`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).
-
-## Ubuntu developer-fleet synchronization (homelab, not cloud infrastructure)
-
-# Developer fleet: one manager (macOS) and stateless workers (Ubuntu)
-
-## Release status
-
-This working-tree implementation is **not yet a completed or published fleet
-release**. Do not describe it as having configured Chris’s machines. Required
-acceptance checks remain incomplete: multi-target remote/bootstrap fault tests, unattended
-paired T3 execution and live private-route acceptance, all five live provider routes, manager boot/scheduling acceptance,
-off-host monitoring recovery, and the full Ubuntu drift/fault matrix. Disposable Ubuntu baseline
-apply/repeat/reboot and pinned native T3 install/repeat/crash recovery/reboot passed.
-The production boot-policy observer also passed inside the rebooted VM. Pinned
-Beszel hub installation (including a missing Docker engine), repeat no-op and
-reboot passed. Native Beszel agent installation, repeat no-op, crash recovery and
-reboot also passed with an intentionally unreachable fixture hub; private metrics
-acceptance remains separate. A further full SSH bootstrap test caught a T3 archive verification bug: release-builder UID/GID values are not the designated installation user. The shared installer now verifies local ownership, content, modes and links independently of archive-builder identity. The same test exposed restrictive-umask extraction drift; archive modes are now preserved and staging is verified before promotion. A fresh Ubuntu VM now passes the production strict-SSH source transfer, missing-prerequisite bootstrap, shared tool installation and baseline, then repeats with preserved SSH identity, developer work and managed-file timestamps. This uses a disposable exact test commit, not a published release or live fleet. Multi-target and interruption acceptance remains open. The VM caught and fixed an Ansible piped-stdin
-variable-loading failure; runtime variables now use a private temporary file with
-cleanup and never enter command arguments. See the
-[reproducible VM test instructions](../../fleet/ubuntu/tests/README.md).
-Real Beszel 0.21.1 binaries passed authenticated metrics, identity preservation and
-supported API backup/restore in an isolated loopback fixture; that is not live fleet evidence. Incomplete
-checks return nonzero; they do not advance a successful fleet receipt.
-
-Newest and still unverified against live machines: the macOS convergence path
-(`packages/fleet/macos`, launchd Beszel agent, fcntl remote lock), the Linux
-always-on service drop-ins, and dashboard evidence inside `fleet-status --workers`.
-They pass unit tests and Ansible syntax checks only; treat them as unaccepted
-until a disposable-machine run and a live manager run are recorded.
-
-## One command, from the manager
-
-```sh
-npx @crvouga/personal fleet-sync
-```
-
-`personal fleet-sync` executes the manager-push implementation:
-
-```text
-resolve enrolled fleet
-→ inspect Tailscale and verified SSH
-→ bootstrap missing remote prerequisites
-→ apply one approved exact revision
-→ establish fresh SSH connections and check readiness
-→ report every target, including offline and blocked nodes
-```
-
-Bare invocation selects every canonical Linux and macOS node. It does not mean
-“this computer,” and the manager is not implicitly a deployment target. Its own
-node is targeted only if explicitly declared in Fleet membership. Ubuntu 26.04 is
-the accepted worker platform; a node declared `"os": "macOS"` runs the same phases
-best effort through `packages/fleet/macos` (see the platform matrix below).
-Windows machines stay declared for diagnostics and are never converged.
-`--node ID` filters troubleshooting/rollout. `--all` is an explicit spelling of the
-default. Neither flag authorizes managing arbitrary Tailscale peers.
-
-Roster-level workspace convergence lives in `personal fleet-repair --repair workspace`, which previews until `--apply --yes`.
-The new manager report is version **2**, deliberately replacing the unshipped
-local-first fleet-sync version 1 contract.
-
-## Prerequisites and first enrollment
-
-The manager needs Node/npm (Node `^22.13.0 || >=23.5.0`), an OpenSSH client,
-a working Tailscale daemon, and Git for approved source preparation. npx cannot
-execute without Node/npm. Existing shared setup remains
-[`scripts/dev/bootstrap.sh`](../../../scripts/dev/bootstrap.sh); run that tracked
-bootstrap on a manager without developer tools, then invoke the same command.
-Do not install an unrelated fleet installer. The npm command’s help, catalog and
-structured missing-enrollment result require neither Bun nor a checkout.
-
-On first interactive use the command resolves only canonical machines through
-existing SSH aliases, tests strict SSH access, and offers one enrollment
-confirmation for the verified connections. The apply approval binds a fingerprint
-of the selected revision, policy and connection records; changed bindings fail
-with `FLEET_PLAN_STALE` before source preparation or remote mutation. It stores private overrides mode 0600. Unknown host keys are never accepted automatically. Compare fingerprints
-out of band before enrolling trust. Unreachable machines remain listed; first
-reachability requires an existing trusted LAN SSH route or physical setup of
-SSH/Tailscale. No software on the manager can bootstrap a disconnected box.
-
-A previously configured manager uses saved connection bindings and its approved
-revision. A changed Tailscale device ID is a replacement gate, even if the old
-DNS name and SSH alias still resolve. Enrollment never copies host keys,
-Tailscale state, provider OAuth, or another machine’s T3 environment.
-
-Remote developer-tool prerequisites are not required: the initial SSH probe uses
-POSIX facilities. Approved application sends a Git bundle of that one commit
-(its files, no history; the worker checkout is shallow) and the bootstrap
-script extracted from that exact commit over verified SSH. A worker that
-already has the revision receives nothing, and the toolchain setup is skipped
-while its inputs (`mise.toml`, the locks, `scripts/dev`) are unchanged since a
-successful setup within the last day. It installs missing
-Ubuntu bootstrap packages through signed APT, then uses the existing mise and
-frozen dependency installer. Bootstrap APT packages currently use the installed
-Ubuntu archive configuration; strict dependency closure/snapshot promotion is a
-remaining parity gate. The interactive manager flow can request native sudo authorization over a verified SSH terminal after the consolidated apply confirmation. It validates and installs the designated-user sudo policy; passwords are never captured or stored. Missing administrator permission, an unmanaged conflicting sudoers fragment, or unavailable terminal remains action-required. JSON and unattended runs never prompt and require existing noninteractive sudo.
-
-## Policy, ownership and private state
-
-- `packages/fleet/definition.json` and `definition.schema.json`: portable machine
-  IDs, aliases, OS, singleton roles and Ubuntu release policy.
-- Private manager overrides: `--config PATH`, `PERSONAL_FLEET_CONFIG`, or
-  `~/.config/personal/fleet.json`, using the existing roster schema. Preserve
-  workspace/runtime paths, capabilities and explicit `tailscaleId` bindings.
-- Workstation network consumers derive their inventory from Fleet. The old file
-  is retained only as `packages/fleet/migrations/workstation-network-v1.json` for
-  lossless identity-path migration; conflicts fail rather than silently winning.
-- Manager approval: `~/.local/share/personal/fleet/manager/enrollment.json`.
-  Manager deployment lock: adjacent `sync.lock` directory.
-- Remote source: `~/.local/share/personal/fleet/revisions/FULL_SHA`.
-  Remote lock file: `~/.local/share/personal/fleet/remote-operation.lock`, held
-  with `flock` on Linux and the same descriptor through Python `fcntl` on macOS.
-  Never repurpose a development checkout or reset dirty worktrees.
-- Fleet owns `ubuntu/`, `macos/` and `monitoring/`; mise manifests, locks and
-  `scripts/dev` own developer tools. CLIProxy deployment/auth/recovery stays with
-  `packages/cliproxy-fleet`. Cloud resources, DNS, Vault policy and tailnet access
-  policy stay with OpenTofu and are not modified by this command.
-
-The repository is public. Existing portable host metadata was retained during
-migration; do not publish device IDs, private keys, manager-specific secrets,
-credentials, backups or runtime databases. Intentional persistent policy changes
-must be reviewed in Git. Emergency service restarts do not authorize permanent
-untracked configuration edits.
-
-## Preview, approval and results
-
-```sh
-personal fleet-sync --dry-run --json
-personal fleet-sync --revision FULL_40_CHARACTER_SHA --dry-run --json
-personal fleet-sync --revision FULL_40_CHARACTER_SHA --non-interactive --json
-```
-
-Preview can query Tailscale and establish read-only SSH sessions. It never enrolls,
-authenticates to a provider, installs, creates pairing material, schedules work or
-writes configuration. JSON/noninteractive modes never prompt or open a browser.
-`fleet-sync` applies on invocation with no confirmation prompt; use `--dry-run`
-to preview. `--apply --yes` is still accepted for existing scripts. Initial
-trust/enrollment of new connections still asks separately.
-
-Select one full lowercase commit SHA. Approval is saved on the manager and
-retained throughout the run. New package versions do not silently replace saved
-approval. Promote a reviewed release with the explicit `--revision SHA` invocation.
-Use `npx @crvouga/personal@VERSION fleet-sync ...` for automation; unversioned npx
-is convenience, not a reproducibility guarantee. Dirty review artifacts have no
-automatically approved source SHA.
-
-Version 2 JSON contains `execution: manager-push`, desired revision, per-node
-reachability, applied revision (null when not verified), checks, durations,
-candidate count and the private dashboard URL when the enrolled hub resolves.
-An absent applied revision is not “unchanged.” Every required skip/failure keeps
-readiness incomplete. Exit 0 means the requested read-only inspection or required
-checks passed; 1 means incomplete/action-required/failed; 2 means invalid usage or
-refused configuration. JSON is one document on stdout, with no child process logs.
-
-These are distinct facts: configuration applied; local services healthy; fresh
-manager connection verified; authenticated IDE/T3 tool execution verified.
-Neither an HTTP 200 nor a successful installer establishes the last fact.
-
-## Machine policy by platform
-
-Every machine-level setting is declared in Ansible using only `ansible.builtin`
-modules, applied by `node-converge` after source bootstrap, and then measured
-independently. Bespoke TypeScript remains only where a native CLI or API has no
-declarative owner: T3 service lifecycle, Beszel enrollment tokens, provider
-verification and the CLIProxy singleton.
-
-| Policy                      | Workers (Ubuntu 26.04, stateless)                                                                                                                                                                                                                                                                                                                                                                                                                   | Manager (macOS, singleton)                                                                                                                                                                                                                                                                                                                                                                                |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Never sleep                 | systemd sleep targets masked; logind lid/idle policy; GNOME power plugin set to `nothing`                                                                                                                                                                                                                                                                                                                                                           | never sleeps on AC power (`pmset -c sleep 0`, `macos/manager.yml`, verified as `manager:power`); battery sleep is left to the human                                                                                                                                                                                                                                                                       |
-| No automatic logout or lock | GNOME `lock-enabled false`, `idle-delay 0`; designated-user lingering                                                                                                                                                                                                                                                                                                                                                                               | not managed (the human uses it)                                                                                                                                                                                                                                                                                                                                                                           |
-| Always-on services          | drop-ins `Restart=always`, `StartLimitIntervalSec=0` for ssh, tailscaled, docker, beszel-agent                                                                                                                                                                                                                                                                                                                                                      | singleton services under launchd and Docker Desktop (see the last row)                                                                                                                                                                                                                                                                                                                                    |
-| T3 health and connection    | `fleet-sync` and `fleet-status --workers` require `worker:t3-health` (local API answers), `t3:manager-endpoint` (manager HTTPS over Tailscale) and `t3:paired-access` (manager T3 link reachable)                                                                                                                                                                                                                                                   | the human's T3 desktop holds the links to every worker (`t3:paired-access`)                                                                                                                                                                                                                                                                                                                               |
-| Memory safety               | `systemd-oomd` (swap 90%, pressure 60%); `user.slice` `MemoryMax=90%`; each `t3code-*.scope` agent `MemoryMax=30%`, `OOMPolicy=continue`; swap file when none                                                                                                                                                                                                                                                                                       | not managed                                                                                                                                                                                                                                                                                                                                                                                               |
-| Disk safety                 | `personal-fleet-disk-guard` kills only the top user-cgroup writer below 3 GiB free, never deletes files; journal 1G; `/tmp` 25% of RAM, aged 2d hourly, a measured write probe (`TMP_QUOTA_EXHAUSTED`), and T3 agents use disk-backed `/var/tmp` (`TMPDIR`, aged 14d); Docker log rotation                                                                                                                                                          | not managed                                                                                                                                                                                                                                                                                                                                                                                               |
-| Tailscale                   | pinned APT package, `tailscaled` enabled, native login required                                                                                                                                                                                                                                                                                                                                                                                     | Tailscale app, human login                                                                                                                                                                                                                                                                                                                                                                                |
-| Dashboard agent             | pinned native binary, hardened `beszel-agent` systemd unit as user `beszel`                                                                                                                                                                                                                                                                                                                                                                         | not installed                                                                                                                                                                                                                                                                                                                                                                                             |
-| Credential renewal          | user timer `personal-worker-auth` renews the node's own Vault token and GitHub login every 10min                                                                                                                                                                                                                                                                                                                                                    | the human's own Vault and GitHub sessions                                                                                                                                                                                                                                                                                                                                                                 |
-| Noninteractive sudo         | validated `/etc/sudoers.d/personal-fleet-USER`                                                                                                                                                                                                                                                                                                                                                                                                      | never; the human runs `manager.yml` once with `-K`                                                                                                                                                                                                                                                                                                                                                        |
-| T3 worker app               | pinned desktop `.deb` is the only T3 process (UI plus embedded server); GDM auto-login, user unit `t3code-desktop.service` bound to the graphical session with `Restart=always`; `personal-worker-recovery` checks every minute, starts a stopped app and restarts one whose local API missed three checks; administrator policy. A still-running headless `t3code.service` reports `T3_DESKTOP_MIGRATION_REQUIRED` (stopping it ends active turns) | not a worker                                                                                                                                                                                                                                                                                                                                                                                              |
-| T3 providers                | the same managed instances (`fleet/agents/t3.json`) through locked T3 administrator policy                                                                                                                                                                                                                                                                                                                                                          | reconciled into the human's T3 settings by `fleet-sync` (`t3:providers`) with the ownership-safe `t3-apply` engine, so every T3 offers the identical set; unrelated and unmanaged instances are preserved. `fleet-sync` also applies the same proxy agent profiles (`configuration:apply`) and verifies the shared Vault gateway credential end to end with `provider:*:inference`, exactly as on workers |
-| Singleton services          | never; clients of the manager's services only                                                                                                                                                                                                                                                                                                                                                                                                       | every singleton runs here: CLI proxy (`packages/cliproxy-fleet`), Beszel hub (`workstation/monitoring`)                                                                                                                                                                                                                                                                                                   |
-
-Credential sync is deliberately indirect: no secret is copied between machines.
-OpenTofu issues each enrolled worker its own renewable periodic token
-(`vault.tokens` entries `fleet-worker-<node>`, policy `personal-read`, sunk into
-`secret/personal/prd` as `FLEET_WORKER_TOKEN_<NODE>`). `personal fleet-sync`
-delivers each node's token automatically over SSH stdin (never as an argument)
-whenever that node has no working Vault session. Interactive runs first log the
-manager in (`vault login -method=userpass`, password typed on your terminal)
-and fall back to the same password login on a node whose token is not issued.
-Without either, the node reports `VAULT_LOGIN_REQUIRED` and its T3 proxy
-providers stay unavailable. The manual equivalent of the automatic delivery:
-
-```sh
-vault kv get -field=FLEET_WORKER_TOKEN_CHRIS_VOUGA_MS_A2 secret/personal/prd \
-  | ssh chris-vouga-ms-a2 'vault login -address=https://vault.chrisvouga.dev -no-print -'
-```
-
-From then on the node's `personal-worker-auth` timer renews that token and its
-GitHub login, and renders provider configuration from Vault through Workstation.
-
-## Ubuntu and remote-work safety
-
-The declared common baseline is Ubuntu **26.04 LTS**, amd64/arm64. Other releases
-receive `UBUNTU_BASELINE_MISMATCH`; there is no automatic release upgrade or
-package downgrade. Fleet audits release, packages, service state and dpkg
-consistency, declares snapshot sources for managed transactions, and pins its
-selected APT packages. Unrelated applications and package sources are preserved.
-
-Power policy masks sleep/hibernate targets and declares logind sleep/lid defaults.
-GNOME lock/idle changes apply to the designated user only. Effective running
-session/logind behavior still needs a maintenance/reboot acceptance check; writing
-a file does not prove logout/reboot survival. The sudoers fragment is validated
-with visudo before installation; this user and its agents can administer the
-machine. SSH authentication remains enabled.
-
-SSH forwarding changes validate the complete configuration before reload and
-restore the previous fragment on validation failure. Existing listeners,
-authentication and firewall rules are preserved. Existing socket activation is preserved for forwarding-only changes; listener
-migrations and unmanaged fragments require review. The manager makes a **new**
-strict SSH connection after apply. Private-listener/firewall acceptance and
-failure-after-reload recovery still require disposable integration testing.
-
-The manager is the only configuration coordinator. No per-node pull timer is
-installed. Manager schedule controls use the existing platform adapter:
-
-```sh
-personal fleet-sync --schedule status --json
-personal fleet-sync --schedule enable --revision FULL_40_CHARACTER_SHA --apply --yes
-personal fleet-sync --schedule pause --apply --yes
-personal fleet-sync --schedule resume --revision FULL_40_CHARACTER_SHA --apply --yes
-personal fleet-sync --schedule disable --apply --yes
-```
-
-These are manager setup/maintenance operations, not per-node commands. Enable
-and resume install the exact published CLI version in the managed manager
-runtime and schedule the same whole-fleet command every 30 minutes at the explicit
-approved SHA. They refuse dirty artifacts. Pause/disable remove only the manager
-schedule. Re-enable with the new approved SHA when promoting a release; the timer
-does not resolve `latest`. Linux user scheduling requires lingering; macOS uses
-the existing LaunchAgent and requires a user session. Unattended manager boot
-acceptance and log-retention configuration remain gates. No node pull scheduler
-is installed or necessary.
-
-Sync never reboots a box. It does restart a worker's T3 when a new provider
-policy is staged, which ends that T3's running turns. Explicit
-maintenance reboot/reconnect orchestration remains an acceptance gate. Kernel,
-driver, firmware, hardware and power failures are outside any “never freezes”
-promise. Inspect disk/inodes, swap/memory pressure, `systemctl --failed`, and prior
-boot journal evidence locally; sanitize it before sharing. Do not enable automatic
-reboot-on-pressure or kill active work to obtain a green report.
-
-T3 0.1.7's supported administrator policy at `/etc/t3code/policy.json`
-disables independent updates and declares the existing managed Codex instance
-plus an OpenCode instance for all five gateway models. Fleet reuses the
-existing `agents/t3.json` renderer; it does not edit the live settings database.
-Native `t3 policy check` validates before installation, and `t3 policy show`
-compares staged policy with the running server. A staged policy the running
-server has not loaded restarts the T3 desktop app in the same sync;
-`T3_POLICY_RESTART_FAILED` means it still did not load afterwards.
-Unrelated administrator policy is a conflict requiring a reviewed merge.
-
-## Central provider access
-
-The `https://cli-proxy.chrisvouga.dev` gateway is a singleton service, so it
-runs on the manager (`definition.json.services.proxy`). Workers consume that
-gateway; no worker gets a separate OAuth-owning proxy. Keep the existing
-key/endpoint contract, encrypted recovery and runtime authentication. Moving it
-requires fencing the old host before restoring state
-([migration](../../cliproxy-fleet/docs/migration.md)). Fleet never copies identities.
-
-### Agents on every node
-
-Every node (manager and workers) offers the same agents in T3, at the same
-versions (pinned in `mise.toml`/`mise.lock`, including the vendor CLIs
-`http:grok` and `http:antigravity`), signed in to the same multiplexed proxy
-accounts. T3 launches most through a tracked launcher in
-`packages/fleet/agents/` that injects the shared proxy key from Vault at
-launch; nothing is copied between nodes.
-
-| T3 provider                   | T3 driver     | Route                                                           |
-| ----------------------------- | ------------- | --------------------------------------------------------------- |
-| `Claude <account email>`      | `claudeAgent` | One per Claude account on the proxy (`claude-proxy`)            |
-| `Codex <account email>`       | `codex`       | One per Codex account on the proxy (`codex-proxy.ts`)           |
-| `AntiGravity <account email>` | `opencode`    | One per Antigravity account, via OpenCode (`opencode-proxy.ts`) |
-| `Grok CLI Proxy`              | `grok`        | Pooled: Grok Build custom model, `env_key` (`grok-proxy.ts`)    |
-| `OpenCode CLI Proxy`          | `opencode`    | Pooled accounts and Muse via OpenCode (`opencode-proxy.ts`)     |
-
-**Ansible applies, TypeScript measures.** On a worker the T3 lifecycle is
-declared in playbooks: `t3-policy.yml` stages the provider policy and restarts
-a running T3 that has not loaded it, `t3-desktop.yml` installs the app, retires
-the former headless server and starts it, and `t3-route.yml` publishes the
-private tailnet route when port 443 has no owner. The TypeScript around them
-only refuses conflicts and reports what it observes afterwards. Each sync also
-prunes old revision checkouts on the worker, keeping the new one, the one T3
-launches from and the two most recent others.
-
-**Every sync applies everything.** `fleet-sync` never waits for a quiet
-moment: a worker whose T3 has not loaded the staged provider policy is
-restarted (ending its running turns), and a pending proxy update is installed
-even when it recreates the gateway. The manager finishes before the workers
-start, so they are verified against the updated proxy. `--dry-run` previews.
-
-**Accounts are never listed in this repository.** The proxy's credential files
-are the only source of truth: every sync gives each Claude, Codex and
-Antigravity credential the model prefix `<type>-<email>`
-(`packages/cliproxy-fleet/scripts/accounts.py`, applied through the proxy's own
-API), so the proxy's model list names every signed-in account. Each node reads
-that list with its own proxy key and offers one provider per account, so all
-machines list the same providers. Signing an account in or out on the proxy
-(`bun run cliproxy add-account PROVIDER`, or the dashboard) changes T3 on the
-next `fleet-sync`; an unreachable proxy fails the check and changes nothing.
-
-A provider is pinned to its account: T3 sets `WS_AGENT_ACCOUNT` and the
-launcher routes every request to `<type>-<email>/<model>`. Claude and Codex
-send whichever model is picked, so their launcher runs a loopback relay
-(`account-relay.ts`, alive only while that agent runs) that adds the prefix;
-OpenCode is configured with exactly the account's models. Requests without a
-prefix (Grok, the pooled OpenCode provider, health checks) still use the whole
-pool, fill-first. T3's own Antigravity runtime cannot carry an account, so
-Antigravity accounts run on the OpenCode harness. Cursor is not part of the
-fleet (its backend cannot be proxied). Native Muse Code is not used: it only
-talks to Meta's own catalog endpoint, so Muse models run through OpenCode.
-
-### Checkout project actions
-
-`bash scripts/dev/project-action.sh fleet-sync` warms the shared toolchain
-and passes the current checkout HEAD as the exact revision to the existing approval
-flow. Extra arguments such as `--dry-run` are forwarded. The manager can bundle
-committed objects from this canonical local repository, including unpublished
-commits; dirty working files are never transferred. Review and commit desired
-changes before approving deployment. The Ubuntu baseline now owns the native
-Docker engine, Compose and Buildx on every enrolled Linux workstation, preserving
-third-party engine ownership conflicts and existing running workloads. Workstation
-launcher/link convergence is part of the node apply, with credentials still checked
-separately. A dependency receipt proves frozen installation inputs only.
+`llms-local.txt` is generated — never edit it by hand. Prose lives in [`scripts/llms-local.template.md`](https://github.com/crvouga/personal/blob/main/scripts/llms-local.template.md); the embedded runbooks come from [`scripts/dev/README.md`](https://github.com/crvouga/personal/blob/main/scripts/dev/README.md) and [`mise.toml`](https://github.com/crvouga/personal/blob/main/mise.toml) via [`scripts/llms-txt.ts`](https://github.com/crvouga/personal/blob/main/scripts/llms-txt.ts). Run `bun run llms:sync` after changing any of them; `bun run check:llms` fails CI on drift, on a dangling reference, or when cloud-only content leaks into this guide (see `BOUNDARY` in the generator).

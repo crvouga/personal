@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { runCommand } from '../../fleet/src/runner';
+import { spawnSync } from 'node:child_process';
 import { resolveSettings, type Settings } from './settings';
 import type { CommandOutcome } from './contracts';
 
@@ -30,29 +30,29 @@ export function registerWorkstation(
         const settings = await resolveSettings({
           ...defaults,
           ...(options.workspace ? { workspace: options.workspace } : {}),
-          ...(options.config ? { config: options.config } : {}),
         });
-        complete(await workstationCommand(args, settings));
+        complete(workstationCommand(args, settings));
       }
     );
 }
 
 /** The public Node CLI delegates Bun-only local operations to its source checkout. */
-export async function workstationCommand(
+export function workstationCommand(
   args: string[],
   settings: Settings
-): Promise<CommandOutcome> {
+): CommandOutcome {
   const help = args.length === 0 || args.includes('--help');
-  const result = await runCommand(
+  const child = spawnSync(
+    'bun',
     [
-      'bun',
       join(settings.workspace, 'packages/workstation/cli/internal.ts'),
       ...(help
         ? [...args, '--help']
         : [...args, '--json', '--non-interactive']),
     ],
-    { cwd: settings.workspace, timeoutMs: 1_200_000 }
+    { cwd: settings.workspace, timeout: 1_200_000, encoding: 'utf8' }
   );
+  const result = { ok: child.status === 0, stdout: child.stdout ?? '' };
   if (help && result.ok)
     return {
       exitCode: 0,
@@ -86,7 +86,7 @@ export async function forwardWorkstation(
   const childArgs: string[] = [];
   let commandSeen = false;
   for (let index = 0; index < args.length; index++) {
-    if (['--workspace', '--config'].includes(args[index]!)) {
+    if (args[index] === '--workspace') {
       index++;
       continue;
     }

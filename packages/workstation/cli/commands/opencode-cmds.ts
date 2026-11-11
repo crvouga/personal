@@ -1,5 +1,5 @@
 import { pickModel } from './model-picker';
-import { currentPlatform } from '../../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 import type { GlobalOpts } from '../lib/cli-opts';
 import { confirmOrThrow } from '../lib/cli-opts';
 import { resolveModelCatalog } from '../lib/models';

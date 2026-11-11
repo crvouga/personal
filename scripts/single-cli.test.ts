@@ -11,11 +11,6 @@ test('personal owns the only user executable; other private package manifests ex
     if (name === 'personal-cli') continue;
     expect(manifest.bin, path).toBeUndefined();
   }
-  const build = readFileSync(
-    join(root, 'packages/personal-cli/scripts/build.ts'),
-    'utf8'
-  );
-  expect(build).toContain("bin: { personal: './cli.mjs' }");
 });
 
 test('npx @crvouga/personal resolves to this checkout through the workspace link', () => {
@@ -35,16 +30,12 @@ test('legacy domain tasks forward to personal rather than independent CLIs', () 
   const { scripts } = JSON.parse(
     readFileSync(join(root, 'package.json'), 'utf8')
   );
-  for (const name of [
-    'fleet',
-    'password-manager',
-    'cliproxy',
-    'health',
-    'health:fix',
-    'domains',
-  ]) {
+  for (const name of ['password-manager', 'health', 'health:fix', 'domains']) {
     expect(scripts[name]).toStartWith('bun run personal ');
   }
+  // Fleet tasks run dev-fleet at the pinned revision, not personal.
+  for (const name of ['fleet', 'cliproxy'])
+    expect(scripts[name]).toStartWith('sh scripts/dev/fleet.sh');
 });
 
 test('custom Vault operations live behind personal, with no global copied wrapper installer', () => {

@@ -67,8 +67,7 @@ The old flat names (`personal workstation providers`, `personal workstation noti
 `bun run personal:install` installs frozen dependencies and symlinks the tracked
 `packages/personal-cli/bin.mjs` as `personal`, then converges local configuration.
 It removes only recognized legacy `ws` launchers. Unrelated executable collisions
-fail visibly. Windows users should use the npm `personal` executable; source symlink
-installation requires Developer Mode/symlink privileges. No new `ws` executable is exported.
+fail visibly. Source symlink installation on Windows requires Developer Mode/symlink privileges. No new `ws` executable is exported.
 
 `packages/workstation/setup.ts` is a deprecated shim that forwards to the installer.
 
@@ -119,7 +118,7 @@ personal workstation cleanup --protect 'vite' --protect 'storybook'
 
 `personal workstation net` keeps every machine reachable from every other: Tailscale, SSH,
 T3 Code and VS Code Remote-SSH. The machines live in the checked-in
-canonical `../fleet/definition.json` (alias, Tailscale name, SSH port/user,
+canonical `fleet.json` at the repository root (alias, Tailscale name, SSH port/user,
 OS, T3 port), so every machine gets the same view. Private keys are never
 committed: manager identity paths remain local. Hosts without an explicit
 identity use existing SSH configuration or Tailscale SSH; login is checked separately.
@@ -130,7 +129,7 @@ identity use existing SSH configuration or Tailscale SSH; login is checked separ
 2. MagicDNS resolves the full name, and the SSH port is open
 3. SSH login by alias, several tries (`--tries`, default 3) to catch flaky connections
 4. SSH as `user@full-name`, which is how VS Code Remote-SSH and T3 connect
-5. Machine health over SSH (`net/remote-probe.sh`): CPU load per core, RAM/swap, free disk
+5. Machine health over SSH (dev-fleet's `ansible/net/remote-probe.sh`): CPU load per core, RAM/swap, free disk
 6. T3 server reachable over Tailscale at `:<t3Port>/.well-known/t3/environment`, or through verified SSH to the remote loopback endpoint for loopback-only servers; reports the route and compares versions with this machine. This is a readiness probe, not a T3 pairing test.
 
 It also checks this machine: Tailscale running, `tailscale` on `PATH` (T3
@@ -146,11 +145,11 @@ as a remote. Exit code 1 means at least one check failed.
 - `tailscale` / `code` wrappers in the global bin dir when the apps are installed but their CLIs are not on `PATH`
 - the background check (`personal workstation net watch install`): a launchd agent on macOS or a systemd user timer on Linux that runs `personal workstation net check --notify --quiet` every 5 minutes and posts a desktop notification when failures appear or clear. History: `<cache>/ws/net/check.log`.
 
-Adding a fleet machine: review its membership in `../fleet/definition.json`, then run `npx @crvouga/personal fleet-sync` on the designated manager to enroll its verified connection. Workstation network diagnostics consume that same definition. Legacy key-path migration data is retained under `../fleet/migrations/`; private connection overrides remain local.
+Adding a fleet machine: add it to `fleet.json`, then run `bash scripts/dev/project-action.sh fleet-sync` on the manager (dev-fleet enrolls it). Workstation network diagnostics consume that same file; private connection overrides remain local.
 
 ### Platform design
 
-All OS-specific behavior lives behind the `Platform` interface (`cli/lib/platform/`): `DarwinPlatform`, `LinuxPlatform`, `WindowsPlatform`, `FallbackPlatform`, selected by the `getPlatform()` factory. Commands never branch on `process.platform` directly.
+All OS-specific behavior lives behind dev-fleet's `Platform` interface (`@crvouga/dev-fleet/src/platform`): `DarwinPlatform`, `LinuxPlatform`, `WindowsPlatform`, `FallbackPlatform`, selected by the `getPlatform()` factory. Commands never branch on `process.platform` directly.
 
 - **macOS**: full stack — Swift `OpenCodeNotifier` app (click-to-focus, sounds), osascript fallback.
 - **Linux**: `notify-send` / `zenity` fallback (no sounds, no click-to-focus); symlinks + provider sync fully work; `personal workstation net watch` uses a systemd user timer.
@@ -521,40 +520,16 @@ separate from the cloud app infrastructure guide. The site's `/llms.txt`
 provides the entry link. Run `bun run llms:sync` when changing setup instructions
 or tool pins, then `bun run check:llms` to verify all published copies.
 
-## Versioned agent profiles
+## Fleet
 
-The [complete setup runbook](agents/setup.md) covers `personal workstation agents inventory`,
-`preview`, `apply`, `status`, `verify`, `run` and `t3-plan`. The
-[ownership and compatibility audit](agents/audit.md) lists sources, destinations,
-secret/runtime boundaries and unsupported integrations. `agents/registry.json`
-owns portable model defaults, explicit node overrides and the CLI Proxy reference.
-`personal workstation doctor` reports installed tools and drift for applied profiles. T3 provider instances are reconciled by `personal t3-apply --dry-run`, `t3-apply`, `t3-status`
-and `t3-cleanup`. Only declared/explicitly imported instances are owned.
-
-## Ubuntu one-command synchronization
-
-See [the Fleet operator and implementation status guide](../fleet/docs/ubuntu-sync.md).
-`personal fleet-sync` is the guarded manager-driven whole-fleet
-flow. Full Ubuntu baseline and fleet acceptance remain incomplete; a profile
-apply does not claim machine readiness. Existing commands retain their semantics.
-
-Ubuntu fleet services and power/sudo policy live in `ubuntu/`; pinned Beszel hub
-and native agent configuration live in [`monitoring/`](monitoring/README.md).
-The shared toolchain installs the verified T3 CLI; on workers Workstation
-installs the pinned T3 Code desktop app (`ubuntu/t3-desktop.yml`), which is the
-only T3 process: it starts with the GDM auto-login session, shows its UI and
-serves the API. Runtime state in `~/.t3` is preserved. See the
-[manager runbook](../fleet/docs/ubuntu-sync.md) for current acceptance gates.
+Fleet machines, agent launchers and profiles, T3 provider instances and
+monitoring are managed by [dev-fleet](https://github.com/crvouga/dev-fleet)
+(this repository pins it in `fleet.revision` and configures it in `fleet.json`).
+`personal workstation agents …` is dev-fleet's agent profile command, imported
+from the `@crvouga/dev-fleet` package.
 
 Docker runtime setup on macOS is exposed through
 `personal workstation tools docker-setup`. The adapter runs the shared,
 checksum-pinned Docker Desktop installer in `scripts/dev/docker-desktop.sh`;
 version/build/hash inputs live in `mise.toml`. Installation opens the native
 first-run flow; readiness is checked separately with `tools check --docker`.
-
-The Ubuntu worker baseline also declares enabled SSH/Tailscale/Docker services,
-no-sleep policy, designated-user passwordless sudo and lingering. Credential renewal
-uses a user timer pointing to the pinned source checkout; bounded T3 recovery is
-enabled only after verifying the native service. Workers use the minimal locked
-profile in `mise.toml`. T3 upgrades never reset pairing data or silently take over
-an active desktop-owned listener; a one-time migration can remain action-required.

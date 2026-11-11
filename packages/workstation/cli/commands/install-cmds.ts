@@ -10,7 +10,7 @@ import {
   pathExportLine,
 } from '../lib/global-install';
 import { describeLink, managedLinks } from '../lib/links';
-import { currentPlatform } from '../../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 import { workstationRoot } from '../lib/paths';
 import {
   printJson,

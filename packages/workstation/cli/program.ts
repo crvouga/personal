@@ -1,4 +1,4 @@
-import { registerAgents } from '../../fleet/src/agents/command';
+import { registerAgents } from '@crvouga/dev-fleet/src/agents/command';
 import { Command } from 'commander';
 
 import { cmdBackup, cmdBackups, cmdReset } from './commands/backup-cmds';
@@ -44,7 +44,7 @@ import {
   cmdToolsCheck,
   cmdDockerSetup,
 } from './commands/tools-cmds';
-import { resolveVaultConfig } from '../../fleet/src/vault-config';
+import { resolveVaultConfig } from './lib/vault-config';
 import type { GlobalOpts } from './lib/cli-opts';
 import { readVersion } from './lib/cli-opts';
 import { printJson, resolveOutputMode, section } from './lib/output-and-theme';

@@ -3,7 +3,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 import type { GlobalOpts } from '../lib/cli-opts';
 import { confirmOrThrow } from '../lib/cli-opts';
 import { backupOpencodeConfig, listBackups } from '../lib/backup';
-import { currentPlatform } from '../../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 import {
   muted,
   printJson,

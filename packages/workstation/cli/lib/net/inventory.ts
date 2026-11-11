@@ -1,13 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { DoctorCheck } from '../doctor';
 import { workspaceRoot } from '../paths';
-import {
-  loadNetworkDefinition,
-  networkProjection,
-} from '../../../../fleet/src/network-definition';
-import { parseDefinition } from '../../../../fleet/src/definition';
+import { networkProjection } from '@crvouga/dev-fleet/src/network-definition';
+import { parseDefinition } from '@crvouga/dev-fleet/src/definition';
 
 export type NetHostOs = 'macOS' | 'linux' | 'windows';
 
@@ -26,7 +24,7 @@ export type NetHost = {
 export type NetCheck = DoctorCheck & { readonly group: string };
 
 export function inventoryPath(): string {
-  return join(workspaceRoot(), 'packages/fleet/definition.json');
+  return join(workspaceRoot(), 'fleet.json');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,7 +78,7 @@ export function parseInventory(text: string): NetHost[] {
 }
 
 export function loadInventory(): NetHost[] {
-  return loadNetworkDefinition(workspaceRoot());
+  return parseInventory(readFileSync(inventoryPath(), 'utf8'));
 }
 
 /** `~/x` → absolute path under the current home directory. */

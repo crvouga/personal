@@ -9,7 +9,7 @@
 
 ## How to tell them apart
 
-- **Local** = runs on, or configures, a computer someone develops on. Owned by mise, `packages/workstation` and `packages/fleet`. Never provisions anything in the cloud.
+- **Local** = runs on, or configures, a computer someone develops on. Owned by mise, `packages/workstation` and dev-fleet (with this repository's `fleet.json`). Never provisions anything in the cloud.
 - **Cloud** = OpenTofu-managed resources that hosted apps use. Owned only by OpenTofu in `crvouga/personal` and changed only through a GitHub issue and a reviewed PR. Never configures a machine.
 - **`dev` does not mean local.** The Vault `dev` config, the `dev` bucket, the `dev` `DATABASE_URL` and the nonproduction auth relay are **cloud**. Reading them from a laptop (`personal infra-vault run`) is a cloud task.
 - **Machines consume cloud credentials; they do not own them.** A fleet node logging into Vault is a local task that reads a cloud secret. Changing the secret, its policy or its token is a cloud task.

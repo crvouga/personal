@@ -1,4 +1,4 @@
-import type { Platform } from '../../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import { findOnPath, lastLine, run } from './run';
 
 export type TailscalePeer = {

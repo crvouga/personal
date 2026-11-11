@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 import type {
   GlobalInstallResult,
   Platform,
-} from '../../../fleet/src/platform/types';
+} from '@crvouga/dev-fleet/src/platform/types';
 
 export const PERSONAL_BIN_NAME = 'personal';
 

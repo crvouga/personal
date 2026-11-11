@@ -1,6 +1,6 @@
-import { agentChecks } from '../../../fleet/src/agents/doctor';
+import { agentChecks } from '@crvouga/dev-fleet/src/agents/doctor';
 import { converge } from './sync';
-import { currentPlatform } from '../../../fleet/src/platform';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
 import { workstationRoot } from '../lib/paths';
 import type { GlobalOpts } from '../lib/cli-opts';
 import { doctorChecks, doctorSummary, type DoctorCheck } from '../lib/doctor';

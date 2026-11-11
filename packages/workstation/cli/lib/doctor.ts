@@ -5,16 +5,16 @@ import { VaultCli } from '@pkgs/vault';
 import { describeLink, managedLinks } from './links';
 import { configPath, listProviders } from './opencode-config';
 import { loadConfig } from './opencode-config';
-import type { Platform } from '../../../fleet/src/platform/types';
+import type { Platform } from '@crvouga/dev-fleet/src/platform/types';
 import { isTuiPluginRegistered, tuiConfigPath } from './tui-config';
-import { resolveVaultConfig } from '../../../fleet/src/vault-config';
+import { resolveVaultConfig } from './vault-config';
 import { globalLauncherPath, isOnPath } from './global-install';
 
 export type {
   CheckSeverity,
   DoctorCheck,
-} from '../../../fleet/src/doctor-check';
-import type { DoctorCheck } from '../../../fleet/src/doctor-check';
+} from '@crvouga/dev-fleet/src/doctor-check';
+import type { DoctorCheck } from '@crvouga/dev-fleet/src/doctor-check';
 
 function launcherCheck(platform: Platform): DoctorCheck {
   const launcher = globalLauncherPath(platform);

@@ -11,12 +11,13 @@
  * Usage:
  *   bun run personal:install [--yes]   # --yes also appends PATH exports to shell RCs
  */
+import './fleet-config-env';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
 import { converge, type SyncResult } from './commands/sync';
 import { installGlobalLauncher, pathExportLine } from './lib/global-install';
-import { currentPlatform } from '../../fleet/src/platform';
-import type { GlobalInstallResult } from '../../fleet/src/platform/types';
+import { currentPlatform } from '@crvouga/dev-fleet/src/platform';
+import type { GlobalInstallResult } from '@crvouga/dev-fleet/src/platform/types';
 import { workstationRoot } from './lib/paths';
 
 function appendPathExport(launcher: GlobalInstallResult, line: string): void {

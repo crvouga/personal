@@ -15,7 +15,7 @@ bun = "1.4.4"
 node = "26.13.0"
 atlas = { version = "1.3.0", os = ["linux", "macos"], lazy = true }
 azure-cli = { version = "2.91.0", lazy = true }
-# CLI proxy backups on the manager (packages/cliproxy-fleet/scripts/install-dependencies).
+# Encrypted backups.
 restic = { version = "0.19.1", os = ["linux", "macos"], lazy = true }
 pnpm = "12.16.1"
 "npm:@yarnpkg/cli-dist" = "4.18.1"
@@ -77,15 +77,6 @@ GROK_DISABLE_AUTOUPDATER = "1"
 AGY_CLI_DISABLE_AUTO_UPDATE = "true"
 
 [vars]
-# Official native Ubuntu server distribution; scripts/dev/native-t3.ts owns installation.
-t3_version = "0.1.8-nightly.20261106.4262"
-t3_linux_x64_sha256 = "5df94ca15c4f68f749fa5540fbb9d5ca879ca8750ac43dd2704f6a18899ed6d5"
-t3_linux_arm64_sha256 = "0649615c4a294eee40bc753c8668e4a83c5c3620794f2163758f8dc48a39b880"
-# Official T3 Code desktop .deb (same release). Workers run this GUI app as their
-# only T3 process; it embeds the server. Upstream SHA256SUMS omits .deb files,
-# so these digests were computed from the release assets.
-t3_desktop_amd64_sha256 = "952703bd48b87029a4f9a2b275aeeb79bc74eacf01867784ab6878adecaf03d7"
-t3_desktop_arm64_sha256 = "ae8a32a71a32760831af40a16cae9aabe8683b7021df6b899b57e8d559a7e777"
 # Official AWS v2 Windows MSI, same version as tools.aws; checked before execution.
 aws_windows_msi_sha256 = "c7857d5981e68396852e8b7eca0b1772f1c99b34d4938075857d45ec9c232113"
 # Docker Desktop supplies the macOS engine, Compose and Buildx as one vendor bundle.
@@ -94,6 +85,3 @@ docker_desktop_version = "4.98.0"
 docker_desktop_build = "245422"
 docker_desktop_arm64_sha256 = "9c6f13ce4edda2abf20d801552b6acb96acd3d64b3e91b50c4484353802758b5"
 docker_desktop_amd64_sha256 = "96b53f9a4a807b6be6207d18f360b9778ff481e1d94b5027bdf1ae2a22d837cb"
-
-# Minimal remote development baseline; versions are resolved exclusively by tools + mise.lock.
-worker_tools = "bun,node,gh,python,uv,docker-cli,vault,jq,codex,claude,aqua:anomalyco/opencode,gemini,copilot,http:grok,http:antigravity"

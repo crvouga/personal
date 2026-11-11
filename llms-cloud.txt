@@ -2,7 +2,7 @@
 
 > **Scope: cloud-hosted application infrastructure only.** Use this guide for the OpenTofu-managed resources that apps use: Vault (OpenBao) secrets, PostgreSQL, the Cloudflare R2 object store, Railway hosting with prebuilt GHCR images, DNS/TLS on `*.chrisvouga.dev`, GitHub OIDC for CI, and Google sign-in through the auth relay. Values are generated from `packages/infra/tofu/modules/inventory/inventory.tf.json`, `.github/workflows/publish.yml`, `.github/workflows/deploy.yml` and the Vault secret registry; CI fails whenever this file drifts from them.
 
-**This guide never covers developer machines.** Toolchains (mise), workstation config, Docker engine setup, the `personal` CLI fleet commands, the Ubuntu developer fleet, T3, the private fleet AI proxy (CLIProxyAPI), Beszel, Turborepo caching and disposable test databases are **local development infrastructure** → https://www.chrisvouga.dev/llms-local.txt. If your task is about any of those, stop and use that guide instead. Do not mix the two.
+**This guide never covers developer machines.** Toolchains (mise), workstation config, Docker engine setup, the Ubuntu developer fleet (dev-fleet), T3, the private fleet AI proxy (CLIProxyAPI), Beszel, Turborepo caching and disposable test databases are **local development infrastructure** → https://www.chrisvouga.dev/llms-local.txt. If your task is about any of those, stop and use that guide instead. Do not mix the two.
 
 Canonical deployed URL: https://www.chrisvouga.dev/llms-cloud.txt · Index of both guides: https://www.chrisvouga.dev/llms-infra.txt · Source snapshot (current `main`): https://raw.githubusercontent.com/crvouga/personal/main/llms-cloud.txt
 
@@ -11,7 +11,7 @@ Canonical deployed URL: https://www.chrisvouga.dev/llms-cloud.txt · Index of bo
 | Question | Cloud (this guide) | Local (the other guide) |
 | --- | --- | --- |
 | Where does it run? | Railway (apps and Vault), Cloudflare (DNS, R2), managed PostgreSQL, GHCR, GitHub Actions | A developer's computer or a fleet node |
-| Who owns it? | OpenTofu in `crvouga/personal`, changed only by a reviewed PR from a GitHub issue | mise (`mise.toml`), `packages/workstation`, `packages/fleet` |
+| Who owns it? | OpenTofu in `crvouga/personal`, changed only by a reviewed PR from a GitHub issue | mise (`mise.toml`), `packages/workstation`, dev-fleet |
 | How is it changed? | Never by you directly: open a GitHub issue | The documented local commands |
 
 Traps:

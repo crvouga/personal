@@ -456,32 +456,6 @@ jobs:
           VAULT_CONFIG: dev
           VAULT_PROJECT: personal
         run: bun run --filter @pkgs/turborepo-remote-cache smoke:secrets
-  personal_cli:
-    name: Personal CLI (${{ matrix.os }}, Node ${{ matrix.node }})
-    if: inputs.service_id == '' && github.event_name != 'pull_request'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, node: '22' }
-          - { os: ubuntu-latest, node: '24' }
-          - { os: ubuntu-latest, node: '26' }
-          - { os: macos-latest, node: '24' }
-          - { os: windows-latest, node: '24' }
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Test fleet and CLI contracts
-        run: bun test packages/fleet/src packages/personal-cli/src packages/personal-cli/tests
-      - name: Build standalone Node distribution
-        run: bun run personal:build
-      - name: Install and exercise the packed consumer anonymously
-        run: bun run --cwd packages/personal-cli smoke
   # Required merge gate: the fast lanes only. Slow lanes report in Slow checks.
   check:
     name: Check
@@ -532,7 +506,6 @@ jobs:
       - changes
       - auth
       - portfolio_urls
-      - personal_cli
     runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
@@ -540,7 +513,7 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
           FILTERS: ${{ toJSON(needs.changes.outputs) }}
-          REQUIRED: personal_cli
+          REQUIRED: ''
           CONDITIONAL: auth portfolio_urls
         run: >
           set -euo pipefail
@@ -589,47 +562,6 @@ jobs:
         run: >
           bun scripts/ci/upsert-issue.ts --title "CI failed on main" --label
           ci-failed --body "CI failed on main at ${GITHUB_SHA}: ${RUN_URL}"
-  personal_cli_release:
-    name: Release personal CLI
-    if: "!cancelled() && needs.check.result == 'success' && needs.slow.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && inputs.service_id == ''"
-    needs:
-      - check
-      - slow
-    permissions:
-      contents: read
-      id-token: write
-    concurrency:
-      group: personal-cli-npm-publication
-      cancel-in-progress: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-      - name: Plan idempotent release
-        id: plan
-        run: bun packages/personal-cli/scripts/release.ts --plan --github-output
-      - name: Validate optional existing credential field selection
-        if: steps.plan.outputs.changed == 'true' && vars.PERSONAL_NPM_TOKEN_KEY != ''
-        env:
-          NPM_KEY: ${{ vars.PERSONAL_NPM_TOKEN_KEY }}
-        run: '[[ "$NPM_KEY" =~ ^[A-Z][A-Z0-9_]*$ ]]'
-      - name: Read existing npm publishing credential through Vault OIDC
-        if: steps.plan.outputs.changed == 'true' && vars.PERSONAL_NPM_TOKEN_KEY != ''
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: https://vault.chrisvouga.dev
-          method: jwt
-          path: jwt
-          role: github-actions
-          jwtGithubAudience: https://vault.chrisvouga.dev
-          secrets: >-
-            secret/data/personal/prd ${{ vars.PERSONAL_NPM_TOKEN_KEY }} | NODE_AUTH_TOKEN
-      - name: Validate tarball, publish and verify registry integrity
-        if: steps.plan.outputs.changed == 'true'
-        env:
-          PERSONAL_NPM_PROVENANCE: ${{ github.event.repository.private == false && 'true' || 'false' }}
-        run: bun run personal:release --apply --yes ${{ vars.PERSONAL_NPM_TOKEN_KEY == '' && '--oidc' || '' }}
   deploy:
     name: Deploy
     if: "!cancelled() && needs.check.result == 'success' && needs.slow.result ==

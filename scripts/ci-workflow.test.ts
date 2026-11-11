@@ -190,7 +190,7 @@ test('all core gates are retained across independent validation jobs', () => {
 });
 
 test('slow lanes skip PR pushes and gate deploy and release on main', () => {
-  for (const job of ['auth', 'portfolio_urls', 'personal_cli'])
+  for (const job of ['auth', 'portfolio_urls'])
     expect(workflow.jobs[job].if).toContain(
       "github.event_name != 'pull_request'"
     );
@@ -201,9 +201,8 @@ test('slow lanes skip PR pushes and gate deploy and release on main', () => {
     'changes',
     'auth',
     'portfolio_urls',
-    'personal_cli',
   ]);
-  expect(workflow.jobs.personal_cli_release.needs).toEqual(['check', 'slow']);
+  expect(workflow.jobs.personal_cli_release).toBeUndefined();
   expect(workflow.jobs.slow.steps[0].run).toBe(
     workflow.jobs.check.steps[0].run
   );
