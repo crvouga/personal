@@ -30,10 +30,11 @@ workstation-net-fix-check)
   run_personal workstation net check
   ;;
 portfolio) mise exec -- bun run portfolio ;;
-# Fleet and workstation actions are named exactly like the personal command they run.
-fleet-sync) run_personal fleet-sync --revision "$(git rev-parse HEAD)" "$@" ;;
-fleet-status) run_personal fleet-status --workers "$@" ;;
-fleet-repair) run_personal fleet-repair --json "$@" ;;
+# Fleet actions run dev-fleet at the pinned revision (fleet.revision) with fleet.json;
+# workstation actions are named exactly like the personal command they run.
+fleet-sync) sh scripts/dev/fleet.sh fleet-sync "$@" ;;
+fleet-status) sh scripts/dev/fleet.sh fleet-status --workers "$@" ;;
+fleet-repair) sh scripts/dev/fleet.sh fleet-repair --json "$@" ;;
 # Arguments choose the operation, for example `model-health`, `model-suite --target mock`, `status`.
-infra-cliproxy) run_personal infra-cliproxy "$@" ;;
+infra-cliproxy) sh scripts/dev/fleet.sh cliproxy "$@" ;;
 esac

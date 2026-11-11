@@ -178,3 +178,21 @@ test('every base tool has locked artifacts for every supported OS/architecture',
       }
   }
 });
+
+test('a global config published by dev-fleet is still managed', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { assertManagedConfig } = await import('./global-config');
+  const dir = mkdtempSync(join(tmpdir(), 'personal-mise-'));
+  try {
+    writeFileSync(
+      join(dir, 'config.toml'),
+      '# Managed by dev-fleet bootstrap/setup.ts\n[tools]\n'
+    );
+    expect(() => assertManagedConfig(dir)).not.toThrow();
+    writeFileSync(join(dir, 'config.toml'), '[tools]\nnode = "22"\n');
+    expect(() => assertManagedConfig(dir)).toThrow();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

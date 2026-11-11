@@ -25,6 +25,7 @@ import { selected } from './fleet-sync-remote';
 import { managerIdentity } from './fleet-sync-manager';
 import { trackedScript } from '../../fleet/src/remote-bootstrap';
 import { rehome } from './fleet-sync-checkout';
+import { movedToDevFleet, MOVED_REMEDY } from './fleet-moved';
 import {
   forwardingDisabled,
   forwardToManager,
@@ -58,11 +59,23 @@ export function machineRoot(): string {
   return root;
 }
 
-/** Public contract v3: the manager converges itself, then every enrolled worker. */
+/** Refuses from a checkout pinned to dev-fleet; see fleet-moved.ts. */
 export async function fleetSync(
   options: FleetSyncOptions,
   settings: Settings,
   run: Runner = runCommand,
+  forward?: ForwardSpawn
+): Promise<CommandOutcome> {
+  if (movedToDevFleet(settings.workspace))
+    return actionRequired('FLEET_MOVED_TO_DEV_FLEET', MOVED_REMEDY);
+  return synchronize(options, settings, run, forward);
+}
+
+/** Public contract v3: the manager converges itself, then every enrolled worker. */
+async function synchronize(
+  options: FleetSyncOptions,
+  settings: Settings,
+  run: Runner,
   forward?: ForwardSpawn
 ): Promise<CommandOutcome> {
   validate(options);

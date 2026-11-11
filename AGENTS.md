@@ -24,6 +24,13 @@ independent user command interface. Root task scripts are aliases or build/test
 and bootstrap tasks, not additional CLI products. Third-party tools retain their
 upstream CLIs. Keep command discovery and interactive routing in the shared registry.
 
+## The fleet runs from dev-fleet
+
+The fleet code lives in [crvouga/dev-fleet](https://github.com/crvouga/dev-fleet). This repository holds only this fleet's configuration, `fleet.json`, and the pinned dev-fleet commit, `fleet.revision`. `bash scripts/dev/project-action.sh fleet-sync` (also `fleet-status`, `fleet-repair`, `infra-cliproxy`) runs dev-fleet at that pin through `scripts/dev/fleet.sh`.
+
+- Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change this fleet's machines, endpoints or secret locations in `fleet.json`.
+- `packages/fleet`, `packages/cliproxy-fleet`, the fleet commands in `packages/personal-cli` and the fleet scripts in `scripts/dev` are an **older copy pending removal**. Do not change them or run them against machines: `personal fleet-sync` and `personal infra-cliproxy` refuse from this checkout. `packages/fleet/definition.json` must stay equal to `fleet.json` (`scripts/fleet-config.test.ts`) until the copy is gone.
+
 ## Local development infra vs cloud app infra
 
 These are two separate domains. Never mix their commands, owners, credentials or docs.

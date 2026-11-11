@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 
 const MARKER = '# Managed by crvouga/workspace scripts/dev/setup.ts\n';
+const MANAGED = /^# Managed by \S+ \S*setup\.ts\n/;
 export const workspaceRoot = join(import.meta.dirname, '../..');
 
 export function globalConfigDir(): string {
@@ -28,8 +29,10 @@ export function globalConfigDir(): string {
 export function assertManagedConfig(dir: string): void {
   const config = join(dir, 'config.toml');
   const lock = join(dir, 'mise.lock');
+  // The marker text identifies the file as managed, whichever repository
+  // published it: dev-fleet publishes the same toolchain config on fleet-sync.
   const managed =
-    existsSync(config) && readFileSync(config, 'utf8').startsWith(MARKER);
+    existsSync(config) && MANAGED.test(readFileSync(config, 'utf8'));
   if ((existsSync(config) && !managed) || (existsSync(lock) && !managed)) {
     throw new Error(
       `Existing mise configuration at ${dir}. Back up and move config.toml and mise.lock, then rerun. Nothing was overwritten.`
