@@ -185,7 +185,9 @@ locals {
         CLOUDFLARE_ACCOUNT_ID  = var.cloudflare_account_id
         "9ROUTER_TUNNEL_TOKEN" = data.terraform_remote_state.foundation.outputs.router_token
         DATABASE_URL           = data.terraform_remote_state.foundation.outputs.database_url
-      }
+      },
+      # Direct replication-role URLs, published under each role's vault_key.
+      try(data.terraform_remote_state.foundation.outputs.replication_database_urls, {})
     )
   }
   required_input_keys = {

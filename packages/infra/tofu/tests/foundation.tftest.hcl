@@ -198,3 +198,11 @@ run "dashboard_public_route" {
     error_message = "Tunnel traffic must reach the Beszel hub inside its Compose network."
   }
 }
+
+run "replication_roles_are_direct_and_replication_capable" {
+  command = plan
+  assert {
+    condition     = toset(keys(planetscale_postgres_branch_role.replication)) == toset(["lanes-zero-replication"]) && planetscale_postgres_branch_role.replication["lanes-zero-replication"].with_replication && toset(planetscale_postgres_branch_role.replication["lanes-zero-replication"].inherited_roles) == toset(["postgres"])
+    error_message = "Each declared replication role needs REPLICATION, which PlanetScale grants only to roles inheriting postgres."
+  }
+}

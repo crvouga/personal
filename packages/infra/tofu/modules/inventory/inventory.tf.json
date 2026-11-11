@@ -1820,6 +1820,72 @@
             "generated": true
           },
           {
+            "name": "LANES_SESSION_SECRET",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "LANES_GITHUB_WEBHOOK_SECRET",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "LANES_TOKEN_ENCRYPTION_KEY",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "LANES_ZERO_API_KEY",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes", "lanes-zero"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "LANES_ZERO_ADMIN_PASSWORD",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes-zero"],
+            "required": true,
+            "generated": true
+          },
+          {
+            "name": "LANES_GITHUB_CLIENT_ID",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": false
+          },
+          {
+            "name": "LANES_GITHUB_CLIENT_SECRET",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": false
+          },
+          {
+            "name": "LANES_GITHUB_PUBLIC_TOKEN",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes"],
+            "required": false
+          },
+          {
+            "name": "ZERO_UPSTREAM_DB",
+            "configs": ["dev", "prd"],
+            "used_by": ["lanes-zero"],
+            "required": false
+          },
+          {
+            "name": "MOCKINGBIRD_FLEET_OPERATOR_TOKEN",
+            "configs": ["prd"],
+            "used_by": ["mockingbird-fleet"],
+            "required": true,
+            "generated": true
+          },
+          {
             "name": "CLIPROXY_FLEET_CLIENT_API_KEY",
             "configs": ["prd"],
             "used_by": ["cliproxy-fleet", "fleet-agents"],
@@ -1860,7 +1926,14 @@
             "major_version": "18",
             "replicas": 0,
             "role_name": "owner",
-            "inherited_roles": ["postgres"]
+            "inherited_roles": ["postgres"],
+            "replication_roles": [
+              {
+                "name": "lanes-zero-replication",
+                "vault_key": "ZERO_UPSTREAM_DB",
+                "used_by": ["lanes-zero"]
+              }
+            ]
           }
         ]
       },

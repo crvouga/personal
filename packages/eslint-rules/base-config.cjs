@@ -4,7 +4,7 @@ const tsParser = require('@typescript-eslint/parser');
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const reactHooks = require('eslint-plugin-react-hooks');
 const noOnlyTests = require('eslint-plugin-no-only-tests');
-const eslintPluginNaming = require('eslint-plugin-naming');
+const fileName = require('./file-name-case.cjs');
 const sizeLimits = require('./size-limits.cjs');
 const a11yRestrictions = require('./a11y-restrictions.cjs');
 
@@ -110,14 +110,7 @@ function sharedTypeScriptRules(namingIgnore) {
     ...killerTypeScriptRules(),
     ...reactHooksStrictRules,
     ...sizeLimits.rules(),
-    'naming/case': [
-      'error',
-      {
-        match: ['kebab'],
-        validateFolders: false,
-        ignore: namingIgnore,
-      },
-    ],
+    'file-name/kebab-case': ['error', { ignore: namingIgnore }],
     'no-restricted-syntax': ['error', ...a11yRestrictions.restrictedSyntax()],
   };
 }
@@ -156,7 +149,7 @@ function createSharedBlocks(tsconfigRootDir, options = {}) {
         },
         plugins: {
           'no-only-tests': noOnlyTests,
-          naming: eslintPluginNaming,
+          'file-name': fileName,
         },
         rules,
       },
@@ -188,7 +181,7 @@ function createSharedBlocks(tsconfigRootDir, options = {}) {
         '@typescript-eslint': tsPlugin,
         'react-hooks': reactHooks,
         'no-only-tests': noOnlyTests,
-        naming: eslintPluginNaming,
+        'file-name': fileName,
       },
       rules: {
         ...reactRules,
