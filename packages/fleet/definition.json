@@ -4,6 +4,25 @@
   "source": {
     "repository": "https://github.com/crvouga/personal.git"
   },
+  "secrets": {
+    "provider": "vault",
+    "address": "https://vault.chrisvouga.dev",
+    "mount": "secret",
+    "locations": {
+      "proxy-client-key": {
+        "path": "personal/prd",
+        "field": "CLIPROXY_FLEET_CLIENT_API_KEY"
+      },
+      "monitoring-account-password": {
+        "path": "personal/prd",
+        "field": "BESZEL_FLEET_AUTH"
+      },
+      "monitoring-tunnel-token": {
+        "path": "beszel/tunnel",
+        "field": "TUNNEL_TOKEN"
+      }
+    }
+  },
   "manager": {
     "id": "chriss-macbook-air",
     "os": "macOS",

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FleetUsageError } from './errors';
 import { parseConfig, record } from './config';
 import type { FleetConfig } from './types';
+import { parseSecretsConfig, type SecretsConfig } from './secrets';
 
 export interface MachineDefinition {
   id: string;
@@ -27,6 +28,8 @@ export interface FleetDefinition {
   version: 3;
   /** The Git repository that holds this fleet's configuration and pins. */
   source: { repository: string };
+  /** Where this fleet keeps its secrets. */
+  secrets: SecretsConfig;
   manager: ManagerDefinition;
   /** Stateless, replaceable Linux boxes; clients of the manager's services. */
   workers: MachineDefinition[];
@@ -133,6 +136,7 @@ export function parseDefinition(value: unknown): FleetDefinition {
       '$schema',
       'version',
       'source',
+      'secrets',
       'manager',
       'workers',
       'services',
@@ -150,6 +154,7 @@ export function parseDefinition(value: unknown): FleetDefinition {
   return {
     version: 3,
     source: source(value['source']),
+    secrets: secrets(value['secrets']),
     manager: lead,
     workers,
     services: services(value['services']),
@@ -190,6 +195,9 @@ const origin = (value: unknown): value is string =>
 const account = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[^\s@]{1,64}@[A-Za-z0-9.-]{1,253}$/.test(value);
+function secrets(value: unknown): SecretsConfig {
+  return parseSecretsConfig(value) ?? fail();
+}
 function source(value: unknown): FleetDefinition['source'] {
   if (
     !record(value) ||

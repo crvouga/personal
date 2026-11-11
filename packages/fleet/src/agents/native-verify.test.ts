@@ -59,7 +59,7 @@ test('a version drift or missing Vault session fails with a stable code only', a
         ok: false,
         stdout: '',
         stderr:
-          'Required Vault secret unavailable: secret/data/personal/prd CLIPROXY_FLEET_CLIENT_API_KEY. raw-detail',
+          'Required secret unavailable: secret/data/personal/prd CLIPROXY_FLEET_CLIENT_API_KEY. raw-detail',
       };
     if (args[1]!.endsWith('antigravity-proxy.ts'))
       return {

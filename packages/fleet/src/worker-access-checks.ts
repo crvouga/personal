@@ -1,5 +1,5 @@
 import type { Check, Runner } from './types';
-import { fleet } from './fleet-config';
+import { fleet, secretVia } from './fleet-config';
 import { registry } from './agents/registry';
 import { resolveVaultConfig } from './vault-config';
 import { record } from './config';
@@ -37,18 +37,8 @@ async function proxyAuthentication(run: Runner): Promise<Check> {
     },
   };
   try {
-    const { addr } = resolveVaultConfig();
-    const secret = registry.proxy.secret;
-    const token = await run([
-      'vault',
-      'kv',
-      'get',
-      `-address=${addr}`,
-      `-field=${secret.key}`,
-      `${secret.mount}/${secret.project}/${secret.config}`,
-    ]);
-    const key = token.stdout.trim();
-    if (!token.ok || !/^[\x21-\x7e]{16,4096}$/.test(key)) return unavailable;
+    const key = (await secretVia(run)('proxy-client-key')) ?? '';
+    if (!/^[\x21-\x7e]{16,4096}$/.test(key)) return unavailable;
     const result = await run(
       [
         'curl',

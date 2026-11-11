@@ -1,10 +1,7 @@
-import { VaultSecretStore } from '@pkgs/secret-store';
-import { VaultCli } from '@pkgs/vault';
-import { resolveVaultConfig } from '../vault-config';
 import { privateHub } from './beszel';
 import type { HubRequest } from './enroll';
 import { record } from '../config';
-import { fleet } from '../fleet-config';
+import { fleet, secret } from '../fleet-config';
 
 /** The normal (non-superuser) Beszel account the manager enrolls nodes with.
  * OpenTofu generates its password as BESZEL_FLEET_AUTH. A fresh hub on the
@@ -52,34 +49,23 @@ export async function fleetAccount(): Promise<{
   identity: string;
   password: string;
 } | null> {
+  const password = await secret('monitoring-account-password');
   try {
-    const vault = resolveVaultConfig();
-    const store = new VaultSecretStore({
-      ...vault,
-      token: new VaultCli({ addr: vault.addr }).resolveToken().token,
-    });
-    const secret = await store.getOptional('BESZEL_FLEET_AUTH');
-    return secret ? fleetCredentials(secret.readSecretValue()) : null;
+    return password ? fleetCredentials(password) : null;
   } catch {
     return null;
   }
 }
 
-/** Read existing Vault authorization only. This never creates credentials or
- * changes Vault policy. The normal Beszel account must have fleet-node access.
+/** Reads the existing account password only. This never creates credentials. The normal Beszel account must have fleet-node access.
  */
 export async function hubAccess(
   hub: string
 ): Promise<{ userId: string; request: HubRequest }> {
   const url = privateHub(hub);
-  const vault = resolveVaultConfig();
-  const store = new VaultSecretStore({
-    ...vault,
-    token: new VaultCli({ addr: vault.addr }).resolveToken().token,
-  });
-  const secret = await store.getOptional('BESZEL_FLEET_AUTH');
-  if (!secret) throw new Error('BESZEL_ACCOUNT_REQUIRED');
-  const credentials = fleetCredentials(secret.readSecretValue());
+  const password = await secret('monitoring-account-password');
+  if (!password) throw new Error('BESZEL_ACCOUNT_REQUIRED');
+  const credentials = fleetCredentials(password);
   const login = await call(
     url,
     '/api/collections/users/auth-with-password',

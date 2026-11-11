@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import { fleet } from './fleet-config';
 
 export type VaultConfig = {
   addr: string;
@@ -10,7 +11,8 @@ export type VaultConfig = {
 };
 
 export const DEFAULT_VAULT: VaultConfig = {
-  addr: 'https://vault.chrisvouga.dev',
+  // This fleet's Vault, when its secrets provider is Vault.
+  addr: fleet.secrets.provider === 'vault' ? fleet.secrets.address : '',
   mount: 'secret',
   project: 'personal',
   config: 'prd',
