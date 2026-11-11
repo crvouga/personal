@@ -13,8 +13,8 @@ operations. It runs from the checkout (`bun run personal …`, or the launcher
 Fleet machines, T3 provider instances and the CLI proxy are managed by
 [dev-fleet](https://github.com/crvouga/dev-fleet), not by this CLI. Run them
 from the checkout with `bash scripts/dev/project-action.sh fleet-sync`
-(also `fleet-status`, `fleet-repair`, `infra-cliproxy`), or use the dev-fleet
-CLI directly.
+(also `fleet-preview`, `fleet-status`, `fleet-health`, `fleet-repair`,
+`infra-cliproxy`), or with `bun run fleet <command>`.
 
 ```sh
 bun run personal                      # help

@@ -83,13 +83,6 @@ using project configs. `MISE_CONFIG_DIR` and `XDG_CONFIG_HOME` are respected for
 configuration; the PATH step also respects `MISE_DATA_DIR`, `XDG_DATA_HOME` and
 `MISE_SHIMS_DIR`, including Windows' `%LOCALAPPDATA%` default.
 
-Fleet's remote bootstrap invokes this same owner with a private `--status-file`
-path. The JSON record contains only a version, installer phase and status, never
-commands or raw errors. It is diagnostic progress, not proof of fleet readiness.
-The native T3 archive verifier checks actual content, modes, links and ownership
-by the development user; archive-builder numeric user/group IDs are not portable.
-A mismatch leaves the running service and application state untouched.
-
 ### OS prerequisites and supported platforms
 
 - **macOS x64 / Apple Silicon:** install Apple's Command Line Tools. If Git is
@@ -304,7 +297,9 @@ them. Sync is explicit; Git commits do not silently update other machines.
 Multiple development computers are kept in sync by
 [dev-fleet](https://github.com/crvouga/dev-fleet), run from this checkout at the
 pinned `fleet.revision` with `fleet.json` (see [T3 project actions](#t3-project-actions)).
-Fleet machines get their toolchain from dev-fleet's own pins, not from this file.
+Fleet machines get their toolchain from dev-fleet's own pins, not from this file:
+when the global mise config carries dev-fleet's marker, setup installs this
+checkout's tools and leaves that global config unchanged.
 
 Remote Bash sessions depend on sshd sourcing
 `.bashrc`; shells launched with startup files disabled need an explicit PATH or
@@ -345,16 +340,31 @@ setup; fetching a public guide alone does not authorize installs or logins.
 Project scripts use `bash scripts/dev/project-action.sh ACTION` from the checkout.
 Actions: `warm`, `portfolio`, `workstation-sync`,
 `workstation-update`, `workstation-net-fix`, `workstation-net-check`,
-`workstation-net-fix-check`, `fleet-sync`, `fleet-status`, `fleet-repair`, `infra-cliproxy`.
+`workstation-net-fix-check`, `fleet-sync`, `fleet-preview`, `fleet-status`,
+`fleet-health`, `fleet-repair`, `fleet-t3-status`, `infra-cliproxy`.
 Workstation actions run the `personal workstation` command of the same name. The
 fleet actions and `infra-cliproxy` run [dev-fleet](https://github.com/crvouga/dev-fleet)
 at the commit pinned in `fleet.revision`, with this repository's `fleet.json`, through
 `scripts/dev/fleet.sh`. Label each T3 script `Domain: Command words` (`Fleet: Sync`,
-`Fleet: Status`, `Workstation: Net check`, `Infra: Cliproxy model health` running
-`infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the
-offline, credential-free suite). Extra arguments such as `--dry-run` are forwarded.
-`fleet-status` runs dev-fleet's `fleet-status --workers`; `fleet-repair` previews
-without applying. Each invocation runs the shared bootstrap first, reusing installed
+`Fleet: Preview`, `Fleet: Health`, `Workstation: Net check`, `Infra: Cliproxy model health`
+running `infra-cliproxy model-health`; `infra-cliproxy model-suite --target mock` is the
+offline, credential-free suite). Extra arguments such as `--json` are forwarded.
+
+| Fleet action      | Runs                                                                 | Changes machines     |
+| ----------------- | -------------------------------------------------------------------- | -------------------- |
+| `fleet-preview`   | `fleet-sync --dry-run`                                               | No                   |
+| `fleet-sync`      | `fleet-sync`: converges the manager, then every worker               | Yes                  |
+| `fleet-status`    | `fleet-status --workers`                                             | No                   |
+| `fleet-health`    | `fleet-status --workers`, `t3-status` and, on the manager, the proxy | No                   |
+| `fleet-repair`    | `fleet-repair --json`: a plan                                        | Only `--apply --yes` |
+| `fleet-t3-status` | `t3-status`: T3 provider drift on this machine                       | No                   |
+
+`bun run fleet:preview`, `fleet:sync`, `fleet:status`, `fleet:health`, `fleet:repair`
+and `fleet:t3` are the same commands as root scripts, and `bun run fleet <command>`
+runs any other dev-fleet command. `fleet-sync` runs on the manager; started on a
+worker it hands off to the manager over SSH. The other commands run from the checkout
+of the pinned revision that `fleet-sync` leaves on the machine. Fleet actions do not
+run this repository's bootstrap. Every other action runs it first, reusing installed
 locked tools and converging dependencies for the current branch. `warm` performs
 only that setup. No global `ws` or `personal` launcher is required. Setup may
 install tools on first use; application logins (including Vault for portfolio)
@@ -439,11 +449,25 @@ This repository holds only this fleet's configuration, [`fleet.json`](https://gi
 dev-fleet commit it runs, [`fleet.revision`](https://github.com/crvouga/personal/blob/main/fleet.revision). From the checkout:
 
 ```sh
-bash scripts/dev/project-action.sh fleet-sync --dry-run   # preview
-bash scripts/dev/project-action.sh fleet-sync             # apply on the manager
-bash scripts/dev/project-action.sh fleet-status           # read-only worker audit
-bun run cliproxy help                                      # the proxy's operations
+bun run fleet:preview        # fleet-sync --dry-run: what a sync would change
+bun run fleet:sync           # converge the manager and every worker
+bun run fleet:health         # read-only: workers, T3 providers and, on the manager, the proxy
+bun run fleet:repair         # preview repairs; --apply --yes executes them
+bun run fleet <command>      # any other dev-fleet command, for example t3-apply --dry-run
+bun run fleet:commands       # the command catalog and agent contract
+bun run cliproxy help        # the proxy's operations
 ```
+
+The same commands are T3 project actions (`bash scripts/dev/project-action.sh
+fleet-preview | fleet-sync | fleet-status | fleet-health | fleet-repair |
+fleet-t3-status`). `fleet-sync` runs on the manager; started on a worker it hands
+off to the manager over SSH. `fleet-sync`, `fleet-node-sync`, `t3-apply` and
+`t3-cleanup` apply when invoked: only `--dry-run` previews.
+
+Never edit dev-fleet, a checkout it owns or a file it manages on a machine. A
+defect or a missing feature is an issue at
+https://github.com/crvouga/dev-fleet/issues, without credentials, hostnames,
+accounts, domains or `fleet.json` contents.
 
 Change fleet behaviour in dev-fleet, then bump `fleet.revision`. Change machines,
 endpoints or secret locations in `fleet.json`. The proxy runs only on the fleet

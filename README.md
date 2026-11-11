@@ -24,7 +24,6 @@ Import existing resources before applying. State and plans are encrypted; creden
 | `9router`                                                                                  | Railway routing app with ephemeral SQLite and shared R2 backups           |
 | `zoomies`                                                                                  | Self-hosted GitHub Actions runner controller on Railway                   |
 | `workstation`                                                                              | Portable local machine configuration; `personal` CLI                      |
-| `fleet`                                                                                    | Developer fleet SSH/auth/T3 diagnostics, sync plans and onboarding        |
 | `assert`, `logger`, `object-store`, `openrouter`, `secret-store`, `secret-string`, `vault` | Shared libraries                                                          |
 
 [CI](.github/workflows/ci.yml) validates every PR and merge-queue entry, runs the required platform tests, and calls [Deploy](.github/workflows/deploy.yml) after successful main-branch checks. Deploy builds images, applies OpenTofu in order and probes production. [Maintenance](.github/workflows/maintenance.yml) handles health reports, snapshot/dependency update PRs and manual secret repair. Sibling repositories use [Publish](.github/workflows/publish.yml); the old CI publishing interface stays compatible. OpenTofu owns publisher files, dispatch secrets and the required-check ruleset.
@@ -36,8 +35,10 @@ Local setup: follow [the shared machine bootstrap](scripts/dev/README.md) for ma
 After pushing, watch the complete CI run with `bun run gh:ci:watch`; local checks do not validate production deployment.
 
 Development computers are managed by [dev-fleet](https://github.com/crvouga/dev-fleet).
-This repository holds only this fleet's `fleet.json` and the pinned `fleet.revision`;
-`bash scripts/dev/project-action.sh fleet-sync` runs dev-fleet at that pin. Developer
+This repository holds only this fleet's `fleet.json` and the pinned `fleet.revision`.
+`bun run fleet:preview` previews a sync, `bun run fleet:sync` applies it and
+`bun run fleet:health` is the read-only report; each runs dev-fleet at that pin
+(see [AGENTS.md](AGENTS.md#the-fleet-runs-from-dev-fleet)). Developer
 membership is separate from cloud inventory; `health` remains the cloud report.
 
 ## Update secrets

@@ -2,6 +2,8 @@
 # Runs a dev-fleet command at the pinned revision (fleet.revision) with this
 # repository's fleet.json. The fleet code lives in the repository that
 # fleet.json names under source.repository; nothing of it is copied here.
+# The pin is a commit, not the npm version dev-fleet documents, until a release
+# names its commit: https://github.com/crvouga/dev-fleet/issues/17
 set -eu
 root=$(cd "$(dirname "$0")/../.." && pwd)
 revision=$(tr -d '[:space:]' <"$root/fleet.revision")
@@ -23,9 +25,17 @@ if [ "$command" = fleet-sync ]; then
   # The manager entry point: a clean checkout of the pinned revision.
   exec sh -c "$(git -C "$source" show "$revision:bootstrap/fleet-manager-run.sh")" fleet-manager-run "$revision" "$@"
 fi
-# Every other command runs from the checkout fleet-sync prepared.
-checkout="$HOME/.local/share/personal/fleet/manager-runs/$revision"
-[ -d "$checkout/node_modules" ] || { echo 'Run fleet-sync once at this revision first; it prepares the checkout.' >&2; exit 3; }
+# Every other command runs from a checkout of the pinned revision that
+# fleet-sync prepared: the manager's run checkout, or the one applied on a worker.
+fleet="$HOME/.local/share/personal/fleet"
+checkout=''
+for candidate in "$fleet/manager-runs/$revision" "$fleet/revisions/$revision"; do
+  if [ -d "$candidate/node_modules" ]; then
+    checkout=$candidate
+    break
+  fi
+done
+[ -n "$checkout" ] || { echo "This machine has no dev-fleet checkout at $revision. Run fleet-sync first; it prepares one." >&2; exit 3; }
 cd "$checkout"
 export PERSONAL_WORKSPACE="$checkout"
 exec mise exec --locked bun -- bun src/cli/cli.ts "$command" "$@"

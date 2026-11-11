@@ -24,7 +24,7 @@ test('global config publishes lock sidecars, is repeatable and refuses foreign c
   writeFileSync(join(source, 'mise.lock'), 'fixture lock');
   writeFileSync(join(source, '.mise/locks/npm.json'), 'fixture graph');
   try {
-    publishGlobalConfig(target, source);
+    expect(publishGlobalConfig(target, source)).toBe(true);
     const managedPaths = [
       'config.toml',
       'mise.lock',
@@ -179,20 +179,29 @@ test('every base tool has locked artifacts for every supported OS/architecture',
   }
 });
 
-test('a global config published by dev-fleet is still managed', async () => {
-  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+test('a global config published by dev-fleet is left as the fleet published it', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } =
+    await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { assertManagedConfig } = await import('./global-config');
-  const dir = mkdtempSync(join(tmpdir(), 'personal-mise-'));
+  const temp = mkdtempSync(join(tmpdir(), 'personal-mise-'));
+  const dir = join(temp, 'global');
+  const source = join(temp, 'source');
+  const fleet = '# Managed by dev-fleet bootstrap/setup.ts\n[tools]\n';
   try {
-    writeFileSync(
-      join(dir, 'config.toml'),
-      '# Managed by dev-fleet bootstrap/setup.ts\n[tools]\n'
-    );
+    mkdirSync(dir);
+    mkdirSync(source);
+    writeFileSync(join(source, 'mise.toml'), '[tools]\nbun = "1.4.4"\n');
+    writeFileSync(join(source, 'mise.lock'), 'fixture lock');
+    writeFileSync(join(dir, 'config.toml'), fleet);
+    writeFileSync(join(dir, 'mise.lock'), 'fleet lock');
     expect(() => assertManagedConfig(dir)).not.toThrow();
+    expect(publishGlobalConfig(dir, source)).toBe(false);
+    expect(readFileSync(join(dir, 'config.toml'), 'utf8')).toBe(fleet);
+    expect(readFileSync(join(dir, 'mise.lock'), 'utf8')).toBe('fleet lock');
     writeFileSync(join(dir, 'config.toml'), '[tools]\nnode = "22"\n');
     expect(() => assertManagedConfig(dir)).toThrow();
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(temp, { recursive: true, force: true });
   }
 });
