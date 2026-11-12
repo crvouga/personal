@@ -4,7 +4,12 @@ import {
   type Fill,
   type VaultInputs,
 } from '../vault-inputs/model';
-import { bootstrapBindings, unrelatedKvChanges, type Stage } from './model';
+import {
+  bootstrapBindings,
+  isBootstrapSecret,
+  unrelatedKvChanges,
+  type Stage,
+} from './model';
 
 type Change = {
   address: string;
@@ -61,10 +66,13 @@ export function reviewPlan(
     if (unchanged && !stage.addresses.includes(entry.address)) continue;
     if (entry.mode === 'data' && actions.length === 1 && actions[0] === 'read')
       continue;
+    const allowed = isBootstrapSecret(entry.address)
+      ? ['create', 'update', 'no-op']
+      : ['update', 'no-op'];
     if (
       !stage.addresses.includes(entry.address) ||
       actions.length !== 1 ||
-      !['update', 'no-op'].includes(actions[0])
+      !allowed.includes(actions[0])
     )
       throw new Error(
         `Refusing unrelated or destructive change: ${entry.address} (${actions.join(', ')}).`

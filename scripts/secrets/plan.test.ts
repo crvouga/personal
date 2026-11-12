@@ -154,3 +154,52 @@ test('only the Google credentials can change in an auth plan', () => {
     )
   ).toThrow('reviewed credentials');
 });
+
+test('first publishes a bootstrap Actions secret, but only with the reviewed value', () => {
+  const grafana = [
+    {
+      config: 'prd' as const,
+      name: 'GRAFANA_CLOUD_ACCESS_POLICY_TOKEN',
+      value: 'glc_reviewed',
+    },
+  ];
+  const updated = {
+    ...before,
+    secrets: {
+      ...before.secrets,
+      prd: {
+        ...before.secrets.prd,
+        GRAFANA_CLOUD_ACCESS_POLICY_TOKEN: 'glc_reviewed',
+      },
+    },
+  };
+  const stage = stages(updated, grafana, inventory)[0];
+  const address =
+    'github_actions_secret.bootstrap["GRAFANA_CLOUD_ACCESS_POLICY_TOKEN"]';
+  expect(stage.addresses).toContain(address);
+  const plan = (value: string, actions = ['create']) => ({
+    resource_changes: [
+      change(
+        TOFU_VAULT_INPUTS_ADDRESS,
+        { value: JSON.stringify(before) },
+        { value: JSON.stringify(updated) }
+      ),
+      change(address, null, { value }, actions),
+    ],
+  });
+  expect(
+    reviewPlan(plan('glc_reviewed'), stage, before, updated, grafana)
+  ).toContain(address);
+  expect(() =>
+    reviewPlan(plan('glc_other'), stage, before, updated, grafana)
+  ).toThrow('reviewed production value');
+  expect(() =>
+    reviewPlan(
+      plan('glc_reviewed', ['delete', 'create']),
+      stage,
+      before,
+      updated,
+      grafana
+    )
+  ).toThrow('destructive');
+});

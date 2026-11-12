@@ -44,3 +44,27 @@ test("missing Vault fields and a rejected agent token fail", async () => {
   expect(results.find((result) => result.name === "vault dev")?.status).toBe("fail");
   expect(results.find((result) => result.name === "agent token")?.status).toBe("fail");
 });
+
+test("synthetic monitoring requires its data source on the stack", async () => {
+  const synthetic = {
+    ...CONFIG,
+    observability: {
+      enabled: true,
+      live: true,
+      synthetic_monitoring: { enabled: true, probes: ["Ohio"], frequency_ms: 900000, timeout_ms: 30000, alerts: { failures: 2, period: "30m", tls_expiry_days: 14 } },
+    },
+  };
+  const run = (types: string[]) => checkObservability(fakeContext({
+    config: synthetic,
+    kv: async () => ({ ok: true, data: KV }),
+    fetch: fakeFetch({
+      [`${GRAFANA}/api/health`]: { body: { database: "ok" } },
+      [`${GRAFANA}/api/datasources`]: { body: types.map((type) => ({ type })) },
+    }),
+  }));
+  const missing = (await run(["loki", "tempo"])).find((result) => result.name === "data sources");
+  expect(missing?.status).toBe("fail");
+  expect(missing?.detail ?? JSON.stringify(missing)).toContain("synthetic-monitoring-datasource");
+  const present = await run(["loki", "tempo", "synthetic-monitoring-datasource"]);
+  expect(present.every((result) => result.status === "pass")).toBe(true);
+});

@@ -70,7 +70,7 @@ export const ADVICE: Advice[] = [
   when(
     'observability',
     /missing or empty|agent token|data source|grafana/,
-    'Observability credentials come only from OpenTofu: the Deploy workflow applies foundation (Grafana stack, ingest and agent tokens) and then the vault root. Re-run Deploy; if foundation fails, store GRAFANA_CLOUD_ACCESS_POLICY_TOKEN with `bun run vault:edit` (see the Observability section of llms-cloud.txt). Never create tokens in the Grafana UI.'
+    'Observability credentials come only from OpenTofu: the Deploy workflow applies foundation (Grafana stack, ingest and agent tokens) and then the vault root. Re-run Deploy; if foundation fails for lack of a Grafana Cloud token, run `bun run observability:bootstrap` (see the Observability section of llms-cloud.txt). A missing synthetic-monitoring-datasource means the foundation apply that installs synthetic monitoring has not run yet. Never create tokens in the Grafana UI.'
   ),
   when(
     'tunnels',

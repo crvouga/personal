@@ -1,7 +1,8 @@
 /**
  * Shared observability stack (Grafana Cloud over OTLP). Read-only: it confirms
  * Vault carries the ingest and agent credentials, then asks Grafana, with the
- * agents' Viewer token, for its health and its log/trace data sources.
+ * agents' Viewer token, for its health and its log/trace (and, when synthetic
+ * monitoring is on, synthetic monitoring) data sources.
  */
 import { errorMessage, getJson, type HealthContext } from "./context.js";
 import { fail, pass, skip, type CheckResult } from "./report.js";
@@ -14,8 +15,9 @@ const VAULT_KEYS = [
   "GRAFANA_SERVICE_ACCOUNT_TOKEN",
 ] as const;
 const DATA_SOURCES = ["loki", "tempo"] as const;
+const SYNTHETIC_MONITORING = "synthetic-monitoring-datasource";
 
-async function checkGrafana(ctx: HealthContext, url: string, token: string): Promise<CheckResult[]> {
+async function checkGrafana(ctx: HealthContext, url: string, token: string, expected: readonly string[]): Promise<CheckResult[]> {
   const base = url.replace(/\/+$/, "");
   try {
     const health = await getJson(ctx, `${base}/api/health`);
@@ -25,12 +27,12 @@ async function checkGrafana(ctx: HealthContext, url: string, token: string): Pro
       return [fail("agent token", `GET /api/datasources answered ${sources.status}; the agents service account token was rejected`)];
     }
     const types = new Set((Array.isArray(sources.body) ? sources.body : []).map((source) => String((source as { type?: unknown }).type)));
-    const missing = DATA_SOURCES.filter((type) => !types.has(type));
+    const missing = expected.filter((type) => !types.has(type));
     return [
       pass("grafana", "stack answered /api/health"),
       missing.length > 0
         ? fail("data sources", `stack has no ${missing.join(", ")} data source`)
-        : pass("data sources", `agent token reads ${DATA_SOURCES.join(" and ")}`),
+        : pass("data sources", `agent token reads ${expected.join(", ")}`),
     ];
   } catch (err) {
     return [fail("grafana", `request failed: ${errorMessage(err)}`)];
@@ -56,6 +58,7 @@ export async function checkObservability(ctx: HealthContext): Promise<readonly C
   const prd = await ctx.kv("prd");
   const url = prd.ok ? prd.data["GRAFANA_URL"]?.trim() : undefined;
   const token = prd.ok ? prd.data["GRAFANA_SERVICE_ACCOUNT_TOKEN"]?.trim() : undefined;
-  if (url && token) results.push(...(await checkGrafana(ctx, url, token)));
+  const expected = observability.synthetic_monitoring?.enabled ? [...DATA_SOURCES, SYNTHETIC_MONITORING] : DATA_SOURCES;
+  if (url && token) results.push(...(await checkGrafana(ctx, url, token, expected)));
   return results;
 }

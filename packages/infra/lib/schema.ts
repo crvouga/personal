@@ -294,6 +294,14 @@ export type ObservabilityConfig = {
   readonly ingest_scopes?: readonly string[];
   readonly agent_role?: string;
   readonly inject_railway_services?: boolean;
+  /** Grafana Synthetic Monitoring HTTP checks on every public service health URL. */
+  readonly synthetic_monitoring?: {
+    readonly enabled: boolean;
+    readonly probes: readonly string[];
+    readonly frequency_ms: number;
+    readonly timeout_ms: number;
+    readonly alerts: { readonly failures: number; readonly period: string; readonly tls_expiry_days: number };
+  };
 };
 
 /** Staged OIDC relay inventory; consuming applications can live anywhere. */
