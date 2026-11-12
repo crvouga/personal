@@ -2062,12 +2062,23 @@
         "stack": {
           "slug": "chrisvouga",
           "name": "chrisvouga",
-          "region": "us",
+          "region": "prod-us-east-0",
           "adopt": true
         },
         "ingest_scopes": ["logs:write", "traces:write", "metrics:write"],
         "agent_role": "Viewer",
-        "inject_railway_services": true
+        "inject_railway_services": true,
+        "synthetic_monitoring": {
+          "enabled": true,
+          "probes": ["Ohio"],
+          "frequency_ms": 900000,
+          "timeout_ms": 30000,
+          "alerts": {
+            "failures": 2,
+            "period": "30m",
+            "tls_expiry_days": 14
+          }
+        }
       },
       "auth_relay": {
         "status": "preproduction",

@@ -9,7 +9,12 @@ import {
 } from '../vault-inputs/model';
 import { connect } from './connection';
 import { command, type Command } from './command';
-import { stages, vaultSecretVariables, type Stage } from './model';
+import {
+  isBootstrapSecret,
+  stages,
+  vaultSecretVariables,
+  type Stage,
+} from './model';
 import { reviewPlan } from './plan';
 import type { Inventory, Session, Ui } from './types';
 
@@ -153,10 +158,15 @@ export class TofuSession implements Session {
     writeFileSync(file, JSON.stringify(this.variables(stage, next)), {
       mode: 0o600,
     });
-    // A targeted create would adopt missing resources. Require every target in state first.
+    // A targeted create would adopt missing resources. Require every target in state first,
+    // except bootstrap Actions secrets, which are first published when their value is stored.
     const managed = await this.execute([...root.args, 'state', 'list'], env);
     const addresses = new Set(managed.split('\n'));
-    if (stage.addresses.some((address) => !addresses.has(address)))
+    if (
+      stage.addresses.some(
+        (address) => !addresses.has(address) && !isBootstrapSecret(address)
+      )
+    )
       throw new Error(
         `${stage.state} is missing an adopted target. This editor only updates existing resources.`
       );

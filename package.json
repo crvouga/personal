@@ -60,6 +60,7 @@
     "infra:services": "tofu -chdir=packages/infra/tofu/services",
     "vault:secrets": "bun scripts/vault-secrets-tfvars.ts",
     "vault:edit": "bun scripts/vault-edit.ts",
+    "observability:bootstrap": "bun scripts/observability-bootstrap.ts",
     "vault:fix": "bun scripts/vault-inputs-fix.ts",
     "infra:vault": "tofu -chdir=packages/infra/tofu/vault",
     "infra:bootstrap": "tofu -chdir=packages/infra/tofu/bootstrap",

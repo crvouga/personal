@@ -51,6 +51,13 @@ export const bootstrapBindings: Record<
   },
 };
 
+export function isBootstrapSecret(address: string): boolean {
+  return Object.values(bootstrapBindings).some(
+    (binding) =>
+      address === `github_actions_secret.bootstrap["${binding.secret}"]`
+  );
+}
+
 export function editableKeys(keys: SecretKey[]): SecretKey[] {
   return keys.filter(
     (key) => !key.generated && !isDerived(key.name) && !computed.has(key.name)

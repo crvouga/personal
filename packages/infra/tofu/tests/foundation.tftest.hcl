@@ -34,7 +34,20 @@ mock_provider "atlas" {}
 mock_provider "postgresql" {}
 mock_provider "time" {}
 mock_provider "random" {}
-mock_provider "grafana" {}
+mock_provider "grafana" {
+  mock_resource "grafana_cloud_stack" {
+    defaults = { id = "123456", url = "https://chrisvouga.grafana.net", otlp_url = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp" }
+  }
+}
+mock_provider "grafana" {
+  alias = "synthetic"
+  mock_data "grafana_synthetic_monitoring_probes" {
+    defaults = { probes = { Ohio = 1, Oregon = 2 } }
+  }
+  mock_resource "grafana_synthetic_monitoring_check" {
+    defaults = { id = "42" }
+  }
+}
 
 # The service module has its own tests. The Railway mock cannot synthesize
 # the computed ID inside the configured default_environment object.

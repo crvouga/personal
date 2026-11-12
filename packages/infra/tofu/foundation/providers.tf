@@ -21,6 +21,14 @@ provider "atlas" {}
 # GRAFANA_CLOUD_ACCESS_POLICY_TOKEN in Vault; no resource uses it before then.
 provider "grafana" { cloud_access_policy_token = var.grafana_cloud_access_policy_token }
 
+# The stack's Synthetic Monitoring API, configured from the installation in
+# observability.tf. Unused, and empty, until the stack is live.
+provider "grafana" {
+  alias           = "synthetic"
+  sm_url          = try(grafana_synthetic_monitoring_installation.shared["shared"].stack_sm_api_url, null)
+  sm_access_token = try(grafana_synthetic_monitoring_installation.shared["shared"].sm_access_token, null)
+}
+
 # The same role, host and database local.database_url is assembled from; the
 # provider takes the unencoded parts, so nothing needs percent-decoding.
 provider "postgresql" {

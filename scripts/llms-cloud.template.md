@@ -695,12 +695,17 @@ curl -sG -H "Authorization: Bearer $GRAFANA_SERVICE_ACCOUNT_TOKEN" \
 
 Useful LogQL: `{service_name="<id>"} |= "<X-Request-ID>"` finds one request across services; `{deployment_environment_name="production"} | json | level="error"` lists recent errors everywhere. Traces are in the Tempo data source (`{resource.service.name="<id>"}` in TraceQL). `bun run health --only observability` verifies the whole path read-only.
 
+### Uptime and alerts (synthetic monitoring)
+
+When `observability.synthetic_monitoring.enabled` is on, the foundation root installs Grafana Synthetic Monitoring and creates one HTTP check per public service: the same health URL `bun run health-check --all-public` probes (`https://<hostname><health_path>`), from the probes listed in inventory, every 15 minutes (about 70k executions a month, inside the free plan). Each check alerts after repeated failures and when its TLS certificate is close to expiry, through the stack's default notification policy (the Grafana Cloud account owner's email). A new public service gets its check on the next Deploy; nothing is added by hand. Results are in the Synthetic Monitoring app and its data source (`probe_success{job="<service id>"}`).
+
 ### Operator setup (one time, inside `{{infraRepo}}`)
 
-1. Sign up for Grafana Cloud (free) and create the stack named in inventory `observability.stack` (slug `{{observabilityStack}}`). Keep `stack.adopt=true` so OpenTofu imports it instead of creating a second one.
-2. In the Grafana Cloud portal, create one access policy for the **organization** realm with scopes `stacks:read`, `stacks:write`, `accesspolicies:read`, `accesspolicies:write`, `accesspolicies:delete` and `stack-service-accounts:write`, then create a token for it. This bootstrap credential is the only value a human types.
-3. Store it with `bun run vault:edit` as `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` (`prd`). The editor saves it in Vault and publishes the `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` Actions secret through the foundation root.
-4. In a PR, set `observability.live` to `true` in {{path:packages/infra/tofu/modules/inventory/inventory.tf.json}}. On merge, Deploy applies foundation (adopts the stack, creates the ingest and agent tokens), then vault (writes the keys above), then services (injects them). Verify with `bun run health --only observability`.
+The only manual step is one credential that cannot be created as code:
+
+1. Sign up for Grafana Cloud (free). In the portal, open **Administration → Cloud access policies**, create a policy for the **organization** realm with scopes `stacks:read`, `stacks:write`, `accesspolicies:read`, `accesspolicies:write`, `accesspolicies:delete` and `stack-service-accounts:write`, and create a token for it.
+2. Run `bun run observability:bootstrap` (hidden prompt, `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` or `--token-file`; `--yes` applies without asking, `--dry-run` previews). It checks the token's scopes, records the stack to adopt (the sign-up stack, or the inventory slug when the organization has none, which OpenTofu then creates) with its real region in inventory `observability.stack`, stores the token in Vault `prd` and the `GRAFANA_CLOUD_ACCESS_POLICY_TOKEN` Actions secret through reviewed OpenTofu plans, sets `observability.live` and regenerates these guides.
+3. Open a PR with that change. On merge, Deploy applies foundation (stack, ingest and agent tokens, synthetic monitoring), then vault (writes the keys above), then services (injects them). Verify with `bun run health --only observability`.
 
 ---
 
