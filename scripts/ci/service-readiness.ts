@@ -124,7 +124,8 @@ export function rolloutTargets(
       const service = services.find((service) => service.id === name);
       if (!service || !input.ids[name] || !input.tags[name])
         throw new Error(`Missing rollout state for ${name}`);
-      const prefix = `module.service[${JSON.stringify(service.state_key ?? name)}].`;
+      const module = service.internal ? 'internal_service' : 'service';
+      const prefix = `module.${module}[${JSON.stringify(service.state_key ?? name)}].`;
       const changed = input.changes.some(
         (address) =>
           address.startsWith(prefix) &&

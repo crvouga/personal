@@ -463,6 +463,7 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | `env`             | Plain, non-secret env vars                                                                      |
 | `secrets`         | `name` + `source: vault` → value copied from Vault `{{kvProject}}/prd` into the service's env   |
 | `image`           | Optional external image, used verbatim (skips GHCR publishing entirely)                         |
+| `internal`        | `true` for a service reached only on Railway's private network (`<id>.railway.internal:<port>`): no `hostname`, custom domain or DNS record |
 | `initial_image_tag` | Reviewed commit tag for a service's first activation; later dispatches select new revisions |
 
 A Vault secret binding may specify `vault_key` when the source key differs from

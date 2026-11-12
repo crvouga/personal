@@ -594,6 +594,7 @@ The infra agent turns your issue into an entry like this in `packages/infra/tofu
 | `env`             | Plain, non-secret env vars                                                                      |
 | `secrets`         | `name` + `source: vault` → value copied from Vault `personal/prd` into the service's env   |
 | `image`           | Optional external image, used verbatim (skips GHCR publishing entirely)                         |
+| `internal`        | `true` for a service reached only on Railway's private network (`<id>.railway.internal:<port>`): no `hostname`, custom domain or DNS record |
 | `initial_image_tag` | Reviewed commit tag for a service's first activation; later dispatches select new revisions |
 
 A Vault secret binding may specify `vault_key` when the source key differs from
@@ -692,6 +693,7 @@ Working examples to copy from — each links to its source repo:
 | `mockingbird-docs` | https://mockingbird.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/docs) | `sites/docs/Dockerfile` (`.`) | 80 | `/` |
 | `mockingbird-fleet` | https://mockingbird-fleet.chrisvouga.dev | [crvouga/mockingbird](https://github.com/crvouga/mockingbird/tree/main/sites/fleet) | `sites/fleet/Dockerfile` (`.`) | 8080 | `/health` |
 | `gitty-storybook` | https://gitty-storybook.chrisvouga.dev | [crvouga/gitty](https://github.com/crvouga/gitty) | `Dockerfile.storybook` (`.`) | 80 | `/` |
+| `lanes` | https://lanes.chrisvouga.dev | [crvouga/gitty](https://github.com/crvouga/gitty) | `./Dockerfile` (`.`) | 8787 | `/health` |
 | `llm-proxy` | https://llm-proxy.chrisvouga.dev | [crvouga/llm-server](https://github.com/crvouga/llm-server) | `proxy/Dockerfile` (`proxy`) | 8080 | `/ui` |
 | `9router` | https://9router.chrisvouga.dev | [crvouga/personal](https://github.com/crvouga/personal/tree/main/packages/9router) | `packages/9router/Dockerfile` (`packages/9router`) | 20128 | `/api/health` |
 | `pickflix` | https://pickflix.chrisvouga.dev | [crvouga/pickflix-v1](https://github.com/crvouga/pickflix-v1) | `./Dockerfile` (`.`) | 9000 | `/health` |

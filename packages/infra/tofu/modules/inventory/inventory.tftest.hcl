@@ -2,7 +2,7 @@
 run "services_contract" {
   command = plan
   assert {
-    condition     = length(output.config.services) == 24
+    condition     = length(output.config.services) == 26
     error_message = "Every hosted service entry must be retained."
   }
   assert {
@@ -14,8 +14,8 @@ run "services_contract" {
     error_message = "Service resource generation keys must be unique."
   }
   assert {
-    condition     = alltrue([for service in output.config.services : endswith(service.hostname, output.config.zone)])
-    error_message = "Every hosted service must have a hostname in the managed zone."
+    condition     = alltrue([for service in output.config.services : try(service.internal, false) ? try(service.hostname, null) == null : endswith(service.hostname, output.config.zone)])
+    error_message = "Every hosted service must have a hostname in the managed zone; an internal service has none."
   }
   assert {
     condition     = toset([for store in output.config.object_stores : store.bucket]) == toset(["crvouga-development", "crvouga-production"])

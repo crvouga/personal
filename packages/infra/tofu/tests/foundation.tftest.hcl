@@ -187,7 +187,7 @@ run "protected_publisher_handoff" {
 run "application_namespace_allocation_is_opt_in" {
   command = plan
   assert {
-    condition     = toset(keys(postgresql_schema.application)) == toset(["moviefinder", "mockingbird-fleet"]) && postgresql_schema.application["moviefinder"].name == "moviefinder" && postgresql_schema.application["mockingbird-fleet"].name == "mockingbird_fleet" && alltrue([for schema in values(postgresql_schema.application) : schema.if_not_exists])
+    condition     = toset(keys(postgresql_schema.application)) == toset(["moviefinder", "mockingbird-fleet", "lanes"]) && postgresql_schema.application["moviefinder"].name == "moviefinder" && postgresql_schema.application["mockingbird-fleet"].name == "mockingbird_fleet" && postgresql_schema.application["lanes"].name == "lanes" && alltrue([for schema in values(postgresql_schema.application) : schema.if_not_exists])
     error_message = "Allocate only the new namespace; never adopt or alter existing application schemas."
   }
 }

@@ -149,6 +149,11 @@ export const CATALOG: Readonly<Record<string, CatalogEntry>> = {
     'public-app',
     'Hosted fleets of Mockingbird API emulators at stable URLs for staging and CI.'
   ),
+  'lanes.chrisvouga.dev': entry(
+    'Lanes',
+    'public-app',
+    'A keyboard-first Git graph for GitHub repositories that updates in real time.'
+  ),
   'gitty-storybook.chrisvouga.dev': entry(
     'Lanes Storybook',
     'public-app',

@@ -148,7 +148,7 @@ runs:
         else
           echo "Auth relay schemas are disabled or already managed."
         fi
-    # The provider created each volume-backed service (Fleet, Zoomies) and its
+    # The provider created each volume-backed service (Fleet, Zoomies, lanes-zero) and its
     # volume, then returned a null volume read-back, so OpenTofu saved the live
     # service as tainted and every plan since wants to replace it (blocked by
     # prevent_destroy). Untaint only these addresses; the ordinary plan below
@@ -159,8 +159,9 @@ runs:
       run: |
         set -euo pipefail
         ROOT=packages/infra/tofu/services
-        for SERVICE in fleet-controller zoomies; do
-          ADDRESS="module.service[\"${SERVICE}\"].railway_service.this"
+        for MODULE_SERVICE in 'service["fleet-controller"]' 'service["zoomies"]' 'internal_service["lanes-zero"]'; do
+          SERVICE="${MODULE_SERVICE#*\"}"; SERVICE="${SERVICE%\"*}"
+          ADDRESS="module.${MODULE_SERVICE}.railway_service.this"
           if tofu -chdir="${ROOT}" show -json | jq -e --arg address "${ADDRESS}" '
             def resources: .resources[]?, (.child_modules[]? | resources);
             [.values.root_module | resources | select(.address == $address and .tainted == true)] | length == 1
@@ -191,7 +192,7 @@ runs:
         DEPLOYED_IMAGE_TAGS="$(tofu -chdir="${ROOT}" show -json | jq -ce '
           def resources: .resources[]?, (.child_modules[]? | resources);
           [.values.root_module | resources
-           | select(.type == "railway_service" and (.address | startswith("module.service[")))
+           | select(.type == "railway_service" and (.address | test("^module\\.(internal_)?service\\[")))
            | {key: .values.name, value: (.values.source_image | capture(":(?<tag>[^/:]+)$").tag)}]
           | from_entries
         ')"

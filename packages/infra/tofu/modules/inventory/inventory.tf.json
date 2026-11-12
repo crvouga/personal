@@ -2510,6 +2510,113 @@
           }
         },
         {
+          "id": "lanes",
+          "database_schema": "lanes",
+          "manage_database_schema": true,
+          "kind": "railway",
+          "hostname": "lanes.chrisvouga.dev",
+          "github_repo": "crvouga/gitty",
+          "source_code_url": "https://github.com/crvouga/gitty",
+          "dockerfile": "./Dockerfile",
+          "build_context": ".",
+          "port": 8787,
+          "health_check": true,
+          "health_path": "/health",
+          "railway": {
+            "replicas": 1,
+            "sleep": false
+          },
+          "env": {
+            "PORT": "8787",
+            "APP_ORIGIN": "https://lanes.chrisvouga.dev",
+            "TRUST_PROXY": "1",
+            "DATABASE_SCHEMA": "lanes",
+            "ZERO_CACHE_URL": "http://lanes-zero.railway.internal:4848",
+            "ZERO_APP_ID": "lanes_zero",
+            "ALLOW_ANONYMOUS_ONLY": "1"
+          },
+          "secrets": [
+            {
+              "name": "SESSION_SECRET",
+              "source": "vault",
+              "vault_key": "LANES_SESSION_SECRET"
+            },
+            {
+              "name": "GITHUB_WEBHOOK_SECRET",
+              "source": "vault",
+              "vault_key": "LANES_GITHUB_WEBHOOK_SECRET"
+            },
+            {
+              "name": "DATABASE_URL",
+              "source": "vault"
+            },
+            {
+              "name": "ZERO_API_KEY",
+              "source": "vault",
+              "vault_key": "LANES_ZERO_API_KEY"
+            }
+          ]
+        },
+        {
+          "id": "lanes-zero",
+          "kind": "railway",
+          "internal": true,
+          "observability": false,
+          "image": "ghcr.io/rocicorp/zero:1.11.4",
+          "source_code_url": "https://github.com/crvouga/gitty/blob/main/docs/deploy.md#production-sidecar-lanes-zero",
+          "port": 4848,
+          "health_check": true,
+          "health_path": "/keepalive",
+          "railway": {
+            "replicas": 1,
+            "sleep": false,
+            "draining_seconds": 60,
+            "health_timeout_seconds": 600,
+            "volume": {
+              "name": "lanes-zero-data",
+              "mount_path": "/data"
+            }
+          },
+          "env": {
+            "NODE_ENV": "production",
+            "PORT": "4848",
+            "RAILWAY_RUN_UID": "0",
+            "ZERO_PORT": "4848",
+            "ZERO_APP_ID": "lanes_zero",
+            "ZERO_APP_PUBLICATIONS": "lanes_zero",
+            "ZERO_REPLICA_FILE": "/data/replica.db",
+            "ZERO_QUERY_URL": "http://lanes.railway.internal:8787/internal/zero/query",
+            "ZERO_MUTATE_URL": "http://lanes.railway.internal:8787/internal/zero/mutate",
+            "ZERO_QUERY_FORWARD_COOKIES": "true",
+            "ZERO_MUTATE_FORWARD_COOKIES": "true",
+            "ZERO_ENABLE_CRUD_MUTATIONS": "false",
+            "ZERO_LOG_LEVEL": "warn",
+            "ZERO_LOG_FORMAT": "json",
+            "ZERO_NUM_SYNC_WORKERS": "1"
+          },
+          "secrets": [
+            {
+              "name": "ZERO_UPSTREAM_DB",
+              "source": "vault"
+            },
+            {
+              "name": "ZERO_QUERY_API_KEY",
+              "source": "vault",
+              "vault_key": "LANES_ZERO_API_KEY"
+            },
+            {
+              "name": "ZERO_MUTATE_API_KEY",
+              "source": "vault",
+              "vault_key": "LANES_ZERO_API_KEY"
+            },
+            {
+              "name": "ZERO_ADMIN_PASSWORD",
+              "source": "vault",
+              "vault_key": "LANES_ZERO_ADMIN_PASSWORD"
+            }
+          ]
+        },
+        {
           "id": "llm-proxy",
           "kind": "railway",
           "hostname": "llm-proxy.chrisvouga.dev",
