@@ -2,13 +2,13 @@ output "config" {
   value = local.inventory
   precondition {
     condition = alltrue([for alias in local.inventory.aliases :
-      contains([for service in local.inventory.services : service.id if try(service.kind, "railway") == "railway" && !try(service.standalone, false)], alias.service) &&
+      contains([for service in local.inventory.services : service.id if try(service.kind, "railway") == "railway" && !try(service.standalone, false) && !try(service.internal, false)], alias.service) &&
       try(local.inventory.domains[alias.zone].manage_zone, false) &&
       (alias.hostname == alias.zone || endswith(alias.hostname, ".${alias.zone}"))
       ]) && length(distinct(concat(
-        [for service in local.inventory.services : service.hostname],
+        [for service in local.inventory.services : service.hostname if !try(service.internal, false)],
         [for alias in local.inventory.aliases : alias.hostname]
-    ))) == length(local.inventory.services) + length(local.inventory.aliases)
+    ))) == length([for service in local.inventory.services : service if !try(service.internal, false)]) + length(local.inventory.aliases)
     error_message = "Additional domains must be unique, belong to a managed zone and attach to an existing Railway service."
   }
   precondition {

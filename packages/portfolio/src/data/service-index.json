@@ -122,6 +122,13 @@
       "sourceUrl": "https://github.com/crvouga/gitty"
     },
     {
+      "hostname": "lanes.chrisvouga.dev",
+      "url": "https://lanes.chrisvouga.dev/",
+      "id": "lanes",
+      "hosting": "railway",
+      "sourceUrl": "https://github.com/crvouga/gitty"
+    },
+    {
       "hostname": "llm-proxy.chrisvouga.dev",
       "url": "https://llm-proxy.chrisvouga.dev/",
       "id": "llm-proxy",

@@ -164,11 +164,18 @@ function validateService(service: ServiceSpec): void {
     return;
   }
 
-  if (!service.github_repo || !service.source_code_url) {
-    throw new Error(`Service "${service.id}" missing github_repo or source_code_url`);
-  }
-  if (!service.dockerfile || service.build_context === undefined) {
-    throw new Error(`Service "${service.id}" missing dockerfile or build_context`);
+  // A service that runs a published third-party image has nothing to build.
+  if (service.image) {
+    if (service.github_repo || service.dockerfile) {
+      throw new Error(`Service "${service.id}" has an external image and must not declare github_repo or dockerfile`);
+    }
+  } else {
+    if (!service.github_repo || !service.source_code_url) {
+      throw new Error(`Service "${service.id}" missing github_repo or source_code_url`);
+    }
+    if (!service.dockerfile || service.build_context === undefined) {
+      throw new Error(`Service "${service.id}" missing dockerfile or build_context`);
+    }
   }
   if (service.internal) {
     if (service.hostname) {

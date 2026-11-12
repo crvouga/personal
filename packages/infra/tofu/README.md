@@ -67,6 +67,7 @@ Import addresses (quote module addresses containing brackets):
 | Postgres branch     | `planetscale_postgres_branch.openbao` in foundation          | `{"database":"personal","id":"<branch id>","organization":"crvouga"}` |
 | Vault service       | `module.vault_service.railway_service.this` in foundation    | Service UUID                                                          |
 | Hosted service      | `module.service["<id>"].railway_service.this` in services    | Service UUID                                                          |
+| Internal service    | `module.internal_service["<id>"].railway_service.this`       | Service UUID (`internal: true`: no custom domain or DNS record)       |
 | Custom domain       | Same module, `railway_custom_domain.this`                    | `<service-id>:production:<hostname>`                                  |
 | Variable collection | Same module, `railway_variable_collection.this`              | `<service-id>:production:<var-name>:...`                              |
 | Cloudflare zone     | `cloudflare_zone.primary` in foundation                      | Zone ID                                                               |

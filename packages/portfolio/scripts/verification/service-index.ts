@@ -65,16 +65,19 @@ const WEB_RECORD_TYPES = new Set(['A', 'AAAA', 'CNAME']);
 const rootUrl = (hostname: string): string => `https://${hostname}/`;
 
 const fromServices = (inventory: unknown): readonly IndexedHost[] =>
-  rows(inventory, 'services').map((service) => {
-    const hostname = str(service, 'hostname');
-    return {
-      hostname,
-      url: rootUrl(hostname),
-      id: str(service, 'id'),
-      hosting: 'railway',
-      sourceUrl: optionalStr(service, 'source_code_url'),
-    };
-  });
+  // An internal service has no hostname: nothing serves it to a browser.
+  rows(inventory, 'services')
+    .filter((service) => !isRecord(service) || service['internal'] !== true)
+    .map((service) => {
+      const hostname = str(service, 'hostname');
+      return {
+        hostname,
+        url: rootUrl(hostname),
+        id: str(service, 'id'),
+        hosting: 'railway',
+        sourceUrl: optionalStr(service, 'source_code_url'),
+      };
+    });
 
 const fromAuthRelay = (inventory: unknown): readonly IndexedHost[] => {
   if (!isRecord(inventory) || !isRecord(inventory['auth_relay'])) return [];

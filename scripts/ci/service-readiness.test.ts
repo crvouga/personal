@@ -147,6 +147,28 @@ test('polling waits for activation and fails closed on terminal failure, query f
   ).rejects.toThrow('timed out');
 });
 
+test('an internal service rolls out its external image from its own module', () => {
+  const input = {
+    selected: ['lanes-zero'],
+    ids: { 'lanes-zero': 'service' },
+    tags: { 'lanes-zero': 'latest' },
+    changes: ['module.service["lanes-zero"].railway_service.this'],
+    startedAt: 123,
+  };
+  expect(rolloutTargets(input)).toEqual([]);
+  input.changes = [
+    'module.internal_service["lanes-zero"].railway_service.this',
+  ];
+  expect(rolloutTargets(input)).toEqual([
+    {
+      name: 'lanes-zero',
+      serviceId: 'service',
+      image: 'ghcr.io/rocicorp/zero:1.11.4',
+      after: 123,
+    },
+  ]);
+});
+
 test('rollout targets require a new deployment for changed variables even when the image tag is unchanged', () => {
   const input = {
     selected: ['moviefinder'],
