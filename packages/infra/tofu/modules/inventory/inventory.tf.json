@@ -968,12 +968,8 @@
             "managed_publisher": false,
             "required_status_checks": [
               "Commitlint",
-              "Check",
-              "GitGuardian Security Checks"
-            ],
-            "status_check_integrations": {
-              "GitGuardian Security Checks": 46505
-            }
+              "Check"
+            ]
           },
           "moviefinder.app-clojurescript": {
             "description": null,

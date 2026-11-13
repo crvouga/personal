@@ -176,11 +176,10 @@ run "protected_publisher_handoff" {
   }
   assert {
     condition = alltrue([for check in one(github_repository_ruleset.application_default_branch["mockingbird"].rules).required_status_checks[0].required_check : check.integration_id == {
-      Commitlint                    = 15368
-      Check                         = 15368
-      "GitGuardian Security Checks" = 46505
-    }[check.context]]) && length(one(github_repository_ruleset.application_default_branch["mockingbird"].rules).required_status_checks[0].required_check) == 3
-    error_message = "The ownership handoff must preserve all three existing checks and their original GitHub Apps."
+      Commitlint = 15368
+      Check      = 15368
+    }[check.context]]) && length(one(github_repository_ruleset.application_default_branch["mockingbird"].rules).required_status_checks[0].required_check) == 2
+    error_message = "Mockingbird's main must require exactly Commitlint and Check from GitHub Actions, matching its own pr-ready ruleset."
   }
 }
 

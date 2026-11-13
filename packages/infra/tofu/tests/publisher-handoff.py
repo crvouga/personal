@@ -29,7 +29,7 @@ ruleset = {
         {"type": "required_status_checks", "parameters": {
             "strict_required_status_checks_policy": True,
             "required_status_checks": [{"context": name, "integration_id": integration} for name, integration in
-                                       [("Commitlint", 15368), ("Check", 15368), ("GitGuardian Security Checks", 46505)]]}},
+                                       [("Commitlint", 15368), ("Check", 15368)]]}},
     ],
 }
 
