@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "fetchedAt": "2026-11-12T13:02:16.154Z",
-  "window": { "from": "2026-09-17", "to": "2026-11-12" },
+  "fetchedAt": "2026-11-13T13:02:23.889Z",
+  "window": { "from": "2026-09-17", "to": "2026-11-13" },
   "workspace": {
     "repo": "crvouga/personal",
     "mergedPrs": 193,
-    "automatedPrsExcluded": 52,
+    "automatedPrsExcluded": 53,
     "automationPatterns": ["chore/github-insights-refresh"],
     "prsFailedCiBeforeMerge": 42,
     "prsFailedCiBeforeMergeNumbers": [
@@ -22,7 +22,7 @@
       243, 244, 246, 247, 250, 251, 252, 257, 258, 259, 260, 261, 262, 263, 264,
       265, 266, 267, 268, 270, 273, 275, 276, 278, 280, 284, 285, 286
     ],
-    "pullRequestRunsExamined": 884,
+    "pullRequestRunsExamined": 886,
     "earlierAttemptsExamined": 21
   },
   "repos": [
@@ -31,14 +31,14 @@
       "url": "https://github.com/crvouga/mockingbird",
       "defaultBranch": "main",
       "stars": 4,
-      "commits": 1301,
+      "commits": 1309,
       "openIssues": 0,
       "openPrs": 0,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
       "defaultBranchCiConclusion": "success",
-      "defaultBranchCiRunUrl": "https://github.com/crvouga/mockingbird/actions/runs/43205970001",
-      "defaultBranchCiCompletedAt": "2026-11-12T11:24:01Z"
+      "defaultBranchCiRunUrl": "https://github.com/crvouga/mockingbird/actions/runs/43332937408",
+      "defaultBranchCiCompletedAt": "2026-11-13T00:07:47Z"
     },
     {
       "repo": "crvouga/headless-combobox",
@@ -59,20 +59,20 @@
       "url": "https://github.com/crvouga/personal",
       "defaultBranch": "main",
       "stars": 1,
-      "commits": 2005,
+      "commits": 2006,
       "openIssues": 0,
       "openPrs": 0,
       "license": null,
       "defaultBranchCiWorkflow": "CI",
-      "defaultBranchCiConclusion": "failure",
-      "defaultBranchCiRunUrl": "https://github.com/crvouga/personal/actions/runs/43157287091",
-      "defaultBranchCiCompletedAt": "2026-11-12T05:07:59Z"
+      "defaultBranchCiConclusion": "success",
+      "defaultBranchCiRunUrl": "https://github.com/crvouga/personal/actions/runs/43224141071",
+      "defaultBranchCiCompletedAt": "2026-11-12T13:17:36Z"
     }
   ],
   "mockingbird": {
-    "commit": "98b9ea496d5ccb87dbf4179db1b0930d0fa365cd",
-    "testFiles": 1200,
-    "testCallSites": 4588,
+    "commit": "cda80bbea4a549d00bc020193c95712fd9176c9c",
+    "testFiles": 1220,
+    "testCallSites": 4651,
     "publishedPackages": 127,
     "emulators": 125,
     "wipEmulators": 15,
