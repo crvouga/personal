@@ -154,8 +154,10 @@ workflow overwrite or branch protection removal.
 
 Mockingbird also owns its protected publisher. Its `removed` block forgets the
 platform file resource without rewriting or deleting the live workflow. Its
-existing ruleset moves to the generic resource address with Commitlint, Check
-and GitGuardian still required, including GitGuardian's original integration ID.
+existing ruleset moves to the generic resource address with Commitlint and Check
+required, the same two checks Mockingbird's own `bun run pr:ready ruleset` enforces.
+GitGuardian is not required there: it never reports on Mockingbird's pull requests,
+so requiring it blocked every merge.
 
 ## Normal operations
 
