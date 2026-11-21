@@ -1,5 +1,4 @@
 import { runAnsible } from './ansible';
-import { desired } from '../../../../personal-cli/src/t3/desired';
 import policy from '../../../ubuntu/t3/policy.json';
 import { basename, dirname, join, resolve } from 'node:path';
 import { rename, rm, stat, symlink } from 'node:fs/promises';
@@ -7,31 +6,21 @@ import { homedir } from 'node:os';
 import { T3_DESKTOP_UNIT } from './t3-service';
 import type { Runner, Check } from '../../../../fleet/src/types';
 
+/** The administrator policy locks independent updates only. Provider instances
+ * are reconciled into settings.json on every machine (see t3Providers): T3
+ * reads a policy once at startup, so locking providers there would make every
+ * provider change need a restart, while settings apply to new sessions live.
+ */
 export async function stageT3Policy(
   root: string,
   executable: string,
-  run: Runner,
-  node: string
+  run: Runner
 ): Promise<Check> {
-  const instances = await desired(
-    resolve(root, 'packages/workstation/agents/t3.json'),
-    await stableWorkspace(root),
-    node
-  );
-  const document = {
-    ...policy,
-    settings: Object.fromEntries(
-      Object.entries(instances).map(([id, value]) => [
-        `providerInstances.${id}`,
-        { value, locked: true },
-      ])
-    ),
-  };
   const result = await runAnsible(run, 't3-policy.yml', {
     cwd: resolve(root, 'packages/workstation/ubuntu'),
     input: JSON.stringify({
       t3_executable: executable,
-      t3_policy_document: document,
+      t3_policy_document: policy,
     }),
     timeoutMs: 120_000,
   });

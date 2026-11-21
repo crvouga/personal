@@ -3,8 +3,10 @@ import { runAnsibleWithReceipt } from '../../workstation/cli/lib/platform/ansibl
 import {
   healT3Policy,
   lastT3Write,
+  stableWorkspace,
   stageT3Policy,
 } from '../../workstation/cli/lib/platform/t3-policy';
+import { t3Providers } from '../../personal-cli/src/t3/providers';
 import { verifyUbuntuBoot } from '../../workstation/cli/lib/platform/ubuntu-verify';
 import { verifyResourceSafety } from '../../workstation/cli/lib/platform/resource-verify';
 import { convergeT3Route } from '../../workstation/cli/lib/platform/t3-route';
@@ -237,12 +239,22 @@ async function convergeT3(
     artifact,
     run,
     async () => {
-      const staged = await stageT3Policy(root, artifact.path, run, node);
+      const staged = await stageT3Policy(root, artifact.path, run);
       return staged.status === 'pass' ? [] : [staged];
     },
     () => installT3Desktop(root, run)
   );
-  // Before any policy restart, so a restarted T3 reads it at startup.
+  // Providers live in settings.json, which T3 watches: this applies them
+  // without a restart. Reconcile before any policy restart and before the
+  // Antigravity key, so a restarted T3 starts with every instance usable.
+  if (checks.every((check) => check.status === 'pass'))
+    checks.push(
+      await t3Providers(node, await stableWorkspace(root), true, {
+        // The workspace is the stable `current` symlink; read the definition
+        // from this pinned revision, which is never a symlink.
+        definition: resolve(root, 'packages/workstation/agents/t3.json'),
+      })
+    );
   if (checks.every((check) => check.status === 'pass'))
     checks.push(await syncAntigravityKey(proxyKey));
   if (checks.every((check) => check.status === 'pass'))

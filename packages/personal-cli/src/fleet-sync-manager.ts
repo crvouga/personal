@@ -13,8 +13,7 @@ import { syncAntigravityKey } from '../../workstation/cli/lib/platform/t3-secret
 import { proxyKey } from '../../workstation/cli/lib/agents/secrets';
 import { convergeManagerHub } from '../../workstation/cli/lib/monitoring/manager-hub';
 import { enrollManagerMonitoring } from './fleet-sync-monitoring';
-import { desired, nodeId, paths } from './t3/desired';
-import { reconcileT3 } from './t3/reconcile';
+import { t3Providers } from './t3/providers';
 
 /** The manager converges itself locally (never over SSH) before any worker:
  * it must be the declared manager, stay awake on AC power, and host every
@@ -37,7 +36,7 @@ export async function convergeManager(
   const checks: Check[] = [identity];
   if (identity.status === 'pass') {
     checks.push(await managerPower(run));
-    checks.push(await managerProviders(id, input.workspace, input.apply));
+    checks.push(await t3Providers(id, input.workspace, input.apply));
     if (input.apply) checks.push(await syncAntigravityKey(proxyKey));
     if (input.apply) {
       // Same provider profiles and the same Vault gateway credential as every
@@ -88,64 +87,6 @@ export async function convergeManager(
       input.apply && !checks.some(blocking) ? input.revision : null,
     durationMs: Date.now() - started,
   };
-}
-
-/** The manager's T3 must offer the same managed provider instances as every
- * worker (workers receive them through T3 administrator policy). The manager's
- * T3 is the human's own app with no administrator policy, so the same declared
- * instances are reconciled into its settings with the ownership-safe t3-apply
- * engine: unrelated settings and unmanaged instances are preserved, an existing
- * unowned instance of the same ID is reported, never overwritten.
- */
-export async function managerProviders(
-  id: string,
-  workspace: string,
-  apply: boolean,
-  t3Home?: string
-): Promise<Check> {
-  const remedy = {
-    action:
-      'Run personal t3-apply --dry-run on the manager and review any conflicting instance; adopt it with t3-apply --import ID only if it should be managed.',
-  };
-  try {
-    const target = paths(t3Home ? { t3Home } : {}, workspace);
-    const instances = await desired(target.definition, workspace, nodeId(id));
-    const plan = await reconcileT3(target, instances, { apply: false });
-    const result =
-      apply && plan.ok && plan.changed
-        ? await reconcileT3(target, instances, {
-            apply: true,
-            planHash: plan.planHash,
-          })
-        : plan;
-    if (!result.ok)
-      return {
-        id: 't3:providers',
-        status: 'fail',
-        summary: 'T3_PROVIDER_CONFLICT',
-        remedy,
-      };
-    return result.changed && !apply
-      ? {
-          id: 't3:providers',
-          status: 'warn',
-          summary: 'T3_PROVIDERS_PENDING',
-          remedy,
-        }
-      : {
-          id: 't3:providers',
-          status: 'pass',
-          summary:
-            'The manager T3 offers the same managed provider instances as every worker.',
-        };
-  } catch {
-    return {
-      id: 't3:providers',
-      status: 'fail',
-      summary: 'T3_PROVIDERS_UNVERIFIED',
-      remedy,
-    };
-  }
 }
 
 const PROFILE_TOOLS = [

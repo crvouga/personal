@@ -9,10 +9,8 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import {
-  managerAgentProfiles,
-  managerProviders,
-} from '../src/fleet-sync-manager';
+import { managerAgentProfiles } from '../src/fleet-sync-manager';
+import { t3Providers } from '../src/t3/providers';
 import type { Runner } from '../../fleet/src/types';
 
 const repo = resolve(import.meta.dir, '../../..');
@@ -37,18 +35,21 @@ const instances = async (dir: string) =>
   JSON.parse(await readFile(join(dir, 'userdata/settings.json'), 'utf8'))
     .providerInstances as Record<string, unknown>;
 
-test('a plan reports pending manager providers without writing', async () => {
+test('a plan reports pending providers without writing', async () => {
   const dir = await home({ providerInstances: { antigravity: {} } });
-  const check = await managerProviders('chriss-macbook-air', repo, false, dir);
+  const check = await t3Providers('chriss-macbook-air', repo, false, {
+    t3Home: dir,
+  });
   expect(check.status).toBe('warn');
   expect(check.summary).toBe('T3_PROVIDERS_PENDING');
   expect(Object.keys(await instances(dir))).toEqual(['antigravity']);
 });
 
-test('apply adds the declared worker providers, keeps others, then is a no-op', async () => {
+test('apply adds the declared providers, keeps others, then is a no-op', async () => {
   const dir = await home({ providerInstances: { antigravity: {} } });
   expect(
-    (await managerProviders('chriss-macbook-air', repo, true, dir)).status
+    (await t3Providers('chriss-macbook-air', repo, true, { t3Home: dir }))
+      .status
   ).toBe('pass');
   const applied = await instances(dir);
   expect(Object.keys(applied).sort()).toEqual([
@@ -60,7 +61,9 @@ test('apply adds the declared worker providers, keeps others, then is a no-op', 
     'personal_grok_proxy',
   ]);
   expect(JSON.stringify(applied)).toContain('chriss-macbook-air');
-  const again = await managerProviders('chriss-macbook-air', repo, false, dir);
+  const again = await t3Providers('chriss-macbook-air', repo, false, {
+    t3Home: dir,
+  });
   expect(again.status).toBe('pass');
 });
 
@@ -68,7 +71,9 @@ test('an unowned instance with a managed ID is reported, never overwritten', asy
   const dir = await home({
     providerInstances: { personal_codex_proxy: { driver: 'codex' } },
   });
-  const check = await managerProviders('chriss-macbook-air', repo, true, dir);
+  const check = await t3Providers('chriss-macbook-air', repo, true, {
+    t3Home: dir,
+  });
   expect(check.status).toBe('fail');
   expect(check.summary).toBe('T3_PROVIDER_CONFLICT');
   expect(await instances(dir)).toEqual({

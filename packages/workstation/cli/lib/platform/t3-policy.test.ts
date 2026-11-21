@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
-import { verifyT3Policy } from './t3-policy';
+import { readFile } from 'node:fs/promises';
+import { stageT3Policy, verifyT3Policy } from './t3-policy';
+import template from '../../../ubuntu/t3/policy.json';
 
 test('policy observation tolerates startup without restarting or changing state', async () => {
   let calls = 0;
@@ -67,4 +69,18 @@ test('native loaded-policy evidence is required', async () => {
     reason: 'exit',
   }));
   expect(check.status).toBe('pass');
+});
+
+test('the administrator policy locks limits only: providers live in settings', async () => {
+  let document: unknown;
+  const check = await stageT3Policy('/repo', '/pinned/t3', async (args) => {
+    const file = args.at(-1)!.slice(1);
+    document = JSON.parse(await readFile(file, 'utf8')).t3_policy_document;
+    return { ok: true, stdout: '', stderr: '', reason: 'exit' };
+  });
+  expect(check.status).toBe('pass');
+  expect(document).toEqual(template);
+  expect(
+    Object.keys((document as { settings?: object }).settings ?? {})
+  ).toEqual([]);
 });
