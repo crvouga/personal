@@ -16,9 +16,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@crvouga/dev-fleet": "0.1.0",
+    "@crvouga/dev-fleet": "0.9.2",
     "@inquirer/prompts": "catalog:",
-    "@opencode-ai/plugin": "1.19.5",
+    "@opencode-ai/plugin": "1.19.6",
     "@pkgs/assert": "workspace:*",
     "@pkgs/openrouter": "workspace:*",
     "@pkgs/secret-store": "workspace:*",
